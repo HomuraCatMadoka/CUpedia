@@ -446,6 +446,42 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
     expect(closedRuns).toEqual([]);
   });
 
+  it("does not let a 03:05 diagnostic run satisfy the breakfast window (#743)", async () => {
+    const earlyBreakfast = new Date("2099-08-19T19:05:00.000Z");
+    const scheduledBreakfast = new Date("2099-08-20T00:17:00.000Z");
+    const { sourceId } = await createEligibleSource("早餐观察窗口来源");
+    fetchMenuFromProvider.mockResolvedValue(
+      buildPinmeMenuSyncPayload(pinmeCurrent),
+    );
+    readMenuSyncDatabaseNow.mockResolvedValue(earlyBreakfast);
+
+    await expect(syncNextDueMenuSource()).resolves.toEqual({
+      disposition: "no-work",
+      window: "2099-08-20/breakfast",
+    });
+    await expect(
+      db
+        .select({ id: canteenMenuSyncRuns.id })
+        .from(canteenMenuSyncRuns)
+        .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId)),
+    ).resolves.toEqual([]);
+    await db.insert(canteenMenuSyncRuns).values({
+      id: randomUUID(),
+      menuSourceId: sourceId,
+      status: "unchanged",
+      startedAt: earlyBreakfast,
+      completedAt: earlyBreakfast,
+    });
+
+    readMenuSyncDatabaseNow.mockResolvedValue(scheduledBreakfast);
+    await expect(syncNextDueMenuSource()).resolves.toMatchObject({
+      disposition: "continue",
+      sourceId,
+      result: { status: "applied" },
+    });
+    expect(fetchMenuFromProvider).toHaveBeenCalledOnce();
+  });
+
   it("keeps Cafe Tolo out of the 2026-08-22 breakfast drain while leaving seven sources claimable", async () => {
     const incidentBreakfast = new Date("2026-08-22T00:00:00.000Z");
     const cafeTolo = await createEligibleSource("Cafe Tolo", {

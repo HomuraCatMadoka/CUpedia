@@ -70,10 +70,12 @@ same Aigens group.
 4. Sync is a two-stage admin operation: preview a deterministic plan, then apply
    the same snapshot in one transaction. A conflicting legacy-name match blocks
    the entire apply.
-5. Existing source-bound rows are updated in place. Under authoritative catalog
-   or fully covered current-activity absence, missing rows become
-   `isAvailable = false`; they are not deleted. A later snapshot can reactivate
-   the same row and recover its public vote/comment history.
+5. Existing source-bound rows are updated in place. Authoritative catalog
+   absence can deactivate a missing row directly. Current-activity absence
+   removes only the meal periods it observed; a row becomes
+   `isAvailable = false` only after no current period remains. Rows are never
+   deleted, and a later observation reactivates the same UUID and public
+   vote/comment history.
 6. A first migration may explicitly set `takeOverLegacyItems: true`. This makes
    unmatched, source-less legacy rows unavailable. The preview must expose every
    affected row before apply, a persisted timestamp prevents the same source
@@ -120,24 +122,25 @@ same Aigens group.
     that an ordinary future snapshot can reactivate.
 11. A claimed recurring read carries one immutable database-time observation
     context through adapter requests, bounded retries, snapshot persistence and
-    projection. For meal-period-scoped sources, reconciliation receives the
-    union of the newest accepted snapshot for every configured period, not the
-    current point-in-time response. Replacing one scope can remove only that
-    period's occurrence. Occurrences share one product identity and UUID;
-    mutable facts such as name, price, classification and ordering come from the
-    newest observation, while meal periods are unioned across scopes. Conflicts
-    inside one provider response remain adapter errors, but ordinary changes
-    between observations must converge. Until every configured period has an
-    accepted scoped snapshot, the union has no absence authority. Once all
-    periods are represented, reconciliation receives a distinct current-menu
-    projection with `current-activity` absence authority. It is authoritative
-    only for reversible current activity: immutable raw observations retain
-    their truthful completeness and scope, and the union is never relabeled as
-    a complete catalog snapshot. This authority bypasses the catalog
-    suspicious-drop rule and allows missing-only contraction, while identity
-    conflicts, same-name replacement and paired bulk ID churn still fail closed.
-    Manual preview and transition flows cannot construct recurring activity
-    authority.
+    projection. For a valid meal-period-scoped read, reconciliation receives a
+    scope-local `current-activity` patch immediately: present identities gain
+    the observed period, missing managed identities lose only that period, and
+    all other configured periods remain unchanged. This avoids waiting for a
+    full-day union before an already observed public Tab can converge. One
+    product identity and UUID remain shared across periods; the current
+    observation owns mutable name, price, classification and ordering facts.
+    Immutable raw observations retain their truthful completeness, scope and
+    provider-declared sale periods; they are never relabeled as a complete
+    catalog or persisted as the derived projection. Current-activity authority
+    bypasses the catalog suspicious-drop rule and allows missing-only local
+    contraction, while identity conflicts, same-name replacement and paired
+    bulk ID churn still fail closed. Manual preview and transition flows cannot
+    construct recurring activity authority.
+12. Logical breakfast remains the 00:00-10:59 HKT comparison window, but its
+    scheduled claim and activity-authority boundary starts at 08:00, before the
+    08:17 production sample. An earlier breakfast-labelled read is diagnostic
+    only. It cannot mutate the current projection, count as a successful
+    scheduled breakfast run, or prevent the later authoritative sample.
 
 ## Consequences
 
@@ -154,13 +157,11 @@ same Aigens group.
 - An approved identity transition becomes stale whenever the source or either
   audited menu projection changes. Operators must regenerate and review it;
   they cannot silently carry approval forward to a later provider snapshot.
-- One partial provider response cannot make a dish globally inactive merely
-  because it is outside that service or availability window. After every
-  configured period has a latest accepted observation, their union may
-  reversibly deactivate identities absent from the current published
-  projection without claiming permanent catalog deletion.
-- A complete meal-period observation can retire an occurrence from that period
-  without retiring the same dish from periods retained by the scoped union.
+- One scoped provider response can correct only its observed public meal-period
+  membership. It cannot remove another period; losing the last remaining period
+  reversibly deactivates the identity without claiming catalog deletion.
+- Public period views converge after their own accepted observation instead of
+  waiting for breakfast, lunch and dinner to all succeed.
 - Identity backfill and audited canteen provisioning use versioned Drizzle
   custom migrations because they must update existing UUID-addressed rows in
   place; generated schema DDL alone cannot express those data decisions.

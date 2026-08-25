@@ -201,6 +201,7 @@ export type MenuAbsenceAuthority =
   | {
       kind: "current-activity";
       coveredMealPeriods: MealPeriod[];
+      configuredMealPeriods: MealPeriod[];
     };
 
 /** Derived current-menu state; deliberately not a provider observation. */

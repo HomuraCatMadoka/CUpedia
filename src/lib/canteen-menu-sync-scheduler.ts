@@ -1,7 +1,10 @@
 import { canteenMenuSources, canteenMenuSyncRuns } from "@/db/schema";
 import { sql } from "drizzle-orm";
 import type { MenuSyncTransaction } from "./canteen-menu-sync-store";
-import type { MenuSyncWindow } from "./canteen-menu-sync-window";
+import {
+  menuSyncWindowAcceptsActivity,
+  type MenuSyncWindow,
+} from "./canteen-menu-sync-window";
 
 const MAX_WINDOW_FAILURES = 3;
 const FIRST_RETRY_DELAY_MS = 2 * 60 * 1_000;
@@ -131,7 +134,7 @@ async function readMenuSourceScheduleFacts(
     from ${canteenMenuSources} as source
     left join ${canteenMenuSyncRuns} as run
       on run.menu_source_id = source.id
-      and run.started_at >= ${window.startsAt}
+      and run.started_at >= ${window.claimsStartAt}
       and run.started_at < ${window.endsAt}
     where source.enabled = true
       and not (${window.hktWeekday} = any(source.closed_weekdays))
@@ -157,6 +160,7 @@ export async function listMenuSourceScheduleCandidates(
   window: MenuSyncWindow,
   databaseNow: Date,
 ): Promise<MenuSourceScheduleCandidate[]> {
+  if (!menuSyncWindowAcceptsActivity(window, databaseNow)) return [];
   const facts = await readMenuSourceScheduleFacts(tx, window);
   return facts
     .map((item) => ({
@@ -180,6 +184,7 @@ export async function recheckMenuSourceScheduleCandidate(
   sourceId: string,
   databaseNow: Date,
 ): Promise<MenuSourceScheduleCandidate | null> {
+  if (!menuSyncWindowAcceptsActivity(window, databaseNow)) return null;
   const facts = await readMenuSourceScheduleFacts(tx, window, sourceId);
   return facts[0] ? classifyMenuSourceSchedule(facts[0], databaseNow) : null;
 }

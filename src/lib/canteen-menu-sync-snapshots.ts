@@ -4,17 +4,12 @@ import {
   canteenMenuSyncSnapshots,
   type HktWeekday,
 } from "@/db/schema";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import { normalizeMealPeriods } from "./canteen-meal-periods";
-import { projectSingleMenuObservation } from "./canteen-menu-projection";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { menuSnapshotComparisonContext } from "./canteen-menu-snapshot-completeness";
 import type { MenuSyncTransaction } from "./canteen-menu-sync-store";
 import { menuSyncWindowAt } from "./canteen-menu-sync-window";
 import type {
-  CurrentMenuProjection,
-  MealPeriod,
   MenuObservationContext,
-  MenuSyncItemInput,
   ProviderMenuObservation,
 } from "./canteen-types";
 
@@ -101,129 +96,6 @@ export async function insertMenuSyncSnapshot(
       svgKey: item.svgKey,
     })),
   );
-}
-
-type ScopedProjectionSource = {
-  id: string;
-  syncMealPeriods: MealPeriod[];
-};
-
-/**
- * Materializes the current menu as the union of the newest accepted observation
- * for every configured meal-period scope. The current observation replaces its
- * prior scope; missing scopes keep global absence non-authoritative. Once every
- * scope is represented, the union is authoritative for current activity even
- * when each raw observation remains partial catalog evidence. The newest
- * occurrence owns mutable facts while older occurrences contribute periods.
- */
-export async function materializeScopedMenuProjection(
-  tx: MenuSyncTransaction,
-  source: ScopedProjectionSource,
-  context: MenuObservationContext,
-  current: ProviderMenuObservation,
-): Promise<CurrentMenuProjection> {
-  if (current.observationScope?.kind !== "meal-period") {
-    return projectSingleMenuObservation(current);
-  }
-  if (current.observationScope.mealPeriod !== context.mealPeriod) {
-    throw new Error("MENU_OBSERVATION_SCOPE_MISMATCH");
-  }
-  const configuredPeriods = [...new Set(source.syncMealPeriods)];
-  if (!configuredPeriods.includes(context.mealPeriod)) {
-    throw new Error("MENU_OBSERVATION_SCOPE_NOT_CONFIGURED");
-  }
-
-  const candidates = await tx
-    .select({
-      runId: canteenMenuSyncSnapshots.runId,
-      mealPeriod: canteenMenuSyncSnapshots.mealPeriod,
-      observedAt: canteenMenuSyncSnapshots.observedAt,
-    })
-    .from(canteenMenuSyncSnapshots)
-    .where(
-      and(
-        eq(canteenMenuSyncSnapshots.menuSourceId, source.id),
-        eq(canteenMenuSyncSnapshots.observationScope, "meal-period"),
-        inArray(canteenMenuSyncSnapshots.mealPeriod, configuredPeriods),
-      ),
-    )
-    .orderBy(
-      desc(canteenMenuSyncSnapshots.observedAt),
-      desc(canteenMenuSyncSnapshots.runId),
-    );
-  const latestByPeriod = new Map<MealPeriod, (typeof candidates)[number]>();
-  for (const candidate of candidates) {
-    if (
-      candidate.mealPeriod !== context.mealPeriod &&
-      !latestByPeriod.has(candidate.mealPeriod)
-    ) {
-      latestByPeriod.set(candidate.mealPeriod, candidate);
-    }
-  }
-  const retained = [...latestByPeriod.values()];
-  const retainedItems =
-    retained.length === 0
-      ? []
-      : await tx
-          .select()
-          .from(canteenMenuSyncSnapshotItems)
-          .where(
-            inArray(
-              canteenMenuSyncSnapshotItems.runId,
-              retained.map((snapshot) => snapshot.runId),
-            ),
-          );
-  const itemsByRun = new Map<string, MenuSyncItemInput[]>();
-  for (const item of retainedItems) {
-    itemsByRun.set(item.runId, [
-      ...(itemsByRun.get(item.runId) ?? []),
-      {
-        externalProductId: item.externalProductId,
-        name: item.name,
-        priceOptions: item.priceOptions,
-        mealPeriods: item.mealPeriods,
-        sortOrder: item.sortOrder,
-        svgKey: item.svgKey,
-      },
-    ]);
-  }
-  const observations = [
-    { observedAt: context.observedAt, items: current.items },
-    ...retained.map((snapshot) => ({
-      observedAt: snapshot.observedAt,
-      items: itemsByRun.get(snapshot.runId) ?? [],
-    })),
-  ].toSorted(
-    (left, right) => right.observedAt.getTime() - left.observedAt.getTime(),
-  );
-  const union = new Map<string, MenuSyncItemInput>();
-  for (const observation of observations) {
-    for (const item of observation.items) {
-      const existing = union.get(item.externalProductId);
-      if (!existing) {
-        union.set(item.externalProductId, structuredClone(item));
-        continue;
-      }
-      const mergedPeriods = normalizeMealPeriods([
-        ...existing.mealPeriods,
-        ...item.mealPeriods,
-      ]);
-      if (!mergedPeriods) throw new Error("INVALID_MEAL_PERIOD");
-      existing.mealPeriods = mergedPeriods;
-    }
-  }
-  const allScopesObserved = configuredPeriods.every(
-    (period) => period === context.mealPeriod || latestByPeriod.has(period),
-  );
-  return {
-    items: [...union.values()],
-    absenceAuthority: allScopesObserved
-      ? {
-          kind: "current-activity",
-          coveredMealPeriods: configuredPeriods,
-        }
-      : { kind: "none" },
-  };
 }
 
 function sameJson(left: unknown, right: unknown): boolean {

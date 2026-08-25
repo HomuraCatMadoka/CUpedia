@@ -189,6 +189,7 @@ describe("menu identity churn observation", () => {
       isSuspiciousMenuIdentityChurn(observation, 249, {
         kind: "current-activity",
         coveredMealPeriods: ["breakfast", "lunch", "dinner"],
+        configuredMealPeriods: ["breakfast", "lunch", "dinner"],
       }),
     ).toBe(false);
   });
@@ -213,6 +214,7 @@ describe("menu identity churn observation", () => {
       isSuspiciousMenuIdentityChurn(observation, 249, {
         kind: "current-activity",
         coveredMealPeriods: ["breakfast", "lunch", "dinner"],
+        configuredMealPeriods: ["breakfast", "lunch", "dinner"],
       }),
     ).toBe(true);
   });

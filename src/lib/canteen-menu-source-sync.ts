@@ -24,10 +24,8 @@ import {
 } from "./canteen-menu-sync-scheduler";
 import { readMenuSyncDatabaseNow } from "./canteen-menu-sync-clock";
 import type { MenuIdentityObservation } from "./canteen-menu-sync-observation";
-import {
-  insertMenuSyncSnapshot,
-  materializeScopedMenuProjection,
-} from "./canteen-menu-sync-snapshots";
+import { projectScopedMenuObservation } from "./canteen-menu-projection";
+import { insertMenuSyncSnapshot } from "./canteen-menu-sync-snapshots";
 import { assertProviderSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
 import {
   applyRecurringMenuProjection,
@@ -619,8 +617,7 @@ async function commitClaimedRecurringMenuSync(
       source.externalStoreId,
       input.observationScope,
     );
-    const projectionInput = await materializeScopedMenuProjection(
-      tx,
+    const projectionInput = projectScopedMenuObservation(
       source,
       claim.observationContext,
       input,

@@ -9,11 +9,18 @@ const WINDOW_START_HOURS = {
   dinner: 17,
 } as const satisfies Record<MealPeriod, number>;
 
+const CLAIM_START_HOURS = {
+  breakfast: 8,
+  lunch: 11,
+  dinner: 17,
+} as const satisfies Record<MealPeriod, number>;
+
 export type MenuSyncWindow = {
   key: string;
   period: MealPeriod;
   hktWeekday: HktWeekday;
   startsAt: Date;
+  claimsStartAt: Date;
   endsAt: Date;
 };
 
@@ -57,8 +64,38 @@ export function menuSyncWindowAt(databaseNow: Date): MenuSyncWindow {
     // Date#getUTCDay is specified to return an integer in the 0-6 domain.
     hktWeekday: hkt.getUTCDay() as HktWeekday,
     startsAt: localBoundaryUtc(year, month, day, startHour),
+    claimsStartAt: localBoundaryUtc(
+      year,
+      month,
+      day,
+      CLAIM_START_HOURS[period],
+    ),
     endsAt: localBoundaryUtc(year, month, day, endHour),
   };
+}
+
+/** Early clock labels are diagnostic only and cannot claim scheduled work. */
+export function menuSyncWindowAcceptsActivity(
+  window: MenuSyncWindow,
+  observedAt: Date,
+): boolean {
+  return (
+    observedAt.getTime() >= window.claimsStartAt.getTime() &&
+    observedAt.getTime() < window.endsAt.getTime()
+  );
+}
+
+export function menuObservationCanProjectActivity(
+  context: MenuObservationContext,
+): boolean {
+  const window = menuSyncWindowAt(context.observedAt);
+  if (
+    window.key !== context.syncWindowKey ||
+    window.period !== context.mealPeriod
+  ) {
+    throw new Error("MENU_OBSERVATION_CONTEXT_MISMATCH");
+  }
+  return menuSyncWindowAcceptsActivity(window, context.observedAt);
 }
 
 export function menuObservationContextAt(

@@ -324,8 +324,10 @@ Provider account / tenant
 - **#732 PINME**：先修复。官方前端用 `menu_group[].groups` 选择 `data.group`；adapter 遍历整个
   broad group pool 是确定的投影边界错误。保留 `product_id`，不要按名称/价格合并。
 - **#733 自适应时段**：随后实现。调度器必须把数据库时间和观察窗口传入 adapter；无 provider
-  sale window 时按本次观察时段保存。投影使用各时段最新已接受快照的并集，absence 只能作用于
-  自己的 scope。
+  sale window 时按本次观察时段保存。最初实现用各时段最新快照并集保护 scope；#743 的生产
+  复盘进一步确认，等待全天并集会让已观察的当前 Tab 长期保留旧菜。现行投影因此改为逐餐段
+  局部替换：absence 只移除自己的 scope，未观察 scope 保持不变，最后一个 scope 消失时才全局
+  下线同一 UUID。
 - 两个修复都不能解决长期 ID 重用；另行增加退役 ID 墓碑和不兼容重现阻断更稳妥。
 
 ## 下一步授权验证清单
