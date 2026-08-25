@@ -99,28 +99,32 @@ describe("AmapCampusPrototype", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     expect(
-      await screen.findByRole("heading", { name: "把图钉放在地点上" }),
+      await screen.findByRole("heading", { name: "添加地点" }),
     ).toBeTruthy();
-    expect(screen.getByText("科学馆附近")).toBeTruthy();
+    expect(screen.getByText("地图中心位置")).toBeTruthy();
+    const nameInput = screen.getByLabelText("地点名称");
+    expect(screen.getByRole("radio", { name: "饮水点" })).toBeTruthy();
     expect(screen.queryByRole("textbox", { name: "经度（WGS84）" })).toBeNull();
 
     fireEvent.click(screen.getByText("其他定位方式"));
     expect(screen.getByRole("textbox", { name: "经度（WGS84）" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "纬度（WGS84）" })).toBeTruthy();
+    fireEvent.change(nameInput, { target: { value: "新饮水点" } });
 
-    fireEvent.click(screen.getByRole("button", { name: "位置放好了" }));
+    fireEvent.click(screen.getByRole("button", { name: "继续填写" }));
     expect(
       await screen.findByRole("heading", { name: "添加地点" }),
     ).toBeTruthy();
-    expect(screen.getByText("科学馆附近")).toBeTruthy();
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", { name: "添加地点" }),
+    );
+    expect(screen.getByLabelText("地点名称")).toBe(nameInput);
+    expect(screen.getByText("地图上的地点")).toBeTruthy();
     expect(screen.getByRole("button", { name: "重新定位" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "饮水点" })).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "无障碍通行" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "更多资料" }));
     expect(screen.getByRole("combobox", { name: "无障碍通行" })).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("地点名称"), {
-      target: { value: "新饮水点" },
-    });
     fireEvent.click(screen.getByRole("button", { name: "使用现场观察来源" }));
     fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
     expect(
@@ -134,6 +138,25 @@ describe("AmapCampusPrototype", () => {
     expect(
       await screen.findByRole("heading", { name: "放弃未发布的修改？" }),
     ).toBeTruthy();
+  });
+
+  it("keeps a dirty Add draft when browser Back is cancelled", async () => {
+    render(<AmapCampusPrototype />);
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.change(await screen.findByLabelText("地点名称"), {
+      target: { value: "未发布地点" },
+    });
+
+    await act(async () => window.history.back());
+    expect(
+      await screen.findByRole("heading", { name: "放弃未发布的修改？" }),
+    ).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+
+    expect(await screen.findByDisplayValue("未发布地点")).not.toBeNull();
+    await waitFor(() =>
+      expect(window.location.search).toContain("task=create"),
+    );
   });
 
   it("opens canonical Place Edit cleanly with stable task identity", async () => {

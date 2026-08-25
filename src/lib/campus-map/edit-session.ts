@@ -8,7 +8,7 @@ import type {
 } from "./publish-contract";
 import { CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES } from "./publish-contract";
 
-export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 1 as const;
+export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 2 as const;
 
 type OutdoorPoint = Extract<
   CampusMapPublishFactInput["location"],
@@ -30,6 +30,7 @@ export interface CampusMapEditDraft {
   sources: CampusMapPublishSourceInput[];
   baselineFact: CampusMapPublishFactInput | null;
   baselineSources: CampusMapPublishSourceInput[];
+  placementCandidate: CampusMapPlacement | null;
   placementMethod: CampusMapPlacement["method"] | null;
   warningAcknowledgements: CampusMapPublishCommand["warningAcknowledgements"];
 }
@@ -94,9 +95,10 @@ export type CampusMapEditEvent =
       idempotencyKey: string;
     }
   | { type: "CONFIRM_POSITION"; position: CampusMapPlacement }
+  | { type: "UPDATE_PLACEMENT_CANDIDATE"; position: CampusMapPlacement }
   | { type: "START_REPOSITION" }
   | { type: "REPORT_LOCAL_ERROR"; field: string }
-  | { type: "CHANGE_FACT"; fact: CampusMapPublishFactInput }
+  | { type: "CHANGE_FACT"; fact: CampusMapEditDraft["fact"] }
   | { type: "CHANGE_SOURCES"; sources: CampusMapPublishSourceInput[] }
   | { type: "REQUEST_CLOSE" }
   | { type: "CONTINUE_EDITING" }
@@ -165,6 +167,7 @@ export function createCampusMapEditDraft(input: {
     baselineFact:
       input.mode === "edit" && input.fact ? clone(input.fact) : null,
     baselineSources: input.mode === "edit" ? clone(sources) : [],
+    placementCandidate: null,
     placementMethod: null,
     warningAcknowledgements: [],
   };
@@ -188,9 +191,7 @@ export function isCampusMapEditDirty(
   const { draft } = session;
   if (draft.mode === "add") {
     return (
-      draft.fact.location !== null ||
-      draft.fact.name.trim() !== "" ||
-      draft.sources.length > 0
+      stable(draft.fact) !== stable(DEFAULT_FACT) || draft.sources.length > 0
     );
   }
   return (
@@ -211,7 +212,7 @@ function persisted(session: CampusMapEditSession): CampusMapEditTransition {
 
 function editable(session: CampusMapEditSession): CampusMapEditSession {
   return {
-    status: "editing",
+    status: session.status === "placing" ? "placing" : "editing",
     draft: {
       ...session.draft,
       warningAcknowledgements: [],
@@ -335,6 +336,17 @@ export function transitionCampusMapEdit(
     return rejected(session);
   }
 
+  if (event.type === "UPDATE_PLACEMENT_CANDIDATE") {
+    if (session.status !== "placing") return rejected(session);
+    return persisted({
+      ...session,
+      draft: {
+        ...session.draft,
+        placementCandidate: clone(event.position),
+      },
+    });
+  }
+
   if (event.type === "CONFIRM_POSITION") {
     if (session.status !== "placing") return rejected(session);
     const { method, ...point } = event.position;
@@ -349,6 +361,7 @@ export function transitionCampusMapEdit(
           floorId: null,
           location,
         },
+        placementCandidate: null,
         placementMethod: method,
         warningAcknowledgements: [],
       },
@@ -358,7 +371,10 @@ export function transitionCampusMapEdit(
       session: next,
       commands: [
         { kind: "persist-snapshot" },
-        { kind: "focus", target: "name" },
+        {
+          kind: "focus",
+          target: method === "pointer" ? "form-heading" : "name",
+        },
         { kind: "announce", message: "位置已锁定，请填写地点资料" },
       ],
     };
@@ -372,6 +388,16 @@ export function transitionCampusMapEdit(
       status: "placing",
       draft: {
         ...session.draft,
+        placementCandidate:
+          session.draft.fact.location?.kind === "outdoor-point"
+            ? {
+                longitude: session.draft.fact.location.longitude,
+                latitude: session.draft.fact.location.latitude,
+                crs: "wgs84",
+                precision: session.draft.fact.location.precision,
+                method: session.draft.placementMethod ?? "pointer",
+              }
+            : null,
         warningAcknowledgements: [],
       },
     };
@@ -901,6 +927,23 @@ function looksLikeWarning(value: unknown): boolean {
   );
 }
 
+function looksLikePlacement(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.longitude === "number" &&
+    Number.isFinite(value.longitude) &&
+    value.longitude >= -180 &&
+    value.longitude <= 180 &&
+    typeof value.latitude === "number" &&
+    Number.isFinite(value.latitude) &&
+    value.latitude >= -90 &&
+    value.latitude <= 90 &&
+    value.crs === "wgs84" &&
+    (value.precision === "approximate" || value.precision === "precise") &&
+    (value.method === "pointer" || value.method === "keyboard")
+  );
+}
+
 function looksLikeSession(value: unknown): value is CampusMapEditSession {
   if (!isRecord(value) || !isRecord(value.draft)) return false;
   const draft = value.draft;
@@ -954,6 +997,8 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
     (draft.mode === "add" || draft.mode === "edit") &&
     validUuid(draft.idempotencyKey) &&
     looksLikeFact(draft.fact, true) &&
+    (draft.placementCandidate === null ||
+      looksLikePlacement(draft.placementCandidate)) &&
     Array.isArray(draft.sources) &&
     draft.sources.every(looksLikeSource) &&
     Array.isArray(draft.baselineSources) &&
@@ -991,16 +1036,23 @@ export function decodeCampusMapEditSnapshot(
   }
   if (!isRecord(value))
     return { status: "discarded", reason: "invalid-snapshot" };
-  if (value.version !== CAMPUS_MAP_EDIT_SNAPSHOT_VERSION) {
+  let sessionValue = value.session;
+  if (
+    value.version === 1 &&
+    isRecord(sessionValue) &&
+    isRecord(sessionValue.draft)
+  ) {
+    sessionValue = {
+      ...sessionValue,
+      draft: { ...sessionValue.draft, placementCandidate: null },
+    };
+  } else if (value.version !== CAMPUS_MAP_EDIT_SNAPSHOT_VERSION) {
     return { status: "discarded", reason: "unsupported-version" };
   }
-  if (
-    !looksLikeSession(value.session) ||
-    value.session.status === "published"
-  ) {
+  if (!looksLikeSession(sessionValue) || sessionValue.status === "published") {
     return { status: "discarded", reason: "invalid-snapshot" };
   }
-  const session = clone(value.session);
+  const session = clone(sessionValue);
   if (session.status === "publishing")
     session.status = "temporarily-unavailable";
   return { status: "restored", session };

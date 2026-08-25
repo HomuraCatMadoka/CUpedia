@@ -21,6 +21,85 @@ function draft() {
 }
 
 describe("Campus Map single-page edit Sheet", () => {
+  it("keeps one form mounted while Add moves from placing to editing", () => {
+    const onEvent = vi.fn();
+    const placing: CampusMapEditSession = {
+      status: "placing",
+      draft: {
+        ...draft(),
+        placementCandidate: {
+          longitude: 114.2101,
+          latitude: 22.4198,
+          crs: "wgs84",
+          precision: "approximate",
+          method: "pointer",
+        },
+      },
+    };
+    const view = render(
+      <CampusMapEditSheet
+        session={placing}
+        centerPosition={[114.2101, 22.4198]}
+        placeContext={{
+          status: "resolved",
+          context: {
+            providerPosition: {
+              longitude: 114.2125,
+              latitude: 22.4172,
+              crs: "gcj02",
+            },
+            label: "科学馆",
+            address: "香港中文大学中央大道",
+            providerPoiId: "B0FFHYPOTHETICAL",
+            distanceMeters: 18,
+          },
+        }}
+        onEvent={onEvent}
+      />,
+    );
+    const nameInput = screen.getByRole("textbox", { name: "地点名称" });
+    expect(screen.getByText("高德识别 · 科学馆")).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "饮水点" })).toBeTruthy();
+
+    fireEvent.change(nameInput, { target: { value: "科学馆饮水点" } });
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "CHANGE_FACT",
+      fact: expect.objectContaining({
+        name: "科学馆饮水点",
+        location: null,
+      }),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "继续填写" }));
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "CONFIRM_POSITION",
+      position: placing.draft.placementCandidate,
+    });
+
+    view.rerender(
+      <CampusMapEditSheet
+        session={{
+          status: "editing",
+          draft: {
+            ...placing.draft,
+            fact: {
+              ...placing.draft.fact,
+              location: {
+                kind: "outdoor-point",
+                longitude: 114.2101,
+                latitude: 22.4198,
+                crs: "wgs84",
+                precision: "approximate",
+              },
+            },
+          },
+        }}
+        centerPosition={[114.2101, 22.4198]}
+        onEvent={onEvent}
+      />,
+    );
+    expect(screen.getByRole("textbox", { name: "地点名称" })).toBe(nameInput);
+  });
+
   it("shows only #719 Place, Changeset, and History links on the receipt", () => {
     const session: CampusMapEditSession = {
       status: "published",

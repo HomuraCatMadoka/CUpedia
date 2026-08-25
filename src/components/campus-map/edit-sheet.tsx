@@ -6,6 +6,7 @@ import { ChevronDownIcon, MapPinIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { AMAP_PROTOTYPE_BUILDINGS } from "@/lib/campus-map/amap-prototype-catalog";
+import type { AmapPlaceContextResult } from "@/lib/campus-map/amap-place-context";
 import {
   isCampusMapEditDirty,
   type CampusMapEditEvent,
@@ -21,6 +22,7 @@ import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
 interface CampusMapEditSheetProps {
   session: CampusMapEditSession;
   centerPosition: readonly [number, number];
+  placeContext?: AmapPlaceContextResult | { status: "loading" } | null;
   factSchema?: CampusMapFactSchema | null;
   onEvent(event: CampusMapEditEvent): void;
 }
@@ -28,9 +30,9 @@ interface CampusMapEditSheetProps {
 const fieldClass =
   "mt-1 min-h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-base outline-none focus-visible:border-[#176346] focus-visible:ring-2 focus-visible:ring-[#176346]/25";
 const primaryClass =
-  "min-h-11 w-full rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2";
+  "min-h-11 w-full touch-manipulation rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white hover:bg-[#123d2e] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 motion-reduce:transform-none";
 const secondaryClass =
-  "min-h-11 rounded-xl border border-black/15 bg-white px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]";
+  "min-h-11 touch-manipulation rounded-xl border border-black/15 bg-white px-4 text-sm font-semibold hover:bg-neutral-50 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none";
 
 function today(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -110,33 +112,11 @@ function describeLocation(fact: CampusMapEditSession["draft"]["fact"]): string {
   return `建筑 ${fact.buildingId ?? "未知"}`;
 }
 
-function nearbyLocationLabel(position: readonly [number, number]): string {
-  const [longitude, latitude] = position;
-  const nearest = AMAP_PROTOTYPE_BUILDINGS.map((building) => {
-    const latitudeDistance = (building.position[1] - latitude) * 111_320;
-    const longitudeDistance =
-      (building.position[0] - longitude) *
-      111_320 *
-      Math.cos((latitude * Math.PI) / 180);
-    return {
-      building,
-      distance: Math.hypot(latitudeDistance, longitudeDistance),
-    };
-  }).sort((left, right) => left.distance - right.distance)[0];
-
-  return nearest && nearest.distance <= 350
-    ? `${nearest.building.name}附近`
-    : "中大校园内的选定位置";
-}
-
 function friendlyLocationLabel(
   fact: CampusMapEditSession["draft"]["fact"],
 ): string {
   if (fact.location?.kind === "outdoor-point") {
-    return nearbyLocationLabel([
-      fact.location.longitude,
-      fact.location.latitude,
-    ]);
+    return "地图上的地点";
   }
   if (fact.buildingId) {
     return (
@@ -193,6 +173,8 @@ function SelectField<T extends string>({
       {label}
       <select
         id={id}
+        name={field}
+        autoComplete="off"
         data-edit-field={field}
         className={fieldClass}
         value={value}
@@ -211,6 +193,7 @@ function SelectField<T extends string>({
 export function CampusMapEditSheet({
   session,
   centerPosition,
+  placeContext = null,
   factSchema,
   onEvent,
 }: CampusMapEditSheetProps) {
@@ -244,9 +227,9 @@ export function CampusMapEditSheet({
         )
       : preset.fields,
   );
-  const updateFact = (next: CampusMapPublishFactInput) =>
+  const updateFact = (next: CampusMapEditSession["draft"]["fact"]) =>
     onEvent({ type: "CHANGE_FACT", fact: next });
-  const fullFact = fact as CampusMapPublishFactInput;
+  const fullFact = fact;
   const weeklySchedule =
     fact.accessSchedule.kind === "weekly" ? fact.accessSchedule : null;
   const fieldLabel = (field: string, fallback: string) =>
@@ -290,7 +273,7 @@ export function CampusMapEditSheet({
         <h2
           id="campus-map-panel-title"
           tabIndex={-1}
-          className="text-xl font-semibold outline-none"
+          className="rounded-sm text-xl font-semibold text-balance focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
         >
           地点资料已公开
         </h2>
@@ -319,132 +302,110 @@ export function CampusMapEditSheet({
     );
   }
 
-  if (session.status === "placing") {
-    const longitude = Number(keyboardLongitude);
-    const latitude = Number(keyboardLatitude);
-    const keyboardValid =
-      Number.isFinite(longitude) &&
-      longitude >= -180 &&
-      longitude <= 180 &&
-      Number.isFinite(latitude) &&
-      latitude >= -90 &&
-      latitude <= 90;
-    return (
-      <div className="grid gap-4 px-5 pt-5 pb-[max(20px,env(safe-area-inset-bottom))]">
-        <div className="pr-10">
-          <h2
-            id="campus-map-panel-title"
-            tabIndex={-1}
-            className="text-xl font-semibold outline-none"
-          >
-            {draft.mode === "add" ? "把图钉放在地点上" : "重新定位地点"}
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-neutral-600">
-            {draft.mode === "add"
-              ? "移动地图，让图钉对准要添加的地点。"
-              : "移动地图，让图钉对准地点的新位置。"}
+  const isPlacing = session.status === "placing";
+  const placementPosition =
+    draft.placementCandidate ??
+    ({
+      longitude: centerPosition[0],
+      latitude: centerPosition[1],
+      crs: "wgs84",
+      precision: "approximate",
+      method: "pointer",
+    } as const);
+  const keyboardLongitudeNumber = Number(keyboardLongitude);
+  const keyboardLatitudeNumber = Number(keyboardLatitude);
+  const keyboardValid =
+    Number.isFinite(keyboardLongitudeNumber) &&
+    keyboardLongitudeNumber >= -180 &&
+    keyboardLongitudeNumber <= 180 &&
+    Number.isFinite(keyboardLatitudeNumber) &&
+    keyboardLatitudeNumber >= -90 &&
+    keyboardLatitudeNumber <= 90;
+  const resolvedContext =
+    placeContext?.status === "resolved" ? placeContext.context : null;
+  const placementLabel = resolvedContext
+    ? `高德识别 · ${resolvedContext.label}`
+    : "地图中心位置";
+  const placementDescription = resolvedContext?.address
+    ? resolvedContext.address
+    : placeContext?.status === "loading"
+      ? "正在识别附近地点…"
+      : placeContext?.status === "rate-limited"
+        ? "地址查询较频繁，可继续填写"
+        : placeContext?.status === "transient-error"
+          ? "暂时无法识别地址，可继续填写"
+          : placeContext?.status === "permanent-error"
+            ? "地址服务不可用，可继续填写"
+            : placeContext?.status === "empty"
+              ? "高德未识别到附近地点，可继续填写"
+              : "移动地图，让图钉对准地点";
+  const coordinateEntry = isPlacing ? (
+    <div className="rounded-xl border border-black/10 bg-white px-3 py-2">
+      <button
+        type="button"
+        aria-expanded={showCoordinateEntry}
+        aria-controls={`${fieldPrefix}-coordinate-entry`}
+        className="flex min-h-10 w-full touch-manipulation items-center text-left text-sm font-semibold hover:text-[#176346] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+        onClick={() => setShowCoordinateEntry((current) => !current)}
+      >
+        其他定位方式
+      </button>
+      {showCoordinateEntry ? (
+        <fieldset id={`${fieldPrefix}-coordinate-entry`} className="pb-2">
+          <legend className="sr-only">输入坐标定位</legend>
+          <p className="mb-3 text-xs leading-5 text-neutral-600">
+            无法操作地图时，可以直接输入 WGS84 坐标。
           </p>
-        </div>
-        <div
-          className="flex items-center gap-3 rounded-xl bg-[#edf5f1] px-3 py-2.5"
-          aria-live="polite"
-        >
-          <MapPinIcon
-            aria-hidden="true"
-            className="size-5 shrink-0 text-[#176346]"
-          />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">
-              {nearbyLocationLabel(centerPosition)}
-            </p>
-            <p className="text-xs text-neutral-600">约略位置</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          className={primaryClass}
-          onClick={() =>
-            onEvent({
-              type: "CONFIRM_POSITION",
-              position: {
-                longitude: centerPosition[0],
-                latitude: centerPosition[1],
-                crs: "wgs84",
-                precision: "approximate",
-                method: "pointer",
-              },
-            })
-          }
-        >
-          位置放好了
-        </button>
-        <div className="rounded-xl border border-black/10 bg-white px-3 py-2">
+          <label className="block text-sm" htmlFor={`${fieldPrefix}-longitude`}>
+            经度（WGS84）
+            <input
+              id={`${fieldPrefix}-longitude`}
+              name="campus-map-longitude"
+              autoComplete="off"
+              className={fieldClass}
+              inputMode="decimal"
+              value={keyboardLongitude}
+              onChange={(event) => setKeyboardLongitude(event.target.value)}
+            />
+          </label>
+          <label
+            className="mt-3 block text-sm"
+            htmlFor={`${fieldPrefix}-latitude`}
+          >
+            纬度（WGS84）
+            <input
+              id={`${fieldPrefix}-latitude`}
+              name="campus-map-latitude"
+              autoComplete="off"
+              className={fieldClass}
+              inputMode="decimal"
+              value={keyboardLatitude}
+              onChange={(event) => setKeyboardLatitude(event.target.value)}
+            />
+          </label>
           <button
             type="button"
-            aria-expanded={showCoordinateEntry}
-            aria-controls={`${fieldPrefix}-coordinate-entry`}
-            className="flex min-h-10 w-full items-center text-left text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-            onClick={() => setShowCoordinateEntry((current) => !current)}
+            disabled={!keyboardValid}
+            className={cn(primaryClass, "mt-3")}
+            onClick={() =>
+              onEvent({
+                type: "CONFIRM_POSITION",
+                position: {
+                  longitude: keyboardLongitudeNumber,
+                  latitude: keyboardLatitudeNumber,
+                  crs: "wgs84",
+                  precision: "approximate",
+                  method: "keyboard",
+                },
+              })
+            }
           >
-            其他定位方式
+            使用输入坐标
           </button>
-          {showCoordinateEntry ? (
-            <fieldset id={`${fieldPrefix}-coordinate-entry`} className="pb-2">
-              <legend className="sr-only">输入坐标定位</legend>
-              <p className="mb-3 text-xs leading-5 text-neutral-600">
-                无法操作地图时，可以直接输入 WGS84 坐标。
-              </p>
-              <label
-                className="block text-sm"
-                htmlFor={`${fieldPrefix}-longitude`}
-              >
-                经度（WGS84）
-                <input
-                  id={`${fieldPrefix}-longitude`}
-                  className={fieldClass}
-                  inputMode="decimal"
-                  value={keyboardLongitude}
-                  onChange={(event) => setKeyboardLongitude(event.target.value)}
-                />
-              </label>
-              <label
-                className="mt-3 block text-sm"
-                htmlFor={`${fieldPrefix}-latitude`}
-              >
-                纬度（WGS84）
-                <input
-                  id={`${fieldPrefix}-latitude`}
-                  className={fieldClass}
-                  inputMode="decimal"
-                  value={keyboardLatitude}
-                  onChange={(event) => setKeyboardLatitude(event.target.value)}
-                />
-              </label>
-              <button
-                type="button"
-                disabled={!keyboardValid}
-                className={cn(primaryClass, "mt-3")}
-                onClick={() =>
-                  onEvent({
-                    type: "CONFIRM_POSITION",
-                    position: {
-                      longitude,
-                      latitude,
-                      crs: "wgs84",
-                      precision: "approximate",
-                      method: "keyboard",
-                    },
-                  })
-                }
-              >
-                使用输入坐标
-              </button>
-            </fieldset>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
+        </fieldset>
+      ) : null}
+    </div>
+  ) : null;
 
   if (session.status === "confirm-discard") {
     return (
@@ -589,6 +550,7 @@ export function CampusMapEditSheet({
                 <label key={field} className="flex min-h-11 items-center gap-2">
                   <input
                     type="checkbox"
+                    name={`conflict-${String(field)}`}
                     checked={conflictKeepFields.includes(field)}
                     onChange={(event) =>
                       setConflictSelection((current) => {
@@ -660,18 +622,22 @@ export function CampusMapEditSheet({
         <h2
           id="campus-map-panel-title"
           tabIndex={-1}
-          className="pr-10 text-xl font-semibold outline-none"
+          className="rounded-sm pr-10 text-xl font-semibold text-balance focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
         >
           {draft.mode === "add" ? "添加地点" : "建议修改"}
         </h2>
         <p className="mt-1 text-sm text-neutral-600">
-          {draft.mode === "add"
-            ? "补充这个位置的资料。"
-            : "更新地点资料，未修改的内容会保持不变。"}
+          {isPlacing
+            ? draft.mode === "add"
+              ? "移动地图，让图钉对准要添加的地点；也可以先填写资料。"
+              : "移动地图，让图钉对准地点的新位置。"
+            : draft.mode === "add"
+              ? "补充这个位置的资料。"
+              : "更新地点资料，未修改的内容会保持不变。"}
         </p>
       </div>
       <div
-        className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 pb-28"
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-4 pb-28"
         aria-busy={session.status === "publishing"}
         inert={session.status === "publishing" ? true : undefined}
       >
@@ -699,25 +665,34 @@ export function CampusMapEditSheet({
                 className="mt-0.5 size-5 shrink-0 text-[#176346]"
               />
               <div className="min-w-0 flex-1">
-                <p className="font-semibold">{friendlyLocationLabel(fact)}</p>
+                <p className="font-semibold" aria-live="polite">
+                  {isPlacing || resolvedContext
+                    ? placementLabel
+                    : friendlyLocationLabel(fact)}
+                </p>
                 <p className="mt-0.5 text-xs text-neutral-600">
-                  {fact.location?.kind === "outdoor-point"
-                    ? fact.location.precision === "precise"
-                      ? "精确位置"
-                      : "约略位置"
-                    : describeLocation(fact)}
+                  {isPlacing || resolvedContext
+                    ? placementDescription
+                    : fact.location?.kind === "outdoor-point"
+                      ? fact.location.precision === "precise"
+                        ? "精确位置"
+                        : "约略位置"
+                      : describeLocation(fact)}
                 </p>
               </div>
-              <button
-                type="button"
-                className="min-h-10 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-                onClick={() => onEvent({ type: "START_REPOSITION" })}
-              >
-                重新定位
-              </button>
+              {!isPlacing ? (
+                <button
+                  type="button"
+                  className="min-h-10 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                  onClick={() => onEvent({ type: "START_REPOSITION" })}
+                >
+                  重新定位
+                </button>
+              ) : null}
             </div>
           </div>
         ) : null}
+        {coordinateEntry}
         <label
           className="block text-sm font-medium"
           htmlFor={`${fieldPrefix}-name`}
@@ -725,6 +700,8 @@ export function CampusMapEditSheet({
           {fieldLabel("name", "地点名称")}
           <input
             id={`${fieldPrefix}-name`}
+            name="campus-map-place-name"
+            autoComplete="off"
             data-edit-field="name"
             className={fieldClass}
             value={fact.name}
@@ -738,12 +715,12 @@ export function CampusMapEditSheet({
           <legend className="mb-2 text-sm font-medium">
             {fieldLabel("pinType", "地点类型")}
           </legend>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {CAMPUS_MAP_EDIT_SCHEMA.presets.map((item) => (
               <label
                 key={item.pinType}
                 className={cn(
-                  "flex min-h-11 cursor-pointer items-center rounded-xl border px-3 text-sm font-semibold transition-colors",
+                  "flex min-h-11 shrink-0 cursor-pointer touch-manipulation items-center rounded-xl border px-3 text-sm font-semibold transition-colors active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 motion-reduce:transform-none",
                   fact.pinType === item.pinType
                     ? "border-[#176346] bg-[#e4f1eb] text-[#174b38]"
                     : "border-black/15 bg-white text-neutral-700 hover:bg-neutral-50",
@@ -777,6 +754,7 @@ export function CampusMapEditSheet({
         </fieldset>
         <button
           type="button"
+          hidden={isPlacing}
           aria-expanded={optionalDetailsVisible}
           aria-controls={`${fieldPrefix}-optional-details`}
           className="flex min-h-11 w-full items-center justify-between rounded-xl border border-black/15 bg-white px-3 text-left text-sm font-semibold hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
@@ -794,7 +772,7 @@ export function CampusMapEditSheet({
         <div
           id={`${fieldPrefix}-optional-details`}
           className="space-y-4"
-          hidden={!optionalDetailsVisible}
+          hidden={isPlacing || !optionalDetailsVisible}
         >
           {visible.has("gender") ? (
             <SelectField
@@ -818,6 +796,7 @@ export function CampusMapEditSheet({
                 >
                   <input
                     type="checkbox"
+                    name={`${fieldPrefix}-capabilities`}
                     checked={fact.capabilities.includes(option.value)}
                     onChange={(event) =>
                       updateFact({
@@ -915,6 +894,7 @@ export function CampusMapEditSheet({
                           >
                             <input
                               type="checkbox"
+                              name={`${fieldPrefix}-schedule-days-${index}`}
                               checked={interval.days.includes(day)}
                               onChange={(event) => {
                                 const intervals = weeklySchedule.intervals.map(
@@ -949,6 +929,8 @@ export function CampusMapEditSheet({
                             {field === "opensAt" ? "开始" : "结束"}
                             <input
                               type="time"
+                              name={`${fieldPrefix}-${field}-${index}`}
+                              autoComplete="off"
                               className={fieldClass}
                               value={interval[field]}
                               onChange={(event) => {
@@ -1043,6 +1025,7 @@ export function CampusMapEditSheet({
           ) : null}
         </div>
         <fieldset
+          hidden={isPlacing}
           data-edit-field="sources"
           className="rounded-xl border p-3"
           aria-invalid={session.localError === "sources"}
@@ -1055,6 +1038,8 @@ export function CampusMapEditSheet({
             现场观察时间（香港时间）
             <input
               id={`${fieldPrefix}-source-date`}
+              name="campus-map-source-observed-at"
+              autoComplete="off"
               data-edit-field="sourceObservedAt"
               className={fieldClass}
               type="datetime-local"
@@ -1098,24 +1083,38 @@ export function CampusMapEditSheet({
             </p>
           ) : null}
         </fieldset>
-        <p className="rounded-xl bg-neutral-50 p-3 text-xs leading-5 text-neutral-600">
+        <p
+          hidden={isPlacing}
+          className="rounded-xl bg-neutral-50 p-3 text-xs leading-5 text-neutral-600"
+        >
           Changeset 说明和来源摘要会由这些结构化修改自动生成；不会请求复核。
         </p>
       </div>
-      <div className="absolute inset-x-0 bottom-0 border-t bg-white p-4 md:rounded-b-2xl">
+      <div className="absolute inset-x-0 bottom-0 border-t bg-white px-4 pt-4 pb-[max(16px,env(safe-area-inset-bottom))] md:rounded-b-2xl md:pb-4">
         <button
           type="button"
           className={primaryClass}
           disabled={
-            !isCampusMapEditDirty(session) || session.status === "publishing"
+            !isPlacing &&
+            (!isCampusMapEditDirty(session) || session.status === "publishing")
           }
-          onClick={() => onEvent({ type: "REQUEST_PUBLISH" })}
+          onClick={() =>
+            onEvent(
+              isPlacing
+                ? { type: "CONFIRM_POSITION", position: placementPosition }
+                : { type: "REQUEST_PUBLISH" },
+            )
+          }
         >
-          {session.status === "publishing"
-            ? "正在发布…"
-            : draft.mode === "add"
-              ? "发布新地点"
-              : "发布修改"}
+          {isPlacing
+            ? draft.mode === "add"
+              ? "继续填写"
+              : "确认新位置"
+            : session.status === "publishing"
+              ? "正在发布…"
+              : draft.mode === "add"
+                ? "发布新地点"
+                : "发布修改"}
         </button>
       </div>
     </div>

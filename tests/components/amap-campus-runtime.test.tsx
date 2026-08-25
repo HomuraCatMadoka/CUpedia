@@ -12,6 +12,10 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AmapCampusPrototype } from "@/components/campus-map/amap-campus-prototype";
+import {
+  encodeCampusMapEditSnapshot,
+  transitionCampusMapEdit,
+} from "@/lib/campus-map/edit-session";
 import { installAmapRuntime } from "../helpers/amap-runtime";
 
 beforeEach(() => {
@@ -41,6 +45,7 @@ afterEach(() => {
 
 async function renderWithRuntime(options?: {
   convertFromFails?: boolean;
+  convertFromMutatesInput?: boolean;
   convertFromOffset?: { longitude: number; latitude: number };
   markerClusterStatus?:
     | "ready"
@@ -63,6 +68,216 @@ describe("AmapCampusPrototype runtime effects", () => {
 
     expect(runtime.maps).toHaveLength(1);
     expect(document.querySelector("script[data-amap-campus]")).toBeNull();
+  });
+
+  it("uses the latest AMap center context while keeping provider data transient", async () => {
+    const { runtime, map } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+
+    await waitFor(() => expect(runtime.geocoders).toHaveLength(1));
+    await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
+    expect(runtime.geocoders[0]?.geocoderOptions).toEqual({
+      radius: 150,
+      extensions: "all",
+    });
+
+    await act(async () => {
+      map.center = { lng: 114.211, lat: 22.421 };
+      map.emit("moveend", {});
+    });
+    await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(2));
+    await act(async () => {
+      map.center = { lng: 114.212, lat: 22.422 };
+      map.emit("moveend", {});
+    });
+    await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(3));
+
+    await runtime.resolveGeocode(2, "complete", {
+      regeocode: {
+        formattedAddress: "香港中文大学新位置",
+        pois: [{ id: "new-poi", name: "新位置", distance: "8" }],
+      },
+    });
+    expect(await screen.findByText("高德识别 · 新位置")).not.toBeNull();
+    await runtime.resolveGeocode(0, "complete", {
+      regeocode: {
+        formattedAddress: "旧位置一",
+        pois: [{ id: "old-poi-1", name: "旧位置一" }],
+      },
+    });
+    await runtime.resolveGeocode(1, "complete", {
+      regeocode: {
+        formattedAddress: "旧位置二",
+        pois: [{ id: "old-poi-2", name: "旧位置二" }],
+      },
+    });
+    expect(screen.getByText("高德识别 · 新位置")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "继续填写" }));
+    await waitFor(() =>
+      expect(screen.queryByText("高德识别 · 新位置")).toBeNull(),
+    );
+    expect(screen.getByText("地图上的地点")).not.toBeNull();
+    const restored = JSON.parse(
+      window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
+    );
+    expect(restored.session).toMatchObject({
+      status: "editing",
+      draft: {
+        placementCandidate: null,
+        fact: {
+          location: {
+            kind: "outdoor-point",
+            longitude: 114.212,
+            latitude: 22.422,
+            crs: "wgs84",
+          },
+        },
+      },
+    });
+    expect(JSON.stringify(restored)).not.toContain("new-poi");
+  });
+
+  it("routes keyboard placement through the existing camera and focus owner", async () => {
+    const { runtime, map } = await renderWithRuntime({
+      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "其他定位方式" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "经度（WGS84）" }), {
+      target: { value: "114.21" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "纬度（WGS84）" }), {
+      target: { value: "22.42" },
+    });
+    map.setZoomAndCenter.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "使用输入坐标" }));
+    await runtime.flushAnimationFrames();
+
+    expect(map.setZoomAndCenter).toHaveBeenCalledWith(
+      map.getZoom(),
+      expect.objectContaining({
+        lng: expect.closeTo(114.22, 10),
+        lat: expect.closeTo(22.43, 10),
+      }),
+      true,
+      0,
+    );
+    expect(document.activeElement).toBe(screen.getByLabelText("地点名称"));
+  });
+
+  it("keeps the WGS84 conversion baseline when the real AMap API mutates its input", async () => {
+    const { map } = await renderWithRuntime({
+      convertFromMutatesInput: true,
+      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "其他定位方式" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "经度（WGS84）" }), {
+      target: { value: "114.21" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "纬度（WGS84）" }), {
+      target: { value: "22.42" },
+    });
+    map.setZoomAndCenter.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "使用输入坐标" }));
+
+    expect(map.setZoomAndCenter).toHaveBeenCalledWith(
+      map.getZoom(),
+      expect.objectContaining({
+        lng: expect.closeTo(114.22, 10),
+        lat: expect.closeTo(22.43, 10),
+      }),
+      true,
+      0,
+    );
+  });
+
+  it("restores a placing draft at its saved center after refresh", async () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey: "10000000-0000-4000-8000-000000000001",
+    }).session;
+    const saved = transitionCampusMapEdit(started, {
+      type: "UPDATE_PLACEMENT_CANDIDATE",
+      position: {
+        longitude: 114.21,
+        latitude: 22.42,
+        crs: "wgs84",
+        precision: "approximate",
+        method: "pointer",
+      },
+    }).session!;
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(saved),
+    );
+
+    const { runtime, map } = await renderWithRuntime({
+      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+    });
+    await screen.findByRole("heading", { name: "添加地点" });
+    await runtime.flushAnimationFrames();
+
+    expect(map.setZoomAndCenter).toHaveBeenCalledWith(
+      map.getZoom(),
+      expect.objectContaining({
+        lng: expect.closeTo(114.22, 10),
+        lat: expect.closeTo(22.43, 10),
+      }),
+      true,
+      0,
+    );
+    const persisted = JSON.parse(
+      window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
+    );
+    expect(persisted.session.draft.placementCandidate).toMatchObject({
+      longitude: 114.21,
+      latitude: 22.42,
+    });
+  });
+
+  it("lifts the center pin while the map is moving", async () => {
+    const { map } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    const pin = document.querySelector("[data-campus-map-center-pin]");
+    expect(pin?.getAttribute("data-moving")).toBe("false");
+
+    await act(async () => map.emit("movestart", {}));
+    expect(pin?.getAttribute("data-moving")).toBe("true");
+    await act(async () => map.emit("moveend", {}));
+    expect(pin?.getAttribute("data-moving")).toBe("false");
+  });
+
+  it("merges rapid moveend address lookups but keeps the latest candidate", async () => {
+    const { runtime, map } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
+
+    await act(async () => {
+      map.center = { lng: 114.211, lat: 22.421 };
+      map.emit("moveend", {});
+    });
+    await act(async () => {
+      map.center = { lng: 114.212, lat: 22.422 };
+      map.emit("moveend", {});
+    });
+    await act(
+      () => new Promise((resolve) => globalThis.setTimeout(resolve, 250)),
+    );
+
+    expect(runtime.geocodeRequests).toHaveLength(2);
+    expect(runtime.geocodeRequests[1]?.position).toEqual([114.212, 22.422]);
+    fireEvent.click(screen.getByRole("button", { name: "继续填写" }));
+    const persisted = JSON.parse(
+      window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
+    );
+    expect(persisted.session.draft.fact.location).toMatchObject({
+      longitude: 114.212,
+      latitude: 22.422,
+    });
   });
 
   it("does not move an already unobscured linked hotspot", async () => {

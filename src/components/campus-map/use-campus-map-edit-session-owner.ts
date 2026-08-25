@@ -64,7 +64,11 @@ export function useCampusMapEditSessionOwner({
             dispatch({ type: "CANCEL_TASK" });
           }
         } else if (command.kind === "focus") {
-          driver.focusEditField(command.target);
+          if (command.target === "form-heading") {
+            driver.focusContributionForm();
+          } else {
+            driver.focusEditField(command.target);
+          }
         } else if (command.kind === "announce") {
           setAnnouncement("");
           window.requestAnimationFrame(() => setAnnouncement(command.message));
@@ -101,6 +105,15 @@ export function useCampusMapEditSessionOwner({
             Math.min(Math.max(command.afterSeconds, 0), 86_400) * 1000,
           );
         }
+      }
+      if (
+        event.type === "CONFIRM_POSITION" &&
+        event.position.method === "keyboard"
+      ) {
+        driver.recenterEditPosition(
+          [event.position.longitude, event.position.latitude],
+          "keyboard-placement",
+        );
       }
     },
     [dispatch, driver],
@@ -191,7 +204,23 @@ export function useCampusMapEditSessionOwner({
     }
     queueMicrotask(() => {
       setSession(next);
-      window.requestAnimationFrame(() => driver.focusContributionForm());
+      window.requestAnimationFrame(() => {
+        driver.focusContributionForm();
+        const restoredPosition =
+          next?.draft.placementCandidate ??
+          (next?.draft.fact.location?.kind === "outdoor-point"
+            ? {
+                longitude: next.draft.fact.location.longitude,
+                latitude: next.draft.fact.location.latitude,
+              }
+            : null);
+        if (restoredPosition) {
+          driver.recenterEditPosition(
+            [restoredPosition.longitude, restoredPosition.latitude],
+            "draft-restore",
+          );
+        }
+      });
     });
     if (next && driver.getSnapshot().session.mode !== "task") {
       dispatch(

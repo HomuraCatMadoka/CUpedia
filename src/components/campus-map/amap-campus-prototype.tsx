@@ -37,6 +37,13 @@ import {
   resolveAmapHotspotTarget,
 } from "@/lib/campus-map/amap-interaction-adapter";
 import {
+  createAmapGeocoderAdapter,
+  createAmapPlaceContextResolver,
+  type AmapGeocoderService,
+  type AmapPlaceContextResolver,
+  type AmapPlaceContextResult,
+} from "@/lib/campus-map/amap-place-context";
+import {
   parseCampusMapState,
   type CampusMapCatalog,
   type CampusMapState,
@@ -152,9 +159,14 @@ interface AMapNamespace {
     options: Record<string, unknown>,
   ) => AMapMarkerCluster;
   InfoWindow: new (options: Record<string, unknown>) => AMapInfoWindow;
+  Geocoder: new (options: {
+    radius: number;
+    extensions: "all";
+  }) => AmapGeocoderService;
   LngLat: new (longitude: number, latitude: number) => AMapLngLat;
   Pixel: new (x: number, y: number) => AMapPixel;
   Bounds: new (southWest: AMapLngLat, northEast: AMapLngLat) => unknown;
+  plugin(plugins: readonly string[], callback: () => void): void;
   convertFrom(
     positions: readonly Position[],
     source: "gps",
@@ -415,6 +427,11 @@ export function AmapCampusPrototype({
   );
   const startAddRef = useRef<() => void>(() => {});
   const [centerPosition, setCenterPosition] = useState<Position>(CAMPUS_CENTER);
+  const [providerCenterPosition, setProviderCenterPosition] =
+    useState<Position | null>(null);
+  const [placeContext, setPlaceContext] = useState<
+    AmapPlaceContextResult | { status: "loading" } | null
+  >(null);
   const amapOffsetRef = useRef<Position>([0, 0]);
   const [config, setConfig] = useState<
     | { status: "loading" }
@@ -426,6 +443,8 @@ export function AmapCampusPrototype({
   >(null);
   const [mapLoadAttempt, setMapLoadAttempt] = useState(0);
   const [mapReady, setMapReady] = useState(false);
+  const [mapMoving, setMapMoving] = useState(false);
+  const [mapCenterRevision, setMapCenterRevision] = useState(0);
   const [coordinateVersion, setCoordinateVersion] = useState(0);
   const [clusterStatus, setClusterStatus] = useState<
     "loading" | "ready" | "error"
@@ -448,6 +467,13 @@ export function AmapCampusPrototype({
   const panelTitleRef = useRef<HTMLHeadingElement | null>(null);
   const interactionAdapterRef = useRef(new AmapInteractionAdapter());
   const pointerGestureCleanupRef = useRef<(() => void) | null>(null);
+  const placeContextResolverRef = useRef<AmapPlaceContextResolver | null>(null);
+  const placementTrackingRef = useRef<{
+    idempotencyKey: string;
+    mapCenterRevision: number;
+  } | null>(null);
+  const [placeContextResolverVersion, setPlaceContextResolverVersion] =
+    useState(0);
 
   const positionFor = useCallback(
     (building: Building) =>
@@ -467,11 +493,17 @@ export function AmapCampusPrototype({
     infoWindow?.close();
     mapRef.current?.destroy();
     mapRef.current = null;
+    placeContextResolverRef.current?.invalidate();
+    placeContextResolverRef.current = null;
     amapPositionsRef.current = {};
     cameraGateRef.current.invalidate();
     pendingDriverCameraRef.current = null;
     pendingSelectionTokenRef.current = null;
     setMapReady(false);
+    setMapMoving(false);
+    setMapCenterRevision(0);
+    setProviderCenterPosition(null);
+    setPlaceContext(null);
     setCoordinateVersion(0);
     setClusterStatus("loading");
   }, []);
@@ -610,6 +642,22 @@ export function AmapCampusPrototype({
       }
       pendingDriverCameraRef.current = null;
       if (!context.isCurrent()) return;
+      if (camera.kind === "edit-position") {
+        const offset = amapOffsetRef.current;
+        const providerPosition: Position = [
+          camera.position[0] + offset[0],
+          camera.position[1] + offset[1],
+        ];
+        setCenterPosition([camera.position[0], camera.position[1]]);
+        setProviderCenterPosition(providerPosition);
+        map.setZoomAndCenter(
+          map.getZoom(),
+          new AMap.LngLat(providerPosition[0], providerPosition[1]),
+          true,
+          0,
+        );
+        return;
+      }
       if (camera.kind === "fit") {
         cameraGateRef.current.invalidate();
         const longitudes = camera.positions.map((position) => position[0]);
@@ -792,9 +840,76 @@ export function AmapCampusPrototype({
     announcement: editAnnouncement,
     restoreNotice: editRestoreNotice,
   } = useCampusMapEditSessionOwner({ driver, dispatch });
+  const editSessionStatus = editSession?.status ?? null;
+  const editSessionIdempotencyKey = editSession?.draft.idempotencyKey ?? null;
   useEffect(() => {
     startAddRef.current = startAdd;
   }, [startAdd]);
+
+  useEffect(() => {
+    if (editSession?.status !== "placing") {
+      placementTrackingRef.current = null;
+      return;
+    }
+    const tracked = placementTrackingRef.current;
+    const isNewPlacement =
+      tracked?.idempotencyKey !== editSession.draft.idempotencyKey;
+    const centerMoved =
+      !isNewPlacement && tracked.mapCenterRevision !== mapCenterRevision;
+    placementTrackingRef.current = {
+      idempotencyKey: editSession.draft.idempotencyKey,
+      mapCenterRevision,
+    };
+    if (!editSession.draft.placementCandidate || centerMoved) {
+      dispatchEditEvent({
+        type: "UPDATE_PLACEMENT_CANDIDATE",
+        position: {
+          longitude: centerPosition[0],
+          latitude: centerPosition[1],
+          crs: "wgs84",
+          precision: "approximate",
+          method: "pointer",
+        },
+      });
+    }
+  }, [centerPosition, dispatchEditEvent, editSession, mapCenterRevision]);
+
+  useEffect(() => {
+    if (editSessionStatus !== "placing") {
+      placeContextResolverRef.current?.invalidate();
+      queueMicrotask(() => setPlaceContext(null));
+      return;
+    }
+    const resolver = placeContextResolverRef.current;
+    if (!resolver || !providerCenterPosition) return;
+    let current = true;
+    const timeout = window.setTimeout(
+      () => {
+        setPlaceContext({ status: "loading" });
+        void resolver
+          .resolveLatest({
+            longitude: providerCenterPosition[0],
+            latitude: providerCenterPosition[1],
+            crs: "gcj02",
+          })
+          .then((result) => {
+            if (current && result.status !== "superseded")
+              setPlaceContext(result);
+          });
+      },
+      mapCenterRevision === 0 ? 0 : 200,
+    );
+    return () => {
+      current = false;
+      window.clearTimeout(timeout);
+    };
+  }, [
+    editSessionIdempotencyKey,
+    editSessionStatus,
+    mapCenterRevision,
+    placeContextResolverVersion,
+    providerCenterPosition,
+  ]);
 
   const startEdit = useCallback(
     (facility: Facility) => void startCanonicalEdit(facility.id),
@@ -934,48 +1049,67 @@ export function AmapCampusPrototype({
     } catch {
       setClusterStatus("error");
     }
-
-    AMap.convertFrom(
-      [CAMPUS_CENTER, ...BUILDINGS.map((building) => building.position)],
-      "gps",
-      (status, result) => {
+    try {
+      AMap.plugin(["AMap.Geocoder"], () => {
         if (mapRef.current !== map) return;
-        const locations = status === "complete" ? result.locations : undefined;
-        if (!locations || locations.length !== BUILDINGS.length + 1) {
-          setMapLoadError("coordinates");
-          return;
-        }
-        const converted = Object.fromEntries(
-          BUILDINGS.map((building, index) => {
-            const location = locations[index + 1];
-            return [
-              building.id,
-              location
-                ? ([location.lng, location.lat] as Position)
-                : building.position,
-            ];
-          }),
+        const geocoder = new AMap.Geocoder({
+          radius: 150,
+          extensions: "all",
+        });
+        placeContextResolverRef.current?.invalidate();
+        placeContextResolverRef.current = createAmapPlaceContextResolver(
+          createAmapGeocoderAdapter(geocoder),
         );
-        const convertedCenter = locations[0];
-        if (convertedCenter) {
-          converted.__campus = [convertedCenter.lng, convertedCenter.lat];
-          amapOffsetRef.current = [
-            convertedCenter.lng - CAMPUS_CENTER[0],
-            convertedCenter.lat - CAMPUS_CENTER[1],
+        setPlaceContextResolverVersion((version) => version + 1);
+      });
+    } catch {
+      setPlaceContext({ status: "permanent-error" });
+    }
+
+    const conversionPositions = [
+      [CAMPUS_CENTER[0], CAMPUS_CENTER[1]] as const,
+      ...BUILDINGS.map(
+        (building) => [building.position[0], building.position[1]] as const,
+      ),
+    ];
+    AMap.convertFrom(conversionPositions, "gps", (status, result) => {
+      if (mapRef.current !== map) return;
+      const locations = status === "complete" ? result.locations : undefined;
+      if (!locations || locations.length !== BUILDINGS.length + 1) {
+        setMapLoadError("coordinates");
+        return;
+      }
+      const converted = Object.fromEntries(
+        BUILDINGS.map((building, index) => {
+          const location = locations[index + 1];
+          return [
+            building.id,
+            location
+              ? ([location.lng, location.lat] as Position)
+              : building.position,
           ];
-          setCenterPosition(CAMPUS_CENTER);
-        }
-        amapPositionsRef.current = converted;
-        setCoordinateVersion((version) => version + 1);
-        const pendingCamera = pendingDriverCameraRef.current;
-        if (pendingCamera) {
-          executeDriverCamera(pendingCamera.command, pendingCamera.context);
-        } else {
-          const center = locations[0];
-          if (center) map.setZoomAndCenter(17.2, center, true, 0);
-        }
-      },
-    );
+        }),
+      );
+      const convertedCenter = locations[0];
+      if (convertedCenter) {
+        converted.__campus = [convertedCenter.lng, convertedCenter.lat];
+        amapOffsetRef.current = [
+          convertedCenter.lng - CAMPUS_CENTER[0],
+          convertedCenter.lat - CAMPUS_CENTER[1],
+        ];
+        setCenterPosition(CAMPUS_CENTER);
+        setProviderCenterPosition([convertedCenter.lng, convertedCenter.lat]);
+      }
+      amapPositionsRef.current = converted;
+      setCoordinateVersion((version) => version + 1);
+      const pendingCamera = pendingDriverCameraRef.current;
+      if (pendingCamera) {
+        executeDriverCamera(pendingCamera.command, pendingCamera.context);
+      } else {
+        const center = locations[0];
+        if (center) map.setZoomAndCenter(17.2, center, true, 0);
+      }
+    });
 
     map.on("hotspotclick", (event) => {
       interactionAdapterRef.current.dispatchProviderTarget(() => {
@@ -1013,10 +1147,14 @@ export function AmapCampusPrototype({
     map.on("dragstart", () => {
       driver.interruptCamera();
     });
+    map.on("movestart", () => setMapMoving(true));
     map.on("moveend", () => {
       const center = map.getCenter();
       const offset = amapOffsetRef.current;
+      setMapMoving(false);
       setCenterPosition([center.lng - offset[0], center.lat - offset[1]]);
+      setProviderCenterPosition([center.lng, center.lat]);
+      setMapCenterRevision((revision) => revision + 1);
     });
     map.on("longpress", () => startAddRef.current());
     map.on("rightclick", () => startAddRef.current());
@@ -1340,7 +1478,7 @@ export function AmapCampusPrototype({
       <p className="sr-only" aria-live="polite">
         {editAnnouncement || editRestoreNotice}
       </p>
-      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${editSession?.status === "placing" ? "320px" : editSession ? "calc(78dvh + 4px)" : state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}`}</style>
+      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${editSession?.status === "placing" ? "calc(48dvh + 4px)" : editSession ? "calc(64dvh + 4px)" : state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}`}</style>
       <div className="absolute inset-0">
         <div
           id="amap-campus-canvas"
@@ -1353,7 +1491,12 @@ export function AmapCampusPrototype({
       {editSession?.status === "placing" ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-full"
+          data-campus-map-center-pin
+          data-moving={mapMoving}
+          className={cn(
+            "pointer-events-none absolute top-1/2 left-1/2 z-20 -translate-x-1/2 transition-transform duration-150 motion-reduce:transition-none",
+            mapMoving ? "-translate-y-[calc(100%+8px)]" : "-translate-y-full",
+          )}
         >
           <MapPinIcon
             className="size-12 fill-[#176346] text-white drop-shadow-[0_4px_7px_rgba(23,33,28,.35)]"
@@ -1593,12 +1736,12 @@ export function AmapCampusPrototype({
         }
         aria-labelledby="campus-map-panel-title"
         className={cn(
-          "absolute z-30 overflow-hidden border-black/10 bg-white shadow-[0_12px_40px_rgba(23,33,28,.24)]",
+          "absolute z-30 overflow-hidden overscroll-contain border-black/10 bg-white shadow-[0_12px_40px_rgba(23,33,28,.24)]",
           "inset-x-0 bottom-0 rounded-t-2xl border-t md:inset-y-4 md:right-4 md:left-auto md:w-[390px] md:rounded-2xl md:border",
           editSession?.status === "placing"
-            ? "h-auto max-h-[calc(100dvh-24px)] md:top-auto md:bottom-4 md:max-h-[calc(100dvh-32px)]"
+            ? "h-[48dvh] max-h-[65dvh] md:inset-y-4 md:h-auto md:max-h-[calc(100dvh-32px)]"
             : editSession
-              ? "h-[78dvh] md:h-auto"
+              ? "h-[64dvh] md:h-auto"
               : state.sheet.snap === "full"
                 ? "h-[72dvh] md:h-auto"
                 : "h-[min(248px,36dvh)] md:h-auto md:max-h-[calc(100%-32px)]",
@@ -1630,13 +1773,14 @@ export function AmapCampusPrototype({
             className="absolute top-2 right-3 z-10 grid size-11 place-items-center rounded-full bg-white hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
             onClick={() => dispatchEditEvent({ type: "REQUEST_CLOSE" })}
           >
-            <XIcon className="size-5" />
+            <XIcon aria-hidden="true" className="size-5" />
           </button>
         )}
         {editSession ? (
           <CampusMapEditSheet
             session={editSession}
             centerPosition={centerPosition}
+            placeContext={placeContext}
             factSchema={factSchema}
             onEvent={dispatchEditEvent}
           />

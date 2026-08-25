@@ -117,6 +117,126 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
+  it("persists a placement candidate without making an Add draft dirty", () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey: firstKey,
+    });
+    const position = {
+      longitude: 114.2072,
+      latitude: 22.4191,
+      crs: "wgs84" as const,
+      precision: "approximate" as const,
+      method: "pointer" as const,
+    };
+    const updated = transitionCampusMapEdit(started.session, {
+      type: "UPDATE_PLACEMENT_CANDIDATE",
+      position,
+    });
+
+    expect(updated).toMatchObject({
+      accepted: true,
+      session: {
+        status: "placing",
+        draft: {
+          placementCandidate: position,
+          fact: { location: null },
+        },
+      },
+    });
+    expect(isCampusMapEditDirty(updated.session)).toBe(false);
+
+    const restored = decodeCampusMapEditSnapshot(
+      encodeCampusMapEditSnapshot(updated.session!),
+    );
+    expect(restored).toMatchObject({
+      status: "restored",
+      session: { draft: { placementCandidate: position } },
+    });
+
+    const confirmed = transitionCampusMapEdit(updated.session, {
+      type: "CONFIRM_POSITION",
+      position,
+    });
+    expect(confirmed.session).toMatchObject({
+      status: "editing",
+      draft: {
+        placementCandidate: null,
+        placementMethod: "pointer",
+        fact: {
+          location: {
+            kind: "outdoor-point",
+            longitude: position.longitude,
+            latitude: position.latitude,
+            crs: "wgs84",
+            precision: "approximate",
+          },
+        },
+      },
+    });
+    expect(
+      confirmed.commands.filter(
+        (command) => command.kind === "persist-snapshot",
+      ),
+    ).toHaveLength(1);
+    expect(confirmed.commands).toContainEqual({
+      kind: "focus",
+      target: "form-heading",
+    });
+  });
+
+  it("keeps the same placing session while the user fills in place details", () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey: firstKey,
+    });
+    const position = {
+      longitude: 114.2072,
+      latitude: 22.4191,
+      crs: "wgs84" as const,
+      precision: "approximate" as const,
+      method: "pointer" as const,
+    };
+    const positioned = transitionCampusMapEdit(started.session, {
+      type: "UPDATE_PLACEMENT_CANDIDATE",
+      position,
+    });
+    const named = transitionCampusMapEdit(positioned.session, {
+      type: "CHANGE_FACT",
+      fact: {
+        ...positioned.session!.draft.fact,
+        name: "大学站广场饮水点",
+        pinType: "water",
+      },
+    });
+
+    expect(named.session).toMatchObject({
+      status: "placing",
+      draft: {
+        placementCandidate: position,
+        fact: {
+          name: "大学站广场饮水点",
+          pinType: "water",
+          location: null,
+        },
+      },
+    });
+    expect(isCampusMapEditDirty(named.session)).toBe(true);
+  });
+
+  it("treats every typed Add fact change as dirty", () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey: firstKey,
+    }).session!;
+    const changed = transitionCampusMapEdit(started, {
+      type: "CHANGE_FACT",
+      fact: { ...started.draft.fact, pinType: "toilet" },
+    }).session;
+
+    expect(isCampusMapEditDirty(changed)).toBe(true);
+  });
+
   it("starts Edit with stable identity and a clean baseline", () => {
     const session = editSession();
 
@@ -162,6 +282,13 @@ describe("Campus Map edit session transition", () => {
         mode: "edit",
         placeId,
         baseRevisionId,
+        placementCandidate: {
+          longitude: 114.2049,
+          latitude: 22.4195,
+          crs: "wgs84",
+          precision: "approximate",
+          method: "pointer",
+        },
         warningAcknowledgements: [],
       },
     });
@@ -264,6 +391,20 @@ describe("Campus Map edit session transition", () => {
         JSON.stringify({ version: 999, session: changed }),
       ),
     ).toEqual({ status: "discarded", reason: "unsupported-version" });
+  });
+
+  it("migrates a version 1 draft by adding an empty placement candidate", () => {
+    const legacy = JSON.parse(encodeCampusMapEditSnapshot(editSession())) as {
+      version: number;
+      session: { draft: Record<string, unknown> };
+    };
+    legacy.version = 1;
+    delete legacy.session.draft.placementCandidate;
+
+    expect(decodeCampusMapEditSnapshot(JSON.stringify(legacy))).toMatchObject({
+      status: "restored",
+      session: { draft: { placementCandidate: null } },
+    });
   });
 
   it("derives typed comment/source summary and always disables review requests", () => {
@@ -627,6 +768,28 @@ describe("Campus Map edit session transition", () => {
       session: { draft: { fact: unknown } };
     };
     snapshot.session.draft.fact = { name: "missing controlled fields" };
+
+    expect(decodeCampusMapEditSnapshot(JSON.stringify(snapshot))).toEqual({
+      status: "discarded",
+      reason: "invalid-snapshot",
+    });
+  });
+
+  it("discards a damaged placement candidate", () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey: firstKey,
+    }).session!;
+    const snapshot = JSON.parse(encodeCampusMapEditSnapshot(started)) as {
+      session: { draft: { placementCandidate: unknown } };
+    };
+    snapshot.session.draft.placementCandidate = {
+      longitude: 114.21,
+      latitude: 95,
+      crs: "gcj02",
+      precision: "approximate",
+      method: "pointer",
+    };
 
     expect(decodeCampusMapEditSnapshot(JSON.stringify(snapshot))).toEqual({
       status: "discarded",

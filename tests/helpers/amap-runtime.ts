@@ -6,6 +6,7 @@ type Handler = (event: Record<string, unknown>) => void;
 
 export function installAmapRuntime(options?: {
   convertFromFails?: boolean;
+  convertFromMutatesInput?: boolean;
   convertFromOffset?: { longitude: number; latitude: number };
   markerClusterStatus?:
     | "ready"
@@ -37,10 +38,19 @@ export function installAmapRuntime(options?: {
   class MockMap {
     readonly handlers = new Map<string, Handler[]>();
     zoom = 17.2;
-    readonly setZoomAndCenter = vi.fn((zoom: number) => {
-      this.zoom = zoom;
-    });
+    center = new MockLngLat(114.2072, 22.4191);
+    readonly setZoomAndCenter = vi.fn(
+      (zoom: number, center?: LngLat | readonly [number, number]) => {
+        this.zoom = zoom;
+        if (center && "lng" in center) {
+          this.center = new MockLngLat(center.lng, center.lat);
+        } else if (center) {
+          this.center = new MockLngLat(center[0], center[1]);
+        }
+      },
+    );
     readonly panTo = vi.fn();
+    readonly panBy = vi.fn();
     readonly setBounds = vi.fn();
     readonly zoomIn = vi.fn();
     readonly zoomOut = vi.fn();
@@ -48,9 +58,15 @@ export function installAmapRuntime(options?: {
 
     constructor(
       readonly containerId: string,
-      mapOptions: { zoom?: number },
+      mapOptions: { zoom?: number; center?: readonly [number, number] },
     ) {
       this.zoom = mapOptions.zoom ?? 17.2;
+      if (mapOptions.center) {
+        this.center = new MockLngLat(
+          mapOptions.center[0],
+          mapOptions.center[1],
+        );
+      }
       runtime.maps.push(this);
     }
 
@@ -80,6 +96,10 @@ export function installAmapRuntime(options?: {
       return this.zoom;
     }
 
+    getCenter() {
+      return this.center;
+    }
+
     getContainer() {
       return document.getElementById(this.containerId)!;
     }
@@ -99,6 +119,19 @@ export function installAmapRuntime(options?: {
 
     remove() {}
     add() {}
+  }
+
+  class MockGeocoder {
+    constructor(readonly geocoderOptions: Record<string, unknown>) {
+      runtime.geocoders.push(this);
+    }
+
+    getAddress(
+      position: readonly [number, number],
+      callback: (status: string, result: unknown) => void,
+    ) {
+      runtime.geocodeRequests.push({ position, callback });
+    }
   }
 
   class MockMarker {
@@ -229,6 +262,11 @@ export function installAmapRuntime(options?: {
     markers: [] as MockMarker[],
     clusters: [] as MockMarkerCluster[],
     infoWindows: [] as MockInfoWindow[],
+    geocoders: [] as MockGeocoder[],
+    geocodeRequests: [] as Array<{
+      position: readonly [number, number];
+      callback: (status: string, result: unknown) => void;
+    }>,
     mapRect: options?.mapRect ?? { top: 0, right: 720, bottom: 844, left: 0 },
     panelRect: options?.panelRect ?? {
       top: 596,
@@ -241,6 +279,7 @@ export function installAmapRuntime(options?: {
       Marker: MockMarker,
       MarkerCluster: MockMarkerCluster,
       InfoWindow: MockInfoWindow,
+      Geocoder: MockGeocoder,
       LngLat: MockLngLat,
       Pixel: MockPixel,
       Bounds: class {
@@ -248,6 +287,9 @@ export function installAmapRuntime(options?: {
           readonly southWest: LngLat,
           readonly northEast: LngLat,
         ) {}
+      },
+      plugin(_plugins: readonly string[], callback: () => void) {
+        callback();
       },
       convertFrom(
         positions: readonly (readonly [number, number])[],
@@ -261,16 +303,47 @@ export function installAmapRuntime(options?: {
           callback("error", {});
           return;
         }
+        const originalPositions = positions.map(
+          ([lng, lat]) => [lng, lat] as const,
+        );
         const offset = options?.convertFromOffset ?? {
           longitude: 0,
           latitude: 0,
         };
+        if (options?.convertFromMutatesInput) {
+          for (const position of positions) {
+            const mutable = position as unknown as {
+              0?: number;
+              1?: number;
+              lng?: number;
+              lat?: number;
+            };
+            mutable.lng = mutable[0];
+            mutable.lat = mutable[1];
+            delete mutable[0];
+            delete mutable[1];
+          }
+        }
         callback("complete", {
-          locations: positions.map(
+          locations: originalPositions.map(
             ([lng, lat]) =>
               new MockLngLat(lng + offset.longitude, lat + offset.latitude),
           ),
         });
+        if (options?.convertFromMutatesInput) {
+          positions.forEach((position, index) => {
+            const mutable = position as unknown as {
+              0?: number;
+              1?: number;
+              lng?: number;
+              lat?: number;
+            };
+            mutable[0] = originalPositions[index]![0];
+            mutable[1] = originalPositions[index]![1];
+            delete mutable.lng;
+            delete mutable.lat;
+          });
+        }
       },
     },
     async flushAnimationFrames() {
@@ -285,6 +358,12 @@ export function installAmapRuntime(options?: {
     async flushInfoWindowCloseEvents() {
       await act(async () => {
         for (const callback of infoWindowCloseQueue.splice(0)) callback();
+      });
+    },
+    async resolveGeocode(index: number, status: string, result: unknown) {
+      await act(async () => {
+        runtime.geocodeRequests[index]?.callback(status, result);
+        await Promise.resolve();
       });
     },
     async triggerResize() {
