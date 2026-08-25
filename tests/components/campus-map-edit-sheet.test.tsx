@@ -121,12 +121,71 @@ describe("Campus Map single-page edit Sheet", () => {
 
     const typeGroup = screen.getByRole("group", { name: "地点类型" });
     const choices = typeGroup.querySelector("div");
-    expect(choices?.className).toContain("flex-wrap");
+    expect(choices?.className).toContain("grid-cols-2");
     expect(choices?.className).not.toContain("overflow-x-auto");
-    expect(screen.getByRole("radio", { name: "课室" })).toBeTruthy();
+    expect(
+      screen.getByRole("radio", { name: "课室" }).closest("label")?.className,
+    ).toContain("col-span-2");
     expect(typeGroup.getAttribute("tabindex")).toBe("-1");
     expect(typeGroup.className).toContain("focus-visible:ring-2");
     expect(screen.queryByText(/Changeset 说明/)).toBeNull();
+  });
+
+  it("attributes a POI-only Geocoder result to 高德", () => {
+    render(
+      <CampusMapEditSheet
+        session={{ status: "placing", draft: draft() }}
+        centerPosition={[114.2, 22.4]}
+        placeContext={{
+          status: "resolved",
+          context: {
+            providerPosition: {
+              longitude: 114.202,
+              latitude: 22.402,
+              crs: "gcj02",
+            },
+            label: "邵逸夫堂",
+            address: null,
+            providerPoiId: "shaw-college-hall",
+            distanceMeters: 14,
+          },
+        }}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("邵逸夫堂")).toBeTruthy();
+    expect(screen.getByText("高德参考 · 附近地点")).toBeTruthy();
+  });
+
+  it.each([
+    ["rate-limited", "地址查询较频繁，仍可使用此位置"],
+    ["transient-error", "暂时无法识别地址，仍可使用此位置"],
+    ["permanent-error", "地址服务不可用，仍可使用此位置"],
+    ["empty", "高德未找到附近地点，仍可使用此位置"],
+  ] as const)("keeps the candidate usable after %s", (status, message) => {
+    render(
+      <CampusMapEditSheet
+        session={{ status: "placing", draft: draft() }}
+        centerPosition={[114.2, 22.4]}
+        placeContext={
+          status === "rate-limited"
+            ? { status, retryAfterSeconds: 30 }
+            : { status }
+        }
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(message)).toBeTruthy();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "使用此位置",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+    expect(screen.queryByRole("textbox", { name: "地点名称" })).toBeNull();
   });
 
   it("starts a fresh publish attempt when editing a transient failure", () => {
@@ -542,6 +601,8 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     expect(screen.getByText("移动地图，让图钉对准地点的新位置。")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "使用此位置" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "确认新位置" })).toBeNull();
     expect(screen.queryByText(/要添加的地点/)).toBeNull();
   });
 

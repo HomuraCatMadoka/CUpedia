@@ -192,25 +192,30 @@ MVP 不接收证据照片或任意附件。现有 Wiki asset 上传后公开且�
 
 ```text
 Browse
- ├─ Add → 同一张 Sheet 内 center pin / 键盘候选位置 + 基础字段 ─┐
- └─ Place card → Edit ──────────────┤
-                                    ↓
-                          锁定位置并补全 schema-driven 字段
-                                    ↓
-                                 Publish
+ ├─ Add → 同一张 Sheet 的 focused placing：center pin / 键盘候选位置
+ │                                      ↓ “使用此位置”
+ │                            显示已挂载的 schema-driven 字段 ─┐
+ └─ Place card → Edit ────────────────────────────────────────┤
+                                                              ↓
+                                                           Publish
 ```
 
 - `Browse`、`Select Place` 与 `Add Point` 是互斥模式；MVP 不展示 Line、Area 或 Relation。
 - Add 与 Edit 共用一张单页 Sheet。`placing` 与 `editing` 保持同一 Sheet shell；
-  名称、地点类型和位置行在确认前就可编辑，不存在独立定位页、preset 或 Review
-  页面、常驻 Undo/Redo 或 action journal。
+  已挂载的名称和地点类型控件在确认位置前隐藏且不可交互，主操作统一为“使用此位置”；确认后显示
+  同一批控件，不重新挂载表单。它是同一 session 内的两种 presentation，不是独立定位页、preset
+  或 Review 页面，也不增加常驻 Undo/Redo 或 action journal。
 - Add 的 center pin 与键盘路径先更新可恢复、provider-neutral 的 WGS84 placement
   candidate。candidate 本身不是 Current fact，也不单独产生 dirty；两条路径都经同一
   `CONFIRM_POSITION` transition 锁定 position、CRS 和诚实 precision。锁定后地图手势不能改写
   位置，除非用户明确选择重新定位。
 - 移动地图时 center pin 提起，`moveend` 后由小型 AMap Geocoder boundary 提供带归属
-  的瞬时地址/附近 POI 参考。provider 结果不得自动填名称、来源、`placeId` 或其他
-  canonical fact；过期回调在新候选、关闭、Back、Escape、刷新或新任务后失效。
+  的瞬时地址/附近 POI 参考。高德同时返回校园容器与具体建筑时，可以优先显示具体建筑；没有返回
+  具体建筑或查询失败时，候选位置仍可使用，用户在确认后的表单中命名。provider 结果不得自动填
+  名称、来源、`placeId` 或其他 canonical fact；过期回调在新候选、关闭、Back、Escape、刷新或
+  新任务后失效。
+- 移动端 `placing` 只显示定位所需内容，保留约一半地图；`editing` 在 390px 与 720px 高度下至少
+  保留 35% 地图。地点类型使用自适应网格，不能把最后一个选项单独挤到窄行。
 - Edit 绑定不可变 `placeId + baseRevisionId`；初始载入不 dirty，只有事实或位置变化才启用发布。
 - preset schema 同时驱动适用字段、默认值、公开标签和本地基础校验；服务器结果仍是最终校验来源。
 - typed draft/diff 自动生成 Changeset comment 与安全 source summary；MVP 固定

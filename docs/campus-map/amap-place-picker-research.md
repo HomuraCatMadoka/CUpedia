@@ -18,9 +18,19 @@
 
 1. 在现有 AMap 加载列表中加入 `AMap.Geocoder`，只在选点状态下响应地图移动。
 2. `movestart` 时把 pin 抬起、位置文案变成“正在确定位置…”；`moveend` 时对最新中心调用一次 `getAddress()`。
-3. 先用 `Geocoder({ radius: 100~200, extensions: "all" })` 返回的 `formattedAddress`、`addressComponent` 和最近 POI。只有需要让用户主动选择附近地点时，才额外调用 `PlaceSearch.searchNearBy()`。
-4. 高德结果只作为**辅助识别**：不能自动成为 CUpedia Place 身份、名称或可发布来源；用户明确选择候选后才生成一个 typed edit intent。
+3. 只用 `Geocoder({ radius: 100~200, extensions: "all" })` 返回的 `formattedAddress`、`addressComponent` 和最近 POI；首版不调用 `PlaceSearch` 或 `AutoComplete`。
+4. 高德结果只作为**辅助识别**：不能自动成为 CUpedia Place 身份、名称或可发布来源；确认位置仍只生成现有 transition 接受的 typed intent。
 5. 每类异步请求使用独立递增 token；旧回调只丢弃，不允许覆盖新中心。发布/确认仍走现有 transition module 的单次 intent 与幂等契约。
+
+### 原型验收修订
+
+实际在短屏手机上验收后，定位与填写同时出现会让用户误以为必须向下滚动才能完成当前任务。首版因此
+改为同一张 Sheet 内的两段式 presentation：`placing` 只显示中心 pin、高德参考、键盘坐标入口和
+“使用此位置”；确认后才显示已经挂载的名称与 schema-driven 类型控件。这里没有新增页面、表单、
+session 或地图 owner，只是把一个大任务拆成两个清楚的小步骤。
+
+高德同时给出“香港中文大学”这类校园容器和具体建筑时，显示层优先具体建筑；如果返回中根本没有该
+建筑，不能根据底图文字假装识别成功，仍保留候选坐标，并让用户在下一步手动填写名称。
 
 ## 一、高德官方能力
 
@@ -58,7 +68,7 @@
 - 使用 100–200 米半径，而不是默认 1000 米，避免把山另一侧或远处建筑当成“当前位置附近”。
 - 主文案优先使用用户可理解的 POI/建筑名；副文案显示地址。没有可靠 POI 时显示“地图中心位置”或格式化地址，不虚构“某建筑附近”。
 - `regeocode.pois` 是高德候选，不是 CUpedia `placeId`。POI ID 只能进入 transient provider suggestion 或明确的 provider mapping，不能成为 canonical identity。
-- Geocoder 失败不应清掉已选坐标或用户草稿；UI 保留 pin，并显示“暂时无法识别地址，可继续填写”。
+- Geocoder 失败不应清掉已选坐标或用户草稿；UI 保留 pin，并显示“暂时无法识别地址，仍可使用此位置”。
 
 ### 3. `AMap.PlaceSearch` 周边 POI
 
@@ -227,33 +237,40 @@ NocoBase 是大型 React/TypeScript 项目，但相关文件使用 AGPL-3.0 或�
 
 ## 四、对当前 UI 的具体建议
 
-当前 [`edit-sheet.tsx:113`](../../src/components/campus-map/edit-sheet.tsx#L113) 的“科学馆附近”只是从本地 3 栋原型建筑中计算最近距离，并在 350 米内拼接“附近”。这不是高德识别结果，应该删除或明确标成“CUpedia 附近建筑”。
+早期原型曾从本地 3 栋建筑计算距离并拼接“附近”，容易被误解为高德识别。当前实现已删除这条
+假识别，改用 `AMap.Geocoder` 的瞬时参考；没有结果时只说明候选位置仍可使用。
 
 推荐的同一张 Sheet 流程：
 
 ```text
-添加地点                                      ×
-
-[ 地点名称________________________________ ]
-[饮水点] [洗手间] [打印] [更多]
+选择地点位置                                  ×
 
 📍 正在确定位置…
    （地图仍可拖动）
+
+输入坐标
+
+[                使用此位置                ]
 ```
 
-停止后：
+确认位置后，同一张 Sheet 显示已挂载的表单：
 
 ```text
-📍 科学馆东侧
-   高德参考 · Central Avenue 附近              更改
+添加地点                                      ×
+
+📍 邵逸夫堂
+   高德参考 · Central Avenue 附近              重新定位
+
+[ 地点名称________________________________ ]
+[饮水点] [洗手间] [打印服务] [公共空间] [课室]
 ```
 
 交互规则：
 
-- 不再显示独立的“位置放好了”大按钮；名称、类别和地图可以并行调整。
+- `placing` 的主按钮统一为“使用此位置”；名称和类别保持挂载但隐藏且不可交互，确认后再显示。
 - 地址识别完成不自动展开 Sheet、不写 history、不抢 focus。
-- “更改”展开由 React 渲染的搜索/附近候选；选择候选后地图平移，同一 Sheet 不换 owner。
-- 识别失败保留坐标与表单：“暂时无法识别地址，你仍可填写地点名称”。
+- “重新定位”回到同一 Sheet 的 `placing` presentation；同一 Sheet 不换 owner。
+- 识别失败保留坐标：“暂时无法识别地址，仍可使用此位置”。
 - 读屏用单独的 polite live region 宣告“正在确定位置 / 已识别为… / 无法识别”，不要让整个卡片反复重读。
 - 键盘用户用现有可聚焦地图/方向键移动中心；停止后走与手势完全相同的 token 和 resolve 路径。
 
@@ -265,14 +282,19 @@ NocoBase 是大型 React/TypeScript 项目，但相关文件使用 AGPL-3.0 或�
 2. 保持单一地图/session owner；provider 回调只能生成 typed result/intent。
 3. 加入 center request token、旧回调丢弃、关闭后失效和失败降级。
 4. 明确 GCJ-02 → WGS84 近似的最大误差；未证明 precise 就发布为 approximate。
-5. 生产改用 `serviceHost`，security key 不再通过 `/api/campus-map/config` 返回浏览器。
 
 ### P1
 
 1. pin 抬起/落下和“正在确定位置”反馈。
-2. 按需附近 POI、受控搜索结果和 IME-aware debounce。
-3. reverse cache/pending promise 复用，避免快速继续或双击造成重复调用。
-4. 监控 `complete | no_data | error`、鉴权、域名、限额和 transient failure，但不记录凭据。
+2. reverse cache/pending promise 复用，避免快速继续或双击造成重复调用。
+3. 监控 `complete | no_data | error`、鉴权、域名、限额和 transient failure，但不记录凭据。
+
+### 明确延后
+
+- `PlaceSearch` 附近候选、`AutoComplete` 搜索、结果 listbox 与 IME-aware debounce；先验收
+  Geocoder-only 选点，再为搜索的额度、焦点和程序镜头行为单独定范围。
+- 生产 `serviceHost` 安全代理与部署配置；上线前必须完成，但不在 #646 内扩张 provider 或 publish
+  架构。
 
 ### 真实高德验收
 
@@ -300,7 +322,7 @@ GCJ-02 偏移 `[+0.004877, -0.002832]` 做近似逆转换，再以 Haversine 距
 适合 MVP 的 `approximate` point；不能据此发布为 `precise`。
 
 - 390px、720px、desktop：慢拖、快速连续拖、拖动后立即关闭、拖动后立即继续。
-- 键盘平移、读屏 live announcement、搜索 listbox 的上下键/Enter/Escape。
+- 键盘平移、坐标输入/确认和读屏 live announcement。
 - 模拟 B 请求先于 A 返回，最终只能显示 B；关闭后任何 A/B 回调都不得复活 UI。
 - Geocoder `no_data`、网络失败、限额、错误 key、错误 domain、安全代理失败。
 - 校园至少 9 个 WGS84 校验点（中心、四角、四边中点），记录近似逆转换的最大水平误差。

@@ -584,18 +584,18 @@ export function CampusMapEditSheet({
   const resolvedContext =
     placeContext?.status === "resolved" ? placeContext.context : null;
   const placementLabel = resolvedContext?.label ?? "地图中心位置";
-  const placementDescription = resolvedContext?.address
-    ? `高德参考 · ${resolvedContext.address}`
+  const placementDescription = resolvedContext
+    ? `高德参考 · ${resolvedContext.address ?? "附近地点"}`
     : placeContext?.status === "loading"
       ? "正在确定位置…"
       : placeContext?.status === "rate-limited"
-        ? "地址查询较频繁，可继续填写"
+        ? "地址查询较频繁，仍可使用此位置"
         : placeContext?.status === "transient-error"
-          ? "暂时无法识别地址，可继续填写"
+          ? "暂时无法识别地址，仍可使用此位置"
           : placeContext?.status === "permanent-error"
-            ? "地址服务不可用，可继续填写"
+            ? "地址服务不可用，仍可使用此位置"
             : placeContext?.status === "empty"
-              ? "高德未识别到附近地点，可继续填写"
+              ? "高德未找到附近地点，仍可使用此位置"
               : "移动地图，让图钉对准地点";
   const coordinateEntry = isPlacing ? (
     <div
@@ -1086,12 +1086,12 @@ export function CampusMapEditSheet({
             <legend className="mb-2 text-sm font-medium">
               {fieldLabel("pinType", "地点类型")}
             </legend>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {CAMPUS_MAP_EDIT_SCHEMA.presets.map((item) => (
                 <label
                   key={item.pinType}
                   className={cn(
-                    "flex min-h-11 shrink-0 cursor-pointer touch-manipulation items-center rounded-xl border px-3 text-sm font-semibold transition-colors active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 motion-reduce:transform-none",
+                    "flex min-h-11 w-full cursor-pointer touch-manipulation items-center justify-center rounded-xl border px-3 text-center text-sm font-semibold transition-colors last:col-span-2 active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 sm:last:col-span-1 motion-reduce:transform-none",
                     fact.pinType === item.pinType
                       ? "border-[#176346] bg-[#e4f1eb] text-[#174b38]"
                       : "border-black/15 bg-white text-neutral-700 hover:bg-neutral-50",
@@ -1521,9 +1521,7 @@ export function CampusMapEditSheet({
           {isPlacing
             ? placementPending
               ? "正在确定位置…"
-              : draft.mode === "add"
-                ? "使用此位置"
-                : "确认新位置"
+              : "使用此位置"
             : session.status === "publishing"
               ? "正在发布…"
               : draft.mode === "add"
