@@ -95,7 +95,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.getByRole("textbox", { name: "地点名称" })).toBe(nameInput);
   });
 
-  it("keeps programmatic heading focus visually quiet after confirming position", () => {
+  it("keeps programmatic heading focus visible for keyboard users", () => {
     render(
       <CampusMapEditSheet
         session={{
@@ -123,7 +123,7 @@ describe("Campus Map single-page edit Sheet", () => {
     heading.focus();
     expect(document.activeElement).toBe(heading);
     expect(heading.getAttribute("tabindex")).toBe("-1");
-    expect(heading.className).not.toContain("focus-visible:ring");
+    expect(heading.className).toContain("focus-visible:ring-2");
   });
 
   it("keeps every place type discoverable without a hidden horizontal scroller", () => {
