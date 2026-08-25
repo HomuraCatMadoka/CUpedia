@@ -22,6 +22,7 @@ import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
 interface CampusMapEditSheetProps {
   session: CampusMapEditSession;
   centerPosition: readonly [number, number];
+  placementPending?: boolean;
   placeContext?: AmapPlaceContextResult | { status: "loading" } | null;
   factSchema?: CampusMapFactSchema | null;
   onEvent(event: CampusMapEditEvent): void;
@@ -193,6 +194,7 @@ function SelectField<T extends string>({
 export function CampusMapEditSheet({
   session,
   centerPosition,
+  placementPending = false,
   placeContext = null,
   factSchema,
   onEvent,
@@ -207,6 +209,7 @@ export function CampusMapEditSheet({
   const [sourceObservedAt, setSourceObservedAt] = useState(nowLocal);
   const [showCoordinateEntry, setShowCoordinateEntry] = useState(false);
   const [showMoreDetails, setShowMoreDetails] = useState(false);
+  const [showSourceEntry, setShowSourceEntry] = useState(false);
   const [conflictSelection, setConflictSelection] = useState<{
     key: string;
     fields: Array<keyof CampusMapPublishFactInput>;
@@ -262,6 +265,10 @@ export function CampusMapEditSheet({
     optionalFieldNames.has(session.localError);
   const optionalDetailsVisible =
     showMoreDetails || hasOptionalServerError || hasOptionalLocalError;
+  const sourceEntryExpanded =
+    showSourceEntry ||
+    session.localError === "sources" ||
+    session.localError === "sourceObservedAt";
 
   if (session.status === "published" && session.receipt) {
     const receipt = session.receipt;
@@ -315,6 +322,8 @@ export function CampusMapEditSheet({
   const keyboardLongitudeNumber = Number(keyboardLongitude);
   const keyboardLatitudeNumber = Number(keyboardLatitude);
   const keyboardValid =
+    keyboardLongitude.trim() !== "" &&
+    keyboardLatitude.trim() !== "" &&
     Number.isFinite(keyboardLongitudeNumber) &&
     keyboardLongitudeNumber >= -180 &&
     keyboardLongitudeNumber <= 180 &&
@@ -329,7 +338,7 @@ export function CampusMapEditSheet({
   const placementDescription = resolvedContext?.address
     ? resolvedContext.address
     : placeContext?.status === "loading"
-      ? "正在识别附近地点…"
+      ? "正在确定位置…"
       : placeContext?.status === "rate-limited"
         ? "地址查询较频繁，可继续填写"
         : placeContext?.status === "transient-error"
@@ -491,6 +500,29 @@ export function CampusMapEditSheet({
           >
             前往登录
           </Link>
+        </div>
+      );
+    }
+    if (session.status === "forbidden") {
+      const messages = {
+        "actor-banned": "账号已被封禁，暂时不能发布地点资料。",
+        "profile-incomplete": "账号资料尚未完成，完成后才能发布地点资料。",
+        "actor-not-eligible": "这个账号目前没有发布地点资料的资格。",
+        "role-not-eligible": "当前账号角色没有发布地点资料的权限。",
+        "admin-required": "这项操作只允许管理员发布。",
+      } as const;
+      return (
+        <div
+          className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-950"
+          role="alert"
+        >
+          <p className="font-semibold">无法发布</p>
+          <p className="mt-1">
+            {session.forbiddenCode
+              ? messages[session.forbiddenCode]
+              : "当前账号没有发布这项修改的权限。"}
+          </p>
+          <p className="mt-1 text-xs">草稿仍保存在这个浏览器中。</p>
         </div>
       );
     }
@@ -657,6 +689,7 @@ export function CampusMapEditSheet({
         {visible.has("location") ? (
           <div
             data-edit-field="location"
+            tabIndex={-1}
             className="rounded-xl bg-[#edf5f1] p-3 text-sm"
           >
             <div className="flex items-start gap-3">
@@ -670,7 +703,10 @@ export function CampusMapEditSheet({
                     ? placementLabel
                     : friendlyLocationLabel(fact)}
                 </p>
-                <p className="mt-0.5 text-xs text-neutral-600">
+                <p
+                  className="mt-0.5 text-xs text-neutral-600"
+                  aria-live="polite"
+                >
                   {isPlacing || resolvedContext
                     ? placementDescription
                     : fact.location?.kind === "outdoor-point"
@@ -1024,65 +1060,109 @@ export function CampusMapEditSheet({
             />
           ) : null}
         </div>
-        <fieldset
-          hidden={isPlacing}
-          data-edit-field="sources"
-          className="rounded-xl border p-3"
-          aria-invalid={session.localError === "sources"}
-        >
-          <legend className="px-1 text-sm font-medium">资料来源</legend>
-          <label
-            className="block text-sm"
-            htmlFor={`${fieldPrefix}-source-date`}
-          >
-            现场观察时间（香港时间）
-            <input
-              id={`${fieldPrefix}-source-date`}
-              name="campus-map-source-observed-at"
-              autoComplete="off"
-              data-edit-field="sourceObservedAt"
-              className={fieldClass}
-              type="datetime-local"
-              value={sourceObservedAt}
-              required
-              aria-invalid={session.localError === "sourceObservedAt"}
-              onChange={(event) => setSourceObservedAt(event.target.value)}
-            />
-          </label>
+        <div hidden={isPlacing} className="rounded-xl border p-3">
           <button
             type="button"
-            className={cn(secondaryClass, "mt-3 w-full")}
-            onClick={() => {
-              const observationTimestamp = Date.parse(
-                `${sourceObservedAt}:00+08:00`,
-              );
-              const observationValid =
-                sourceObservedAt !== "" &&
-                Number.isFinite(observationTimestamp) &&
-                observationTimestamp <= Date.now();
-              if (!observationValid) {
-                onEvent({
-                  type: "REPORT_LOCAL_ERROR",
-                  field: "sourceObservedAt",
-                });
-                return;
-              }
-              onEvent({
-                type: "CHANGE_SOURCES",
-                sources: [
-                  observationSource(sourceObservedAt, observationTimestamp),
-                ],
-              });
-            }}
+            data-edit-field="sources"
+            aria-expanded={sourceEntryExpanded}
+            aria-controls={`${fieldPrefix}-source-entry`}
+            aria-describedby={
+              session.localError === "sources"
+                ? `${fieldPrefix}-source-error`
+                : undefined
+            }
+            aria-label={
+              sourceEntryExpanded
+                ? "收起资料来源"
+                : draft.sources.length
+                  ? "修改资料来源"
+                  : "添加资料来源"
+            }
+            className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-1 text-left text-sm font-semibold hover:text-[#176346] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+            onClick={() => setShowSourceEntry((current) => !current)}
           >
-            {draft.sources.length ? "更新现场观察来源" : "使用现场观察来源"}
+            <span>
+              {draft.sources.length ? "修改资料来源" : "添加资料来源"}
+            </span>
+            <ChevronDownIcon
+              aria-hidden="true"
+              className={cn(
+                "size-4 transition-transform motion-reduce:transition-none",
+                sourceEntryExpanded && "rotate-180",
+              )}
+            />
           </button>
-          {draft.sources.length ? (
-            <p className="mt-2 text-xs text-[#176346]">
+          {session.localError === "sources" ? (
+            <p
+              id={`${fieldPrefix}-source-error`}
+              className="px-1 text-xs text-red-700"
+              role="alert"
+            >
+              请添加资料来源。
+            </p>
+          ) : null}
+          {draft.sources.length && !sourceEntryExpanded ? (
+            <p className="px-1 text-xs text-[#176346]">
               已记录：{draft.sources[0]?.ref}
             </p>
           ) : null}
-        </fieldset>
+          {sourceEntryExpanded ? (
+            <fieldset id={`${fieldPrefix}-source-entry`} className="mt-3">
+              <legend className="sr-only">资料来源</legend>
+              <label
+                className="block text-sm"
+                htmlFor={`${fieldPrefix}-source-date`}
+              >
+                现场观察时间（香港时间）
+                <input
+                  id={`${fieldPrefix}-source-date`}
+                  name="campus-map-source-observed-at"
+                  autoComplete="off"
+                  data-edit-field="sourceObservedAt"
+                  className={fieldClass}
+                  type="datetime-local"
+                  value={sourceObservedAt}
+                  required
+                  aria-invalid={session.localError === "sourceObservedAt"}
+                  onChange={(event) => setSourceObservedAt(event.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className={cn(secondaryClass, "mt-3 w-full")}
+                onClick={() => {
+                  const observationTimestamp = Date.parse(
+                    `${sourceObservedAt}:00+08:00`,
+                  );
+                  const observationValid =
+                    sourceObservedAt !== "" &&
+                    Number.isFinite(observationTimestamp) &&
+                    observationTimestamp <= Date.now();
+                  if (!observationValid) {
+                    onEvent({
+                      type: "REPORT_LOCAL_ERROR",
+                      field: "sourceObservedAt",
+                    });
+                    return;
+                  }
+                  onEvent({
+                    type: "CHANGE_SOURCES",
+                    sources: [
+                      observationSource(sourceObservedAt, observationTimestamp),
+                    ],
+                  });
+                }}
+              >
+                {draft.sources.length ? "更新现场观察来源" : "使用现场观察来源"}
+              </button>
+              {draft.sources.length ? (
+                <p className="mt-2 text-xs text-[#176346]">
+                  已记录：{draft.sources[0]?.ref}
+                </p>
+              ) : null}
+            </fieldset>
+          ) : null}
+        </div>
         <p
           hidden={isPlacing}
           className="rounded-xl bg-neutral-50 p-3 text-xs leading-5 text-neutral-600"
@@ -1095,8 +1175,9 @@ export function CampusMapEditSheet({
           type="button"
           className={primaryClass}
           disabled={
-            !isPlacing &&
-            (!isCampusMapEditDirty(session) || session.status === "publishing")
+            isPlacing
+              ? placementPending
+              : session.status !== "editing" || !isCampusMapEditDirty(session)
           }
           onClick={() =>
             onEvent(
@@ -1107,9 +1188,11 @@ export function CampusMapEditSheet({
           }
         >
           {isPlacing
-            ? draft.mode === "add"
-              ? "继续填写"
-              : "确认新位置"
+            ? placementPending
+              ? "正在确定位置…"
+              : draft.mode === "add"
+                ? "继续填写"
+                : "确认新位置"
             : session.status === "publishing"
               ? "正在发布…"
               : draft.mode === "add"

@@ -42,6 +42,7 @@ export type CampusMapEditStatus =
   | "publishing"
   | "warning"
   | "authentication-required"
+  | "forbidden"
   | "rate-limited"
   | "temporarily-unavailable"
   | "conflict"
@@ -67,6 +68,10 @@ export interface CampusMapEditSession {
   warnings?: CampusMapPublishWarning[];
   retryAfter?: number;
   rateScope?: "actor" | "ip";
+  forbiddenCode?: Extract<
+    CampusMapPublishResult,
+    { status: "forbidden" }
+  >["code"];
   conflict?: CampusMapEditConflict;
   receipt?: CampusMapEditReceipt;
 }
@@ -467,9 +472,13 @@ export function transitionCampusMapEdit(
   }
   if (event.type === "CONTINUE_EDITING") {
     if (session.status !== "confirm-discard") return rejected(session);
+    const returnStatus = session.returnStatus ?? "editing";
     const next = {
-      status: session.returnStatus ?? "editing",
-      draft: session.draft,
+      status: returnStatus,
+      draft:
+        returnStatus === "placing"
+          ? { ...session.draft, placementCandidate: null }
+          : session.draft,
     } satisfies CampusMapEditSession;
     return {
       accepted: true,
@@ -495,7 +504,10 @@ export function transitionCampusMapEdit(
     };
   }
 
-  if (event.type === "REQUEST_PUBLISH") return publishTransition(session);
+  if (event.type === "REQUEST_PUBLISH") {
+    if (session.status !== "editing") return rejected(session);
+    return publishTransition(session);
+  }
 
   if (event.type === "PUBLISH_RESULT") {
     if (
@@ -532,6 +544,13 @@ export function transitionCampusMapEdit(
         draft: session.draft,
       });
     }
+    if (result.status === "forbidden") {
+      return persisted({
+        status: "forbidden",
+        draft: session.draft,
+        forbiddenCode: result.code,
+      });
+    }
     if (result.status === "rate-limited") {
       const next: CampusMapEditSession = {
         status: "rate-limited",
@@ -563,7 +582,25 @@ export function transitionCampusMapEdit(
         (item) => item.currentRevisionId && item.currentSnapshot,
       );
       if (!conflict?.currentRevisionId || !conflict.currentSnapshot) {
-        return persisted({ status: "conflict", draft: session.draft });
+        const serverErrors = result.conflicts.map(({ code, anchor }) => ({
+          code,
+          anchor,
+        }));
+        return {
+          accepted: true,
+          session: {
+            status: "editing",
+            draft: session.draft,
+            serverErrors,
+          },
+          commands: [
+            { kind: "persist-snapshot" },
+            {
+              kind: "announce",
+              message: "地点的最新版本不可用，草稿仍已保留",
+            },
+          ],
+        };
       }
       const currentFact = Object.fromEntries(
         Object.entries(conflict.currentSnapshot).filter(
@@ -954,6 +991,7 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
     "publishing",
     "warning",
     "authentication-required",
+    "forbidden",
     "rate-limited",
     "temporarily-unavailable",
     "conflict",
@@ -969,6 +1007,14 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
       (isRecord(value.conflict) &&
         typeof value.conflict.currentRevisionId === "string" &&
         looksLikeFact(value.conflict.currentFact, false))) &&
+    (value.status !== "forbidden" ||
+      [
+        "actor-not-eligible",
+        "actor-banned",
+        "profile-incomplete",
+        "role-not-eligible",
+        "admin-required",
+      ].includes(String(value.forbiddenCode))) &&
     (value.status !== "rate-limited" ||
       (typeof value.retryAfter === "number" &&
         Number.isFinite(value.retryAfter) &&
@@ -980,6 +1026,7 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
         "publishing",
         "warning",
         "authentication-required",
+        "forbidden",
         "rate-limited",
         "temporarily-unavailable",
         "conflict",

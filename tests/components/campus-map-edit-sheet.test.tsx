@@ -178,6 +178,9 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
+    expect(screen.queryByLabelText("现场观察时间（香港时间）")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "添加资料来源" }));
+
     fireEvent.change(screen.getByLabelText("现场观察时间（香港时间）"), {
       target: { value: "" },
     });
@@ -214,6 +217,127 @@ describe("Campus Map single-page edit Sheet", () => {
         },
       ],
     });
+  });
+
+  it("rejects blank keyboard coordinates instead of treating them as zero", () => {
+    render(
+      <CampusMapEditSheet
+        session={{ status: "placing", draft: draft() }}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "其他定位方式" }));
+    const useCoordinates = screen.getByRole("button", {
+      name: "使用输入坐标",
+    }) as HTMLButtonElement;
+    fireEvent.change(screen.getByRole("textbox", { name: "经度（WGS84）" }), {
+      target: { value: "" },
+    });
+    expect(useCoordinates.disabled).toBe(true);
+    fireEvent.change(screen.getByRole("textbox", { name: "经度（WGS84）" }), {
+      target: { value: "114.2" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "纬度（WGS84）" }), {
+      target: { value: "   " },
+    });
+    expect(useCoordinates.disabled).toBe(true);
+  });
+
+  it("expands and exposes a real focus target when source validation fails", () => {
+    const session: CampusMapEditSession = {
+      status: "editing",
+      localError: "sources",
+      draft: {
+        ...draft(),
+        fact: {
+          ...draft().fact,
+          location: {
+            kind: "outdoor-point",
+            longitude: 114.2,
+            latitude: 22.4,
+            crs: "wgs84",
+            precision: "approximate",
+          },
+        },
+      },
+    };
+
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    const sourceTarget = document.querySelector<HTMLElement>(
+      '[data-edit-field="sources"]',
+    );
+    expect(sourceTarget?.tagName).toBe("BUTTON");
+    expect(sourceTarget?.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByLabelText("现场观察时间（香港时间）")).toBeTruthy();
+  });
+
+  it("makes the map location row programmatically focusable", () => {
+    const session: CampusMapEditSession = {
+      status: "editing",
+      localError: "location",
+      draft: {
+        ...draft(),
+        fact: {
+          ...draft().fact,
+          location: {
+            kind: "outdoor-point",
+            longitude: 114.2,
+            latitude: 22.4,
+            crs: "wgs84",
+            precision: "approximate",
+          },
+        },
+      },
+    };
+
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(
+      document
+        .querySelector('[data-edit-field="location"]')
+        ?.getAttribute("tabindex"),
+    ).toBe("-1");
+  });
+
+  it("shows forbidden results as a permission state, not field validation", () => {
+    const session = {
+      status: "forbidden",
+      forbiddenCode: "actor-banned",
+      draft: draft(),
+    } as unknown as CampusMapEditSession;
+
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alert").textContent).toContain("账号已被封禁");
+    expect(screen.queryByText(/服务器未接受这项资料/)).toBeNull();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "发布新地点",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
   });
 
   it("labels a canonical precise outdoor location honestly", () => {

@@ -12,16 +12,31 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AmapCampusPrototype } from "@/components/campus-map/amap-campus-prototype";
+import { AMAP_PROTOTYPE_FACILITIES } from "@/lib/campus-map/amap-prototype-catalog";
 import {
   encodeCampusMapEditSnapshot,
   transitionCampusMapEdit,
 } from "@/lib/campus-map/edit-session";
 import { installAmapRuntime } from "../helpers/amap-runtime";
 
+const mutableFacilityFixtures = AMAP_PROTOTYPE_FACILITIES as unknown as Array<
+  (typeof AMAP_PROTOTYPE_FACILITIES)[number]
+>;
+const originalFacilityFixtures = [...AMAP_PROTOTYPE_FACILITIES];
+
+function restoreFacilityFixtures() {
+  mutableFacilityFixtures.splice(
+    0,
+    mutableFacilityFixtures.length,
+    ...originalFacilityFixtures,
+  );
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
   window.sessionStorage.clear();
   window.history.replaceState(null, "", "/prototype/campus-map");
+  restoreFacilityFixtures();
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue({
@@ -41,6 +56,7 @@ afterEach(() => {
     .querySelectorAll("script[data-amap-campus]")
     .forEach((script) => script.remove());
   vi.unstubAllGlobals();
+  restoreFacilityFixtures();
 });
 
 async function renderWithRuntime(options?: {
@@ -240,15 +256,140 @@ describe("AmapCampusPrototype runtime effects", () => {
   });
 
   it("lifts the center pin while the map is moving", async () => {
-    const { map } = await renderWithRuntime();
+    const { runtime, map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
+    await runtime.resolveGeocode(0, "complete", {
+      regeocode: {
+        formattedAddress: "香港中文大学中央校园",
+        pois: [{ id: "central-campus", name: "中央校园" }],
+      },
+    });
     const pin = document.querySelector("[data-campus-map-center-pin]");
     expect(pin?.getAttribute("data-moving")).toBe("false");
+    expect(screen.getByText("高德识别 · 中央校园")).not.toBeNull();
 
     await act(async () => map.emit("movestart", {}));
     expect(pin?.getAttribute("data-moving")).toBe("true");
-    await act(async () => map.emit("moveend", {}));
+    const pending = screen.getByRole("button", { name: "正在确定位置…" });
+    expect((pending as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(pending);
+    expect(screen.getByText(/移动地图，让图钉对准/)).not.toBeNull();
+
+    await act(async () => {
+      map.center = { lng: 114.211, lat: 22.421 };
+      map.emit("moveend", {});
+    });
     expect(pin?.getAttribute("data-moving")).toBe("false");
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "继续填写",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+  });
+
+  it("refreshes a placing candidate after closing during a map gesture", async () => {
+    const { map } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
+      target: { value: "拖动中的地点" },
+    });
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "继续填写",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+
+    await act(async () => {
+      map.emit("movestart", {});
+      map.center = { lng: 114.213, lat: 22.423 };
+    });
+    fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
+    expect(
+      screen.getByRole("alertdialog", { name: "放弃未发布的修改？" }),
+    ).not.toBeNull();
+    await act(async () => map.emit("moveend", {}));
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+
+    await waitFor(() => {
+      const persisted = JSON.parse(
+        window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
+      );
+      expect(persisted.session.draft.placementCandidate).toMatchObject({
+        longitude: 114.213,
+        latitude: 22.423,
+      });
+    });
+  });
+
+  it("focuses and expands the compact source entry after required validation", async () => {
+    const { runtime } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
+      target: { value: "需要来源的地点" },
+    });
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "继续填写",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "继续填写" }));
+    expect(screen.queryByLabelText("现场观察时间（香港时间）")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "发布新地点" }));
+    await runtime.flushAnimationFrames();
+
+    expect(document.activeElement?.getAttribute("data-edit-field")).toBe(
+      "sources",
+    );
+    expect(screen.getByLabelText("现场观察时间（香港时间）")).not.toBeNull();
+  });
+
+  it("opens Add once from a map long-press", async () => {
+    const push = vi.spyOn(window.history, "pushState");
+    const { map } = await renderWithRuntime();
+    push.mockClear();
+
+    await act(async () => map.emit("longpress", {}));
+
+    expect(
+      await screen.findByRole("heading", { name: "添加地点" }),
+    ).not.toBeNull();
+    expect(push).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens Add once from an empty category", async () => {
+    mutableFacilityFixtures.splice(
+      0,
+      mutableFacilityFixtures.length,
+      ...originalFacilityFixtures.filter(
+        (facility) => facility.category !== "printer",
+      ),
+    );
+    const push = vi.spyOn(window.history, "pushState");
+    await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "打印机" }));
+    expect(await screen.findByText("当前没有已收录地点")).not.toBeNull();
+    push.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "添加这个类别的地点" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "添加地点" }),
+    ).not.toBeNull();
+    expect(push).toHaveBeenCalledTimes(1);
   });
 
   it("merges rapid moveend address lookups but keeps the latest candidate", async () => {

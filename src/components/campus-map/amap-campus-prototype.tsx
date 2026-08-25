@@ -21,8 +21,8 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { CampusMapEditSheet } from "@/components/campus-map/edit-sheet";
-import { useCampusMapEditSessionOwner } from "@/components/campus-map/use-campus-map-edit-session-owner";
+import { CampusMapEditSheet } from "./edit-sheet";
+import { useCampusMapEditSessionOwner } from "./use-campus-map-edit-session-owner";
 
 import {
   CameraRequestGate,
@@ -842,6 +842,17 @@ export function AmapCampusPrototype({
   } = useCampusMapEditSessionOwner({ driver, dispatch });
   const editSessionStatus = editSession?.status ?? null;
   const editSessionIdempotencyKey = editSession?.draft.idempotencyKey ?? null;
+  const placementCandidate =
+    editSession?.status === "placing"
+      ? editSession.draft.placementCandidate
+      : null;
+  const placementPending = Boolean(
+    editSession?.status === "placing" &&
+    (mapMoving ||
+      !placementCandidate ||
+      Math.abs(placementCandidate.longitude - centerPosition[0]) > 0.00001 ||
+      Math.abs(placementCandidate.latitude - centerPosition[1]) > 0.00001),
+  );
   useEffect(() => {
     startAddRef.current = startAdd;
   }, [startAdd]);
@@ -883,9 +894,11 @@ export function AmapCampusPrototype({
     const resolver = placeContextResolverRef.current;
     if (!resolver || !providerCenterPosition) return;
     let current = true;
+    queueMicrotask(() => {
+      if (current) setPlaceContext({ status: "loading" });
+    });
     const timeout = window.setTimeout(
       () => {
-        setPlaceContext({ status: "loading" });
         void resolver
           .resolveLatest({
             longitude: providerCenterPosition[0],
@@ -1780,7 +1793,12 @@ export function AmapCampusPrototype({
           <CampusMapEditSheet
             session={editSession}
             centerPosition={centerPosition}
-            placeContext={placeContext}
+            placementPending={placementPending}
+            placeContext={
+              editSession.status === "placing" && mapMoving
+                ? { status: "loading" }
+                : placeContext
+            }
             factSchema={factSchema}
             onEvent={dispatchEditEvent}
           />

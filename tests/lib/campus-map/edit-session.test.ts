@@ -706,6 +706,138 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
+  it("keeps an orphaned conflict draft recoverable when no latest snapshot exists", () => {
+    const mine = { ...fact, name: "仍要保留的名称" };
+    const dirty = transitionCampusMapEdit(editSession(), {
+      type: "CHANGE_FACT",
+      fact: mine,
+    }).session!;
+    const publishing = transitionCampusMapEdit(dirty, {
+      type: "REQUEST_PUBLISH",
+    }).session!;
+    const conflicted = transitionCampusMapEdit(publishing, {
+      type: "PUBLISH_RESULT",
+      idempotencyKey: firstKey,
+      result: {
+        status: "conflict",
+        code: "base-revision-conflict",
+        conflicts: [
+          {
+            code: "base-revision-conflict",
+            anchor: { changeIndex: 0, placeId, field: "baseRevisionId" },
+            placeId,
+            expectedRevisionId: baseRevisionId,
+            currentRevisionId: null,
+            currentStatus: null,
+            currentSnapshot: null,
+          },
+        ],
+      },
+    });
+
+    expect(conflicted.session).toMatchObject({
+      status: "editing",
+      draft: { fact: mine },
+      serverErrors: [
+        {
+          code: "base-revision-conflict",
+          anchor: { field: "baseRevisionId" },
+        },
+      ],
+    });
+    expect(
+      decodeCampusMapEditSnapshot(
+        encodeCampusMapEditSnapshot(conflicted.session!),
+      ),
+    ).toMatchObject({ status: "restored", session: { draft: { fact: mine } } });
+  });
+
+  it("keeps forbidden publish results distinct and refresh-safe", () => {
+    const dirty = transitionCampusMapEdit(editSession(), {
+      type: "CHANGE_FACT",
+      fact: { ...fact, name: "没有权限发布的名称" },
+    }).session!;
+    const publishing = transitionCampusMapEdit(dirty, {
+      type: "REQUEST_PUBLISH",
+    }).session!;
+    const forbidden = transitionCampusMapEdit(publishing, {
+      type: "PUBLISH_RESULT",
+      idempotencyKey: firstKey,
+      result: { status: "forbidden", code: "actor-banned" },
+    });
+
+    expect(forbidden.session).toMatchObject({
+      status: "forbidden",
+      forbiddenCode: "actor-banned",
+      draft: { fact: { name: "没有权限发布的名称" } },
+    });
+    expect(forbidden.session).not.toHaveProperty("serverErrors");
+    expect(
+      decodeCampusMapEditSnapshot(
+        encodeCampusMapEditSnapshot(forbidden.session!),
+      ),
+    ).toMatchObject({
+      status: "restored",
+      session: { status: "forbidden", forbiddenCode: "actor-banned" },
+    });
+
+    expect(
+      transitionCampusMapEdit(forbidden.session, {
+        type: "REQUEST_PUBLISH",
+      }),
+    ).toMatchObject({ accepted: false, session: forbidden.session });
+  });
+
+  it.each(["warning", "rate-limited", "conflict"] as const)(
+    "does not bypass the %s recovery action with the primary publish event",
+    (status) => {
+      const dirty = transitionCampusMapEdit(editSession(), {
+        type: "CHANGE_FACT",
+        fact: { ...fact, name: "不可绕过恢复动作" },
+      }).session!;
+      const session = {
+        ...dirty,
+        status,
+      } as CampusMapEditSession;
+
+      expect(
+        transitionCampusMapEdit(session, { type: "REQUEST_PUBLISH" }),
+      ).toMatchObject({ accepted: false, session });
+    },
+  );
+
+  it("rechecks the current map center after returning from a placing close dialog", () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey: firstKey,
+    }).session!;
+    const positioned = transitionCampusMapEdit(started, {
+      type: "UPDATE_PLACEMENT_CANDIDATE",
+      position: {
+        longitude: 114.2,
+        latitude: 22.4,
+        crs: "wgs84",
+        precision: "approximate",
+        method: "pointer",
+      },
+    }).session!;
+    const dirty = transitionCampusMapEdit(positioned, {
+      type: "CHANGE_FACT",
+      fact: { ...positioned.draft.fact, name: "拖动中的地点" },
+    }).session!;
+    const closing = transitionCampusMapEdit(dirty, {
+      type: "REQUEST_CLOSE",
+    }).session!;
+    const continued = transitionCampusMapEdit(closing, {
+      type: "CONTINUE_EDITING",
+    });
+
+    expect(continued.session).toMatchObject({
+      status: "placing",
+      draft: { placementCandidate: null },
+    });
+  });
+
   it("clears the draft on success and makes published terminal against duplicate publish", () => {
     const dirty = transitionCampusMapEdit(editSession(), {
       type: "CHANGE_FACT",
@@ -919,6 +1051,7 @@ describe("Campus Map edit session transition", () => {
   it.each([
     ["conflict", {}],
     ["warning", {}],
+    ["forbidden", {}],
     ["rate-limited", {}],
   ])("discards a %s snapshot without its required state", (status, extra) => {
     const snapshot = JSON.parse(encodeCampusMapEditSnapshot(editSession())) as {

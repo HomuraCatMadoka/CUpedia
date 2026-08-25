@@ -3,13 +3,13 @@
 import { headers } from "next/headers";
 
 import { getOptionalUser } from "@/lib/auth-guard";
-import { getCampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
-import { publishCampusMapChangeset } from "@/lib/campus-map/publish";
+import { getCampusMapCurrentPlace } from "./fact-store";
+import { publishCampusMapChangeset } from "./publish";
 import type {
   CampusMapPublishFactInput,
   CampusMapPublishCommand,
   CampusMapPublishResult,
-} from "@/lib/campus-map/publish-contract";
+} from "./publish-contract";
 
 export interface CampusMapEditablePlace {
   placeId: string;
