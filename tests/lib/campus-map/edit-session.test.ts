@@ -1187,6 +1187,19 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
+  it("rejects a close-dialog snapshot that claims an impossible publishing return", () => {
+    const snapshot = JSON.parse(encodeCampusMapEditSnapshot(editSession())) as {
+      session: CampusMapEditSession;
+    };
+    snapshot.session.status = "confirm-discard";
+    snapshot.session.returnStatus = "publishing";
+
+    expect(decodeCampusMapEditSnapshot(JSON.stringify(snapshot))).toEqual({
+      status: "discarded",
+      reason: "invalid-snapshot",
+    });
+  });
+
   it("rejects impossible Edit reposition and damaged stable identity", () => {
     const snapshot = JSON.parse(encodeCampusMapEditSnapshot(editSession())) as {
       session: CampusMapEditSession;

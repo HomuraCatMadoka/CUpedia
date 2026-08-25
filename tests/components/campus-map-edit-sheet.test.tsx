@@ -100,6 +100,23 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.getByRole("textbox", { name: "地点名称" })).toBe(nameInput);
   });
 
+  it("keeps every place type discoverable without a hidden horizontal scroller", () => {
+    render(
+      <CampusMapEditSheet
+        session={{ status: "placing", draft: draft() }}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    const typeGroup = screen.getByRole("group", { name: "地点类型" });
+    const choices = typeGroup.querySelector("div");
+    expect(choices?.className).toContain("flex-wrap");
+    expect(choices?.className).not.toContain("overflow-x-auto");
+    expect(screen.getByRole("radio", { name: "课室" })).toBeTruthy();
+    expect(screen.queryByText(/Changeset 说明/)).toBeNull();
+  });
+
   it("shows only #719 Place, Changeset, and History links on the receipt", () => {
     const session: CampusMapEditSession = {
       status: "published",

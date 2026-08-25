@@ -765,7 +765,7 @@ export function CampusMapEditSheet({
           <legend className="mb-2 text-sm font-medium">
             {fieldLabel("pinType", "地点类型")}
           </legend>
-          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex flex-wrap gap-2">
             {CAMPUS_MAP_EDIT_SCHEMA.presets.map((item) => (
               <label
                 key={item.pinType}
@@ -1177,12 +1177,6 @@ export function CampusMapEditSheet({
             </fieldset>
           ) : null}
         </div>
-        <p
-          hidden={isPlacing}
-          className="rounded-xl bg-neutral-50 p-3 text-xs leading-5 text-neutral-600"
-        >
-          Changeset 说明和来源摘要会由这些结构化修改自动生成；不会请求复核。
-        </p>
       </div>
       <div className="absolute inset-x-0 bottom-0 border-t bg-white px-4 pt-4 pb-[max(16px,env(safe-area-inset-bottom))] md:rounded-b-2xl md:pb-4">
         <button

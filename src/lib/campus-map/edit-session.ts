@@ -1041,7 +1041,6 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
   const returnStatuses = [
     "placing",
     "editing",
-    "publishing",
     "warning",
     "authentication-required",
     "forbidden",
