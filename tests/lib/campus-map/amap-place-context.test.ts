@@ -183,6 +183,115 @@ describe("AMap place context resolver", () => {
     });
   });
 
+  it("prefers the nearest specific POI instead of the provider array order", async () => {
+    const resolver = createAmapPlaceContextResolver({
+      reverseGeocode: vi.fn().mockResolvedValue({
+        status: "complete" as const,
+        formattedAddress: "香港新界沙田区中央道香港中文大学",
+        pois: [
+          {
+            id: "art-museum",
+            name: "文物馆 Art Museum",
+            distanceMeters: 145,
+          },
+          {
+            id: "shaw-hall",
+            name: "邵逸夫堂",
+            distanceMeters: 14,
+          },
+        ],
+      }),
+    });
+
+    await expect(
+      resolver.resolveLatest({
+        longitude: 114.212,
+        latitude: 22.4173,
+        crs: "gcj02",
+      }),
+    ).resolves.toMatchObject({
+      status: "resolved",
+      context: {
+        label: "邵逸夫堂",
+        providerPoiId: "shaw-hall",
+        distanceMeters: 14,
+      },
+    });
+  });
+
+  it("does not present a far nearby POI as the pin location", async () => {
+    const resolver = createAmapPlaceContextResolver({
+      reverseGeocode: vi.fn().mockResolvedValue({
+        status: "complete" as const,
+        formattedAddress: "香港新界沙田区中央道香港中文大学",
+        pois: [
+          {
+            id: "art-museum",
+            name: "文物馆 Art Museum",
+            distanceMeters: 145,
+          },
+          {
+            id: "campus",
+            name: "香港中文大学",
+            distanceMeters: 0,
+          },
+        ],
+      }),
+    });
+
+    await expect(
+      resolver.resolveLatest({
+        longitude: 114.212,
+        latitude: 22.4173,
+        crs: "gcj02",
+      }),
+    ).resolves.toEqual({
+      status: "resolved",
+      context: {
+        providerPosition: {
+          longitude: 114.212,
+          latitude: 22.4173,
+          crs: "gcj02",
+        },
+        label: "地图中心位置",
+        address: "香港新界沙田区中央道香港中文大学",
+        providerPoiId: null,
+        distanceMeters: null,
+      },
+    });
+  });
+
+  it("does not attribute a building 64 metres away to the pin", async () => {
+    const resolver = createAmapPlaceContextResolver({
+      reverseGeocode: vi.fn().mockResolvedValue({
+        status: "complete" as const,
+        formattedAddress: "香港新界沙田区中央道香港中文大学",
+        pois: [
+          {
+            id: "yc-liang-hall",
+            name: "香港中文大学润昌堂",
+            distanceMeters: 64,
+          },
+        ],
+      }),
+    });
+
+    await expect(
+      resolver.resolveLatest({
+        longitude: 114.212,
+        latitude: 22.4174,
+        crs: "gcj02",
+      }),
+    ).resolves.toMatchObject({
+      status: "resolved",
+      context: {
+        label: "地图中心位置",
+        providerPoiId: null,
+        distanceMeters: null,
+      },
+    });
+  });
+
   it("lets only the newest map center update visible context", async () => {
     const first = deferred<{
       status: "complete";
@@ -211,7 +320,7 @@ describe("AMap place context resolver", () => {
     second.resolve({ status: "complete", formattedAddress: "新位置" });
     await expect(newRequest).resolves.toMatchObject({
       status: "resolved",
-      context: { label: "新位置" },
+      context: { label: "地图中心位置", address: "新位置" },
     });
     first.resolve({ status: "complete", formattedAddress: "旧位置" });
 
@@ -240,7 +349,7 @@ describe("AMap place context resolver", () => {
     await expect(second).resolves.toMatchObject({ status: "resolved" });
     await expect(resolver.resolveLatest(position)).resolves.toMatchObject({
       status: "resolved",
-      context: { label: "科学馆" },
+      context: { label: "地图中心位置", address: "科学馆" },
     });
     expect(reverseGeocode).toHaveBeenCalledOnce();
   });
@@ -267,7 +376,10 @@ describe("AMap place context resolver", () => {
       }),
     ).resolves.toMatchObject({
       status: "resolved",
-      context: { label: "香港中文大学科学馆" },
+      context: {
+        label: "地图中心位置",
+        address: "香港中文大学科学馆",
+      },
     });
     expect(reverseGeocode).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledWith(200);

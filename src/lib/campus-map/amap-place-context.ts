@@ -78,6 +78,7 @@ const AMAP_CAMPUS_CONTAINER_NAMES = new Set([
   "香港中文大学",
   "香港中文大學",
 ]);
+const MAX_TRUSTED_CONTEXT_POI_DISTANCE_METERS = 30;
 
 function isCampusContainerPoi(poi: AmapProviderPoi): boolean {
   const name = clean(poi.name)?.toLocaleLowerCase().replace(/\s+/g, "");
@@ -88,7 +89,24 @@ function selectContextPoi(
   pois: readonly AmapProviderPoi[] | undefined,
 ): AmapProviderPoi | undefined {
   const namedPois = pois?.filter((poi) => clean(poi.name)) ?? [];
-  return namedPois.find((poi) => !isCampusContainerPoi(poi)) ?? namedPois[0];
+  const trustedSpecificPois = namedPois.filter(
+    (poi) =>
+      !isCampusContainerPoi(poi) &&
+      typeof poi.distanceMeters === "number" &&
+      Number.isFinite(poi.distanceMeters) &&
+      poi.distanceMeters >= 0 &&
+      poi.distanceMeters <= MAX_TRUSTED_CONTEXT_POI_DISTANCE_METERS,
+  );
+  return trustedSpecificPois.reduce<AmapProviderPoi | undefined>(
+    (nearest, candidate) => {
+      if (!nearest) return candidate;
+      return (candidate.distanceMeters as number) <
+        (nearest.distanceMeters as number)
+        ? candidate
+        : nearest;
+    },
+    undefined,
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -294,7 +312,7 @@ export function createAmapPlaceContextResolver(
 
       const nearestPoi = selectContextPoi(result.pois);
       const address = clean(result.formattedAddress);
-      const label = clean(nearestPoi?.name) ?? address;
+      const label = clean(nearestPoi?.name) ?? (address && "地图中心位置");
       if (!label) return { status: "empty" };
       return {
         status: "resolved",

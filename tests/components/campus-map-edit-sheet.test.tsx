@@ -95,6 +95,37 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.getByRole("textbox", { name: "地点名称" })).toBe(nameInput);
   });
 
+  it("keeps programmatic heading focus visually quiet after confirming position", () => {
+    render(
+      <CampusMapEditSheet
+        session={{
+          status: "editing",
+          draft: {
+            ...draft(),
+            fact: {
+              ...draft().fact,
+              location: {
+                kind: "outdoor-point",
+                longitude: 114.207113,
+                latitude: 22.420126,
+                crs: "wgs84",
+                precision: "approximate",
+              },
+            },
+          },
+        }}
+        centerPosition={[114.207113, 22.420126]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    const heading = screen.getByRole("heading", { name: "添加地点" });
+    heading.focus();
+    expect(document.activeElement).toBe(heading);
+    expect(heading.getAttribute("tabindex")).toBe("-1");
+    expect(heading.className).not.toContain("focus-visible:ring");
+  });
+
   it("keeps every place type discoverable without a hidden horizontal scroller", () => {
     render(
       <CampusMapEditSheet

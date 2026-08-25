@@ -272,7 +272,8 @@ describe("AmapCampusPrototype runtime effects", () => {
     });
     const pin = document.querySelector("[data-campus-map-center-pin]");
     expect(pin?.getAttribute("data-moving")).toBe("false");
-    expect(screen.getByText("中央校园")).not.toBeNull();
+    expect(screen.getByText("地图中心位置")).not.toBeNull();
+    expect(screen.getByText("高德参考 · 香港中文大学中央校园")).not.toBeNull();
 
     await act(async () => map.emit("movestart", {}));
     expect(pin?.getAttribute("data-moving")).toBe("true");
