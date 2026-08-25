@@ -38,11 +38,12 @@ vi.mock("@/lib/canteen-menu-sync-clock", () => ({
 import { syncNextDueMenuSource } from "@/lib/canteen-menu-source-sync";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
+const TEST_CLAIM_OFFSET_MS = 10 * 60 * 1_000;
 
 function claimableTestDatabaseNow(databaseNow: Date): Date {
   const window = menuSyncWindowAt(databaseNow);
   return databaseNow < window.claimsStartAt
-    ? new Date(window.claimsStartAt)
+    ? new Date(window.claimsStartAt.getTime() + TEST_CLAIM_OFFSET_MS)
     : databaseNow;
 }
 
@@ -866,7 +867,8 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
     "retries after the bounded backoff for $failures failure(s)",
     async ({ failures, minutesAgo }) => {
       const { sourceId } = await createEligibleSource("退避完成的来源");
-      const completedAt = new Date(Date.now() - minutesAgo * 60_000);
+      const databaseNow = await currentTestDatabaseNow();
+      const completedAt = new Date(databaseNow.getTime() - minutesAgo * 60_000);
       await db.insert(canteenMenuSyncRuns).values(
         Array.from({ length: failures }, (_, index) => ({
           id: randomUUID(),
@@ -882,6 +884,20 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
         buildPinmeMenuSyncPayload(pinmeCurrent),
       );
 
+      await expect(
+        db.transaction((tx) =>
+          listMenuSourceScheduleCandidates(
+            tx,
+            menuSyncWindowAt(databaseNow),
+            databaseNow,
+          ),
+        ),
+      ).resolves.toContainEqual({
+        state: "claimable",
+        sourceId,
+        attemptNumber: failures + 1,
+      });
+
       await expect(syncNextDueMenuSource()).resolves.toMatchObject({
         disposition: "continue",
         sourceId,
@@ -892,6 +908,8 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
 
   it("does not count superseded runs toward retry policy", async () => {
     const { sourceId } = await createEligibleSource("被旧 worker 接管的来源");
+    const databaseNow = await currentTestDatabaseNow();
+    const providerFailureAt = new Date(databaseNow.getTime() - 4 * 60_000);
     await db.insert(canteenMenuSyncRuns).values([
       {
         id: randomUUID(),
@@ -899,8 +917,8 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
         status: "failed",
         errorCode: "PROVIDER_UNAVAILABLE",
         error: "PROVIDER_UNAVAILABLE",
-        startedAt: new Date(Date.now() - 4 * 60_000),
-        completedAt: new Date(Date.now() - 4 * 60_000),
+        startedAt: providerFailureAt,
+        completedAt: providerFailureAt,
       },
       ...Array.from({ length: 3 }, () => ({
         id: randomUUID(),
@@ -908,13 +926,27 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
         status: "failed" as const,
         errorCode: "MENU_SYNC_SUPERSEDED",
         error: "MENU_SYNC_SUPERSEDED",
-        startedAt: new Date(),
-        completedAt: new Date(),
+        startedAt: databaseNow,
+        completedAt: databaseNow,
       })),
     ]);
     fetchMenuFromProvider.mockResolvedValue(
       buildPinmeMenuSyncPayload(pinmeCurrent),
     );
+
+    await expect(
+      db.transaction((tx) =>
+        listMenuSourceScheduleCandidates(
+          tx,
+          menuSyncWindowAt(databaseNow),
+          databaseNow,
+        ),
+      ),
+    ).resolves.toContainEqual({
+      state: "claimable",
+      sourceId,
+      attemptNumber: 2,
+    });
 
     await expect(syncNextDueMenuSource()).resolves.toMatchObject({
       disposition: "continue",
