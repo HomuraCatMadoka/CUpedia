@@ -111,13 +111,15 @@ describe("AmapCampusPrototype", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     expect(
-      await screen.findByRole("heading", { name: "选择地点位置" }),
+      await screen.findByRole("heading", { name: "选择设施位置" }),
     ).toBeTruthy();
     expect(
-      screen.getByText("移动地图标记设施位置；建筑名称只作位置参考。"),
+      screen.getByText("移动地图，让图钉对准设施；建筑名称只帮助确认位置。"),
     ).toBeTruthy();
     expect(screen.getByText("地图坐标")).toBeTruthy();
-    expect(screen.queryByRole("textbox", { name: "地点名称" })).toBeNull();
+    expect(
+      screen.queryByRole("textbox", { name: "设施名称或编号" }),
+    ).toBeNull();
     expect(screen.queryByRole("radio", { name: "饮水点" })).toBeNull();
     expect(screen.queryByRole("textbox", { name: "经度（WGS84）" })).toBeNull();
 
@@ -127,28 +129,30 @@ describe("AmapCampusPrototype", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
     expect(
-      await screen.findByRole("heading", { name: "添加地点" }),
+      await screen.findByRole("heading", { name: "添加校内设施" }),
     ).toBeTruthy();
     expect(document.activeElement).toBe(
-      screen.getByRole("heading", { name: "添加地点" }),
+      screen.getByRole("heading", { name: "添加校内设施" }),
     );
-    const nameInput = screen.getByLabelText("地点名称");
+    const nameInput = screen.getByLabelText("设施名称或编号");
     fireEvent.change(nameInput, { target: { value: "新饮水点" } });
     expect(screen.getByText("地图坐标")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "重新定位" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "修改位置" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "饮水点" })).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "无障碍通行" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "更多资料" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "开放与使用条件（可选）" }),
+    );
     expect(screen.getByRole("combobox", { name: "无障碍通行" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "添加资料来源" }));
-    fireEvent.click(screen.getByRole("button", { name: "使用现场观察来源" }));
+    fireEvent.click(screen.getByRole("button", { name: "填写现场观察" }));
+    fireEvent.click(screen.getByRole("button", { name: "记录现场观察" }));
     fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
     expect(
       await screen.findByRole("heading", { name: "放弃未发布的修改？" }),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
     expect(
-      await screen.findByRole("heading", { name: "添加地点" }),
+      await screen.findByRole("heading", { name: "添加校内设施" }),
     ).toBeTruthy();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(
@@ -160,7 +164,7 @@ describe("AmapCampusPrototype", () => {
     render(<AmapCampusPrototype />);
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
-    fireEvent.change(await screen.findByLabelText("地点名称"), {
+    fireEvent.change(await screen.findByLabelText("设施名称或编号"), {
       target: { value: "未发布地点" },
     });
 
@@ -187,7 +191,7 @@ describe("AmapCampusPrototype", () => {
     await screen.findByRole("heading", { name: "饮水机" });
     fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
     expect(
-      await screen.findByRole("heading", { name: "建议修改" }),
+      await screen.findByRole("heading", { name: "修改设施" }),
     ).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "发布修改" }).hasAttribute("disabled"),
@@ -195,7 +199,7 @@ describe("AmapCampusPrototype", () => {
     expect(window.location.search).toBe(
       "?v=1&task=edit&id=71000000-0000-4000-8000-000000000005",
     );
-    fireEvent.change(screen.getByLabelText("地点名称"), {
+    fireEvent.change(screen.getByLabelText("设施名称或编号"), {
       target: { value: "更新后的饮水机" },
     });
     expect(
@@ -233,7 +237,7 @@ describe("AmapCampusPrototype", () => {
       window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
     ).toBeNull();
     await waitFor(() => expect(window.location.search).not.toContain("task="));
-    expect(screen.queryByRole("heading", { name: "建议修改" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "修改设施" })).toBeNull();
   });
 
   it("hydrates canonical indoor labels before showing a publish conflict", async () => {
@@ -357,12 +361,12 @@ describe("AmapCampusPrototype", () => {
 
     await screen.findByRole("heading", { name: "饮水机" });
     fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
-    await screen.findByRole("heading", { name: "建议修改" });
-    fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
+    await screen.findByRole("heading", { name: "修改设施" });
+    fireEvent.change(screen.getByRole("textbox", { name: "设施名称或编号" }), {
       target: { value: "我的名称" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "添加资料来源" }));
-    fireEvent.click(screen.getByRole("button", { name: "使用现场观察来源" }));
+    fireEvent.click(screen.getByRole("button", { name: "填写现场观察" }));
+    fireEvent.click(screen.getByRole("button", { name: "记录现场观察" }));
     vi.mocked(loadCampusMapEditablePlace).mockClear();
     vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
       status: "conflict",
@@ -400,7 +404,7 @@ describe("AmapCampusPrototype", () => {
     const mapControls = addButton.parentElement;
 
     fireEvent.click(addButton);
-    await screen.findByRole("heading", { name: "选择地点位置" });
+    await screen.findByRole("heading", { name: "选择设施位置" });
 
     expect(searchHeader?.getAttribute("aria-hidden")).toBe("true");
     expect(searchHeader?.hasAttribute("inert")).toBe(true);
@@ -430,7 +434,7 @@ describe("AmapCampusPrototype", () => {
     resolveRead(canonical);
 
     await waitFor(() => expect(window.location.search).toBe("?v=1"));
-    expect(screen.queryByRole("heading", { name: "建议修改" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "修改设施" })).toBeNull();
   });
 
   it("hydrates a canonical facility deep link through the scene driver", async () => {

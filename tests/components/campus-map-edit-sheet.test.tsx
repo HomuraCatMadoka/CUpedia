@@ -58,8 +58,10 @@ describe("Campus Map single-page edit Sheet", () => {
         onEvent={onEvent}
       />,
     );
-    const nameInput = screen.getByLabelText("地点名称");
-    expect(screen.queryByRole("textbox", { name: "地点名称" })).toBeNull();
+    const nameInput = screen.getByLabelText("设施名称或编号");
+    expect(
+      screen.queryByRole("textbox", { name: "设施名称或编号" }),
+    ).toBeNull();
     expect(screen.getByText("科学馆")).toBeTruthy();
     expect(screen.getByText("高德参考 · 香港中文大学中央大道")).toBeTruthy();
     expect(screen.queryByRole("radio", { name: "饮水点" })).toBeNull();
@@ -92,7 +94,52 @@ describe("Campus Map single-page edit Sheet", () => {
         onEvent={onEvent}
       />,
     );
-    expect(screen.getByRole("textbox", { name: "地点名称" })).toBe(nameInput);
+    expect(screen.getByRole("textbox", { name: "设施名称或编号" })).toBe(
+      nameInput,
+    );
+  });
+
+  it("asks for facility identity and evidence in plain product language", () => {
+    render(
+      <CampusMapEditSheet
+        session={{
+          status: "editing",
+          draft: {
+            ...draft(),
+            fact: {
+              ...draft().fact,
+              location: {
+                kind: "outdoor-point",
+                longitude: 114.208792,
+                latitude: 22.421904,
+                crs: "wgs84",
+                precision: "approximate",
+              },
+            },
+          },
+        }}
+        centerPosition={[114.208792, 22.421904]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "添加校内设施" })).toBeTruthy();
+    const typeGroup = screen.getByRole("group", { name: "设施类型" });
+    const nameInput = screen.getByRole("textbox", {
+      name: "设施名称或编号",
+    });
+    expect(
+      typeGroup.compareDocumentPosition(nameInput) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByText(/没有独立名称时可保留默认名称/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "修改位置" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "开放与使用条件（可选）" }),
+    ).toBeTruthy();
+    expect(screen.getByText("资料依据")).toBeTruthy();
+    expect(screen.getByText(/发布前至少提供一项/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "填写现场观察" })).toBeTruthy();
   });
 
   it("keeps programmatic heading focus visible for keyboard users", () => {
@@ -119,7 +166,7 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    const heading = screen.getByRole("heading", { name: "添加地点" });
+    const heading = screen.getByRole("heading", { name: "添加校内设施" });
     heading.focus();
     expect(document.activeElement).toBe(heading);
     expect(heading.getAttribute("tabindex")).toBe("-1");
@@ -150,13 +197,16 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    const typeGroup = screen.getByRole("group", { name: "地点类型" });
+    const typeGroup = screen.getByRole("group", { name: "设施类型" });
     const choices = typeGroup.querySelector("div");
-    expect(choices?.className).toContain("grid-cols-2");
+    expect(choices?.className).toContain("grid-cols-6");
     expect(choices?.className).not.toContain("overflow-x-auto");
     expect(
-      screen.getByRole("radio", { name: "课室" }).closest("label")?.className,
+      screen.getByRole("radio", { name: "饮水点" }).closest("label")?.className,
     ).toContain("col-span-2");
+    expect(
+      screen.getByRole("radio", { name: "课室" }).closest("label")?.className,
+    ).toContain("nth-[5]:col-span-3");
     expect(typeGroup.getAttribute("tabindex")).toBe("-1");
     expect(typeGroup.className).toContain("focus-visible:ring-2");
     expect(screen.queryByText(/Changeset 说明/)).toBeNull();
@@ -249,7 +299,9 @@ describe("Campus Map single-page edit Sheet", () => {
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(false);
-    expect(screen.queryByRole("textbox", { name: "地点名称" })).toBeNull();
+    expect(
+      screen.queryByRole("textbox", { name: "设施名称或编号" }),
+    ).toBeNull();
   });
 
   it("starts a fresh publish attempt when editing a transient failure", () => {
@@ -278,7 +330,7 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "设施名称或编号" }), {
       target: { value: "修改后重新发布" },
     });
 
@@ -371,12 +423,12 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     expect(screen.queryByLabelText("现场观察时间（香港时间）")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "添加资料来源" }));
+    fireEvent.click(screen.getByRole("button", { name: "填写现场观察" }));
 
     fireEvent.change(screen.getByLabelText("现场观察时间（香港时间）"), {
       target: { value: "" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "使用现场观察来源" }));
+    fireEvent.click(screen.getByRole("button", { name: "记录现场观察" }));
     expect(onEvent.mock.calls.at(-1)?.[0]).toEqual({
       type: "REPORT_LOCAL_ERROR",
       field: "sourceObservedAt",
@@ -399,7 +451,7 @@ describe("Campus Map single-page edit Sheet", () => {
     fireEvent.change(screen.getByLabelText("现场观察时间（香港时间）"), {
       target: { value: "2026-08-24T14:30" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "使用现场观察来源" }));
+    fireEvent.click(screen.getByRole("button", { name: "记录现场观察" }));
     expect(onEvent.mock.calls.at(-1)?.[0]).toMatchObject({
       type: "CHANGE_SOURCES",
       sources: [
@@ -505,7 +557,7 @@ describe("Campus Map single-page edit Sheet", () => {
     ).toBeTruthy();
     expect(
       screen
-        .getByRole("button", { name: "更多资料" })
+        .getByRole("button", { name: "开放与使用条件（可选）" })
         .getAttribute("aria-expanded"),
     ).toBe("true");
   });
@@ -564,7 +616,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(
       (
         screen.getByRole("button", {
-          name: "发布新地点",
+          name: "发布设施",
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
@@ -631,7 +683,7 @@ describe("Campus Map single-page edit Sheet", () => {
 
     expect(
       screen
-        .getByRole("button", { name: "更多资料" })
+        .getByRole("button", { name: "开放与使用条件（可选）" })
         .getAttribute("aria-expanded"),
     ).toBe("true");
     expect(screen.getByRole("combobox", { name: "开放时间" })).toBeTruthy();
@@ -667,7 +719,7 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     expect(
-      screen.getByText("移动地图，或轻点地图上的地点名称来重新定位。"),
+      screen.getByText("移动地图或轻点地图标签，选择新的设施位置。"),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "使用此位置" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "确认新位置" })).toBeNull();

@@ -96,6 +96,128 @@ session 或地图 owner，只是把一个大任务拆成两个清楚的小步骤
 `defaultName`（例如“饮水机”），避免默认类型已经是饮水点而名称仍为空；高德名称与 ID 仍不会
 静默成为 canonical Place identity。
 
+### 2026-08-26 位置确认、重新定位与字段语义复盘
+
+最新使用反馈不是单纯的文案问题，而是三个不同概念在界面上被混成了“地点”：
+
+1. **选中的地图位置**：一个稳定坐标，以及高德在该坐标附近识别出的地址/POI；
+2. **位置容器**：例如科学馆、邵逸夫堂，是设施“在哪里”的参照；
+3. **正在新增的 Place**：例如科学馆地下的饮水机，是用户这次实际要发布的实体。
+
+Google Maps 的官方编辑说明也把 `Name`、`Category`、`Address`、`Marker location` 和
+“位于哪个更大场所内”列为不同属性；名称要求使用招牌或官网上的正式名称，类别要求尽量具体，
+移动 marker 时则建议放大地图并用卫星图精确落点。这说明“地图识别到的建筑”“地图坐标”和
+“新地点名称”不能互相替代。[Google Maps 编辑地点官方说明](https://support.google.com/websearch/answer/9879130?co=GENIE.Platform%3DDesktop&hl=en)
+
+#### 当前名称不一致的根因
+
+当前 placing 阶段可以显示高德 hotspot/Geocoder 标签；但确认位置时，纯 transition 只把坐标写入
+`fact.location`，并把 `locationDisplay` 清为 `null`。editing 阶段不再读取刚才的高德上下文，
+而是只用坐标在本地少量 Building 原型中做 50 米匹配；匹配不到就显示“地图坐标”。因此用户刚才
+明确点过的地点，确认后也会退化成一个泛化标签。这是**展示上下文没有跨越确认 transition**，
+不是逆地理编码又返回了另一个地点。
+
+修正时应同时维护两层数据，但不能把供应商身份混进可发布草稿：
+
+- `fact.location` 继续只保存 canonical WGS84 坐标；
+- 同一次已挂载的编辑 session 在 presentation seam 保留可丢弃的 `selectedPlaceContext`，包括带高德归属的展示名称、地址和“精确点选/附近参考”来源；它不进入 draft、publish payload 或 URL。刷新恢复时只从 snapshot 的 WGS84 坐标重新查询展示语境，不持久化高德 POI ID 或名称。
+
+确认前后的位置卡必须由同一个 `selectedPlaceContext + fact.location` 渲染。例如：
+
+```text
+科学馆附近
+114.208792, 22.421904 · WGS84 · 约略
+高德参考 · 香港中文大学
+                                      [修改位置]
+```
+
+这里“科学馆附近”只是可撤销的定位语境，不自动写成新增设施的名称、`placeId` 或发布来源。继续拖图或输入新坐标时才让当前语境失效；确认和折叠 Sheet 不应清空它。刷新恢复可以先显示坐标，再从锁定坐标重新查询同类的带归属参考。
+
+#### “重新定位”漂移的根因
+
+`START_REPOSITION` 虽然把已发布表单中的坐标复制为 `placementCandidate`，却没有同时发 camera
+命令把高德地图中心恢复到这个候选点。地图仍停在当前镜头中心；进入 placing 后，下一次地图
+`moveend`（包括布局/程序镜头造成的移动）又会把实时中心写回 candidate，于是图钉看似从已确认点
+漂走。这个现象不是高德坐标随机漂移，而是 session candidate 和 map center 在重新进入 picker 时
+没有先完成同步。
+
+高德官方 `PositionPicker.start(originPos)` 明确支持“以给定坐标作为拖拽起始点”；高德地图状态
+文档同时说明 `setCenter()` 默认有过渡动画，调用后立即 `getCenter()` 可能仍得到过渡中的位置，
+应等待 `moveend`。[PositionPicker 官方参考](https://lbs.amap.com/api/amap-ui/reference-amap-ui/other/positionpicker)、[高德地图状态官方教程](https://lbs.amap.com/api/maps-javascript-api/guide/map/state)
+
+因此“修改位置”应是一个有边界的三步动作：
+
+1. 从已锁定的 WGS84 坐标创建 candidate，并用同一坐标投影到高德 GCJ-02；
+2. 通过现有 #645 camera owner 无动画或受控动画地 recenter，程序移动期间不接受 map center 回写；
+3. 等对应 camera token 的 `moveend` 后才启用拖图更新和 Geocoder，旧 token 的 moveend 直接丢弃。
+
+位置卡、中心 pin、确认按钮必须始终读取同一个 candidate。用户没有真正拖动、点选 POI 或提交坐标
+时，“修改位置 → 使用此位置”应产生完全相同的坐标。按钮文案也建议从“重新定位”改为“修改位置”：
+前者容易被理解为 GPS 定位到用户本人，后者准确表达“修改这个 Place 的地图落点”。
+
+移动端还有一个放大“漂移感”的布局因素：placing Sheet 覆盖底部约 `48dvh`，因此可见地图中心在
+`26dvh`，并不是整张高德容器的 `50%`。只把 pin 的 CSS 移到 `26dvh` 仍然不够；若候选坐标继续读取
+`map.getCenter()`，用户会在视觉上钉住科学馆，却保存被 Sheet 遮住的整图中心。最终实现把
+`26dvh` 定义为唯一 placement anchor：地图手势结束时通过 `containerToLngLat(anchor)` 读取候选点，
+键盘、热点和“修改位置”的相机命令则仍由 #645 执行，并用 `panBy` 把目标点放回同一 anchor。
+桌面侧栏不遮住中心，继续使用容器中心。
+
+#### Google Maps / 高德的字段分层
+
+| 层级     | Google Maps / 高德官方语义                                                                                                       | Campus Map 建议                                                                                                                  |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 位置     | Google 将地址、marker 和“位于更大场所内”分开；高德 PositionPicker 同时返回 position、address、nearestPOI，不把它们合成一个字符串 | 顶部只读位置卡：建筑/POI 参考、坐标、地址；操作叫“修改位置”                                                                      |
+| 身份     | Google 要求真实世界可发现、可交互的命名实体，并要求名称使用招牌/官网正式名称                                                     | 建筑/有独立标识的 Place 用“设施名称”；无独立名称的通用设施不要强迫用户发明名称                                                   |
+| 类别     | Google 要求选择描述主体的具体类别，不能拿相邻或所在建筑的类别代替                                                                | “设施类型”必填，并驱动后续字段；类别不是名称                                                                                     |
+| 详细事实 | Google 把 hours、phone、website、attributes 分开；高德商户标注先填基础信息，审核后再编辑头图、简介、消费和营业时间等深度信息     | 只显示该设施类型真的适用的字段；折叠标题用“开放与使用条件（可选）”或动态摘要，不用泛化的“更多资料”                               |
+| 佐证     | Google 将照片作为帮助核验建议的可选证据；高德商户新增将基础信息与资质信息分成两部分                                              | 来源不是地点资料。单独放在发布动作附近，问“你从哪里确认这项资料？”，默认可选“现场看到（当前时间）”；技术性的 source ref 自动生成 |
+
+来源：[Google Maps 编辑字段与编辑质量说明](https://support.google.com/websearch/answer/9879130?co=GENIE.Platform%3DDesktop&hl=en)、[Google Maps Business Profile 字段说明](https://support.google.com/business/answer/3039617?hl=en-en)、[Google Maps 地点资格](https://support.google.com/contributionpolicy/answer/12473822?hl=en)、[高德 PositionPicker](https://lbs.amap.com/api/amap-ui/reference-amap-ui/other/positionpicker)、[高德商户免费标注](https://wap.amap.com/activity/bgcmoney/Main.html)
+
+#### 建筑与建筑内设施的产品边界
+
+Google Maps 允许新增地标、商户等公开地点；其地点资格要求 Place 是现实世界中“有名称、可被发现、
+可被用户使用或互动”的实体。Google 也支持表达 Place 位于更大 venue 内，但并不意味着建筑内每件
+无名称设备都应成为一个与建筑同层级的公共地点。[Google Maps 添加缺失地点](https://support.google.com/maps/answer/6320846?hl=en)、[Google Maps 地点资格](https://support.google.com/contributionpolicy/answer/12473822?hl=en)
+
+Campus Map 的范围比 Google 公共地图更细，可以收录饮水机、洗手间、打印服务；但 UI 必须明确
+它是在新增**设施**而非新增科学馆：
+
+- 入口和标题使用“添加校内设施”；类型使用“设施类型”；
+- 位置卡回答“在哪里”，例如“科学馆附近 / G/F”；
+- `name` 继续按发布 schema 必填，但类型会先生成可接受的默认名称；普通饮水机可以保留“饮水机”，
+  不要求用户虚构一个专名，有正式名称或编号时再直接修改；
+- “课室”若指一间有编号/名称的房间，应填写“YIA LT6”等真实名称；若用户其实要新增科学馆整栋
+  Building，则应走 Building 创建契约，而不是复用 amenity Place 表单。
+
+#### 推荐的单页信息顺序
+
+```text
+添加校内设施                                      ×
+
+位置
+科学馆附近
+114.208792, 22.421904 · WGS84 · 约略          修改位置
+
+设施类型 *
+[饮水点] [洗手间] [打印服务] [公共空间] [课室]
+
+设施名称或编号
+[饮水机；如有正式名称或编号可直接修改___________]
+
+[开放与使用条件（可选）                         ▾]
+
+资料依据
+你从哪里确认这项资料？
+(•) 我在现场看到          2026-08-26 14:30
+
+[                     发布设施                     ]
+```
+
+这仍是一张 schema-driven Sheet，不增加 Review 页面、自由文本 Changeset comment、第二套 session
+或 provider projection。typed draft/diff 继续自动生成 comment/source summary；变化只是把内部契约
+翻译成用户能理解的问题。
+
 ### 3. `AMap.PlaceSearch` 周边 POI
 
 `AMap.PlaceSearch` 支持关键词搜索、`searchNearBy(keyword, center, radius)`、范围搜索和按 POI ID 查询详情。官方约束包括：
@@ -387,7 +509,13 @@ GCJ-02 偏移 `[+0.004877, -0.002832]` 做近似逆转换，再以 Haversine 距
 
 ## 来源清单
 
+- [Google Maps 添加缺失地点](https://support.google.com/maps/answer/6320846?hl=en)
+- [Google Maps 编辑地点字段与编辑质量](https://support.google.com/websearch/answer/9879130?co=GENIE.Platform%3DDesktop&hl=en)
+- [Google Maps Business Profile 字段说明](https://support.google.com/business/answer/3039617?hl=en-en)
+- [Google Maps 地点资格](https://support.google.com/contributionpolicy/answer/12473822?hl=en)
 - [高德 PositionPicker](https://lbs.amap.com/api/amap-ui/reference-amap-ui/other/positionpicker)
+- [高德地图状态与 `setCenter` / `moveend`](https://lbs.amap.com/api/maps-javascript-api/guide/map/state)
+- [高德商户免费标注](https://wap.amap.com/activity/bgcmoney/Main.html)
 - [高德 Geocoder 参考](https://lbs.amap.com/api/maps-javascript-api/reference/geocode/geocoder)
 - [高德 Geocoder 教程](https://lbs.amap.com/api/javascript-api-v2/guide/services/geocoder)
 - [高德 AutoComplete / PlaceSearch 教程](https://lbs.amap.com/api/maps-javascript-api/guide/services/autocomplete)

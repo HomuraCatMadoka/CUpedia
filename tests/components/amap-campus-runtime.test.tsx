@@ -78,6 +78,7 @@ async function renderWithRuntime(options?: {
   mapRect?: { top: number; right: number; bottom: number; left: number };
   panelRect?: { top: number; right: number; bottom: number; left: number };
   projectedPoint?: { x: number; y: number };
+  placementAnchorPosition?: { longitude: number; latitude: number };
 }) {
   const runtime = installAmapRuntime(options);
   render(<AmapCampusPrototype />);
@@ -86,6 +87,27 @@ async function renderWithRuntime(options?: {
 }
 
 describe("AmapCampusPrototype runtime effects", () => {
+  it("uses the visible centre pin rather than the occluded map centre for mobile Add", async () => {
+    const { runtime } = await renderWithRuntime({
+      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+      mapRect: { top: 0, right: 390, bottom: 720, left: 0 },
+      placementAnchorPosition: { longitude: 114.22, latitude: 22.43 },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+
+    await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
+    expect(runtime.containerToLngLatRequests.at(-1)).toEqual({
+      x: 195,
+      y: expect.closeTo(187.2, 10),
+    });
+    expect(runtime.geocodeRequests[0]?.position).toEqual([
+      expect.closeTo(114.22, 10),
+      expect.closeTo(22.43, 10),
+    ]);
+    expect(screen.getByText(/114\.210000, 22\.420000/)).not.toBeNull();
+  });
+
   it("initializes when the AMap SDK is already present", async () => {
     const { runtime } = await renderWithRuntime();
 
@@ -137,8 +159,9 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(screen.getByText("新位置")).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
-    await waitFor(() => expect(screen.queryByText("新位置")).toBeNull());
-    expect(screen.getByText("地图坐标")).not.toBeNull();
+    expect(await screen.findByText("新位置")).not.toBeNull();
+    expect(screen.getByText(/114\.212000, 22\.422000/)).not.toBeNull();
+    expect(screen.getByText(/高德参考.*香港中文大学新位置/)).not.toBeNull();
     const restored = JSON.parse(
       window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
     );
@@ -199,16 +222,16 @@ describe("AmapCampusPrototype runtime effects", () => {
       },
     });
 
-    expect(screen.getByText(/建筑名称只作位置参考/)).not.toBeNull();
+    expect(screen.getByText(/建筑名称只帮助确认位置/)).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
 
     expect(await screen.findByText("科学馆附近")).not.toBeNull();
     expect(screen.getByText(/114\.208010, 22\.419660/)).not.toBeNull();
-    expect(screen.getByText(/设施名称已按类型预填/)).not.toBeNull();
+    expect(screen.getByText(/没有独立名称时可保留默认名称/)).not.toBeNull();
     expect(
       (
         screen.getByRole("textbox", {
-          name: "地点名称",
+          name: "设施名称或编号",
         }) as HTMLInputElement
       ).value,
     ).toBe("饮水机");
@@ -240,9 +263,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     await runtime.flushAnimationFrames();
 
     expect(screen.getByText("邵逸夫堂")).not.toBeNull();
-    expect(
-      screen.getByText("已选中高德地图地点，名称下一步确认"),
-    ).not.toBeNull();
+    expect(screen.getByText("高德参考 · 已选中地图标签")).not.toBeNull();
     expect(runtime.infoWindows).toHaveLength(0);
     expect(map.setZoomAndCenter).toHaveBeenCalledWith(
       map.getZoom(),
@@ -253,10 +274,21 @@ describe("AmapCampusPrototype runtime effects", () => {
       true,
       0,
     );
+    expect(map.panBy).toHaveBeenCalledWith(0, 844 * 0.26 - 844 / 2, 0);
 
     await act(async () => map.emit("moveend", {}));
     expect(screen.getByText("邵逸夫堂")).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
+
+    expect(await screen.findByText("邵逸夫堂")).not.toBeNull();
+    expect(screen.getByText("高德地图参考")).not.toBeNull();
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "设施名称或编号",
+        }) as HTMLInputElement
+      ).value,
+    ).toBe("饮水机");
 
     const restored = JSON.parse(
       window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
@@ -326,7 +358,9 @@ describe("AmapCampusPrototype runtime effects", () => {
       true,
       0,
     );
-    expect(document.activeElement).toBe(screen.getByLabelText("地点名称"));
+    expect(document.activeElement).toBe(
+      screen.getByLabelText("设施名称或编号"),
+    );
   });
 
   it("keeps the WGS84 conversion baseline when the real AMap API mutates its input", async () => {
@@ -380,7 +414,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     const { runtime, map } = await renderWithRuntime({
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
-    await screen.findByRole("heading", { name: "选择地点位置" });
+    await screen.findByRole("heading", { name: "选择设施位置" });
     await runtime.flushAnimationFrames();
 
     expect(map.setZoomAndCenter).toHaveBeenCalledWith(
@@ -398,6 +432,90 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(persisted.session.draft.placementCandidate).toMatchObject({
       longitude: 114.21,
       latitude: 22.42,
+    });
+  });
+
+  it("re-resolves transient place context for a locked location after refresh", async () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey: "10000000-0000-4000-8000-000000000001",
+    }).session;
+    const saved = transitionCampusMapEdit(started, {
+      type: "CONFIRM_POSITION",
+      position: {
+        longitude: 114.21,
+        latitude: 22.42,
+        crs: "wgs84",
+        precision: "approximate",
+        method: "pointer",
+      },
+    }).session!;
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(saved),
+    );
+
+    const { runtime } = await renderWithRuntime({
+      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+    });
+    await screen.findByRole("heading", { name: "添加校内设施" });
+    await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
+    expect(runtime.geocodeRequests[0]?.position).toEqual([
+      expect.closeTo(114.22, 10),
+      expect.closeTo(22.43, 10),
+    ]);
+
+    await runtime.resolveGeocode(0, "complete", {
+      regeocode: {
+        formattedAddress: "香港中文大学科学馆",
+        pois: [{ id: "science-centre", name: "科学馆", distance: "12" }],
+      },
+    });
+
+    expect(await screen.findByText("科学馆")).not.toBeNull();
+    expect(screen.getByText(/高德参考.*香港中文大学科学馆/)).not.toBeNull();
+    expect(
+      window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
+    ).not.toContain("science-centre");
+  });
+
+  it("recenters on the locked point before a reposition can follow map movement", async () => {
+    const { map } = await renderWithRuntime({
+      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    await act(async () => {
+      map.center = { lng: 114.22, lat: 22.43 };
+      map.emit("moveend", {});
+    });
+    await waitFor(() =>
+      expect(screen.getByText(/114\.210000, 22\.420000/)).not.toBeNull(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
+
+    map.setZoomAndCenter.mockClear();
+    await act(async () => {
+      map.center = { lng: 114.25, lat: 22.46 };
+      map.emit("moveend", {});
+    });
+    fireEvent.click(screen.getByRole("button", { name: "修改位置" }));
+
+    expect(map.setZoomAndCenter).toHaveBeenCalledWith(
+      map.getZoom(),
+      expect.objectContaining({
+        lng: expect.closeTo(114.22, 10),
+        lat: expect.closeTo(22.43, 10),
+      }),
+      true,
+      0,
+    );
+    await act(async () => map.emit("moveend", {}));
+    const persisted = JSON.parse(
+      window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
+    );
+    expect(persisted.session.draft.placementCandidate).toMatchObject({
+      longitude: expect.closeTo(114.21, 10),
+      latitude: expect.closeTo(22.42, 10),
     });
   });
 
@@ -421,7 +539,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     const pending = screen.getByRole("button", { name: "正在确定位置…" });
     expect((pending as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(pending);
-    expect(screen.getByText(/建筑名称只作位置参考/)).not.toBeNull();
+    expect(screen.getByText(/建筑名称只帮助确认位置/)).not.toBeNull();
 
     await act(async () => {
       map.center = { lng: 114.211, lat: 22.421 };
@@ -452,10 +570,10 @@ describe("AmapCampusPrototype runtime effects", () => {
       ).toBe(false),
     );
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "设施名称或编号" }), {
       target: { value: "拖动中的地点" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "重新定位" }));
+    fireEvent.click(screen.getByRole("button", { name: "修改位置" }));
     await waitFor(() =>
       expect(
         (
@@ -501,12 +619,12 @@ describe("AmapCampusPrototype runtime effects", () => {
       ).toBe(false),
     );
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "设施名称或编号" }), {
       target: { value: "需要来源的地点" },
     });
     expect(screen.queryByLabelText("现场观察时间（香港时间）")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "发布新地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
     await runtime.flushAnimationFrames();
 
     expect(document.activeElement?.getAttribute("data-edit-field")).toBe(
@@ -527,7 +645,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     await act(async () => map.emit("longpress", {}));
 
     expect(
-      await screen.findByRole("heading", { name: "选择地点位置" }),
+      await screen.findByRole("heading", { name: "选择设施位置" }),
     ).not.toBeNull();
     expect(push).toHaveBeenCalledTimes(1);
   });
@@ -549,7 +667,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "添加这个类别的地点" }));
 
     expect(
-      await screen.findByRole("heading", { name: "选择地点位置" }),
+      await screen.findByRole("heading", { name: "选择设施位置" }),
     ).not.toBeNull();
     expect(push).toHaveBeenCalledTimes(1);
   });
@@ -667,7 +785,7 @@ describe("AmapCampusPrototype runtime effects", () => {
       ).toBe(false),
     );
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "设施名称或编号" }), {
       target: { value: "不会被地图关闭的地点" },
     });
     expect(window.location.search).toContain("task=create");
@@ -682,7 +800,9 @@ describe("AmapCampusPrototype runtime effects", () => {
     await runtime.flushAnimationFrames();
 
     expect(window.location.search).toContain("task=create");
-    expect(screen.getByRole("heading", { name: "添加地点" })).not.toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "添加校内设施" }),
+    ).not.toBeNull();
   });
 
   it("keeps only the latest camera request during rapid hotspot selection", async () => {

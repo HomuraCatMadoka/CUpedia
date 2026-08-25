@@ -39,7 +39,11 @@ export type CampusMapDriverCameraCommand =
   | {
       kind: "edit-position";
       position: readonly [longitude: number, latitude: number];
-      reason: "draft-restore" | "keyboard-placement" | "provider-placement";
+      reason:
+        | "draft-restore"
+        | "keyboard-placement"
+        | "provider-placement"
+        | "reposition";
     };
 
 export type CampusMapDriverFocusCommand =
@@ -251,7 +255,11 @@ export class CampusMapSceneDriver {
 
   recenterEditPosition(
     position: readonly [longitude: number, latitude: number],
-    reason: "draft-restore" | "keyboard-placement" | "provider-placement",
+    reason:
+      | "draft-restore"
+      | "keyboard-placement"
+      | "provider-placement"
+      | "reposition",
   ) {
     this.ports.camera(
       { kind: "edit-position", position, reason },

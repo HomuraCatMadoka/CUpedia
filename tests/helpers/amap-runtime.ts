@@ -1,6 +1,8 @@
 import { act } from "@testing-library/react";
 import { vi } from "vitest";
 
+import { placementAnchorPoint } from "@/lib/campus-map/camera-policy";
+
 type LngLat = { lng: number; lat: number };
 type Handler = (event: Record<string, unknown>) => void;
 
@@ -16,6 +18,7 @@ export function installAmapRuntime(options?: {
   mapRect?: { top: number; right: number; bottom: number; left: number };
   panelRect?: { top: number; right: number; bottom: number; left: number };
   projectedPoint?: { x: number; y: number };
+  placementAnchorPosition?: { longitude: number; latitude: number };
 }) {
   const rafQueue: FrameRequestCallback[] = [];
   const infoWindowCloseQueue: Array<() => void> = [];
@@ -114,6 +117,21 @@ export function installAmapRuntime(options?: {
     }
 
     containerToLngLat(pixel: MockPixel) {
+      runtime.containerToLngLatRequests.push({ x: pixel.x, y: pixel.y });
+      const anchor = placementAnchorPoint({
+        width: runtime.mapRect.right - runtime.mapRect.left,
+        height: runtime.mapRect.bottom - runtime.mapRect.top,
+      });
+      if (
+        Math.abs(pixel.x - anchor.x) < 0.0001 &&
+        Math.abs(pixel.y - anchor.y) < 0.0001
+      ) {
+        const position = options?.placementAnchorPosition;
+        return new MockLngLat(
+          position?.longitude ?? this.center.lng,
+          position?.latitude ?? this.center.lat,
+        );
+      }
       return new MockLngLat(pixel.x, pixel.y);
     }
 
@@ -267,6 +285,7 @@ export function installAmapRuntime(options?: {
       position: readonly [number, number];
       callback: (status: string, result: unknown) => void;
     }>,
+    containerToLngLatRequests: [] as Array<{ x: number; y: number }>,
     mapRect: options?.mapRect ?? { top: 0, right: 720, bottom: 844, left: 0 },
     panelRect: options?.panelRect ?? {
       top: 596,

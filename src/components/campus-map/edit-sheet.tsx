@@ -92,9 +92,9 @@ const WEEKDAYS = [
 
 function messageForError(code: string): string {
   const messages: Record<string, string> = {
-    "fact-name-required": "请填写地点名称。",
-    "source-required": "请提供资料来源。",
-    "invalid-location": "位置资料不完整，请重新定位。",
+    "fact-name-required": "请填写设施名称或编号。",
+    "source-required": "请提供资料依据。",
+    "invalid-location": "位置资料不完整，请修改位置。",
     "base-revision-conflict": "地点资料已被其他人更新。",
     "invalid-place-id": "这个过渡地点尚未连接到正式 Place。",
   };
@@ -642,7 +642,7 @@ export function CampusMapEditSheet({
   const placementDescription = describeOutdoorPosition(placementPosition);
   const placementReference = resolvedContext
     ? resolvedContext.distanceMeters === 0 && !resolvedContext.address
-      ? "已选中高德地图地点，名称下一步确认"
+      ? "高德参考 · 已选中地图标签"
       : `高德参考 · ${resolvedContext.address ?? "附近地点"}`
     : placeContext?.status === "loading"
       ? "正在确定位置…"
@@ -655,6 +655,23 @@ export function CampusMapEditSheet({
             : placeContext?.status === "empty"
               ? "高德未找到附近地点，仍可使用此位置"
               : "移动地图，让图钉对准地点";
+  const lockedOutdoorLabel =
+    !isPlacing &&
+    fact.location?.kind === "outdoor-point" &&
+    resolvedContext?.label &&
+    resolvedContext.label !== "地图中心位置"
+      ? resolvedContext.label
+      : null;
+  const lockedOutdoorReference =
+    !isPlacing && fact.location?.kind === "outdoor-point"
+      ? resolvedContext
+        ? resolvedContext.distanceMeters === 0 && !resolvedContext.address
+          ? "高德地图参考"
+          : `高德参考 · ${resolvedContext.address ?? "附近地点"}`
+        : placeContext?.status === "loading"
+          ? "正在恢复位置参考…"
+          : null
+      : null;
   const coordinateEntry = isPlacing ? (
     <div
       className={cn(
@@ -1038,20 +1055,20 @@ export function CampusMapEditSheet({
         >
           {isPlacing
             ? draft.mode === "add"
-              ? "选择地点位置"
-              : "调整地点位置"
+              ? "选择设施位置"
+              : "修改设施位置"
             : draft.mode === "add"
-              ? "添加地点"
-              : "建议修改"}
+              ? "添加校内设施"
+              : "修改设施"}
         </h2>
         <p className="mt-1 text-sm text-neutral-600">
           {isPlacing
             ? draft.mode === "add"
-              ? "移动地图标记设施位置；建筑名称只作位置参考。"
-              : "移动地图，或轻点地图上的地点名称来重新定位。"
+              ? "移动地图，让图钉对准设施；建筑名称只帮助确认位置。"
+              : "移动地图或轻点地图标签，选择新的设施位置。"
             : draft.mode === "add"
-              ? "位置已确定；设施名称已按类型预填，可直接修改。"
-              : "更新地点资料，未修改的内容会保持不变。"}
+              ? "位置已确定。选择类型，再确认名称或编号。"
+              : "更新设施资料，未改内容会保持不变。"}
         </p>
       </div>
       <div
@@ -1076,7 +1093,7 @@ export function CampusMapEditSheet({
           <div
             data-edit-field="location"
             tabIndex={-1}
-            className="rounded-xl bg-[#edf5f1] p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+            className="rounded-xl bg-[#edf5f1] px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
           >
             <div className="flex items-start gap-3">
               <MapPinIcon
@@ -1087,22 +1104,29 @@ export function CampusMapEditSheet({
                 <p className="font-semibold" aria-live="polite">
                   {isPlacing
                     ? placementLabel
-                    : friendlyLocationLabel(fact, draft.locationDisplay)}
+                    : (lockedOutdoorLabel ??
+                      friendlyLocationLabel(fact, draft.locationDisplay))}
                 </p>
                 <p
-                  className="mt-0.5 text-xs text-neutral-600"
+                  className={cn(
+                    "mt-0.5 text-xs text-neutral-600",
+                    !isPlacing && "truncate",
+                  )}
                   aria-live="polite"
                 >
                   {isPlacing
                     ? placementDescription
                     : describeLocation(fact, draft.locationDisplay)}
                 </p>
-                {isPlacing ? (
+                {isPlacing || lockedOutdoorReference ? (
                   <p
-                    className="mt-0.5 text-xs text-neutral-500"
+                    className={cn(
+                      "mt-0.5 text-xs text-neutral-500",
+                      !isPlacing && "truncate",
+                    )}
                     aria-live="polite"
                   >
-                    {placementReference}
+                    {isPlacing ? placementReference : lockedOutdoorReference}
                   </p>
                 ) : null}
               </div>
@@ -1114,7 +1138,7 @@ export function CampusMapEditSheet({
                     onEvent({ type: "START_REPOSITION", ...freshAttempt() })
                   }
                 >
-                  重新定位
+                  修改位置
                 </button>
               ) : null}
             </div>
@@ -1122,38 +1146,18 @@ export function CampusMapEditSheet({
         ) : null}
         {coordinateEntry}
         <div hidden={isPlacing} className="space-y-4">
-          <label
-            className="block text-sm font-medium"
-            htmlFor={`${fieldPrefix}-name`}
-          >
-            {fieldLabel("name", "地点名称")}
-            <input
-              id={`${fieldPrefix}-name`}
-              name="campus-map-place-name"
-              autoComplete="off"
-              data-edit-field="name"
-              className={fieldClass}
-              value={fact.name}
-              aria-invalid={session.localError === "name"}
-              onChange={(event) =>
-                updateFact({ ...fullFact, name: event.target.value })
-              }
-            />
-          </label>
           <fieldset
             data-edit-field="pinType"
             tabIndex={-1}
             className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
           >
-            <legend className="mb-2 text-sm font-medium">
-              {fieldLabel("pinType", "地点类型")}
-            </legend>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <legend className="mb-2 text-sm font-medium">设施类型</legend>
+            <div className="grid grid-cols-6 gap-2">
               {CAMPUS_MAP_EDIT_SCHEMA.presets.map((item) => (
                 <label
                   key={item.pinType}
                   className={cn(
-                    "flex min-h-11 w-full cursor-pointer touch-manipulation items-center justify-center rounded-xl border px-3 text-center text-sm font-semibold transition-colors last:col-span-2 active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 sm:last:col-span-1 motion-reduce:transform-none",
+                    "col-span-2 flex min-h-11 w-full cursor-pointer touch-manipulation items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold transition-colors nth-[4]:col-span-3 nth-[5]:col-span-3 active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 motion-reduce:transform-none",
                     fact.pinType === item.pinType
                       ? "border-[#176346] bg-[#e4f1eb] text-[#174b38]"
                       : "border-black/15 bg-white text-neutral-700 hover:bg-neutral-50",
@@ -1181,6 +1185,30 @@ export function CampusMapEditSheet({
               ))}
             </div>
           </fieldset>
+          <div className="text-sm font-medium">
+            <label htmlFor={`${fieldPrefix}-name`}>设施名称或编号</label>
+            <input
+              id={`${fieldPrefix}-name`}
+              name="campus-map-place-name"
+              autoComplete="off"
+              data-edit-field="name"
+              className={fieldClass}
+              value={fact.name}
+              aria-describedby={`${fieldPrefix}-name-help`}
+              aria-invalid={session.localError === "name"}
+              onChange={(event) =>
+                updateFact({ ...fullFact, name: event.target.value })
+              }
+            />
+            <span
+              id={`${fieldPrefix}-name-help`}
+              className="mt-1 block text-xs leading-5 font-normal text-neutral-600"
+            >
+              {fact.pinType === "classroom"
+                ? "请填写课室编号或正式名称，例如 YIA LT6。"
+                : "没有独立名称时可保留默认名称；如有正式名称或编号，请直接修改。"}
+            </span>
+          </div>
         </div>
         <button
           type="button"
@@ -1190,7 +1218,7 @@ export function CampusMapEditSheet({
           className="flex min-h-11 w-full items-center justify-between rounded-xl border border-black/15 bg-white px-3 text-left text-sm font-semibold hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
           onClick={() => setShowMoreDetails((current) => !current)}
         >
-          <span>更多资料</span>
+          <span>开放与使用条件（可选）</span>
           <ChevronDownIcon
             aria-hidden="true"
             className={cn(
@@ -1459,6 +1487,15 @@ export function CampusMapEditSheet({
           ) : null}
         </div>
         <div hidden={isPlacing} className="rounded-xl border p-3">
+          <div className="px-1">
+            <p className="text-sm font-semibold">资料依据</p>
+            <p
+              id={`${fieldPrefix}-source-help`}
+              className="mt-1 text-xs leading-5 text-neutral-600"
+            >
+              你从哪里确认这项资料？发布前至少提供一项。
+            </p>
+          </div>
           <button
             type="button"
             data-edit-field="sources"
@@ -1466,21 +1503,21 @@ export function CampusMapEditSheet({
             aria-controls={`${fieldPrefix}-source-entry`}
             aria-describedby={
               session.localError === "sources"
-                ? `${fieldPrefix}-source-error`
-                : undefined
+                ? `${fieldPrefix}-source-help ${fieldPrefix}-source-error`
+                : `${fieldPrefix}-source-help`
             }
             aria-label={
               sourceEntryExpanded
-                ? "收起资料来源"
+                ? "收起现场观察"
                 : draft.sources.length
-                  ? "修改资料来源"
-                  : "添加资料来源"
+                  ? "修改现场观察"
+                  : "填写现场观察"
             }
-            className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-1 text-left text-sm font-semibold hover:text-[#176346] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+            className="mt-2 flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-1 text-left text-sm font-semibold text-[#176346] hover:bg-[#edf5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
             onClick={() => setShowSourceEntry((current) => !current)}
           >
             <span>
-              {draft.sources.length ? "修改资料来源" : "添加资料来源"}
+              {draft.sources.length ? "修改现场观察" : "填写现场观察"}
             </span>
             <ChevronDownIcon
               aria-hidden="true"
@@ -1496,7 +1533,7 @@ export function CampusMapEditSheet({
               className="px-1 text-xs text-red-700"
               role="alert"
             >
-              请添加资料来源。
+              请提供资料依据。
             </p>
           ) : null}
           {draft.sources.length && !sourceEntryExpanded ? (
@@ -1506,7 +1543,7 @@ export function CampusMapEditSheet({
           ) : null}
           {sourceEntryExpanded ? (
             <fieldset id={`${fieldPrefix}-source-entry`} className="mt-3">
-              <legend className="sr-only">资料来源</legend>
+              <legend className="sr-only">现场观察</legend>
               <label
                 className="block text-sm"
                 htmlFor={`${fieldPrefix}-source-date`}
@@ -1548,7 +1585,7 @@ export function CampusMapEditSheet({
                   ]);
                 }}
               >
-                {draft.sources.length ? "更新现场观察来源" : "使用现场观察来源"}
+                {draft.sources.length ? "更新观察时间" : "记录现场观察"}
               </button>
               {draft.sources.length ? (
                 <p className="mt-2 text-xs text-[#176346]">
@@ -1583,7 +1620,7 @@ export function CampusMapEditSheet({
             : session.status === "publishing"
               ? "正在发布…"
               : draft.mode === "add"
-                ? "发布新地点"
+                ? "发布设施"
                 : "发布修改"}
         </button>
       </div>

@@ -379,6 +379,11 @@ describe("Campus Map edit session transition", () => {
         warningAcknowledgements: [],
       },
     });
+    expect(placing.commands).toContainEqual({
+      kind: "camera",
+      intent: "recenter-placement",
+      position: [114.2049, 22.4195],
+    });
     expect(repositioned.session).toMatchObject({
       status: "editing",
       draft: {

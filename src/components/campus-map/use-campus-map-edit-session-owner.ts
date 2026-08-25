@@ -112,6 +112,8 @@ export function useCampusMapEditSessionOwner({
           } else if (command.intent === "cancel-task") {
             dispatch({ type: "CANCEL_TASK" });
           }
+        } else if (command.kind === "camera") {
+          driver.recenterEditPosition(command.position, "reposition");
         } else if (command.kind === "focus") {
           if (command.target === "form-heading") {
             driver.focusContributionForm();

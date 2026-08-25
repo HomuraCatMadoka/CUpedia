@@ -150,8 +150,8 @@ test("Campus Map editing keeps its primary action inside a 390px-high viewport",
   await expect(confirmPosition).toBeEnabled();
   await confirmPosition.click();
 
-  const sheet = page.getByRole("region", { name: "添加地点" });
-  const publish = page.getByRole("button", { name: "发布新地点" });
+  const sheet = page.getByRole("region", { name: "添加校内设施" });
+  const publish = page.getByRole("button", { name: "发布设施" });
   await expect(sheet).toBeVisible();
   await expect(publish).toBeVisible();
 
@@ -176,11 +176,19 @@ test("Campus Map editing supports the keyboard placement and dirty-close path", 
   await page.getByRole("button", { name: "添加地点" }).click();
   await page.getByRole("button", { name: "使用此位置" }).click();
 
-  const reposition = page.getByRole("button", { name: "重新定位" });
+  const name = page.getByRole("textbox", { name: "设施名称或编号" });
+  const publish = page.getByRole("button", { name: "发布设施" });
+  const nameBox = await name.boundingBox();
+  const publishBox = await publish.boundingBox();
+  expect(nameBox).not.toBeNull();
+  expect(publishBox).not.toBeNull();
+  expect(nameBox!.y + nameBox!.height).toBeLessThanOrEqual(publishBox!.y);
+
+  const reposition = page.getByRole("button", { name: "修改位置" });
   await reposition.focus();
   await page.keyboard.press("Enter");
   await expect(
-    page.getByRole("heading", { name: "选择地点位置" }),
+    page.getByRole("heading", { name: "选择设施位置" }),
   ).toBeVisible();
 
   const coordinateEntry = page.getByRole("button", { name: "输入坐标" });
@@ -192,7 +200,6 @@ test("Campus Map editing supports the keyboard placement and dirty-close path", 
   await useCoordinates.focus();
   await page.keyboard.press("Enter");
 
-  const name = page.getByRole("textbox", { name: /名称$/ });
   await expect(name).toBeFocused();
   await name.fill("键盘测试地点");
   await page.keyboard.press("Escape");

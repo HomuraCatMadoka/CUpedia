@@ -95,6 +95,11 @@ export interface CampusMapEditSession {
 
 export type CampusMapEditCommand =
   | { kind: "scene"; intent: "start-create" | "start-edit" | "cancel-task" }
+  | {
+      kind: "camera";
+      intent: "recenter-placement";
+      position: readonly [longitude: number, latitude: number];
+    }
   | { kind: "persist-snapshot" }
   | { kind: "clear-snapshot" }
   | { kind: "focus"; target: string }
@@ -559,20 +564,21 @@ export function transitionCampusMapEdit(
     }
     const attemptDraft = draftForPayloadChange(session, event.idempotencyKey);
     if (!attemptDraft) return rejected(session);
+    const placementCandidate =
+      attemptDraft.fact.location?.kind === "outdoor-point"
+        ? {
+            longitude: attemptDraft.fact.location.longitude,
+            latitude: attemptDraft.fact.location.latitude,
+            crs: "wgs84" as const,
+            precision: attemptDraft.fact.location.precision,
+            method: attemptDraft.placementMethod ?? ("pointer" as const),
+          }
+        : null;
     const next: CampusMapEditSession = {
       status: "placing",
       draft: {
         ...attemptDraft,
-        placementCandidate:
-          attemptDraft.fact.location?.kind === "outdoor-point"
-            ? {
-                longitude: attemptDraft.fact.location.longitude,
-                latitude: attemptDraft.fact.location.latitude,
-                crs: "wgs84",
-                precision: attemptDraft.fact.location.precision,
-                method: attemptDraft.placementMethod ?? "pointer",
-              }
-            : null,
+        placementCandidate,
         warningAcknowledgements: [],
       },
     };
@@ -581,6 +587,18 @@ export function transitionCampusMapEdit(
       session: next,
       commands: [
         { kind: "persist-snapshot" },
+        ...(placementCandidate
+          ? [
+              {
+                kind: "camera" as const,
+                intent: "recenter-placement" as const,
+                position: [
+                  placementCandidate.longitude,
+                  placementCandidate.latitude,
+                ] as const,
+              },
+            ]
+          : []),
         { kind: "announce", message: "移动地图或输入 WGS84 坐标以重新定位" },
       ],
     };

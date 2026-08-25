@@ -17,6 +17,22 @@ export interface CameraPoint {
   y: number;
 }
 
+export const MOBILE_PLACEMENT_ANCHOR_RATIO = 0.26;
+const DESKTOP_PLACEMENT_MIN_WIDTH = 768;
+
+export function placementAnchorPoint(viewport: {
+  width: number;
+  height: number;
+}): CameraPoint {
+  return {
+    x: viewport.width / 2,
+    y:
+      viewport.width < DESKTOP_PLACEMENT_MIN_WIDTH
+        ? viewport.height * MOBILE_PLACEMENT_ANCHOR_RATIO
+        : viewport.height / 2,
+  };
+}
+
 export type CameraReason =
   | "map-selection"
   | "search-selection"
