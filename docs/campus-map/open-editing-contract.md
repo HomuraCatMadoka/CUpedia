@@ -192,19 +192,25 @@ MVP 不接收证据照片或任意附件。现有 Wiki asset 上传后公开且�
 
 ```text
 Browse
- ├─ Add → center pin / 键盘确认位置 ─┐
+ ├─ Add → 同一张 Sheet 内 center pin / 键盘候选位置 + 基础字段 ─┐
  └─ Place card → Edit ──────────────┤
                                     ↓
-                         schema-driven 单页编辑 Sheet
+                          锁定位置并补全 schema-driven 字段
                                     ↓
                                  Publish
 ```
 
 - `Browse`、`Select Place` 与 `Add Point` 是互斥模式；MVP 不展示 Line、Area 或 Relation。
-- Add 与 Edit 共用一张单页 Sheet。地点类型是 Sheet 内的受控字段，不存在独立 preset 或 Review
+- Add 与 Edit 共用一张单页 Sheet。`placing` 与 `editing` 保持同一 Sheet shell；
+  名称、地点类型和位置行在确认前就可编辑，不存在独立定位页、preset 或 Review
   页面、常驻 Undo/Redo 或 action journal。
-- Add 的 center pin 与键盘路径都确认 WGS84 position、CRS 和诚实 precision；地图手势不能改写
-  已锁定的位置。
+- Add 的 center pin 与键盘路径先更新可恢复、provider-neutral 的 WGS84 placement
+  candidate。candidate 本身不是 Current fact，也不单独产生 dirty；两条路径都经同一
+  `CONFIRM_POSITION` transition 锁定 position、CRS 和诚实 precision。锁定后地图手势不能改写
+  位置，除非用户明确选择重新定位。
+- 移动地图时 center pin 提起，`moveend` 后由小型 AMap Geocoder boundary 提供带归属
+  的瞬时地址/附近 POI 参考。provider 结果不得自动填名称、来源、`placeId` 或其他
+  canonical fact；过期回调在新候选、关闭、Back、Escape、刷新或新任务后失效。
 - Edit 绑定不可变 `placeId + baseRevisionId`；初始载入不 dirty，只有事实或位置变化才启用发布。
 - preset schema 同时驱动适用字段、默认值、公开标签和本地基础校验；服务器结果仍是最终校验来源。
 - typed draft/diff 自动生成 Changeset comment 与安全 source summary；MVP 固定
