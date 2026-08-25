@@ -162,7 +162,11 @@ export function createAmapGeocoderAdapter(
               resolve({ status: "no-data" });
               return;
             }
-            if (status !== "complete" || !isRecord(rawResult)) {
+            if (
+              status !== "complete" ||
+              !isRecord(rawResult) ||
+              optionalString(rawResult.info)?.toUpperCase() !== "OK"
+            ) {
               resolve({
                 status: "error",
                 reason: classifyAmapError(rawResult),

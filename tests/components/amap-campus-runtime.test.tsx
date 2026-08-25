@@ -319,6 +319,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     await act(async () => {
       map.emit("dragstart", {});
       map.emit("movestart", {});
+      map.emit("dragend", {});
       map.emit("moveend", {});
     });
     await runtime.resolveGeocode(0, "complete", {
@@ -519,6 +520,116 @@ describe("AmapCampusPrototype runtime effects", () => {
     });
   });
 
+  it("ignores an older camera moveend until the latest placement target settles", async () => {
+    const { map } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "使用此位置",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("button", { name: "修改位置" }));
+
+    await act(async () => {
+      map.emit("hotspotclick", {
+        id: "science-centre",
+        name: "ScienceCentre 科学馆",
+        lnglat: { lng: 114.20801, lat: 22.41966 },
+      });
+    });
+
+    await act(async () => {
+      map.center = { lng: 114.2072, lat: 22.4191 };
+      map.emit("moveend", {});
+    });
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "正在确定位置…",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+
+    await act(async () => {
+      map.center = { lng: 114.20801, lat: 22.41966 };
+      map.emit("moveend", {});
+    });
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "使用此位置",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+
+    const persisted = JSON.parse(
+      window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
+    );
+    expect(persisted.session.draft.placementCandidate).toMatchObject({
+      longitude: expect.closeTo(114.20801, 10),
+      latitude: expect.closeTo(22.41966, 10),
+    });
+
+    await act(async () => {
+      map.center = { lng: 114.2072, lat: 22.4191 };
+      map.emit("moveend", {});
+    });
+    expect(
+      JSON.parse(
+        window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
+      ).session.draft.placementCandidate,
+    ).toMatchObject({
+      longitude: expect.closeTo(114.20801, 10),
+      latitude: expect.closeTo(22.41966, 10),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("button", { name: "修改位置" }));
+    await act(async () => {
+      map.emit("dragstart", {});
+      map.emit("movestart", {});
+      map.center = { lng: 114.209, lat: 22.421 };
+      map.emit("dragend", {});
+      map.emit("moveend", {});
+    });
+    await act(async () => {
+      map.center = { lng: 114.20801, lat: 22.41966 };
+      map.emit("moveend", {});
+    });
+    expect(
+      JSON.parse(
+        window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
+      ).session.draft.placementCandidate,
+    ).toMatchObject({
+      longitude: expect.closeTo(114.209, 10),
+      latitude: expect.closeTo(22.421, 10),
+    });
+
+    await act(async () => {
+      map.emit("dragstart", {});
+      map.emit("movestart", {});
+      map.center = { lng: 114.20801, lat: 22.41966 };
+      map.emit("dragend", {});
+      map.emit("moveend", {});
+    });
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "使用此位置",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+  });
+
   it("lifts the center pin while the map is moving", async () => {
     const { runtime, map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
@@ -574,6 +685,7 @@ describe("AmapCampusPrototype runtime effects", () => {
       target: { value: "拖动中的地点" },
     });
     fireEvent.click(screen.getByRole("button", { name: "修改位置" }));
+    await act(async () => map.emit("moveend", {}));
     await waitFor(() =>
       expect(
         (

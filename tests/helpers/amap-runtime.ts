@@ -381,7 +381,14 @@ export function installAmapRuntime(options?: {
     },
     async resolveGeocode(index: number, status: string, result: unknown) {
       await act(async () => {
-        runtime.geocodeRequests[index]?.callback(status, result);
+        const normalizedResult =
+          status === "complete" &&
+          result !== null &&
+          typeof result === "object" &&
+          !("info" in result)
+            ? { info: "OK", ...result }
+            : result;
+        runtime.geocodeRequests[index]?.callback(status, normalizedResult);
         await Promise.resolve();
       });
     },

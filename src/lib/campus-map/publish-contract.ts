@@ -14,39 +14,35 @@ import type {
   CampusMapTemporaryStatus,
   CampusMapWheelchairAccess,
 } from "@/db/schema";
+import {
+  CAMPUS_MAP_AUDIENCES,
+  CAMPUS_MAP_CAPABILITIES,
+  CAMPUS_MAP_COORDINATE_CONVERSION_METHODS,
+  CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
+  CAMPUS_MAP_GENDERS,
+  CAMPUS_MAP_PIN_TYPES,
+  CAMPUS_MAP_PROVENANCE_KINDS,
+  CAMPUS_MAP_RESERVATION_REQUIREMENTS,
+  CAMPUS_MAP_RIGHTS_STATUSES,
+  CAMPUS_MAP_SOURCE_COORDINATE_CRS,
+  CAMPUS_MAP_TEMPORARY_STATUSES,
+  CAMPUS_MAP_WHEELCHAIR_ACCESS,
+} from "./controlled-values";
 
 /** Runtime values shared by publish clients and versioned snapshot codecs. */
 export const CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES = {
-  pinType: ["toilet", "water", "printer", "common-space", "classroom"],
-  capability: ["print", "scan", "copy"],
-  gender: ["female", "male", "all-gender", "unknown"],
-  wheelchairAccess: ["yes", "no", "limited", "unknown"],
-  audience: ["public", "cuhk-member", "library-member", "unknown"],
-  credentialRequirement: [
-    "none",
-    "campus-card",
-    "library-card",
-    "other",
-    "unknown",
-  ],
-  reservationRequirement: ["none", "required", "unknown"],
-  temporaryStatus: ["normal", "temporarily-closed", "unknown"],
-  provenanceKind: [
-    "official",
-    "field-observation",
-    "open-data",
-    "provider-candidate",
-    "other",
-  ],
-  rightsStatus: [
-    "public-domain",
-    "permission-granted",
-    "original-observation",
-    "restricted",
-    "unknown",
-  ],
-  sourceCoordinateCrs: ["wgs84", "gcj02", "hk80", "hkpd", "other"],
-  coordinateConversionMethod: ["proj", "manual", "provider-adapter", "other"],
+  pinType: CAMPUS_MAP_PIN_TYPES,
+  capability: CAMPUS_MAP_CAPABILITIES,
+  gender: CAMPUS_MAP_GENDERS,
+  wheelchairAccess: CAMPUS_MAP_WHEELCHAIR_ACCESS,
+  audience: CAMPUS_MAP_AUDIENCES,
+  credentialRequirement: CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
+  reservationRequirement: CAMPUS_MAP_RESERVATION_REQUIREMENTS,
+  temporaryStatus: CAMPUS_MAP_TEMPORARY_STATUSES,
+  provenanceKind: CAMPUS_MAP_PROVENANCE_KINDS,
+  rightsStatus: CAMPUS_MAP_RIGHTS_STATUSES,
+  sourceCoordinateCrs: CAMPUS_MAP_SOURCE_COORDINATE_CRS,
+  coordinateConversionMethod: CAMPUS_MAP_COORDINATE_CONVERSION_METHODS,
 } as const satisfies {
   pinType: readonly CampusMapPinType[];
   capability: readonly CampusMapCapability[];

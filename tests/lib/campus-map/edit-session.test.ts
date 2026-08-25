@@ -561,6 +561,36 @@ describe("Campus Map edit session transition", () => {
     expect(invalid.commands).toContainEqual({ kind: "focus", target: "name" });
   });
 
+  it("derives local required-field checks from the active fact schema", () => {
+    const invalidDraft = createCampusMapEditDraft({
+      mode: "add",
+      idempotencyKey: firstKey,
+      fact: {
+        ...fact,
+        pinType: "printer",
+        capabilities: [],
+      },
+      sources: [source],
+    });
+
+    const invalid = transitionCampusMapEdit(
+      { status: "editing", draft: invalidDraft },
+      {
+        type: "REQUEST_PUBLISH",
+        requiredFields: ["name", "pinType", "capabilities", "location"],
+      },
+    );
+
+    expect(invalid.session).toMatchObject({
+      status: "editing",
+      localError: "capabilities",
+    });
+    expect(invalid.commands).toContainEqual({
+      kind: "focus",
+      target: "capabilities",
+    });
+  });
+
   it.each([
     ["location.precision", "location"],
     ["changes.0.fact.floorId", "location"],

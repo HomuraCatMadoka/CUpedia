@@ -386,6 +386,17 @@ function alignPositionToPlacementAnchor(map: AMapMap, mapElement: Element) {
   if (x !== 0 || y !== 0) map.panBy(x, y, 0);
 }
 
+function samePlacementPosition(
+  left: Position,
+  right: Position,
+  tolerance = 0.00002,
+) {
+  return (
+    Math.abs(left[0] - right[0]) <= tolerance &&
+    Math.abs(left[1] - right[1]) <= tolerance
+  );
+}
+
 function normalized(value = "") {
   return value
     .normalize("NFKC")
@@ -492,6 +503,16 @@ export function AmapCampusPrototype({
     command: CampusMapDriverCameraCommand;
     context: CampusMapDriverEffectContext;
   } | null>(null);
+  const pendingPlacementCameraRef = useRef<{
+    token: number;
+    context: CampusMapDriverEffectContext;
+    position: Position;
+  } | null>(null);
+  const placementCameraTokenRef = useRef(0);
+  const retiredPlacementCameraTargetsRef = useRef<Position[]>([]);
+  const lastSettledPlacementCameraTargetRef = useRef<Position | null>(null);
+  const mapDraggingRef = useRef(false);
+  const userGestureAwaitingMoveEndRef = useRef(false);
   const pendingSelectionTokenRef = useRef<number | null>(null);
   const amapPositionsRef = useRef<Readonly<Record<string, Position>>>({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -529,6 +550,12 @@ export function AmapCampusPrototype({
     amapPositionsRef.current = {};
     cameraGateRef.current.invalidate();
     pendingDriverCameraRef.current = null;
+    pendingPlacementCameraRef.current = null;
+    placementCameraTokenRef.current += 1;
+    retiredPlacementCameraTargetsRef.current = [];
+    lastSettledPlacementCameraTargetRef.current = null;
+    mapDraggingRef.current = false;
+    userGestureAwaitingMoveEndRef.current = false;
     pendingSelectionTokenRef.current = null;
     setMapReady(false);
     setMapMoving(false);
@@ -660,9 +687,19 @@ export function AmapCampusPrototype({
       context: CampusMapDriverEffectContext,
     ) => {
       if (camera.kind === "cancel") {
+        const pendingPlacementCamera = pendingPlacementCameraRef.current;
+        if (pendingPlacementCamera) {
+          retiredPlacementCameraTargetsRef.current = [
+            ...retiredPlacementCameraTargetsRef.current,
+            pendingPlacementCamera.position,
+          ].slice(-8);
+        }
         pendingDriverCameraRef.current = null;
+        pendingPlacementCameraRef.current = null;
+        placementCameraTokenRef.current += 1;
         cameraGateRef.current.invalidate();
         pendingSelectionTokenRef.current = null;
+        setMapMoving(false);
         return;
       }
       const map = mapRef.current;
@@ -683,6 +720,49 @@ export function AmapCampusPrototype({
           camera.position[0] + offset[0],
           camera.position[1] + offset[1],
         ];
+        const previousPlacementCamera = pendingPlacementCameraRef.current;
+        if (previousPlacementCamera) {
+          retiredPlacementCameraTargetsRef.current = [
+            ...retiredPlacementCameraTargetsRef.current,
+            previousPlacementCamera.position,
+          ].slice(-8);
+        }
+        const previousSettledTarget =
+          lastSettledPlacementCameraTargetRef.current;
+        if (previousSettledTarget) {
+          retiredPlacementCameraTargetsRef.current = [
+            ...retiredPlacementCameraTargetsRef.current,
+            previousSettledTarget,
+          ].slice(-8);
+        }
+        lastSettledPlacementCameraTargetRef.current = null;
+        const currentProviderPosition = placementAnchorLngLat(
+          map,
+          mapElement,
+          AMap,
+        );
+        const currentPosition: Position = [
+          currentProviderPosition.lng - offset[0],
+          currentProviderPosition.lat - offset[1],
+        ];
+        if (samePlacementPosition(currentPosition, camera.position)) {
+          pendingPlacementCameraRef.current = null;
+          setMapMoving(false);
+          setCenterPosition([camera.position[0], camera.position[1]]);
+          setProviderCenterPosition(providerPosition);
+          setMapCenterRevision((revision) => revision + 1);
+          lastSettledPlacementCameraTargetRef.current = [
+            camera.position[0],
+            camera.position[1],
+          ];
+          return;
+        }
+        pendingPlacementCameraRef.current = {
+          token: ++placementCameraTokenRef.current,
+          context,
+          position: [camera.position[0], camera.position[1]],
+        };
+        setMapMoving(true);
         setCenterPosition([camera.position[0], camera.position[1]]);
         setProviderCenterPosition(providerPosition);
         map.setZoomAndCenter(
@@ -694,6 +774,14 @@ export function AmapCampusPrototype({
         alignPositionToPlacementAnchor(map, mapElement);
         return;
       }
+      const pendingPlacementCamera = pendingPlacementCameraRef.current;
+      if (pendingPlacementCamera) {
+        retiredPlacementCameraTargetsRef.current = [
+          ...retiredPlacementCameraTargetsRef.current,
+          pendingPlacementCamera.position,
+        ].slice(-8);
+      }
+      pendingPlacementCameraRef.current = null;
       if (camera.kind === "fit") {
         cameraGateRef.current.invalidate();
         const longitudes = camera.positions.map((position) => position[0]);
@@ -1285,8 +1373,13 @@ export function AmapCampusPrototype({
       });
     });
     map.on("dragstart", () => {
+      mapDraggingRef.current = true;
+      userGestureAwaitingMoveEndRef.current = true;
       exactProviderPlaceRef.current = null;
       driver.interruptCamera();
+    });
+    map.on("dragend", () => {
+      mapDraggingRef.current = false;
     });
     map.on("movestart", () => setMapMoving(true));
     map.on("moveend", () => {
@@ -1294,8 +1387,60 @@ export function AmapCampusPrototype({
         ? placementAnchorLngLat(map, map.getContainer(), AMap)
         : map.getCenter();
       const offset = amapOffsetRef.current;
+      const position: Position = [
+        center.lng - offset[0],
+        center.lat - offset[1],
+      ];
+      if (mapDraggingRef.current) return;
+      if (userGestureAwaitingMoveEndRef.current) {
+        userGestureAwaitingMoveEndRef.current = false;
+        setMapMoving(false);
+        setCenterPosition(position);
+        setProviderCenterPosition([center.lng, center.lat]);
+        setMapCenterRevision((revision) => revision + 1);
+        return;
+      }
+      const pendingPlacementCamera = pendingPlacementCameraRef.current;
+      if (pendingPlacementCamera) {
+        if (
+          pendingPlacementCamera.token !== placementCameraTokenRef.current ||
+          !pendingPlacementCamera.context.isCurrent()
+        ) {
+          pendingPlacementCameraRef.current = null;
+          setMapMoving(false);
+          return;
+        }
+        if (samePlacementPosition(position, pendingPlacementCamera.position)) {
+          pendingPlacementCameraRef.current = null;
+          setMapMoving(false);
+          setCenterPosition(pendingPlacementCamera.position);
+          setProviderCenterPosition([
+            pendingPlacementCamera.position[0] + offset[0],
+            pendingPlacementCamera.position[1] + offset[1],
+          ]);
+          setMapCenterRevision((revision) => revision + 1);
+          lastSettledPlacementCameraTargetRef.current =
+            pendingPlacementCamera.position;
+          return;
+        }
+        if (
+          retiredPlacementCameraTargetsRef.current.some((target) =>
+            samePlacementPosition(position, target),
+          )
+        ) {
+          return;
+        }
+        return;
+      }
+      if (
+        retiredPlacementCameraTargetsRef.current.some((target) =>
+          samePlacementPosition(position, target),
+        )
+      ) {
+        return;
+      }
       setMapMoving(false);
-      setCenterPosition([center.lng - offset[0], center.lat - offset[1]]);
+      setCenterPosition(position);
       setProviderCenterPosition([center.lng, center.lat]);
       setMapCenterRevision((revision) => revision + 1);
     });
@@ -1940,7 +2085,13 @@ export function AmapCampusPrototype({
             centerPosition={centerPosition}
             placementPending={placementPending}
             placeContext={
-              editSession.status === "placing" && mapMoving
+              editSession.status === "placing" &&
+              mapMoving &&
+              !(
+                placeContext?.status === "resolved" &&
+                placeContext.context.distanceMeters === 0 &&
+                placeContext.context.address === null
+              )
                 ? { status: "loading" }
                 : placeContext
             }

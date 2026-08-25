@@ -7,7 +7,11 @@ import type {
   CampusMapPublishWarning,
 } from "./publish-contract";
 import { CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES } from "./publish-contract";
-import { CAMPUS_MAP_EDIT_SCHEMA } from "./edit-schema";
+import {
+  CAMPUS_MAP_EDIT_SCHEMA,
+  firstInvalidCampusMapEditField,
+  type CampusMapEditFieldKey,
+} from "./edit-schema";
 
 export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 3 as const;
 
@@ -144,7 +148,10 @@ export type CampusMapEditEvent =
   | { type: "REQUEST_CLOSE" }
   | { type: "CONTINUE_EDITING" }
   | { type: "DISCARD" }
-  | { type: "REQUEST_PUBLISH" }
+  | {
+      type: "REQUEST_PUBLISH";
+      requiredFields?: readonly CampusMapEditFieldKey[];
+    }
   | {
       type: "PUBLISH_RESULT";
       idempotencyKey: string;
@@ -357,25 +364,6 @@ function transitionFactChange(
   });
 }
 
-function firstLocalError(draft: CampusMapEditDraft): string | null {
-  if (!draft.fact.name.trim()) return "name";
-  if (!draft.fact.pinType) return "pinType";
-  if (!draft.fact.location) return "location";
-  if (
-    draft.fact.accessSchedule.kind === "weekly" &&
-    draft.fact.accessSchedule.intervals.some(
-      (interval) =>
-        interval.days.length === 0 ||
-        !interval.opensAt ||
-        !interval.closesAt ||
-        interval.opensAt === interval.closesAt,
-    )
-  )
-    return "accessSchedule";
-  if (draft.sources.length === 0) return "sources";
-  return null;
-}
-
 function normalizeServerErrorTarget(field: string | undefined): string {
   if (!field) return "form-heading";
   const path = field.split(/[^A-Za-z]+/).filter(Boolean);
@@ -409,12 +397,13 @@ function normalizeServerErrorTarget(field: string | undefined): string {
 
 function publishTransition(
   session: CampusMapEditSession,
+  requiredFields: readonly CampusMapEditFieldKey[] = [],
 ): CampusMapEditTransition {
   if (session.status === "published" || session.status === "publishing") {
     return rejected(session);
   }
   if (!isCampusMapEditDirty(session)) return rejected(session);
-  const error = firstLocalError(session.draft);
+  const error = firstInvalidCampusMapEditField(session.draft, requiredFields);
   if (error) {
     const next = { ...editable(session), localError: error };
     return {
@@ -727,7 +716,7 @@ export function transitionCampusMapEdit(
 
   if (event.type === "REQUEST_PUBLISH") {
     if (session.status !== "editing") return rejected(session);
-    return publishTransition(session);
+    return publishTransition(session, event.requiredFields);
   }
 
   if (event.type === "PUBLISH_RESULT") {

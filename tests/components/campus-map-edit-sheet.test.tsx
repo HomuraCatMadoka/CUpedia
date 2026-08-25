@@ -9,6 +9,7 @@ import {
   type CampusMapEditSession,
 } from "@/lib/campus-map/edit-session";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
+import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
 
 const placeId = "20000000-0000-4000-8000-000000000001";
 const revisionId = "30000000-0000-4000-8000-000000000001";
@@ -140,6 +141,108 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.getByText("资料依据")).toBeTruthy();
     expect(screen.getByText(/发布前至少提供一项/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "填写现场观察" })).toBeTruthy();
+  });
+
+  it("sends the active schema required fields to the pure publish transition", () => {
+    const onEvent = vi.fn();
+    const factSchema = {
+      version: 1,
+      definition: {
+        fields: {},
+        pinTypes: {
+          toilet: { applicableFields: [], requiredFields: [] },
+          water: { applicableFields: [], requiredFields: [] },
+          printer: {
+            applicableFields: ["name", "pinType", "capabilities", "location"],
+            requiredFields: ["name", "pinType", "capabilities", "location"],
+          },
+          "common-space": { applicableFields: [], requiredFields: [] },
+          classroom: { applicableFields: [], requiredFields: [] },
+        },
+      },
+      displayMetadata: {},
+    } as unknown as CampusMapFactSchema;
+
+    render(
+      <CampusMapEditSheet
+        session={{
+          status: "editing",
+          draft: {
+            ...draft(),
+            fact: {
+              ...draft().fact,
+              pinType: "printer",
+              location: {
+                kind: "outdoor-point",
+                longitude: 114.2,
+                latitude: 22.4,
+                crs: "wgs84",
+                precision: "approximate",
+              },
+            },
+          },
+        }}
+        centerPosition={[114.2, 22.4]}
+        factSchema={factSchema}
+        onEvent={onEvent}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
+
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "REQUEST_PUBLISH",
+      requiredFields: ["name", "pinType", "capabilities", "location"],
+    });
+  });
+
+  it("shows a supported field newly made applicable by the server schema", () => {
+    const factSchema = {
+      version: 1,
+      definition: {
+        fields: {},
+        pinTypes: {
+          toilet: { applicableFields: [], requiredFields: [] },
+          water: {
+            applicableFields: ["name", "pinType", "capabilities", "location"],
+            requiredFields: ["name", "pinType", "capabilities", "location"],
+          },
+          printer: { applicableFields: [], requiredFields: [] },
+          "common-space": { applicableFields: [], requiredFields: [] },
+          classroom: { applicableFields: [], requiredFields: [] },
+        },
+      },
+      displayMetadata: {},
+    } as unknown as CampusMapFactSchema;
+
+    render(
+      <CampusMapEditSheet
+        session={{
+          status: "editing",
+          localError: "capabilities",
+          draft: {
+            ...draft(),
+            fact: {
+              ...draft().fact,
+              location: {
+                kind: "outdoor-point",
+                longitude: 114.2,
+                latitude: 22.4,
+                crs: "wgs84",
+                precision: "approximate",
+              },
+            },
+          },
+        }}
+        centerPosition={[114.2, 22.4]}
+        factSchema={factSchema}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(
+      document.querySelector('[data-edit-field="capabilities"]'),
+    ).toBeTruthy();
   });
 
   it("keeps programmatic heading focus visible for keyboard users", () => {

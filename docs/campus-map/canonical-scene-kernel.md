@@ -1,8 +1,10 @@
 # Campus Map canonical scene kernel
 
-Issue: #644. This is the expand step only: the existing AMap prototype keeps
-using the #593 session and runtime while later work migrates UI projections to
-this kernel.
+Issue: #644 introduced the pure kernel as an expand step. #645 subsequently
+made its driver the AMap prototype's single owner for history, camera, focus,
+and Sheet commands; #646 now attaches the edit-session owner to that same
+driver. References below to the old #593 runtime describe the kernel's original
+delivery boundary, not the current product wiring.
 
 The scene and catalog names are navigation vocabulary, not a persistence
 model. In particular, a `facility` scene selects the canonical Place described
@@ -96,8 +98,10 @@ returnable while switching result filters replaces the current entry.
 7. The kernel imports #593 command contracts but never calls browser, DOM, or
    AMap APIs and does not implement provider gesture, camera execution,
    overlay lifecycle, browser-history, or MarkerCluster failure behavior.
-8. This ticket does not connect the existing UI to the new kernel and does not
-   copy or synchronize the legacy session fields.
+8. #644 itself did not connect the UI. The current AMap prototype is connected
+   through the #645 driver and projects its browse/edit UI from that owner; it
+   does not copy or synchronize the legacy session fields or create a second
+   session/kernel.
 9. The 8 × 13 scene-by-event-type baseline asserts the exact next session and
    all four command slots for every cell. Payload-sensitive branches such as
    entity `source` and semantic `RESTORE` targets have separate exact contract

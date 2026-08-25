@@ -13,7 +13,10 @@ import {
   type CampusMapIndoorLocationDisplay,
   type CampusMapEditSession,
 } from "@/lib/campus-map/edit-session";
-import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
+import {
+  CAMPUS_MAP_EDIT_SCHEMA,
+  type CampusMapEditFieldKey,
+} from "@/lib/campus-map/edit-schema";
 import type {
   CampusMapPublishFactInput,
   CampusMapPublishSourceInput,
@@ -515,12 +518,11 @@ export function CampusMapEditSheet({
     ) ?? CAMPUS_MAP_EDIT_SCHEMA.presets[0];
   const serverApplicableFields =
     factSchema?.definition.pinTypes[fact.pinType].applicableFields;
-  const visible = new Set(
+  const serverRequiredFields =
+    factSchema?.definition.pinTypes[fact.pinType].requiredFields;
+  const visible = new Set<CampusMapEditFieldKey>(
     serverApplicableFields
-      ? preset.fields.filter(
-          (field) =>
-            field === "sources" || serverApplicableFields.includes(field),
-        )
+      ? [...serverApplicableFields, "sources"]
       : preset.fields,
   );
   const freshAttempt = () =>
@@ -1609,7 +1611,12 @@ export function CampusMapEditSheet({
             onEvent(
               isPlacing
                 ? { type: "CONFIRM_POSITION", position: placementPosition }
-                : { type: "REQUEST_PUBLISH" },
+                : {
+                    type: "REQUEST_PUBLISH",
+                    ...(serverRequiredFields
+                      ? { requiredFields: serverRequiredFields }
+                      : {}),
+                  },
             )
           }
         >

@@ -21,6 +21,7 @@ describe("AMap place context resolver", () => {
         callback: (status: string, result: unknown) => void,
       ) =>
         callback("complete", {
+          info: "OK",
           regeocode: {
             formattedAddress: "香港新界沙田区香港中文大学科学馆",
             pois: [
@@ -76,6 +77,25 @@ describe("AMap place context resolver", () => {
         crs: "gcj02",
       }),
     ).resolves.toEqual({ status: "error", reason: "rate-limited" });
+  });
+
+  it("rejects complete callbacks whose AMap result info is not OK", async () => {
+    const adapter = createAmapGeocoderAdapter({
+      getAddress: (_position, callback) =>
+        callback("complete", {
+          info: "INVALID_USER_KEY",
+          infocode: "10001",
+          regeocode: { formattedAddress: "不应显示的地址" },
+        }),
+    });
+
+    await expect(
+      adapter.reverseGeocode({
+        longitude: 114.2101,
+        latitude: 22.4198,
+        crs: "gcj02",
+      }),
+    ).resolves.toEqual({ status: "error", reason: "permanent" });
   });
 
   it.each([
