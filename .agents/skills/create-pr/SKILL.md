@@ -1,16 +1,16 @@
 ---
 name: create-pr
 description: >
-  Create Git branches, commits, pushes, and GitHub pull requests for CUpedia.
-  Use when the user asks to create a branch, commit current changes, open a
-  PR or draft PR, publish work, or recover from gh pr create issues.
-  Covers branch naming, commit messages, PR body format, and pre-commit
-  validation.
+  Create and publish CUpedia pull requests. Use when the user asks to create a
+  branch, commit or push changes, open a PR or draft PR, publish work, or
+  recover from a failed gh pr create command.
 ---
 
-# Create PR
+# Create a pull request
 
-Use this skill when turning local work into a GitHub pull request.
+Complete only the Git mutations the user requested. Branch creation does not imply permission to commit, push, or open a PR.
+
+Follow `CONTRIBUTING.md` for repository policy and `.github/pull_request_template.md` for the current PR body. This skill is the executable workflow.
 
 ## Workflow
 
@@ -19,92 +19,59 @@ Use this skill when turning local work into a GitHub pull request.
    ```bash
    git status --short
    git branch --show-current
-   git diff -- <paths>
+   git diff HEAD -- path/to/file
+   git ls-files --others --exclude-standard
    ```
 
-   Stage only files that belong to the requested change. Preserve unrelated
-   user changes.
+   Open every in-scope untracked file before staging it. Stage only files that
+   belong to the requested change and preserve unrelated user changes.
 
-2. Create or confirm the branch:
+2. Confirm the current focused branch, or create one from the latest remote `main` using the naming guidance in `CONTRIBUTING.md`. Do not recreate a branch that already exists.
 
    ```bash
-   git switch -c feat/<short-topic>
+   git fetch origin main
+   git switch --no-track -c docs/short-topic origin/main
    ```
-
-   Branch naming:
-   - `feat/<topic>` — New feature
-   - `fix/<topic>` — Bug fix
-   - `refactor/<topic>` — Code improvement
-   - `docs/<topic>` — Documentation only
 
 3. Validate before committing:
 
    ```bash
    pnpm lint
    pnpm test
+   pnpm typecheck
    ```
-
-   Fix any issues before proceeding.
 
 4. Commit:
 
    ```bash
-   git add <specific-files>
+   git add path/to/file
+   git diff --cached --name-status
+   git diff --cached
    git diff --cached --check
    git commit -m "type: concise description"
    ```
 
-   Commit message format: `type: description`
-   - `feat:` — New feature
-   - `fix:` — Bug fix
-   - `refactor:` — Code restructuring
-   - `test:` — Adding/updating tests
-   - `docs:` — Documentation changes
-
 5. Push the branch:
 
    ```bash
-   git push -u origin <branch>
+   git push -u origin branch_name
    ```
 
-6. Create the PR:
+6. Read `.github/pull_request_template.md`, preserve its headings and checklist, and fill it with the current change. The first line must start with `Issue Number:` and use `close #number` when the PR completes the issue or `ref #number` otherwise. Mark a verification item complete only when that exact check passed; explain anything not applicable or not verified.
+
+   Pass the completed body on standard input, then close the input stream. Add `--draft` only when the user requested a draft:
 
    ```bash
-   gh pr create --base main --head <branch> --title "<title>" --body '<body>'
+   gh pr create --base main --head branch_name \
+     --title "concise title" --body-file -
    ```
-
-## PR Body
-
-Match the PR template in `.github/pull_request_template.md`:
-
-```markdown
-## What?
-
-<what changed>
-
-## Why?
-
-<why this is needed — link issues with `Fixes #number`>
-
-## How?
-
-<implementation approach, if non-obvious>
-
-## Checklist
-
-- [x] `pnpm lint` passes
-- [x] `pnpm test` passes
-- [ ] Tested in browser at `localhost:3000`
-- [ ] DB changes include both `schema.ts` and generated migration
-- [ ] No secrets or `.env` values committed
-```
 
 ## Recovery
 
 - If a PR may already exist, check before creating a duplicate:
 
   ```bash
-  gh pr view --head <branch> --json url,isDraft,title 2>/dev/null
+  gh pr list --head branch_name --json url,isDraft,title --limit 1
   ```
 
 - If `gh pr create` fails, report that the branch is pushed and provide
