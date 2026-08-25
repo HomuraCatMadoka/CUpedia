@@ -178,6 +178,45 @@ describe("Campus Map edit session transition", () => {
     expect(isCampusMapEditDirty(repositioned.session)).toBe(true);
   });
 
+  it("clears building containment when an Edit moves to an outdoor point", () => {
+    const containedFact: CampusMapPublishFactInput = {
+      ...fact,
+      buildingId: "science-centre",
+      floorId: "1",
+      location: { kind: "floor" },
+    };
+    const editing = transitionCampusMapEdit(null, {
+      type: "START_EDIT",
+      placeId,
+      baseRevisionId,
+      fact: containedFact,
+      sources: [source],
+      idempotencyKey: firstKey,
+    }).session!;
+    const placing = transitionCampusMapEdit(editing, {
+      type: "START_REPOSITION",
+    }).session;
+    const repositioned = transitionCampusMapEdit(placing, {
+      type: "CONFIRM_POSITION",
+      position: {
+        longitude: 114.21,
+        latitude: 22.42,
+        crs: "wgs84",
+        precision: "precise",
+        method: "pointer",
+      },
+    }).session!;
+
+    expect(repositioned.draft.fact).toMatchObject({
+      buildingId: null,
+      floorId: null,
+      location: { kind: "outdoor-point", precision: "precise" },
+    });
+    expect(
+      decodeCampusMapEditSnapshot(encodeCampusMapEditSnapshot(repositioned)),
+    ).toMatchObject({ status: "restored", session: repositioned });
+  });
+
   it("asks before closing a dirty draft and supports continue or discard", () => {
     const changed = transitionCampusMapEdit(editSession(), {
       type: "CHANGE_FACT",

@@ -274,7 +274,11 @@ export function CampusMapEditSheet({
         optionalFieldNames.has(error.anchor.field),
     ),
   );
-  const optionalDetailsVisible = showMoreDetails || hasOptionalServerError;
+  const hasOptionalLocalError =
+    session.localError !== undefined &&
+    optionalFieldNames.has(session.localError);
+  const optionalDetailsVisible =
+    showMoreDetails || hasOptionalServerError || hasOptionalLocalError;
 
   if (session.status === "published" && session.receipt) {
     const receipt = session.receipt;
@@ -333,10 +337,12 @@ export function CampusMapEditSheet({
             tabIndex={-1}
             className="text-xl font-semibold outline-none"
           >
-            把图钉放在地点上
+            {draft.mode === "add" ? "把图钉放在地点上" : "重新定位地点"}
           </h2>
           <p className="mt-2 text-sm leading-6 text-neutral-600">
-            移动地图，让图钉对准要添加的地点。
+            {draft.mode === "add"
+              ? "移动地图，让图钉对准要添加的地点。"
+              : "移动地图，让图钉对准地点的新位置。"}
           </p>
         </div>
         <div
@@ -696,7 +702,9 @@ export function CampusMapEditSheet({
                 <p className="font-semibold">{friendlyLocationLabel(fact)}</p>
                 <p className="mt-0.5 text-xs text-neutral-600">
                   {fact.location?.kind === "outdoor-point"
-                    ? "约略位置"
+                    ? fact.location.precision === "precise"
+                      ? "精确位置"
+                      : "约略位置"
                     : describeLocation(fact)}
                 </p>
               </div>

@@ -137,6 +137,104 @@ describe("Campus Map single-page edit Sheet", () => {
     });
   });
 
+  it("labels a canonical precise outdoor location honestly", () => {
+    const session: CampusMapEditSession = {
+      status: "editing",
+      draft: {
+        ...draft(),
+        fact: {
+          ...draft().fact,
+          location: {
+            kind: "outdoor-point",
+            longitude: 114.20801,
+            latitude: 22.41966,
+            crs: "wgs84",
+            precision: "precise",
+          },
+        },
+      },
+    };
+
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.20801, 22.41966]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("精确位置")).toBeTruthy();
+    expect(screen.queryByText("约略位置")).toBeNull();
+  });
+
+  it("reveals optional fields when local validation targets one", () => {
+    const session: CampusMapEditSession = {
+      status: "editing",
+      localError: "accessSchedule",
+      draft: {
+        ...draft(),
+        fact: {
+          ...draft().fact,
+          location: {
+            kind: "outdoor-point",
+            longitude: 114.2,
+            latitude: 22.4,
+            crs: "wgs84",
+            precision: "approximate",
+          },
+        },
+      },
+    };
+
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen
+        .getByRole("button", { name: "更多资料" })
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+    expect(screen.getByRole("combobox", { name: "开放时间" })).toBeTruthy();
+  });
+
+  it("uses reposition wording for an Edit placement", () => {
+    const session: CampusMapEditSession = {
+      status: "placing",
+      draft: createCampusMapEditDraft({
+        mode: "edit",
+        placeId,
+        baseRevisionId: revisionId,
+        idempotencyKey: "10000000-0000-4000-8000-000000000002",
+        fact: {
+          ...draft().fact,
+          location: {
+            kind: "outdoor-point",
+            longitude: 114.2,
+            latitude: 22.4,
+            crs: "wgs84",
+            precision: "approximate",
+          },
+        },
+      }),
+    };
+
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("移动地图，让图钉对准地点的新位置。")).toBeTruthy();
+    expect(screen.queryByText(/要添加的地点/)).toBeNull();
+  });
+
   it("starts every conflict attempt with a fresh explicit selection", () => {
     const baseDraft = draft();
     const currentFact = {

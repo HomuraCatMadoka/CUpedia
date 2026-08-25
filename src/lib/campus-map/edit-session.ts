@@ -343,7 +343,12 @@ export function transitionCampusMapEdit(
       status: "editing",
       draft: {
         ...session.draft,
-        fact: { ...session.draft.fact, location },
+        fact: {
+          ...session.draft.fact,
+          buildingId: null,
+          floorId: null,
+          location,
+        },
         placementMethod: method,
         warningAcknowledgements: [],
       },
