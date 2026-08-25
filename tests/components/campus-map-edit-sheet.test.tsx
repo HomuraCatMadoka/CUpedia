@@ -114,6 +114,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(choices?.className).toContain("flex-wrap");
     expect(choices?.className).not.toContain("overflow-x-auto");
     expect(screen.getByRole("radio", { name: "课室" })).toBeTruthy();
+    expect(typeGroup.getAttribute("tabindex")).toBe("-1");
     expect(screen.queryByText(/Changeset 说明/)).toBeNull();
   });
 
@@ -295,6 +296,44 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(sourceTarget?.tagName).toBe("BUTTON");
     expect(sourceTarget?.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByLabelText("现场观察时间（香港时间）")).toBeTruthy();
+  });
+
+  it("expands optional details and exposes capabilities as a focus target", () => {
+    const session: CampusMapEditSession = {
+      status: "editing",
+      localError: "capabilities",
+      draft: {
+        ...draft(),
+        fact: {
+          ...draft().fact,
+          pinType: "printer",
+          location: {
+            kind: "outdoor-point",
+            longitude: 114.2,
+            latitude: 22.4,
+            crs: "wgs84",
+            precision: "approximate",
+          },
+        },
+      },
+    };
+
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(
+      document.querySelector('[data-edit-field="capabilities"]'),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: "更多资料" })
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
   });
 
   it("makes the map location row programmatically focusable", () => {
@@ -506,6 +545,55 @@ describe("Campus Map single-page edit Sheet", () => {
       "checked",
       false,
     );
+  });
+
+  it("keeps building, floor, and geometry atomic when preserving a conflict position", () => {
+    const onEvent = vi.fn();
+    const baseDraft = draft();
+    const mine = {
+      ...baseDraft.fact,
+      buildingId: null,
+      floorId: null,
+      location: {
+        kind: "outdoor-point" as const,
+        longitude: 114.21,
+        latitude: 22.42,
+        crs: "wgs84" as const,
+        precision: "approximate" as const,
+      },
+    };
+    const currentFact = {
+      ...baseDraft.fact,
+      buildingId: "science-centre",
+      floorId: "1",
+      location: { kind: "floor" as const },
+    };
+    const session: CampusMapEditSession = {
+      status: "conflict",
+      draft: { ...baseDraft, fact: mine },
+      conflict: { kind: "current", currentRevisionId: revisionId, currentFact },
+    };
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={onEvent}
+      />,
+    );
+
+    expect(screen.getAllByLabelText("保留我的位置")).toHaveLength(1);
+    fireEvent.click(screen.getByLabelText("保留我的位置"));
+    fireEvent.click(screen.getByRole("button", { name: "按以上选择继续" }));
+
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "CONTINUE_FROM_CONFLICT",
+      idempotencyKey: expect.any(String),
+      fact: expect.objectContaining({
+        buildingId: null,
+        floorId: null,
+        location: mine.location,
+      }),
+    });
   });
 
   it("keeps an unavailable conflict non-publishable without rendering rebase actions", () => {

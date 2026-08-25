@@ -244,6 +244,37 @@ function firstLocalError(draft: CampusMapEditDraft): string | null {
   return null;
 }
 
+function normalizeServerErrorTarget(field: string | undefined): string {
+  if (!field) return "form-heading";
+  const path = field.split(/[^A-Za-z]+/).filter(Boolean);
+  if (path.includes("sources") || path.includes("sourceSummary")) {
+    return path.includes("observedAt") ? "sourceObservedAt" : "sources";
+  }
+  if (
+    path.includes("location") ||
+    path.includes("buildingId") ||
+    path.includes("floorId")
+  ) {
+    return "location";
+  }
+  if (path.includes("observedAt") || path.includes("sourceObservedAt")) {
+    return "sourceObservedAt";
+  }
+  const directTarget = [
+    "name",
+    "pinType",
+    "capabilities",
+    "gender",
+    "wheelchairAccess",
+    "audience",
+    "credentialRequirement",
+    "accessSchedule",
+    "reservationRequirement",
+    "temporaryStatus",
+  ].find((candidate) => path.includes(candidate));
+  return directTarget ?? "form-heading";
+}
+
 function publishTransition(
   session: CampusMapEditSession,
 ): CampusMapEditTransition {
@@ -635,7 +666,9 @@ export function transitionCampusMapEdit(
       });
     }
     const errors = result.status === "validation-failed" ? result.errors : [];
-    const target = errors[0]?.anchor.field;
+    const target = errors[0]
+      ? normalizeServerErrorTarget(errors[0].anchor.field)
+      : null;
     const next: CampusMapEditSession = {
       status: "editing",
       draft: session.draft,

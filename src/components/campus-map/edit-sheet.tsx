@@ -129,28 +129,70 @@ function friendlyLocationLabel(
   return "尚未定位";
 }
 
-function conflictFields(
-  session: CampusMapEditSession,
-): Array<[keyof CampusMapPublishFactInput, string]> {
+type ConflictChoiceKey =
+  | Exclude<
+      keyof CampusMapPublishFactInput,
+      "buildingId" | "floorId" | "location"
+    >
+  | "placement";
+
+interface ConflictChoice {
+  key: ConflictChoiceKey;
+  label: string;
+  fields: Array<keyof CampusMapPublishFactInput>;
+}
+
+function conflictFields(session: CampusMapEditSession): ConflictChoice[] {
   if (session.conflict?.kind !== "current") return [];
   const current = session.conflict.currentFact;
-  const labels: Array<[keyof CampusMapPublishFactInput, string]> = [
-    ["name", "名称"],
-    ["pinType", "类型"],
-    ["capabilities", "服务能力"],
-    ["gender", "性别属性"],
-    ["wheelchairAccess", "无障碍通行"],
-    ["audience", "开放对象"],
-    ["credentialRequirement", "凭证要求"],
-    ["accessSchedule", "开放时间"],
-    ["reservationRequirement", "预约要求"],
-    ["temporaryStatus", "临时状态"],
-    ["location", "位置"],
+  const choices: ConflictChoice[] = [
+    { key: "name", label: "名称", fields: ["name"] },
+    { key: "pinType", label: "类型", fields: ["pinType"] },
+    {
+      key: "capabilities",
+      label: "服务能力",
+      fields: ["capabilities"],
+    },
+    { key: "gender", label: "性别属性", fields: ["gender"] },
+    {
+      key: "wheelchairAccess",
+      label: "无障碍通行",
+      fields: ["wheelchairAccess"],
+    },
+    { key: "audience", label: "开放对象", fields: ["audience"] },
+    {
+      key: "credentialRequirement",
+      label: "凭证要求",
+      fields: ["credentialRequirement"],
+    },
+    {
+      key: "accessSchedule",
+      label: "开放时间",
+      fields: ["accessSchedule"],
+    },
+    {
+      key: "reservationRequirement",
+      label: "预约要求",
+      fields: ["reservationRequirement"],
+    },
+    {
+      key: "temporaryStatus",
+      label: "临时状态",
+      fields: ["temporaryStatus"],
+    },
+    {
+      key: "placement",
+      label: "位置",
+      fields: ["buildingId", "floorId", "location"],
+    },
+    { key: "observedAt", label: "观察时间", fields: ["observedAt"] },
   ];
-  return labels.filter(
-    ([field]) =>
-      JSON.stringify(session.draft.fact[field]) !==
-      JSON.stringify(current[field]),
+  return choices.filter((choice) =>
+    choice.fields.some(
+      (field) =>
+        JSON.stringify(session.draft.fact[field]) !==
+        JSON.stringify(current[field]),
+    ),
   );
 }
 
@@ -212,7 +254,7 @@ export function CampusMapEditSheet({
   const [showSourceEntry, setShowSourceEntry] = useState(false);
   const [conflictSelection, setConflictSelection] = useState<{
     key: string;
-    fields: Array<keyof CampusMapPublishFactInput>;
+    fields: ConflictChoiceKey[];
   }>({ key: "", fields: [] });
   const draft = session.draft;
   const fact = draft.fact;
@@ -592,12 +634,12 @@ export function CampusMapEditSheet({
               <legend className="px-1 font-medium">
                 明确选择要保留的草稿字段
               </legend>
-              {changedFields.map(([field, label]) => (
-                <label key={field} className="flex min-h-11 items-center gap-2">
+              {changedFields.map(({ key, label }) => (
+                <label key={key} className="flex min-h-11 items-center gap-2">
                   <input
                     type="checkbox"
-                    name={`conflict-${String(field)}`}
-                    checked={conflictKeepFields.includes(field)}
+                    name={`conflict-${String(key)}`}
+                    checked={conflictKeepFields.includes(key)}
                     onChange={(event) =>
                       setConflictSelection((current) => {
                         const fields =
@@ -605,8 +647,8 @@ export function CampusMapEditSheet({
                         return {
                           key: conflictKey,
                           fields: event.target.checked
-                            ? [...fields, field]
-                            : fields.filter((item) => item !== field),
+                            ? [...fields, key]
+                            : fields.filter((item) => item !== key),
                         };
                       })
                     }
@@ -632,7 +674,12 @@ export function CampusMapEditSheet({
             <button
               type="button"
               className={primaryClass}
-              onClick={() =>
+              onClick={() => {
+                const keptFactFields = new Set(
+                  changedFields
+                    .filter(({ key }) => conflictKeepFields.includes(key))
+                    .flatMap(({ fields }) => fields),
+                );
                 onEvent({
                   type: "CONTINUE_FROM_CONFLICT",
                   idempotencyKey: crypto.randomUUID(),
@@ -640,7 +687,7 @@ export function CampusMapEditSheet({
                     Object.entries(conflict.currentFact).map(
                       ([field, value]) => [
                         field,
-                        conflictKeepFields.includes(
+                        keptFactFields.has(
                           field as keyof CampusMapPublishFactInput,
                         )
                           ? session.draft.fact[
@@ -650,8 +697,8 @@ export function CampusMapEditSheet({
                       ],
                     ),
                   ) as unknown as CampusMapPublishFactInput,
-                })
-              }
+                });
+              }}
             >
               按以上选择继续
             </button>
@@ -761,7 +808,7 @@ export function CampusMapEditSheet({
             }
           />
         </label>
-        <fieldset data-edit-field="pinType">
+        <fieldset data-edit-field="pinType" tabIndex={-1}>
           <legend className="mb-2 text-sm font-medium">
             {fieldLabel("pinType", "地点类型")}
           </legend>
@@ -835,7 +882,11 @@ export function CampusMapEditSheet({
             />
           ) : null}
           {visible.has("capabilities") ? (
-            <fieldset className="rounded-xl border p-3">
+            <fieldset
+              data-edit-field="capabilities"
+              tabIndex={-1}
+              className="rounded-xl border p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+            >
               <legend className="px-1 text-sm font-medium">
                 {fieldLabel("capabilities", "服务能力")}
               </legend>

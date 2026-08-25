@@ -479,6 +479,47 @@ describe("Campus Map edit session transition", () => {
     expect(invalid.commands).toContainEqual({ kind: "focus", target: "name" });
   });
 
+  it.each([
+    ["location.precision", "location"],
+    ["changes.0.fact.floorId", "location"],
+    ["sources.0.url", "sources"],
+    ["sources.0.observedAt", "sourceObservedAt"],
+    ["changes.0.fact.accessSchedule.intervals.0.opensAt", "accessSchedule"],
+    ["comment", "form-heading"],
+  ])(
+    "normalizes server error path %s to the real focus target %s",
+    (field, target) => {
+      const dirty = transitionCampusMapEdit(editSession(), {
+        type: "CHANGE_FACT",
+        fact: { ...fact, name: "服务器校验失败" },
+      }).session!;
+      const publishing = transitionCampusMapEdit(dirty, {
+        type: "REQUEST_PUBLISH",
+      }).session!;
+      const failed = transitionCampusMapEdit(publishing, {
+        type: "PUBLISH_RESULT",
+        idempotencyKey: firstKey,
+        result: {
+          status: "validation-failed",
+          errors: [
+            {
+              code: "invalid-field",
+              anchor: { changeIndex: 0, placeId, field },
+            },
+          ],
+          warnings: [],
+          suggestions: [],
+        },
+      });
+
+      expect(failed.session).toMatchObject({
+        status: "editing",
+        localError: target,
+      });
+      expect(failed.commands).toContainEqual({ kind: "focus", target });
+    },
+  );
+
   it("uses a new attempt for acknowledged server warnings and invalidates it after edits", () => {
     const dirty = transitionCampusMapEdit(editSession(), {
       type: "CHANGE_FACT",
