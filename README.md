@@ -2,127 +2,66 @@
 
 # CUpedia
 
-**你的中大百科全书** · A community wiki for CUHK students
+**你的中大百科全书，也是由学生共同建设的校园生活平台**
+
+[访问 CUpedia](https://cupedia.org) · [快速开始](#快速开始) · [文档](docs/README.md) · [English](#english)
 
 [![CI](https://github.com/HomuraCatMadoka/CUpedia/actions/workflows/ci.yml/badge.svg)](https://github.com/HomuraCatMadoka/CUpedia/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-[中文](#中文) · [English](#english)
-
 </div>
 
----
+CUpedia 面向香港中文大学（CUHK）学生，汇集百科、课程与教授测评、食堂信息、书院推荐和校园交通等服务。公开内容可以匿名浏览；需要署名或保存的贡献功能使用合规的中大账号。
 
-## 中文
+## 现在可以做什么
 
-CUpedia 是面向香港中文大学（CUHK）学生的社区维基。任何人都能浏览；用中大邮箱
-（`@cuhk.edu.hk` / `@link.cuhk.edu.hk`）登录后即可协作编辑。
+- **SG Wiki**：阅读和共建校园生存指南，使用富文本、页面互链、修订历史、搜索与安全回滚
+- **课程与教授**：查找课程和教授，浏览社区评分、评论与回复
+- **山城食记**：查看食堂、菜单和价格，参与菜品投票、评论与食堂榜单
+- **分院帽与课程技能树**：探索书院选择和课程路径，不代替学校的正式选课或毕业审核
+- **中大校巴**：查看官方路线、今日班次和测试中的预计到站信息
+- **公告、通知与产品更新**：了解重要消息、与自己有关的互动，以及已经上线的产品变化
 
-### 功能
+## 账号、编辑与公开内容
 
-- **层级化页面**：`parentId` 构成页面树，驱动侧边栏导航
-- **修订历史**：每次编辑生成一条修订，支持可视化 diff 与非破坏性回滚
-- **软删除**：`deletedAt` 标记，可从管理后台恢复
-- **编辑冲突检测**：基于 `updatedAt` 的乐观锁，冲突时回退到三方合并 / 手动解决
-- **搜索**：Fuse.js 模糊搜索（标题 0.7 / 正文 0.3）+ PostgreSQL 中文全文索引
-- **富内容**：数学公式（LaTeX）、表格、代码、callout、目录、`[[互链]]` 与反向链接、行内批注
-- **编辑器体验**：自动保存、离开未保存提醒、`Cmd+S`
-- **认证**：中大邮箱白名单，密码 + 邮件 OTP（经 Brevo）
-- **权限**：`user` / `admin` 角色与封禁标记，含用户管理、已删除页面恢复的管理后台
-- **附件**：MinIO S3 存储，经 `/api/wiki-assets/` 受控访问
+注册账号必须使用 `@cuhk.edu.hk`，或前缀为 `1155` 加六位数字的 `@link.cuhk.edu.hk` 邮箱。注册流程使用密码和邮件一次性验证码（OTP）。
 
-### 技术栈
+公开 Wiki 页面及其图片可以匿名读取。普通账号能否编辑 Wiki 由站点的编辑策略决定；登录不会自动绕过该策略。新建 Wiki 页面先保存为仅创建者可见的私有页面草稿，发布后才进入公开页面树和搜索结果。
 
-Next.js 16（App Router）· TypeScript · Drizzle ORM + PostgreSQL · better-auth ·
-Plate 编辑器（内容存为 Plate JSON）· MinIO · Tailwind CSS 4 + shadcn/ui ·
-Fuse.js · Vitest + Playwright · Docker Compose · pnpm
+## 技术栈
 
-### 快速开始
+项目使用 Next.js 16 App Router、TypeScript、React 19、Drizzle ORM、PostgreSQL、better-auth、Plate、MinIO、Tailwind CSS 4、Vitest、Playwright、Docker Compose 和 pnpm。
 
-前置：Docker、Node 与 pnpm。
+## 快速开始
+
+本地开发以持续集成（CI）使用的 Node.js 20 和 pnpm 10 为基线，并需要 Docker Compose。
 
 ```bash
 git clone https://github.com/HomuraCatMadoka/CUpedia.git
 cd CUpedia
 pnpm install
-pnpm bootstrap   # 一键：写 .env.local + 起 docker + 建 bucket + 迁移 + seed（幂等，可重复跑）
-pnpm dev         # http://localhost:3000
+pnpm bootstrap
+pnpm dev
 ```
 
-种子账号（密码均为 `password123`）：`admin@test.com`（管理员）、`user@test.com`、
-`contributor@test.com`、`banned@test.com`（已封禁）。
+`pnpm bootstrap` 会创建 `.env.local`、启动 PostgreSQL 和 MinIO、创建上传 bucket、应用迁移并加载开发数据。浏览器随后打开 `http://localhost:3000`。
 
-### 文档
+可用 `admin@test.com` / `password123` 登录。其他测试账号、开发数据、环境变量、服务端口和重置方法见[本地开发指南](docs/development/setup.md)。
 
-- [AGENTS.md](AGENTS.md) — 开发指南（目录结构、命令、数据库、认证、约定）
-- [CONTRIBUTING.md](CONTRIBUTING.md) — 贡献指南
-- [SECURITY.md](SECURITY.md) — 安全漏洞上报
+## 文档入口
 
-### 贡献
-
-欢迎贡献！请先读 [CONTRIBUTING.md](CONTRIBUTING.md)。新人可从
-[`good first issue`](https://github.com/HomuraCatMadoka/CUpedia/labels/good%20first%20issue)
-标签入手。
-
-### 许可证
-
-[MIT](LICENSE)
-
----
+- [文档总目录](docs/README.md)：开发、领域、决策、运维与研究材料的导航
+- [贡献指南](CONTRIBUTING.md)：从 fork 到提交 Pull Request（PR）的完整流程
+- [上下文地图](CONTEXT-MAP.md)：各业务领域的语言、边界与关系
+- [Agent 指南](AGENTS.md)：编码代理每次任务都要遵守的规则
+- [安全策略](SECURITY.md)：私密报告安全漏洞的方法
 
 ## English
 
-CUpedia is a community wiki for students at the Chinese University of Hong Kong
-(CUHK). Anyone can read it; signing in with a CUHK email
-(`@cuhk.edu.hk` / `@link.cuhk.edu.hk`) unlocks collaborative editing.
+CUpedia is a community-built campus platform for students at the Chinese University of Hong Kong. It combines a public Wiki with course and professor reviews, canteen information, college recommendations, campus bus information, announcements, notifications, and product updates.
 
-### Features
+Visit [cupedia.org](https://cupedia.org) to use the platform. For local development and pull requests, follow the English [contribution guide](CONTRIBUTING.md). The [documentation index](docs/README.md) maps the technical and domain references without duplicating changing commands here.
 
-- **Hierarchical pages** — `parentId` builds the page tree that drives the sidebar
-- **Revision history** — every edit creates a revision, with visual diff and non-destructive rollback
-- **Soft deletes** — `deletedAt` flag, restorable from the admin panel
-- **Edit-conflict detection** — `updatedAt`-based optimistic lock, falling back to three-way merge / manual resolution
-- **Search** — Fuse.js fuzzy search (title 0.7 / content 0.3) plus PostgreSQL Chinese full-text indexing
-- **Rich content** — math (LaTeX), tables, code, callouts, table of contents, `[[wiki interlinks]]` with backlinks, inline annotations
-- **Editor UX** — autosave, unsaved-changes guard, `Cmd+S`
-- **Auth** — CUHK email whitelist, password + email OTP (via Brevo)
-- **Roles** — `user` / `admin` roles and a banned flag, with an admin panel for user management and deleted-page recovery
-- **Assets** — MinIO S3 storage served through the access-controlled `/api/wiki-assets/` route
+## 贡献与许可证
 
-### Tech Stack
-
-Next.js 16 (App Router) · TypeScript · Drizzle ORM + PostgreSQL · better-auth ·
-Plate editor (content stored as Plate JSON) · MinIO · Tailwind CSS 4 + shadcn/ui ·
-Fuse.js · Vitest + Playwright · Docker Compose · pnpm
-
-### Quick Start
-
-Prerequisites: Docker, Node, and pnpm.
-
-```bash
-git clone https://github.com/HomuraCatMadoka/CUpedia.git
-cd CUpedia
-pnpm install
-pnpm bootstrap   # one command: writes .env.local, starts docker, creates the bucket, migrates, seeds (idempotent)
-pnpm dev         # http://localhost:3000
-```
-
-Seed accounts (all with password `password123`): `admin@test.com` (admin),
-`user@test.com`, `contributor@test.com`, `banned@test.com` (banned).
-
-### Documentation
-
-- [AGENTS.md](AGENTS.md) — development guide (structure, commands, database, auth, conventions)
-- [CONTRIBUTING.md](CONTRIBUTING.md) — contribution guide
-- [SECURITY.md](SECURITY.md) — reporting security vulnerabilities
-
-### Contributing
-
-Contributions are welcome! Start with [CONTRIBUTING.md](CONTRIBUTING.md). New
-contributors can look for the
-[`good first issue`](https://github.com/HomuraCatMadoka/CUpedia/labels/good%20first%20issue)
-label.
-
-### License
-
-[MIT](LICENSE)
+欢迎贡献。可以从 [`good first issue`](https://github.com/HomuraCatMadoka/CUpedia/labels/good%20first%20issue) 开始，并在编码前阅读[贡献指南](CONTRIBUTING.md)。项目采用 [MIT License](LICENSE)。

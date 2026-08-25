@@ -1,5 +1,8 @@
 # Tiered, bounded CI topology
 
+Status: Current
+Last verified: 2026-08-25 against `.github/workflows/ci.yml` and `scripts/ci-classifier.mjs`
+
 Issue #669 keeps the full regression suite while bounding fixed runner cost.
 Issue #670 adds fail-closed risk tiers without changing those full-regression
 invariants. This document is the reviewable classification, capability, gate,

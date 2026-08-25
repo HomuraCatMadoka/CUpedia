@@ -1,4 +1,4 @@
-# ADR 0009: 食堂匿名投票写权限
+# ADR 0024: 食堂匿名投票写权限
 
 ## Status
 
@@ -31,4 +31,4 @@ Accepted
 ## Related
 
 - [ADR 0001 — 读公开，写与账号受 CUHK 限制](./0001-public-read-cuhk-gated-write.md)
-- [ADR 0008 — 食堂硬删除与 mock 模式](./0008-canteen-hard-delete-and-mock-mode.md)
+- [ADR 0023 — 食堂硬删除与 mock 模式](./0023-canteen-hard-delete-and-mock-mode.md)

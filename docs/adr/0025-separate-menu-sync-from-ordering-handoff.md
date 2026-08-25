@@ -1,4 +1,4 @@
-# ADR 0021: Separate menu sync from ordering handoff
+# ADR 0025: Separate menu sync from ordering handoff
 
 ## Status
 

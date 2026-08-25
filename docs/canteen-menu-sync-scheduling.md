@@ -1,7 +1,10 @@
 # 菜单同步调度：Vercel Queue（B）与外部 Scheduler（C）
 
-状态：调研结论（2026-08-13）
-范围：只讨论菜单 GET 同步的调度、重试和隔离，不讨论代下单或支付。
+Status: Historical
+Last verified: 2026-08-13
+Superseded by: [Production canteen menu sync scheduling](operations/canteen-menu-sync-scheduling.md)
+
+范围：只讨论菜单 GET 同步的调度、重试和隔离，不讨论代下单或支付。生产操作以链接的当前 runbook 为准。
 
 ## 结论
 

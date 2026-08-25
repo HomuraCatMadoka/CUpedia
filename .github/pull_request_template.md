@@ -1,20 +1,23 @@
-## What?
+Issue Number: close #
 
-<!-- What changed? One sentence is fine. -->
+## What changed?
 
-## Why?
+<!-- State the user-visible or engineering outcome. -->
 
-<!-- Why is this change needed? Link related issues. -->
-Fixes #
+## Why is it needed?
 
-## How?
+<!-- Explain the problem and link supporting context or decisions. -->
 
-<!-- Brief description of your approach, if non-obvious. -->
+## How was it implemented?
 
-## Checklist
+<!-- Summarize the approach when the diff alone does not explain it. -->
+
+## Verification
 
 - [ ] `pnpm lint` passes
 - [ ] `pnpm test` passes
-- [ ] Tested in browser at `localhost:3000`
-- [ ] DB changes include both `schema.ts` and generated migration
-- [ ] No secrets or `.env` values committed
+- [ ] `pnpm typecheck` passes
+- [ ] Browser verification is complete, or the PR explains why it is not applicable
+- [ ] Database changes include the applicable new migration and verification; schema changes also include `schema.ts`, or are not applicable
+- [ ] Dependency or build changes pass `pnpm build`, or are not applicable
+- [ ] No secrets or `.env` values are committed or pasted into the PR

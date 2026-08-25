@@ -1,39 +1,19 @@
-# Domain Docs
+# Load domain documentation before changing behavior
 
-How the engineering skills should consume this repo's domain documentation when exploring the codebase.
+Use this routing rule when a task changes business behavior, ownership, terminology, or a boundary between products. `CONTEXT-MAP.md` is the only context list; this page does not duplicate it.
 
-## Before exploring, read these
+## Read the domain path
 
-- **`CONTEXT-MAP.md`** at the repo root — points at one `CONTEXT.md` per bounded context. Read each context relevant to the topic:
-  - **`CONTEXT.md`** — 权限与用户管理 (identity & access control for the CUHK student wiki)
-  - **`docs/course-tree/CONTEXT.md`** — 课程技能树 (gamified course exploration & builds)
-- **`docs/adr/`** — read ADRs that touch the area you're about to work in.
+1. Open the root [`CONTEXT-MAP.md`](../../CONTEXT-MAP.md).
+2. Open every `CONTEXT.md` linked for the affected domains.
+3. Use the domain's defined terms in issues, tests, code, and review notes.
+4. Open the relevant record in the [ADR index](../adr/README.md) before changing an accepted boundary.
+5. Compare the requested behavior with the current code and schema before implementation.
 
-If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The producer skill (`/grill-with-docs`) creates them lazily when terms or decisions actually get resolved.
+The context documents define language, ownership, and invariants. They do not replace implementation inspection.
 
-## File structure
+## Handle gaps and conflicts
 
-Multi-context repo:
+If a required term or boundary is absent, identify the gap before inventing vocabulary. If the requested change contradicts an ADR, state the conflict and decide whether the task needs a new superseding ADR.
 
-```
-/
-├── CONTEXT-MAP.md
-├── CONTEXT.md                         ← 权限与用户管理
-├── docs/
-│   ├── adr/                           ← system-wide decisions
-│   └── course-tree/
-│       └── CONTEXT.md                 ← 课程技能树
-└── src/
-```
-
-## Use the glossary's vocabulary
-
-When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in the relevant `CONTEXT.md`. Don't drift to synonyms the glossary explicitly avoids.
-
-If the concept you need isn't in the glossary yet, that's a signal — either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/grill-with-docs`).
-
-## Flag ADR conflicts
-
-If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
-
-> _Contradicts ADR-0007 (event-sourced orders) — but worth reopening because…_
+Update the context map when adding or removing a bounded context. Update only the owning `CONTEXT.md` when changing one domain's language; keep the map as navigation and relationships rather than a second glossary.
