@@ -31,9 +31,9 @@ const vercel = JSON.parse(
 );
 
 describe("production canteen menu sync workflow (#635, #743, #746)", () => {
-  it("wakes every half hour across the documented daytime window", () => {
-    expect(workflow.on.schedule).toEqual([{ cron: "17,47 0-11 * * *" }]);
-    expect(workflowText).toContain("00:17–11:47 UTC = 08:17–19:47 HKT");
+  it("wakes every half hour across all claimable meal windows", () => {
+    expect(workflow.on.schedule).toEqual([{ cron: "17,47 0-15 * * *" }]);
+    expect(workflowText).toContain("00:17–15:47 UTC = 08:17–23:47 HKT");
     expect(workflowText).toContain("no provider request");
   });
 

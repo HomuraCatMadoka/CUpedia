@@ -90,6 +90,7 @@ describe("PINME menu adapter", () => {
       groupCount: 2,
       referencedGroupIds: ["101"],
       publicationKey: expect.stringMatching(/^[a-f0-9]{24}$/),
+      publicationCompatibilityKey: expect.stringMatching(/^[a-f0-9]{24}$/),
       publicationWindows: [],
       refreshBoundaryMinutes: [7 * 60, 11 * 60],
       serviceWindows: [{ startTime: "07:00", endTime: "11:00" }],
@@ -130,6 +131,9 @@ describe("PINME menu adapter", () => {
     }
     expect(repeated.scopeEvidence.publicationKey).toBe(
       single.scopeEvidence.publicationKey,
+    );
+    expect(repeated.scopeEvidence.publicationCompatibilityKey).toBe(
+      single.scopeEvidence.publicationCompatibilityKey,
     );
   });
 
@@ -400,6 +404,7 @@ describe("PINME menu adapter", () => {
       groupCount: 2,
       referencedGroupIds: ["1", "2"],
       publicationKey: expect.stringMatching(/^[a-f0-9]{24}$/),
+      publicationCompatibilityKey: expect.stringMatching(/^[a-f0-9]{24}$/),
       publicationWindows: [],
       refreshBoundaryMinutes: [11 * 60, 14 * 60, 17 * 60, 21 * 60],
       serviceWindows: [
@@ -454,6 +459,7 @@ describe("PINME menu adapter", () => {
       referencedGroupIds: ["101"],
       serviceWindows: [{ startTime: "11:00", endTime: "14:30" }],
       publicationKey: expect.stringMatching(/^[a-f0-9]{24}$/),
+      publicationCompatibilityKey: expect.stringMatching(/^[a-f0-9]{24}$/),
       publicationWindows: [
         { publicationId: "5150", startTime: "11:00", endTime: "14:30" },
       ],

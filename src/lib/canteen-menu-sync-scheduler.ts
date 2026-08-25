@@ -13,6 +13,7 @@ import {
 const MAX_WINDOW_FAILURES = 3;
 const FIRST_RETRY_DELAY_MS = 2 * 60 * 1_000;
 const LATER_RETRY_DELAY_MS = 5 * 60 * 1_000;
+const MIN_SCOPED_OBSERVATION_INTERVAL_MS = 10 * 60 * 1_000;
 const SCOPED_OBSERVATION_REFRESH_MS = 45 * 60 * 1_000;
 const MAX_REFRESH_BOUNDARIES = 128;
 const REVIEW_REQUIRED_CODES = new Set([
@@ -49,6 +50,9 @@ export function nextMenuSourceObservationAt(
 ): Date | null {
   if (latest.observationScope !== "meal-period") return null;
 
+  const earliestRepeatAt = new Date(
+    latest.observedAt.getTime() + MIN_SCOPED_OBSERVATION_INTERVAL_MS,
+  );
   const candidates = [
     new Date(latest.observedAt.getTime() + SCOPED_OBSERVATION_REFRESH_MS),
   ];
@@ -64,12 +68,13 @@ export function nextMenuSourceObservationAt(
       (minute) => minute > latest.observedMinuteOfDay,
     );
     if (nextBoundary !== undefined) {
+      const boundaryAt = new Date(
+        latest.observedAt.getTime() +
+          (nextBoundary - latest.observedMinuteOfDay) * 60 * 1_000 -
+          millisecondsIntoMinute,
+      );
       candidates.push(
-        new Date(
-          latest.observedAt.getTime() +
-            (nextBoundary - latest.observedMinuteOfDay) * 60 * 1_000 -
-            millisecondsIntoMinute,
-        ),
+        boundaryAt < earliestRepeatAt ? earliestRepeatAt : boundaryAt,
       );
     }
   }

@@ -16,7 +16,7 @@ common top-of-hour load:
 
 | GitHub UTC cron    | Asia/Hong_Kong         |
 | ------------------ | ---------------------- |
-| `17,47 0-11 * * *` | 08:17–19:47, every 30m |
+| `17,47 0-15 * * *` | 08:17–23:47, every 30m |
 
 The coarse application windows still begin at 08:00 for authoritative
 breakfast claims, 11:00 for lunch, and 17:00 for dinner. A source is eligible
@@ -31,10 +31,12 @@ envelope with an empty current category topology and correctly fails closed.
 Within a coarse period, a successful catalog observation drains that source
 until the next period. A successful meal-period observation becomes due again
 at the next validated provider refresh boundary or after 45 minutes, whichever
-comes first. Because GitHub wakes at half-hour intervals, a provider without a
-known boundary is normally read about once per hour. PINME broad-group service
-times may schedule a refresh, but broad-group products never become current-menu
-authority.
+comes first, with at least 10 minutes between successful reads. Because GitHub
+wakes at half-hour intervals, a provider without a known boundary is normally
+read about once per hour. PINME broad-group service times may schedule a refresh,
+but broad-group products never become current-menu authority. The wake-up window
+continues through 23:47 so dinner freshness cycles remain executable until the
+midnight HKT window boundary.
 
 Each workflow run makes at most 16 endpoint calls within a 12-minute runner
 budget; the GitHub job has a 15-minute hard timeout. A static concurrency group

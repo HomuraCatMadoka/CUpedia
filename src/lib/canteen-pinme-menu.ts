@@ -4,6 +4,11 @@ import { assertProviderMenuIdentityItems } from "./canteen-provider-menu-identit
 import { compareProviderText } from "./canteen-provider-menu-ordering";
 import { mealPeriodsForOperatingWindow } from "./canteen-provider-menu-periods";
 import { expectedMenuSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
+import {
+  createMenuPublicationKey,
+  isMenuServiceTime,
+} from "./canteen-menu-publication";
+import { pinmePublicationCompatibilityKey } from "./canteen-pinme-publication";
 import { resolveMenuSectionKey } from "./canteen-svg-keys";
 import {
   normalizeMealPeriods,
@@ -146,20 +151,15 @@ function referencedPinmeGroups(data: JsonObject): {
     referencedGroupIds: sortedReferencedGroupIds,
     groups,
     groupCount: data.group.length,
-    publicationKey: createHash("sha256")
-      .update(
-        JSON.stringify(
-          [
-            ...new Set(
-              publicationDescriptors.map((descriptor) =>
-                JSON.stringify(descriptor),
-              ),
-            ),
-          ].sort((left, right) => left.localeCompare(right)),
+    publicationKey: createMenuPublicationKey(
+      [
+        ...new Set(
+          publicationDescriptors.map((descriptor) =>
+            JSON.stringify(descriptor),
+          ),
         ),
-      )
-      .digest("hex")
-      .slice(0, 24),
+      ].sort((left, right) => left.localeCompare(right)),
+    ),
     publicationWindows: [...publicationWindows.entries()]
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([, window]) => window),
@@ -188,12 +188,7 @@ function assertValidPinmeProducts(group: JsonObject): void {
 function serviceWindow(group: JsonObject): PinmeServiceWindow | null {
   const startTime = text(group.start_time);
   const endTime = text(group.end_time);
-  if (
-    !startTime ||
-    !endTime ||
-    !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(startTime) ||
-    !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(endTime)
-  ) {
+  if (!isMenuServiceTime(startTime) || !isMenuServiceTime(endTime)) {
     return null;
   }
   return { startTime, endTime };
@@ -372,6 +367,17 @@ export function buildPinmeMenuSyncPayload(
   }));
   if (items.length === 0) throw new Error("EMPTY_PINME_MENU");
   assertProviderMenuIdentityItems("pinme", items);
+  const normalizedServiceWindows = [...serviceWindows.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, window]) => window);
+  const publicationCompatibilityKey = pinmePublicationCompatibilityKey({
+    provider: "pinme",
+    referencedGroupIds: topology.referencedGroupIds,
+    serviceWindows: normalizedServiceWindows,
+  });
+  if (!publicationCompatibilityKey) {
+    throw new Error("INVALID_PINME_MENU_TOPOLOGY");
+  }
   return {
     snapshotCompleteness: expectedMenuSnapshotCompleteness("pinme"),
     items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),
@@ -381,11 +387,10 @@ export function buildPinmeMenuSyncPayload(
       groupCount: topology.groupCount,
       referencedGroupIds: topology.referencedGroupIds,
       publicationKey: topology.publicationKey,
+      publicationCompatibilityKey,
       publicationWindows: topology.publicationWindows,
       refreshBoundaryMinutes: topology.refreshBoundaryMinutes,
-      serviceWindows: [...serviceWindows.entries()]
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([, window]) => window),
+      serviceWindows: normalizedServiceWindows,
     },
   };
 }

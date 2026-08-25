@@ -1,84 +1,75 @@
-type JsonObject = Record<string, unknown>;
+import { createHash } from "node:crypto";
 
 const PUBLICATION_KEY_PATTERN = /^[a-f0-9]{24}$/;
-const MAX_COMPATIBILITY_VALUES = 500;
 const SERVICE_TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+declare const menuPublicationKeyBrand: unique symbol;
 
-function object(value: unknown): JsonObject | null {
+export type MenuPublicationKey = string & {
+  readonly [menuPublicationKeyBrand]: true;
+};
+
+export type MenuPublicationIdentity = {
+  key?: MenuPublicationKey;
+  compatibilityKey?: MenuPublicationKey;
+};
+
+function object(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as JsonObject)
+    ? (value as Record<string, unknown>)
     : null;
 }
 
-function publicationKey(evidence: JsonObject): string | null {
-  return typeof evidence.publicationKey === "string" &&
-    PUBLICATION_KEY_PATTERN.test(evidence.publicationKey)
-    ? evidence.publicationKey
+export function createMenuPublicationKey(value: unknown): MenuPublicationKey {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) {
+    throw new Error("INVALID_MENU_PUBLICATION_DESCRIPTOR");
+  }
+  return createHash("sha256")
+    .update(serialized)
+    .digest("hex")
+    .slice(0, 24) as MenuPublicationKey;
+}
+
+export function parseMenuPublicationKey(
+  value: unknown,
+): MenuPublicationKey | null {
+  return typeof value === "string" && PUBLICATION_KEY_PATTERN.test(value)
+    ? (value as MenuPublicationKey)
     : null;
 }
 
-/**
- * Builds the part of PINME publication evidence already present in historical
- * snapshots, so the first post-deployment observation can compare safely.
- */
-function legacyPinmePublicationShape(evidence: JsonObject): string | null {
-  if (
-    evidence.provider !== "pinme" ||
-    !Array.isArray(evidence.referencedGroupIds) ||
-    !Array.isArray(evidence.serviceWindows) ||
-    evidence.referencedGroupIds.length > MAX_COMPATIBILITY_VALUES ||
-    evidence.serviceWindows.length > MAX_COMPATIBILITY_VALUES
-  ) {
-    return null;
-  }
-  if (
-    evidence.referencedGroupIds.some(
-      (value) => typeof value !== "string" || value.length === 0,
-    )
-  ) {
-    return null;
-  }
-  const serviceWindows = evidence.serviceWindows.map((value) => {
-    const window = object(value);
-    if (
-      !window ||
-      typeof window.startTime !== "string" ||
-      typeof window.endTime !== "string" ||
-      !SERVICE_TIME_PATTERN.test(window.startTime) ||
-      !SERVICE_TIME_PATTERN.test(window.endTime)
-    ) {
-      return null;
-    }
-    return `${window.startTime}/${window.endTime}`;
-  });
-  if (serviceWindows.some((value) => value === null)) return null;
-  return JSON.stringify({
-    referencedGroupIds: [...new Set(evidence.referencedGroupIds)].sort(),
-    serviceWindows: [...new Set(serviceWindows as string[])].sort(),
-  });
+export function isMenuServiceTime(value: unknown): value is string {
+  return typeof value === "string" && SERVICE_TIME_PATTERN.test(value);
+}
+
+/** Reads provider-neutral publication fields from normalized scope evidence. */
+export function menuPublicationIdentityFromEvidence(
+  evidence: unknown,
+): MenuPublicationIdentity | null {
+  const record = object(evidence);
+  if (!record) return null;
+  const key = parseMenuPublicationKey(record.publicationKey);
+  const compatibilityKey = parseMenuPublicationKey(
+    record.publicationCompatibilityKey,
+  );
+  return key || compatibilityKey
+    ? {
+        ...(key ? { key } : {}),
+        ...(compatibilityKey ? { compatibilityKey } : {}),
+      }
+    : null;
 }
 
 /** True only when explicit provider evidence proves a publication changed. */
 export function providerPublicationChanged(
-  previousEvidence: unknown,
-  currentEvidence: unknown,
+  previous: MenuPublicationIdentity | null | undefined,
+  current: MenuPublicationIdentity | null | undefined,
 ): boolean {
-  const previous = object(previousEvidence);
-  const current = object(currentEvidence);
-  if (!previous || !current || previous.provider !== current.provider) {
-    return false;
-  }
-  const currentKey = publicationKey(current);
-  if (!currentKey) return false;
-
-  const previousKey = publicationKey(previous);
-  if (previousKey) return previousKey !== currentKey;
-
-  const previousLegacyShape = legacyPinmePublicationShape(previous);
-  const currentLegacyShape = legacyPinmePublicationShape(current);
+  if (!previous || !current?.key) return false;
+  if (previous.key) return previous.key !== current.key;
   return (
-    previousLegacyShape !== null &&
-    currentLegacyShape !== null &&
-    previousLegacyShape !== currentLegacyShape
+    previous.compatibilityKey !== undefined &&
+    current.compatibilityKey !== undefined &&
+    previous.compatibilityKey !== current.compatibilityKey
   );
 }

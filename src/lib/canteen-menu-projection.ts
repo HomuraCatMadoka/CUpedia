@@ -1,6 +1,10 @@
 import { MEAL_PERIODS, type MealPeriod } from "@/db/schema";
 import { snapshotAbsenceIsEvidence } from "./canteen-menu-snapshot-completeness";
-import { providerPublicationChanged } from "./canteen-menu-publication";
+import {
+  menuPublicationIdentityFromEvidence,
+  providerPublicationChanged,
+  type MenuPublicationIdentity,
+} from "./canteen-menu-publication";
 import type { ExistingSyncMenuItem } from "./canteen-menu-sync";
 import { menuObservationCanProjectActivity } from "./canteen-menu-sync-window";
 import type {
@@ -34,7 +38,7 @@ type ScopedProjectionSource = {
 };
 
 type ScopedProjectionHistory = {
-  previousScopeEvidence?: Record<string, unknown> | null;
+  previousPublicationIdentity?: MenuPublicationIdentity | null;
 };
 
 /** Project a raw scoped observation as one reversible meal-period patch. */
@@ -57,8 +61,8 @@ export function projectScopedMenuObservation(
     return { items: [], absenceAuthority: { kind: "none" } };
   }
   const publicationChanged = providerPublicationChanged(
-    history.previousScopeEvidence,
-    observation.scopeEvidence,
+    history.previousPublicationIdentity,
+    menuPublicationIdentityFromEvidence(observation.scopeEvidence),
   );
   return {
     items: observation.items.map((item) => ({
@@ -76,7 +80,7 @@ export function projectScopedMenuObservation(
   };
 }
 
-function specificPeriods(
+function expandConfiguredMealPeriods(
   periods: readonly string[],
   configuredPeriods: ReadonlySet<MealPeriod>,
 ): MealPeriod[] {
@@ -137,7 +141,7 @@ export function materializeMealPeriodActivityProjection(
     observedIds.add(observed.externalProductId);
     const existing = managedByProduct.get(observed.externalProductId);
     const retained = existing?.isAvailable
-      ? specificPeriods(existing.mealPeriods, configured).filter(
+      ? expandConfiguredMealPeriods(existing.mealPeriods, configured).filter(
           (period) => !covered.has(period),
         )
       : [];
@@ -161,9 +165,10 @@ export function materializeMealPeriodActivityProjection(
     if (!existing.isAvailable || observedIds.has(existing.externalProductId!)) {
       continue;
     }
-    const remaining = specificPeriods(existing.mealPeriods, configured).filter(
-      (period) => !covered.has(period),
-    );
+    const remaining = expandConfiguredMealPeriods(
+      existing.mealPeriods,
+      configured,
+    ).filter((period) => !covered.has(period));
     if (remaining.length > 0) {
       items.push(existingProjectionItem(existing, remaining));
     }

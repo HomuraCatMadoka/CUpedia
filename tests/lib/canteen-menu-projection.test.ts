@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { projectScopedMenuObservation } from "@/lib/canteen-menu-projection";
+import { menuPublicationIdentityFromEvidence } from "@/lib/canteen-menu-publication";
+import { pinmePublicationCompatibilityKey } from "@/lib/canteen-pinme-publication";
+import { menuPublicationIdentityForProvider } from "@/lib/canteen-menu-source-publication";
 import { menuObservationContextAt } from "@/lib/canteen-menu-sync-window";
 import type { ProviderMenuObservation } from "@/lib/canteen-types";
 
@@ -86,10 +89,9 @@ describe("current menu projection", () => {
 
     expect(
       projectScopedMenuObservation(SOURCE, context, observation, {
-        previousScopeEvidence: {
-          ...observation.scopeEvidence,
+        previousPublicationIdentity: menuPublicationIdentityFromEvidence({
           publicationKey: "a".repeat(24),
-        },
+        }),
       }).absenceAuthority,
     ).toEqual({
       kind: "current-activity",
@@ -103,16 +105,25 @@ describe("current menu projection", () => {
     const context = menuObservationContextAt(
       new Date("2026-08-25T03:17:00.000Z"),
     );
+    const currentEvidence = {
+      provider: "pinme" as const,
+      menuGroupCount: 1,
+      groupCount: 2,
+      referencedGroupIds: ["noon"],
+      serviceWindows: [{ startTime: "11:00", endTime: "14:30" }],
+      publicationKey: "b".repeat(24),
+    };
+    const publicationCompatibilityKey =
+      pinmePublicationCompatibilityKey(currentEvidence);
+    if (!publicationCompatibilityKey) {
+      throw new Error("expected PINME compatibility identity");
+    }
     const observation: ProviderMenuObservation = {
       snapshotCompleteness: "partial",
       observationScope: { kind: "meal-period", mealPeriod: "lunch" },
       scopeEvidence: {
-        provider: "pinme",
-        menuGroupCount: 1,
-        groupCount: 2,
-        referencedGroupIds: ["noon"],
-        serviceWindows: [{ startTime: "11:00", endTime: "14:30" }],
-        publicationKey: "b".repeat(24),
+        ...currentEvidence,
+        publicationCompatibilityKey,
       },
       items: [
         {
@@ -125,16 +136,23 @@ describe("current menu projection", () => {
         },
       ],
     };
+    const previousEvidence = {
+      provider: "pinme",
+      menuGroupCount: 1,
+      groupCount: 2,
+      referencedGroupIds: ["tea"],
+      serviceWindows: [{ startTime: "14:30", endTime: "17:00" }],
+    };
+    expect(
+      menuPublicationIdentityForProvider("aigens", previousEvidence),
+    ).toBeNull();
 
     expect(
       projectScopedMenuObservation(SOURCE, context, observation, {
-        previousScopeEvidence: {
-          provider: "pinme",
-          menuGroupCount: 1,
-          groupCount: 2,
-          referencedGroupIds: ["tea"],
-          serviceWindows: [{ startTime: "14:30", endTime: "17:00" }],
-        },
+        previousPublicationIdentity: menuPublicationIdentityForProvider(
+          "pinme",
+          previousEvidence,
+        ),
       }).absenceAuthority,
     ).toMatchObject({ publicationTransition: "changed" });
   });

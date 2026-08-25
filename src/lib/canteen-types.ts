@@ -178,6 +178,8 @@ export type MenuSnapshotScopeEvidence =
       referencedGroupIds: string[];
       /** Stable fingerprint of the provider's currently selected menu groups. */
       publicationKey?: string;
+      /** Rollout-compatible fingerprint of referenced groups and service time. */
+      publicationCompatibilityKey?: string;
       publicationWindows?: Array<{
         publicationId: string;
         startTime: string;

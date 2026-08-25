@@ -34,11 +34,13 @@ must not drain the authoritative 08:17 observation.
    configured periods remain unchanged. Losing the last current period makes an
    item unavailable without deleting its UUID or history.
 3. Meal-period observations may recur within one coarse period. The production
-   workflow wakes every 30 minutes from 08:17 through 19:47 HKT. A scoped success
-   becomes due after a validated provider boundary or a 45-minute fallback,
-   whichever comes first. Queue timing means the practical maximum staleness is
-   normally about one hour. A tick with no due source makes no provider request.
-   Catalog observations remain one-shot within a coarse period.
+   workflow wakes every 30 minutes from 08:17 through 23:47 HKT, covering the
+   whole claimable dinner window. A scoped success becomes due after a validated
+   provider boundary or a 45-minute fallback, whichever comes first, but never
+   less than 10 minutes after its preceding success. Queue timing means the
+   practical maximum staleness is normally about one hour. A tick with no due
+   source makes no provider request. Catalog observations remain one-shot within
+   a coarse period.
 4. Refresh hints are bounded, validated, and advisory. PINME may contribute
    service-window boundaries from both the selected menu and its broad group
    metadata, but only products referenced by the current `menu_group` are menu

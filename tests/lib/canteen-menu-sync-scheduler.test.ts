@@ -17,6 +17,19 @@ describe("canteen menu observation refresh scheduling", () => {
     ).toEqual(new Date("2026-08-25T06:30:00.000Z"));
   });
 
+  it("does not repeat immediately for a boundary just after observation", () => {
+    const observedAt = new Date("2026-08-25T06:29:00.000Z"); // 14:29 HKT
+
+    expect(
+      nextMenuSourceObservationAt(menuSyncWindowAt(observedAt), {
+        observedAt,
+        observedMinuteOfDay: 14 * 60 + 29,
+        observationScope: "meal-period",
+        scopeEvidence: { refreshBoundaryMinutes: [14 * 60 + 30] },
+      }),
+    ).toEqual(new Date("2026-08-25T06:39:00.000Z"));
+  });
+
   it("bounds staleness when the provider exposes no next boundary", () => {
     const observedAt = new Date("2026-08-25T03:17:00.000Z"); // 11:17 HKT
 
