@@ -47,6 +47,10 @@ vi.mock("@/lib/campus-map/edit-actions", () => ({
 
 import { AmapCampusPrototype } from "@/components/campus-map/amap-campus-prototype";
 import { loadCampusMapEditablePlace } from "@/lib/campus-map/edit-actions";
+import {
+  encodeCampusMapEditSnapshot,
+  transitionCampusMapEdit,
+} from "@/lib/campus-map/edit-session";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -185,6 +189,59 @@ describe("AmapCampusPrototype", () => {
     expect(
       screen.getByRole("button", { name: "发布修改" }).hasAttribute("disabled"),
     ).toBe(false);
+  });
+
+  it("rejects a restored Edit draft for a different URL Place", async () => {
+    const urlPlaceId = "71000000-0000-4000-8000-000000000005";
+    const savedPlaceId = "71000000-0000-4000-8000-000000000002";
+    const current = await vi.mocked(loadCampusMapEditablePlace)(savedPlaceId);
+    if (!current) throw new Error("missing edit fixture");
+    const saved = transitionCampusMapEdit(null, {
+      type: "START_EDIT",
+      placeId: savedPlaceId,
+      baseRevisionId: current.baseRevisionId,
+      fact: current.fact,
+      sources: [],
+      idempotencyKey: "10000000-0000-4000-8000-000000000009",
+    }).session!;
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(saved),
+    );
+    window.history.replaceState(
+      null,
+      "",
+      `/prototype/campus-map?v=1&task=edit&id=${urlPlaceId}`,
+    );
+
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    expect(await screen.findByText(/草稿与当前编辑目标不一致/)).toBeTruthy();
+    expect(
+      window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
+    ).toBeNull();
+    await waitFor(() => expect(window.location.search).not.toContain("task="));
+    expect(screen.queryByRole("heading", { name: "建议修改" })).toBeNull();
+  });
+
+  it("removes hidden map chrome from keyboard and screen-reader navigation during editing", async () => {
+    render(<AmapCampusPrototype />);
+    const searchHeader = screen
+      .getByPlaceholderText("搜索建筑")
+      .closest("header");
+    const filterNav = screen.getByRole("navigation", { name: "设施筛选" });
+    const addButton = screen.getByRole("button", { name: "添加地点" });
+    const mapControls = addButton.parentElement;
+
+    fireEvent.click(addButton);
+    await screen.findByRole("heading", { name: "添加地点" });
+
+    expect(searchHeader?.getAttribute("aria-hidden")).toBe("true");
+    expect(searchHeader?.hasAttribute("inert")).toBe(true);
+    expect(filterNav.parentElement?.getAttribute("aria-hidden")).toBe("true");
+    expect(filterNav.parentElement?.hasAttribute("inert")).toBe(true);
+    expect(mapControls?.getAttribute("aria-hidden")).toBe("true");
+    expect(mapControls?.hasAttribute("inert")).toBe(true);
   });
 
   it("drops a delayed Edit read after Escape changes the scene", async () => {

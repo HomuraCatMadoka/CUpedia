@@ -1546,12 +1546,15 @@ export function AmapCampusPrototype({
       ) : null}
 
       <header
+        aria-hidden={editSession ? true : undefined}
+        inert={editSession ? true : undefined}
         className={cn(
           "pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start gap-2 p-3 transition-opacity md:p-4",
-          chromeHidden && "pointer-events-none opacity-0",
-          state.selection.kind !== "none" &&
+          chromeHidden && "invisible pointer-events-none opacity-0",
+          !editSession &&
+            state.selection.kind !== "none" &&
             state.sheet.snap === "full" &&
-            "md:opacity-100",
+            "md:visible md:opacity-100",
         )}
       >
         <form
@@ -1645,12 +1648,15 @@ export function AmapCampusPrototype({
       </header>
 
       <div
+        aria-hidden={editSession ? true : undefined}
+        inert={editSession ? true : undefined}
         className={cn(
           "pointer-events-none absolute inset-x-0 top-[68px] z-20 overflow-hidden px-3 transition-opacity md:top-[76px] md:flex md:justify-center",
-          chromeHidden && "pointer-events-none opacity-0",
-          state.selection.kind !== "none" &&
+          chromeHidden && "invisible pointer-events-none opacity-0",
+          !editSession &&
+            state.selection.kind !== "none" &&
             state.sheet.snap === "full" &&
-            "md:opacity-100",
+            "md:visible md:opacity-100",
         )}
       >
         <nav
@@ -1693,9 +1699,11 @@ export function AmapCampusPrototype({
       </div>
 
       <div
+        aria-hidden={editSession ? true : undefined}
+        inert={editSession ? true : undefined}
         className={cn(
           "absolute top-[124px] right-3 z-20 flex flex-col overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg md:top-auto md:right-auto md:bottom-6 md:left-4",
-          editSession && "pointer-events-none opacity-0",
+          editSession && "invisible pointer-events-none opacity-0",
         )}
       >
         <button

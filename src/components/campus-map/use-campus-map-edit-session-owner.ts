@@ -190,6 +190,23 @@ export function useCampusMapEditSessionOwner({
       }
       return;
     }
+    const urlSession = driver.getSnapshot().session;
+    const matchesUrlTask =
+      urlSession.mode !== "task" ||
+      (urlSession.task.kind === "create"
+        ? restored.session.draft.mode === "add"
+        : restored.session.draft.mode === "edit" &&
+          restored.session.draft.placeId === urlSession.task.placeId);
+    if (!matchesUrlTask) {
+      window.sessionStorage.removeItem(SNAPSHOT_KEY);
+      dispatch({ type: "CANCEL_TASK" });
+      queueMicrotask(() =>
+        setRestoreNotice(
+          "草稿与当前编辑目标不一致，已为安全起见丢弃这份草稿。",
+        ),
+      );
+      return;
+    }
     const next =
       restored.session.status === "authentication-required"
         ? transitionCampusMapEdit(restored.session, { type: "AUTH_RETURNED" })

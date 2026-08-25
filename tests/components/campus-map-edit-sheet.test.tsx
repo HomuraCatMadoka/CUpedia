@@ -457,7 +457,7 @@ describe("Campus Map single-page edit Sheet", () => {
         ...baseDraft,
         fact: { ...currentFact, name: "我的版本" },
       },
-      conflict: { currentRevisionId: revisionId, currentFact },
+      conflict: { kind: "current", currentRevisionId: revisionId, currentFact },
     };
     const view = render(
       <CampusMapEditSheet
@@ -476,8 +476,9 @@ describe("Campus Map single-page edit Sheet", () => {
           ...first,
           draft: { ...first.draft, idempotencyKey: changesetId },
           conflict: {
-            ...first.conflict!,
+            kind: "current",
             currentRevisionId: changesetId,
+            currentFact,
           },
         }}
         centerPosition={[114.2, 22.4]}
@@ -488,5 +489,56 @@ describe("Campus Map single-page edit Sheet", () => {
       "checked",
       false,
     );
+  });
+
+  it("keeps an unavailable conflict non-publishable without rendering rebase actions", () => {
+    const session: CampusMapEditSession = {
+      status: "conflict",
+      draft: {
+        ...draft(),
+        mode: "edit",
+        placeId,
+        baseRevisionId: revisionId,
+        baselineFact: {
+          ...draft().fact,
+          location: {
+            kind: "outdoor-point",
+            longitude: 114.2,
+            latitude: 22.4,
+            crs: "wgs84",
+            precision: "approximate",
+          },
+        },
+        fact: {
+          ...draft().fact,
+          name: "仍保留的草稿",
+          location: {
+            kind: "outdoor-point",
+            longitude: 114.2,
+            latitude: 22.4,
+            crs: "wgs84",
+            precision: "approximate",
+          },
+        },
+      },
+      conflict: { kind: "unavailable" },
+    };
+
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "无法读取地点的最新版本",
+    );
+    expect(screen.queryByRole("button", { name: "采用最新资料" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "按以上选择继续" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "发布修改" }).hasAttribute("disabled"),
+    ).toBe(true);
   });
 });

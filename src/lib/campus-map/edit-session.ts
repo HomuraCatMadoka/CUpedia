@@ -54,10 +54,13 @@ export interface CampusMapEditReceipt {
   changesetId: string;
 }
 
-export interface CampusMapEditConflict {
-  currentRevisionId: string;
-  currentFact: CampusMapPublishFactInput;
-}
+export type CampusMapEditConflict =
+  | {
+      kind: "current";
+      currentRevisionId: string;
+      currentFact: CampusMapPublishFactInput;
+    }
+  | { kind: "unavailable" };
 
 export interface CampusMapEditSession {
   status: CampusMapEditStatus;
@@ -199,10 +202,7 @@ export function isCampusMapEditDirty(
       stable(draft.fact) !== stable(DEFAULT_FACT) || draft.sources.length > 0
     );
   }
-  return (
-    stable(draft.fact) !== stable(draft.baselineFact) ||
-    stable(draft.sources) !== stable(draft.baselineSources)
-  );
+  return stable(draft.fact) !== stable(draft.baselineFact);
 }
 
 function rejected(
@@ -340,6 +340,14 @@ export function transitionCampusMapEdit(
   if (session.status === "publishing" && event.type !== "PUBLISH_RESULT") {
     return rejected(session);
   }
+  if (
+    session.status === "conflict" &&
+    event.type !== "REQUEST_CLOSE" &&
+    event.type !== "CONTINUE_FROM_CONFLICT" &&
+    event.type !== "USE_CURRENT_FACT"
+  ) {
+    return rejected(session);
+  }
 
   if (event.type === "UPDATE_PLACEMENT_CANDIDATE") {
     if (session.status !== "placing") return rejected(session);
@@ -454,8 +462,8 @@ export function transitionCampusMapEdit(
       };
     }
     const next: CampusMapEditSession = {
+      ...session,
       status: "confirm-discard",
-      draft: session.draft,
       returnStatus:
         session.status === "confirm-discard"
           ? session.returnStatus
@@ -473,13 +481,15 @@ export function transitionCampusMapEdit(
   if (event.type === "CONTINUE_EDITING") {
     if (session.status !== "confirm-discard") return rejected(session);
     const returnStatus = session.returnStatus ?? "editing";
-    const next = {
+    const next: CampusMapEditSession = {
+      ...session,
       status: returnStatus,
       draft:
         returnStatus === "placing"
           ? { ...session.draft, placementCandidate: null }
           : session.draft,
-    } satisfies CampusMapEditSession;
+    };
+    delete next.returnStatus;
     return {
       accepted: true,
       session: next,
@@ -582,16 +592,12 @@ export function transitionCampusMapEdit(
         (item) => item.currentRevisionId && item.currentSnapshot,
       );
       if (!conflict?.currentRevisionId || !conflict.currentSnapshot) {
-        const serverErrors = result.conflicts.map(({ code, anchor }) => ({
-          code,
-          anchor,
-        }));
         return {
           accepted: true,
           session: {
-            status: "editing",
+            status: "conflict",
             draft: session.draft,
-            serverErrors,
+            conflict: { kind: "unavailable" },
           },
           commands: [
             { kind: "persist-snapshot" },
@@ -611,6 +617,7 @@ export function transitionCampusMapEdit(
         status: "conflict",
         draft: session.draft,
         conflict: {
+          kind: "current",
           currentRevisionId: conflict.currentRevisionId,
           currentFact,
         },
@@ -681,7 +688,11 @@ export function transitionCampusMapEdit(
 
   if (event.type === "RATE_LIMIT_ELAPSED") {
     if (
-      session.status !== "rate-limited" ||
+      (session.status !== "rate-limited" &&
+        !(
+          session.status === "confirm-discard" &&
+          session.returnStatus === "rate-limited"
+        )) ||
       event.idempotencyKey !== session.draft.idempotencyKey
     )
       return rejected(session);
@@ -689,7 +700,7 @@ export function transitionCampusMapEdit(
   }
 
   if (event.type === "CONTINUE_FROM_CONFLICT") {
-    if (session.status !== "conflict" || !session.conflict)
+    if (session.status !== "conflict" || session.conflict?.kind !== "current")
       return rejected(session);
     return persisted({
       status: "editing",
@@ -705,7 +716,7 @@ export function transitionCampusMapEdit(
   }
 
   if (event.type === "USE_CURRENT_FACT") {
-    if (session.status !== "conflict" || !session.conflict)
+    if (session.status !== "conflict" || session.conflict?.kind !== "current")
       return rejected(session);
     return persisted({
       status: "editing",
@@ -955,12 +966,41 @@ function looksLikeSource(value: unknown): boolean {
   );
 }
 
-function looksLikeWarning(value: unknown): boolean {
+function looksLikeIssueAnchor(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    (value.changeIndex === undefined ||
+      (typeof value.changeIndex === "number" &&
+        Number.isInteger(value.changeIndex) &&
+        value.changeIndex >= 0)) &&
+    (value.placeId === undefined || typeof value.placeId === "string") &&
+    (value.field === undefined || typeof value.field === "string")
+  );
+}
+
+function looksLikeValidationIssue(value: unknown): boolean {
   return (
     isRecord(value) &&
     typeof value.code === "string" &&
-    typeof value.fingerprint === "string" &&
-    isRecord(value.anchor)
+    looksLikeIssueAnchor(value.anchor)
+  );
+}
+
+function looksLikeWarning(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    looksLikeValidationIssue(value) &&
+    typeof value.fingerprint === "string"
+  );
+}
+
+function looksLikeConflict(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (value.kind === "unavailable") return true;
+  return (
+    value.kind === "current" &&
+    validUuid(value.currentRevisionId) &&
+    looksLikeFact(value.currentFact, false)
   );
 }
 
@@ -998,39 +1038,75 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
     "published",
   ];
   if (!statuses.includes(value.status as CampusMapEditStatus)) return false;
+  const returnStatuses = [
+    "placing",
+    "editing",
+    "publishing",
+    "warning",
+    "authentication-required",
+    "forbidden",
+    "rate-limited",
+    "temporarily-unavailable",
+    "conflict",
+  ] as const;
+  const returnStatusValid =
+    value.status === "confirm-discard"
+      ? returnStatuses.includes(
+          value.returnStatus as (typeof returnStatuses)[number],
+        )
+      : value.returnStatus === undefined;
+  const effectiveStatus =
+    value.status === "confirm-discard" ? value.returnStatus : value.status;
+  const warningsValid =
+    value.warnings === undefined ||
+    (Array.isArray(value.warnings) && value.warnings.every(looksLikeWarning));
+  const conflictValid =
+    value.conflict === undefined || looksLikeConflict(value.conflict);
+  const forbiddenCodes = [
+    "actor-not-eligible",
+    "actor-banned",
+    "profile-incomplete",
+    "role-not-eligible",
+    "admin-required",
+  ];
+  const forbiddenCodeValid =
+    value.forbiddenCode === undefined ||
+    forbiddenCodes.includes(String(value.forbiddenCode));
+  const rateStateValid =
+    (value.retryAfter === undefined ||
+      (typeof value.retryAfter === "number" &&
+        Number.isFinite(value.retryAfter) &&
+        value.retryAfter >= 0)) &&
+    (value.rateScope === undefined ||
+      value.rateScope === "actor" ||
+      value.rateScope === "ip");
   const statusStateValid =
-    (value.status !== "warning" ||
+    returnStatusValid &&
+    warningsValid &&
+    conflictValid &&
+    forbiddenCodeValid &&
+    rateStateValid &&
+    (value.localError === undefined || typeof value.localError === "string") &&
+    (value.serverErrors === undefined ||
+      (Array.isArray(value.serverErrors) &&
+        value.serverErrors.every(looksLikeValidationIssue))) &&
+    (effectiveStatus !== "warning" ||
       (Array.isArray(value.warnings) &&
         value.warnings.length > 0 &&
         value.warnings.every(looksLikeWarning))) &&
-    (value.status !== "conflict" ||
-      (isRecord(value.conflict) &&
-        typeof value.conflict.currentRevisionId === "string" &&
-        looksLikeFact(value.conflict.currentFact, false))) &&
-    (value.status !== "forbidden" ||
-      [
-        "actor-not-eligible",
-        "actor-banned",
-        "profile-incomplete",
-        "role-not-eligible",
-        "admin-required",
-      ].includes(String(value.forbiddenCode))) &&
-    (value.status !== "rate-limited" ||
+    (effectiveStatus !== "conflict" || looksLikeConflict(value.conflict)) &&
+    (effectiveStatus !== "forbidden" ||
+      forbiddenCodes.includes(String(value.forbiddenCode))) &&
+    (effectiveStatus !== "rate-limited" ||
       (typeof value.retryAfter === "number" &&
         Number.isFinite(value.retryAfter) &&
+        value.retryAfter >= 0 &&
         (value.rateScope === "actor" || value.rateScope === "ip"))) &&
-    (value.status !== "confirm-discard" ||
-      [
-        "placing",
-        "editing",
-        "publishing",
-        "warning",
-        "authentication-required",
-        "forbidden",
-        "rate-limited",
-        "temporarily-unavailable",
-        "conflict",
-      ].includes(String(value.returnStatus)));
+    (effectiveStatus !== "published" ||
+      (isRecord(value.receipt) &&
+        validUuid(value.receipt.placeId) &&
+        validUuid(value.receipt.revisionId) &&
+        validUuid(value.receipt.changesetId)));
   const locationStateValid =
     ((value.status === "placing" ||
       (value.status === "confirm-discard" &&
@@ -1044,6 +1120,9 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
     (draft.mode === "add" || draft.mode === "edit") &&
     validUuid(draft.idempotencyKey) &&
     looksLikeFact(draft.fact, true) &&
+    (draft.placementMethod === null ||
+      draft.placementMethod === "pointer" ||
+      draft.placementMethod === "keyboard") &&
     (draft.placementCandidate === null ||
       looksLikePlacement(draft.placementCandidate)) &&
     Array.isArray(draft.sources) &&
@@ -1055,13 +1134,18 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
       (item) =>
         isRecord(item) &&
         typeof item.changeIndex === "number" &&
+        Number.isInteger(item.changeIndex) &&
+        item.changeIndex >= 0 &&
         typeof item.code === "string" &&
         typeof item.fingerprint === "string",
     ) &&
-    (draft.mode === "add" ||
-      (validUuid(draft.placeId) &&
+    (draft.mode === "add"
+      ? draft.placeId === null &&
+        draft.baseRevisionId === null &&
+        draft.baselineFact === null
+      : validUuid(draft.placeId) &&
         validUuid(draft.baseRevisionId) &&
-        looksLikeFact(draft.baselineFact, false)))
+        looksLikeFact(draft.baselineFact, false))
   );
 }
 

@@ -8,6 +8,7 @@ import {
   encodeCampusMapEditSnapshot,
   isCampusMapEditDirty,
   transitionCampusMapEdit,
+  type CampusMapEditEvent,
   type CampusMapEditSession,
 } from "@/lib/campus-map/edit-session";
 import type {
@@ -245,6 +246,35 @@ describe("Campus Map edit session transition", () => {
       draft: { mode: "edit", placeId, baseRevisionId },
     });
     expect(isCampusMapEditDirty(session)).toBe(false);
+  });
+
+  it("keeps source-only Edit changes as provenance without making them publishable", () => {
+    const changedSources = [
+      source,
+      { ...source, ref: "现场观察 2026-08-26", accessedOn: "2026-08-26" },
+    ];
+    const changed = transitionCampusMapEdit(editSession(), {
+      type: "CHANGE_SOURCES",
+      sources: changedSources,
+    });
+    const publish = transitionCampusMapEdit(changed.session, {
+      type: "REQUEST_PUBLISH",
+    });
+
+    expect(changed.session?.draft.sources).toEqual(changedSources);
+    expect(isCampusMapEditDirty(changed.session)).toBe(false);
+    expect(publish).toMatchObject({
+      accepted: false,
+      session: changed.session,
+    });
+
+    const factChanged = transitionCampusMapEdit(changed.session, {
+      type: "CHANGE_FACT",
+      fact: { ...fact, name: "有事实修改的地点" },
+    }).session!;
+    expect(
+      deriveCampusMapPublishCommand(factChanged.draft).changes[0],
+    ).toMatchObject({ sources: changedSources });
   });
 
   it("repositions the same edit draft and invalidates warning acknowledgement", () => {
@@ -694,7 +724,22 @@ describe("Campus Map edit session transition", () => {
     expect(conflicted.session).toMatchObject({
       status: "conflict",
       draft: { fact: mine },
+      conflict: { kind: "current", currentRevisionId, currentFact: current },
     });
+    const bypasses: CampusMapEditEvent[] = [
+      { type: "CHANGE_FACT", fact: { ...mine, name: "绕过冲突" } },
+      { type: "CHANGE_SOURCES", sources: [] },
+      { type: "START_REPOSITION" },
+      { type: "REQUEST_PUBLISH" },
+    ];
+    for (const bypass of bypasses) {
+      expect(transitionCampusMapEdit(conflicted.session, bypass)).toMatchObject(
+        {
+          accepted: false,
+          session: conflicted.session,
+        },
+      );
+    }
     expect(continued.session).toMatchObject({
       status: "editing",
       draft: {
@@ -736,20 +781,135 @@ describe("Campus Map edit session transition", () => {
     });
 
     expect(conflicted.session).toMatchObject({
-      status: "editing",
+      status: "conflict",
       draft: { fact: mine },
-      serverErrors: [
-        {
-          code: "base-revision-conflict",
-          anchor: { field: "baseRevisionId" },
-        },
-      ],
+      conflict: { kind: "unavailable" },
     });
+    expect(
+      transitionCampusMapEdit(conflicted.session, {
+        type: "CHANGE_FACT",
+        fact: { ...mine, name: "不可绕过" },
+      }),
+    ).toMatchObject({ accepted: false, session: conflicted.session });
+    expect(
+      transitionCampusMapEdit(conflicted.session, {
+        type: "CONTINUE_FROM_CONFLICT",
+        idempotencyKey: secondKey,
+        fact: mine,
+      }),
+    ).toMatchObject({ accepted: false, session: conflicted.session });
     expect(
       decodeCampusMapEditSnapshot(
         encodeCampusMapEditSnapshot(conflicted.session!),
       ),
-    ).toMatchObject({ status: "restored", session: { draft: { fact: mine } } });
+    ).toMatchObject({
+      status: "restored",
+      session: {
+        status: "conflict",
+        draft: { fact: mine },
+        conflict: { kind: "unavailable" },
+      },
+    });
+  });
+
+  it.each([
+    {
+      label: "warning",
+      state: {
+        status: "warning" as const,
+        warnings: [
+          {
+            code: "duplicate-candidate",
+            fingerprint: "a".repeat(64),
+            anchor: { changeIndex: 0, field: "name" },
+          },
+        ],
+      },
+    },
+    {
+      label: "rate limit",
+      state: {
+        status: "rate-limited" as const,
+        retryAfter: 15,
+        rateScope: "actor" as const,
+      },
+    },
+    {
+      label: "conflict",
+      state: {
+        status: "conflict" as const,
+        conflict: {
+          kind: "current" as const,
+          currentRevisionId,
+          currentFact: { ...fact, name: "服务器最新版" },
+        },
+      },
+    },
+  ])(
+    "preserves the complete $label recovery state through dirty close",
+    ({ state }) => {
+      const dirty = transitionCampusMapEdit(editSession(), {
+        type: "CHANGE_FACT",
+        fact: { ...fact, name: "需要保留的草稿" },
+      }).session!;
+      const recovery = { ...dirty, ...state } as CampusMapEditSession;
+      const closing = transitionCampusMapEdit(recovery, {
+        type: "REQUEST_CLOSE",
+      }).session!;
+      const restored = decodeCampusMapEditSnapshot(
+        encodeCampusMapEditSnapshot(closing),
+      );
+
+      expect(restored).toMatchObject({
+        status: "restored",
+        session: {
+          ...state,
+          status: "confirm-discard",
+          returnStatus: state.status,
+        },
+      });
+      if (restored.status !== "restored")
+        throw new Error("snapshot not restored");
+      const continued = transitionCampusMapEdit(restored.session, {
+        type: "CONTINUE_EDITING",
+      });
+      expect(continued.session).toMatchObject(state);
+      expect(continued.session).not.toHaveProperty("returnStatus");
+    },
+  );
+
+  it("records a rate-limit timer finishing while the dirty-close dialog is open", () => {
+    const dirty = transitionCampusMapEdit(editSession(), {
+      type: "CHANGE_FACT",
+      fact: { ...fact, name: "等待限流结束的草稿" },
+    }).session!;
+    const rateLimited: CampusMapEditSession = {
+      ...dirty,
+      status: "rate-limited",
+      retryAfter: 15,
+      rateScope: "actor",
+    };
+    const closing = transitionCampusMapEdit(rateLimited, {
+      type: "REQUEST_CLOSE",
+    }).session!;
+    const elapsed = transitionCampusMapEdit(closing, {
+      type: "RATE_LIMIT_ELAPSED",
+      idempotencyKey: firstKey,
+    });
+    const continued = transitionCampusMapEdit(elapsed.session, {
+      type: "CONTINUE_EDITING",
+    });
+
+    expect(elapsed.session).toMatchObject({
+      status: "confirm-discard",
+      returnStatus: "rate-limited",
+      retryAfter: 0,
+    });
+    expect(continued.session).toMatchObject({
+      status: "rate-limited",
+      retryAfter: 0,
+      rateScope: "actor",
+    });
   });
 
   it("keeps forbidden publish results distinct and refresh-safe", () => {
@@ -900,6 +1060,18 @@ describe("Campus Map edit session transition", () => {
       session: { draft: { fact: unknown } };
     };
     snapshot.session.draft.fact = { name: "missing controlled fields" };
+
+    expect(decodeCampusMapEditSnapshot(JSON.stringify(snapshot))).toEqual({
+      status: "discarded",
+      reason: "invalid-snapshot",
+    });
+  });
+
+  it("rejects malformed rendered errors before the Sheet can read them", () => {
+    const snapshot = JSON.parse(encodeCampusMapEditSnapshot(editSession())) as {
+      session: CampusMapEditSession;
+    };
+    snapshot.session.serverErrors = [null] as never;
 
     expect(decodeCampusMapEditSnapshot(JSON.stringify(snapshot))).toEqual({
       status: "discarded",

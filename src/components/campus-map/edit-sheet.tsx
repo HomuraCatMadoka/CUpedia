@@ -132,8 +132,8 @@ function friendlyLocationLabel(
 function conflictFields(
   session: CampusMapEditSession,
 ): Array<[keyof CampusMapPublishFactInput, string]> {
-  const current = session.conflict?.currentFact;
-  if (!current) return [];
+  if (session.conflict?.kind !== "current") return [];
+  const current = session.conflict.currentFact;
   const labels: Array<[keyof CampusMapPublishFactInput, string]> = [
     ["name", "名称"],
     ["pinType", "类型"],
@@ -238,7 +238,7 @@ export function CampusMapEditSheet({
   const fieldLabel = (field: string, fallback: string) =>
     factSchema?.displayMetadata[field]?.label ?? fallback;
   const conflictKey =
-    session.status === "conflict" && session.conflict
+    session.status === "conflict" && session.conflict?.kind === "current"
       ? `${session.draft.idempotencyKey}:${session.conflict.currentRevisionId}`
       : "";
   const conflictKeepFields =
@@ -562,6 +562,20 @@ export function CampusMapEditSheet({
       );
     }
     if (session.status === "conflict") {
+      const conflict = session.conflict;
+      if (!conflict || conflict.kind === "unavailable") {
+        return (
+          <div
+            className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm"
+            role="alert"
+          >
+            <p className="font-semibold">无法读取地点的最新版本</p>
+            <p className="mt-1">
+              你的输入仍已保留，但在重新读取正式地点前不能再次发布。请关闭编辑后重新打开这个地点。
+            </p>
+          </div>
+        );
+      }
       const changedFields = conflictFields(session);
       return (
         <div
@@ -571,7 +585,7 @@ export function CampusMapEditSheet({
           <p className="font-semibold">这处地点刚刚被其他人更新</p>
           <p className="mt-1">
             你的输入仍保留。最新版名称：
-            {session.conflict?.currentFact.name ?? "不可用"}
+            {conflict.currentFact.name}
           </p>
           {changedFields.length ? (
             <fieldset className="mt-3 rounded-lg border border-amber-300 p-2">
@@ -623,7 +637,7 @@ export function CampusMapEditSheet({
                   type: "CONTINUE_FROM_CONFLICT",
                   idempotencyKey: crypto.randomUUID(),
                   fact: Object.fromEntries(
-                    Object.entries(session.conflict!.currentFact).map(
+                    Object.entries(conflict.currentFact).map(
                       ([field, value]) => [
                         field,
                         conflictKeepFields.includes(
