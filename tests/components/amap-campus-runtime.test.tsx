@@ -138,7 +138,7 @@ describe("AmapCampusPrototype runtime effects", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
     await waitFor(() => expect(screen.queryByText("新位置")).toBeNull());
-    expect(screen.getByText("地图上的地点")).not.toBeNull();
+    expect(screen.getByText("地图坐标")).not.toBeNull();
     const restored = JSON.parse(
       window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
     );
@@ -157,6 +157,61 @@ describe("AmapCampusPrototype runtime effects", () => {
       },
     });
     expect(JSON.stringify(restored)).not.toContain("new-poi");
+  });
+
+  it("describes a generic AMap result with the nearby campus building and coordinates", async () => {
+    const { runtime, map } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
+
+    await act(async () => {
+      map.center = { lng: 114.20801, lat: 22.41966 };
+      map.emit("moveend", {});
+    });
+    await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(2));
+    await runtime.resolveGeocode(1, "complete", {
+      regeocode: {
+        formattedAddress: "香港特别行政区沙田区中央道香港中文大学",
+        pois: [{ id: "far-away", name: "远处地点", distance: "90" }],
+      },
+    });
+
+    expect(await screen.findByText("科学馆附近")).not.toBeNull();
+    expect(screen.getByText(/114\.208010, 22\.419660/)).not.toBeNull();
+    expect(
+      screen.getByText(/高德参考.*香港特别行政区沙田区中央道香港中文大学/),
+    ).not.toBeNull();
+  });
+
+  it("keeps the location context and schema default name after confirmation", async () => {
+    const { runtime, map } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
+
+    await act(async () => {
+      map.center = { lng: 114.20801, lat: 22.41966 };
+      map.emit("moveend", {});
+    });
+    await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(2));
+    await runtime.resolveGeocode(1, "complete", {
+      regeocode: {
+        formattedAddress: "香港特别行政区沙田区中央道香港中文大学",
+      },
+    });
+
+    expect(screen.getByText(/建筑名称只作位置参考/)).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
+
+    expect(await screen.findByText("科学馆附近")).not.toBeNull();
+    expect(screen.getByText(/114\.208010, 22\.419660/)).not.toBeNull();
+    expect(screen.getByText(/设施名称已按类型预填/)).not.toBeNull();
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "地点名称",
+        }) as HTMLInputElement
+      ).value,
+    ).toBe("饮水机");
   });
 
   it("lets Add select an exact AMap label without publishing provider identity", async () => {
@@ -241,7 +296,7 @@ describe("AmapCampusPrototype runtime effects", () => {
       },
     });
 
-    expect(await screen.findByText("地图中心位置")).not.toBeNull();
+    expect(await screen.findByText("地图坐标")).not.toBeNull();
     expect(screen.queryByText("邵逸夫堂")).toBeNull();
   });
 
@@ -358,7 +413,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     });
     const pin = document.querySelector("[data-campus-map-center-pin]");
     expect(pin?.getAttribute("data-moving")).toBe("false");
-    expect(screen.getByText("地图中心位置")).not.toBeNull();
+    expect(screen.getByText("地图坐标")).not.toBeNull();
     expect(screen.getByText("高德参考 · 香港中文大学中央校园")).not.toBeNull();
 
     await act(async () => map.emit("movestart", {}));
@@ -366,7 +421,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     const pending = screen.getByRole("button", { name: "正在确定位置…" });
     expect((pending as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(pending);
-    expect(screen.getByText(/拖动地图，或轻点地图上的地点名称/)).not.toBeNull();
+    expect(screen.getByText(/建筑名称只作位置参考/)).not.toBeNull();
 
     await act(async () => {
       map.center = { lng: 114.211, lat: 22.421 };

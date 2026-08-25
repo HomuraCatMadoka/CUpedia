@@ -79,9 +79,22 @@ session 或地图 owner，只是把一个大任务拆成两个清楚的小步骤
 对校园场景的建议：
 
 - 使用 100–200 米半径，而不是默认 1000 米，避免把山另一侧或远处建筑当成“当前位置附近”。
-- 主文案优先使用距图钉不超过 30 米且最近的具体 POI/建筑名；副文案显示地址。没有可靠 POI 时显示“地图中心位置”，不虚构“某建筑附近”。
+- 主文案优先使用距图钉不超过 30 米且最近的具体高德 POI；六位 WGS84 坐标始终可见，高德地址只作次级参考。没有可靠 POI 时可显示“地图坐标”，或在距现有 CUpedia Building 原型锚点不超过 50 米时诚实显示“建筑名附近”；后者不产生 containment 事实。
 - `regeocode.pois` 是高德候选，不是 CUpedia `placeId`。POI ID 只能进入 transient provider suggestion 或明确的 provider mapping，不能成为 canonical identity。
 - Geocoder 失败不应清掉已选坐标或用户草稿；UI 保留 pin，并显示“暂时无法识别地址，仍可使用此位置”。
+
+### 2026-08-26 使用反馈修正
+
+真实使用暴露出一个信息层级问题：当图钉位于科学馆、而 Geocoder 只返回“香港中文大学”级别
+的地址时，单独显示该地址不能帮助用户确认图钉；确认后再退化为“地图上的地点 / 约略位置”也会
+丢失刚才的空间上下文。修正后的 picker 始终显示六位 WGS84 坐标，并把高德地址降为次级参考。
+若位置距已知 CUpedia Building 原型锚点不超过 50 米，显示“建筑名附近”；“附近”明确表示它
+不是 containment 或精确建筑事实。
+
+这次反馈也暴露出 Building 与 Place 的心智混淆：图面上的科学馆是位置容器，当前 Add schema
+创建的是饮水点、洗手间、打印服务等独立 Place。确认位置后，Add 使用 schema preset 的
+`defaultName`（例如“饮水机”），避免默认类型已经是饮水点而名称仍为空；高德名称与 ID 仍不会
+静默成为 canonical Place identity。
 
 ### 3. `AMap.PlaceSearch` 周边 POI
 

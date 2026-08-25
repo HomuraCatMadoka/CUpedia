@@ -563,8 +563,10 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    expect(screen.getByText("精确位置")).toBeTruthy();
-    expect(screen.queryByText("约略位置")).toBeNull();
+    expect(
+      screen.getByText("114.208010, 22.419660 · WGS84 · 精确"),
+    ).toBeTruthy();
+    expect(screen.queryByText(/WGS84 · 约略/)).toBeNull();
   });
 
   it("reveals optional fields when local validation targets one", () => {

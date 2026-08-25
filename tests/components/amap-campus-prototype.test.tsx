@@ -114,9 +114,9 @@ describe("AmapCampusPrototype", () => {
       await screen.findByRole("heading", { name: "选择地点位置" }),
     ).toBeTruthy();
     expect(
-      screen.getByText("拖动地图，或轻点地图上的地点名称；资料下一步填写。"),
+      screen.getByText("移动地图标记设施位置；建筑名称只作位置参考。"),
     ).toBeTruthy();
-    expect(screen.getByText("地图中心位置")).toBeTruthy();
+    expect(screen.getByText("地图坐标")).toBeTruthy();
     expect(screen.queryByRole("textbox", { name: "地点名称" })).toBeNull();
     expect(screen.queryByRole("radio", { name: "饮水点" })).toBeNull();
     expect(screen.queryByRole("textbox", { name: "经度（WGS84）" })).toBeNull();
@@ -134,7 +134,7 @@ describe("AmapCampusPrototype", () => {
     );
     const nameInput = screen.getByLabelText("地点名称");
     fireEvent.change(nameInput, { target: { value: "新饮水点" } });
-    expect(screen.getByText("地图上的地点")).toBeTruthy();
+    expect(screen.getByText("地图坐标")).toBeTruthy();
     expect(screen.getByRole("button", { name: "重新定位" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "饮水点" })).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "无障碍通行" })).toBeNull();

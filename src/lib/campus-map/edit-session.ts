@@ -7,6 +7,7 @@ import type {
   CampusMapPublishWarning,
 } from "./publish-contract";
 import { CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES } from "./publish-contract";
+import { CAMPUS_MAP_EDIT_SCHEMA } from "./edit-schema";
 
 export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 3 as const;
 
@@ -157,11 +158,13 @@ export interface CampusMapEditTransition {
   commands: CampusMapEditCommand[];
 }
 
+const DEFAULT_PRESET = CAMPUS_MAP_EDIT_SCHEMA.presets[0];
+
 const DEFAULT_FACT: CampusMapEditDraft["fact"] = {
-  name: "",
+  name: DEFAULT_PRESET.defaultName,
   buildingId: null,
   floorId: null,
-  pinType: "water",
+  pinType: DEFAULT_PRESET.pinType,
   capabilities: [],
   gender: "unknown",
   wheelchairAccess: "unknown",

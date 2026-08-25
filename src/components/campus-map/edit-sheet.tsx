@@ -175,12 +175,60 @@ function describeLocation(
   return buildingName ?? "建筑位置";
 }
 
+const NEARBY_BUILDING_DISTANCE_METERS = 50;
+
+function distanceBetweenPositions(
+  left: readonly [number, number],
+  right: readonly [number, number],
+): number {
+  const radians = (degrees: number) => (degrees * Math.PI) / 180;
+  const latitudeDelta = radians(right[1] - left[1]);
+  const longitudeDelta = radians(right[0] - left[0]);
+  const leftLatitude = radians(left[1]);
+  const rightLatitude = radians(right[1]);
+  const a =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(leftLatitude) *
+      Math.cos(rightLatitude) *
+      Math.sin(longitudeDelta / 2) ** 2;
+  return 6_371_000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function nearbyBuildingLabel(
+  position: readonly [number, number],
+): string | null {
+  const nearest = AMAP_PROTOTYPE_BUILDINGS.reduce<
+    { name: string; distance: number } | undefined
+  >((current, building) => {
+    const distance = distanceBetweenPositions(position, building.position);
+    return !current || distance < current.distance
+      ? { name: building.name, distance }
+      : current;
+  }, undefined);
+  return nearest && nearest.distance <= NEARBY_BUILDING_DISTANCE_METERS
+    ? `${nearest.name}附近`
+    : null;
+}
+
+function describeOutdoorPosition(position: {
+  longitude: number;
+  latitude: number;
+  precision: "precise" | "approximate";
+}): string {
+  return `${position.longitude.toFixed(6)}, ${position.latitude.toFixed(6)} · WGS84 · ${
+    position.precision === "precise" ? "精确" : "约略"
+  }`;
+}
+
 function friendlyLocationLabel(
   fact: CampusMapEditSession["draft"]["fact"],
   display?: CampusMapIndoorLocationDisplay | null,
 ): string {
   if (fact.location?.kind === "outdoor-point") {
-    return "地图上的地点";
+    return (
+      nearbyBuildingLabel([fact.location.longitude, fact.location.latitude]) ??
+      "地图坐标"
+    );
   }
   if (fact.buildingId) {
     return (
@@ -583,8 +631,16 @@ export function CampusMapEditSheet({
     keyboardLatitudeNumber <= 90;
   const resolvedContext =
     placeContext?.status === "resolved" ? placeContext.context : null;
-  const placementLabel = resolvedContext?.label ?? "地图中心位置";
-  const placementDescription = resolvedContext
+  const nearbyPlacementLabel = nearbyBuildingLabel([
+    placementPosition.longitude,
+    placementPosition.latitude,
+  ]);
+  const placementLabel =
+    resolvedContext?.label && resolvedContext.label !== "地图中心位置"
+      ? resolvedContext.label
+      : (nearbyPlacementLabel ?? "地图坐标");
+  const placementDescription = describeOutdoorPosition(placementPosition);
+  const placementReference = resolvedContext
     ? resolvedContext.distanceMeters === 0 && !resolvedContext.address
       ? "已选中高德地图地点，名称下一步确认"
       : `高德参考 · ${resolvedContext.address ?? "附近地点"}`
@@ -991,10 +1047,10 @@ export function CampusMapEditSheet({
         <p className="mt-1 text-sm text-neutral-600">
           {isPlacing
             ? draft.mode === "add"
-              ? "拖动地图，或轻点地图上的地点名称；资料下一步填写。"
+              ? "移动地图标记设施位置；建筑名称只作位置参考。"
               : "移动地图，或轻点地图上的地点名称来重新定位。"
             : draft.mode === "add"
-              ? "补充这个位置的资料。"
+              ? "位置已确定；设施名称已按类型预填，可直接修改。"
               : "更新地点资料，未修改的内容会保持不变。"}
         </p>
       </div>
@@ -1029,7 +1085,7 @@ export function CampusMapEditSheet({
               />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold" aria-live="polite">
-                  {isPlacing || resolvedContext
+                  {isPlacing
                     ? placementLabel
                     : friendlyLocationLabel(fact, draft.locationDisplay)}
                 </p>
@@ -1037,14 +1093,18 @@ export function CampusMapEditSheet({
                   className="mt-0.5 text-xs text-neutral-600"
                   aria-live="polite"
                 >
-                  {isPlacing || resolvedContext
+                  {isPlacing
                     ? placementDescription
-                    : fact.location?.kind === "outdoor-point"
-                      ? fact.location.precision === "precise"
-                        ? "精确位置"
-                        : "约略位置"
-                      : describeLocation(fact, draft.locationDisplay)}
+                    : describeLocation(fact, draft.locationDisplay)}
                 </p>
+                {isPlacing ? (
+                  <p
+                    className="mt-0.5 text-xs text-neutral-500"
+                    aria-live="polite"
+                  >
+                    {placementReference}
+                  </p>
+                ) : null}
               </div>
               {!isPlacing ? (
                 <button
