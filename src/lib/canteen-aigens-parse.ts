@@ -211,17 +211,19 @@ export function parseAigensMenuProducts(
       const groupItems = primaryGroup.items.filter(
         (item) => !isSkippableItem(item),
       );
-      assertProviderMenuIdentityItems(
-        "aigens",
-        groupItems.map((item) => {
-          const backendId = String(item.backendId ?? "").trim();
-          return {
-            externalProductId: backendId,
-            name: item.name!.trim().replace(/\s+/g, " "),
-            amountMinor: parseAigensPrice(item.price),
-          };
-        }),
-      );
+      if (groupItems.length > 0) {
+        assertProviderMenuIdentityItems(
+          "aigens",
+          groupItems.map((item) => {
+            const backendId = String(item.backendId ?? "").trim();
+            return {
+              externalProductId: backendId,
+              name: item.name!.trim().replace(/\s+/g, " "),
+              amountMinor: parseAigensPrice(item.price),
+            };
+          }),
+        );
+      }
       validatedGroupIds.add(primaryGroup.id!);
     }
 
