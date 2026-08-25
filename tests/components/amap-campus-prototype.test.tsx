@@ -340,6 +340,52 @@ describe("AmapCampusPrototype", () => {
     expect(document.body.textContent).not.toContain(floorId);
   });
 
+  it("shows a same-position conflict without waiting for another canonical read", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000005";
+    const current = await vi.mocked(loadCampusMapEditablePlace)(placeId);
+    if (!current) throw new Error("missing edit fixture");
+    window.history.replaceState(
+      null,
+      "",
+      `/prototype/campus-map?v=1&scene=facility&id=${placeId}&snap=peek`,
+    );
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    await screen.findByRole("heading", { name: "饮水机" });
+    fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
+    await screen.findByRole("heading", { name: "建议修改" });
+    fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
+      target: { value: "我的名称" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加资料来源" }));
+    fireEvent.click(screen.getByRole("button", { name: "使用现场观察来源" }));
+    vi.mocked(loadCampusMapEditablePlace).mockClear();
+    vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
+      status: "conflict",
+      code: "base-revision-conflict",
+      conflicts: [
+        {
+          code: "base-revision-conflict",
+          anchor: { changeIndex: 0, placeId },
+          placeId,
+          expectedRevisionId: current.baseRevisionId,
+          currentRevisionId: "72000000-0000-4000-8000-000000000006",
+          currentStatus: "active",
+          currentSnapshot: {
+            ...current.fact,
+            name: "最新名称",
+            factSchemaVersion: 1,
+          },
+        },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "发布修改" }));
+
+    expect(await screen.findByText("这处地点刚刚被其他人更新")).toBeTruthy();
+    expect(loadCampusMapEditablePlace).not.toHaveBeenCalled();
+  });
+
   it("removes hidden map chrome from keyboard and screen-reader navigation during editing", async () => {
     render(<AmapCampusPrototype />);
     const searchHeader = screen

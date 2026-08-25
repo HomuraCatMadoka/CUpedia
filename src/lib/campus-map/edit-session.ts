@@ -70,7 +70,10 @@ export type CampusMapEditConflict =
       currentFact: CampusMapPublishFactInput;
       currentLocationDisplay?: CampusMapIndoorLocationDisplay | null;
     }
-  | { kind: "unavailable" };
+  | {
+      kind: "unavailable";
+      reason?: "latest-snapshot" | "location-labels";
+    };
 
 export interface CampusMapEditSession {
   status: CampusMapEditStatus;
@@ -255,6 +258,26 @@ function matchingLocationDisplay(
     return null;
   }
   return clone(display);
+}
+
+function placementIsReadable(
+  fact: CampusMapEditDraft["fact"],
+  display: CampusMapIndoorLocationDisplay | null | undefined,
+): boolean {
+  if (fact.location?.kind === "outdoor-point") return true;
+  return matchingLocationDisplay(fact, display) !== null;
+}
+
+function hasUnreadablePlacementConflict(
+  draft: CampusMapEditDraft,
+  currentFact: CampusMapPublishFactInput,
+  currentDisplay: CampusMapIndoorLocationDisplay | null | undefined,
+): boolean {
+  return (
+    !samePlacement(draft.fact, currentFact) &&
+    (!placementIsReadable(draft.fact, draft.locationDisplay) ||
+      !placementIsReadable(currentFact, currentDisplay))
+  );
 }
 
 export function isCampusMapEditDirty(
@@ -725,7 +748,7 @@ export function transitionCampusMapEdit(
           session: {
             status: "conflict",
             draft: session.draft,
-            conflict: { kind: "unavailable" },
+            conflict: { kind: "unavailable", reason: "latest-snapshot" },
           },
           commands: [
             { kind: "persist-snapshot" },
@@ -741,6 +764,34 @@ export function transitionCampusMapEdit(
           ([field]) => field !== "factSchemaVersion",
         ),
       ) as unknown as CampusMapPublishFactInput;
+      const currentLocationDisplay =
+        matchingLocationDisplay(currentFact, event.conflictLocationDisplay) ??
+        (samePlacement(session.draft.fact, currentFact)
+          ? matchingLocationDisplay(currentFact, session.draft.locationDisplay)
+          : null);
+      if (
+        hasUnreadablePlacementConflict(
+          session.draft,
+          currentFact,
+          currentLocationDisplay,
+        )
+      ) {
+        return {
+          accepted: true,
+          session: {
+            status: "conflict",
+            draft: session.draft,
+            conflict: { kind: "unavailable", reason: "location-labels" },
+          },
+          commands: [
+            { kind: "persist-snapshot" },
+            {
+              kind: "announce",
+              message: "无法安全比较最新位置，草稿仍已保留",
+            },
+          ],
+        };
+      }
       return persisted({
         status: "conflict",
         draft: session.draft,
@@ -748,10 +799,7 @@ export function transitionCampusMapEdit(
           kind: "current",
           currentRevisionId: conflict.currentRevisionId,
           currentFact,
-          currentLocationDisplay: matchingLocationDisplay(
-            currentFact,
-            event.conflictLocationDisplay,
-          ),
+          currentLocationDisplay,
         },
       });
     }
@@ -1169,7 +1217,13 @@ function looksLikeWarning(value: unknown): boolean {
 
 function looksLikeConflict(value: unknown): boolean {
   if (!isRecord(value)) return false;
-  if (value.kind === "unavailable") return true;
+  if (value.kind === "unavailable") {
+    return (
+      value.reason === undefined ||
+      value.reason === "latest-snapshot" ||
+      value.reason === "location-labels"
+    );
+  }
   return (
     value.kind === "current" &&
     validUuid(value.currentRevisionId) &&
@@ -1375,6 +1429,16 @@ export function decodeCampusMapEditSnapshot(
     return { status: "discarded", reason: "invalid-snapshot" };
   }
   const session = clone(sessionValue);
+  if (
+    session.conflict?.kind === "current" &&
+    hasUnreadablePlacementConflict(
+      session.draft,
+      session.conflict.currentFact,
+      session.conflict.currentLocationDisplay,
+    )
+  ) {
+    session.conflict = { kind: "unavailable", reason: "location-labels" };
+  }
   if (session.status === "publishing")
     session.status = "temporarily-unavailable";
   return { status: "restored", session };

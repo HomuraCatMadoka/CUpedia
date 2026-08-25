@@ -116,6 +116,37 @@ function matchingDisplay(
   return display;
 }
 
+function placementIsReadable(
+  fact: CampusMapEditSession["draft"]["fact"],
+  display?: CampusMapIndoorLocationDisplay | null,
+): boolean {
+  if (fact.location?.kind === "outdoor-point") return true;
+  if (fact.location?.kind !== "building" && fact.location?.kind !== "floor") {
+    return false;
+  }
+  if (matchingDisplay(fact, display)) return true;
+  return AMAP_PROTOTYPE_BUILDINGS.some(
+    (building) => building.id === fact.buildingId,
+  );
+}
+
+function hasUnreadablePlacementConflict(
+  session: CampusMapEditSession,
+): boolean {
+  if (session.conflict?.kind !== "current") return false;
+  const mine = session.draft.fact;
+  const latest = session.conflict.currentFact;
+  const placementChanged =
+    mine.buildingId !== latest.buildingId ||
+    mine.floorId !== latest.floorId ||
+    JSON.stringify(mine.location) !== JSON.stringify(latest.location);
+  return (
+    placementChanged &&
+    (!placementIsReadable(mine, session.draft.locationDisplay) ||
+      !placementIsReadable(latest, session.conflict.currentLocationDisplay))
+  );
+}
+
 function describeLocation(
   fact: CampusMapEditSession["draft"]["fact"],
   display?: CampusMapIndoorLocationDisplay | null,
@@ -783,15 +814,29 @@ export function CampusMapEditSheet({
     }
     if (session.status === "conflict") {
       const conflict = session.conflict;
-      if (!conflict || conflict.kind === "unavailable") {
+      const locationLabelsUnavailable =
+        conflict?.kind === "unavailable"
+          ? conflict.reason === "location-labels"
+          : hasUnreadablePlacementConflict(session);
+      if (
+        !conflict ||
+        conflict.kind === "unavailable" ||
+        locationLabelsUnavailable
+      ) {
         return (
           <div
             className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm"
             role="alert"
           >
-            <p className="font-semibold">无法读取地点的最新版本</p>
+            <p className="font-semibold">
+              {locationLabelsUnavailable
+                ? "无法安全比较最新位置"
+                : "无法读取地点的最新版本"}
+            </p>
             <p className="mt-1">
-              你的输入仍已保留，但在重新读取正式地点前不能再次发布。请关闭编辑后重新打开这个地点。
+              {locationLabelsUnavailable
+                ? "你的输入仍已保留，但建筑或楼层名称暂时无法读取。请关闭编辑并重新打开这个地点，再比较后发布。"
+                : "你的输入仍已保留，但在重新读取正式地点前不能再次发布。请关闭编辑后重新打开这个地点。"}
             </p>
           </div>
         );

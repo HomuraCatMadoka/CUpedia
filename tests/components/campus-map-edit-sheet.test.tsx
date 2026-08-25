@@ -704,6 +704,45 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(description).not.toContain("2026-08-25T04:00:00.000Z");
   });
 
+  it("blocks an indoor placement conflict when canonical labels are unavailable", () => {
+    const baseDraft = draft();
+    const mine = {
+      ...baseDraft.fact,
+      location: {
+        kind: "outdoor-point" as const,
+        longitude: 114.21,
+        latitude: 22.42,
+        crs: "wgs84" as const,
+        precision: "approximate" as const,
+      },
+    };
+    const currentFact = {
+      ...baseDraft.fact,
+      buildingId: "50000000-0000-4000-8000-000000000001",
+      floorId: "60000000-0000-4000-8000-000000000001",
+      location: { kind: "floor" as const },
+    };
+    render(
+      <CampusMapEditSheet
+        session={{
+          status: "conflict",
+          draft: { ...baseDraft, fact: mine },
+          conflict: {
+            kind: "current",
+            currentRevisionId: revisionId,
+            currentFact,
+          },
+        }}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("无法安全比较最新位置")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "采用最新资料" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "按以上选择继续" })).toBeNull();
+  });
+
   it("keeps a changed place type and its dependent fields atomic", () => {
     const onEvent = vi.fn();
     const baseDraft = draft();

@@ -926,6 +926,48 @@ describe("Campus Map edit session transition", () => {
       idempotencyKey: secondKey,
       fact: currentFact,
     });
+    const unreadable = transitionCampusMapEdit(publishing.session, {
+      type: "PUBLISH_RESULT",
+      idempotencyKey: firstKey,
+      result: {
+        status: "conflict",
+        code: "base-revision-conflict",
+        conflicts: [
+          {
+            code: "base-revision-conflict",
+            anchor: { changeIndex: 0, placeId },
+            placeId,
+            expectedRevisionId: baseRevisionId,
+            currentRevisionId,
+            currentStatus: "active",
+            currentSnapshot: { ...currentFact, factSchemaVersion: 1 },
+          },
+        ],
+      },
+    });
+    const samePlacementCurrent = { ...indoorFact, name: "只更新名称" };
+    const samePlacementConflict = transitionCampusMapEdit(publishing.session, {
+      type: "PUBLISH_RESULT",
+      idempotencyKey: firstKey,
+      result: {
+        status: "conflict",
+        code: "base-revision-conflict",
+        conflicts: [
+          {
+            code: "base-revision-conflict",
+            anchor: { changeIndex: 0, placeId },
+            placeId,
+            expectedRevisionId: baseRevisionId,
+            currentRevisionId,
+            currentStatus: "active",
+            currentSnapshot: {
+              ...samePlacementCurrent,
+              factSchemaVersion: 1,
+            },
+          },
+        ],
+      },
+    });
 
     expect(started.session).toMatchObject({
       draft: {
@@ -956,6 +998,43 @@ describe("Campus Map edit session transition", () => {
           floorId: latestFloorId,
           floorLabel: "1/F",
         },
+      },
+    });
+    expect(unreadable.session).toMatchObject({
+      status: "conflict",
+      conflict: { kind: "unavailable", reason: "location-labels" },
+    });
+    expect(samePlacementConflict.session).toMatchObject({
+      conflict: {
+        kind: "current",
+        currentLocationDisplay: {
+          buildingName: "科学馆",
+          floorLabel: "G/F",
+        },
+      },
+    });
+  });
+
+  it("makes a restored indoor placement conflict safe when labels are missing", () => {
+    const currentFact: CampusMapPublishFactInput = {
+      ...fact,
+      buildingId: "50000000-0000-4000-8000-000000000001",
+      floorId: "60000000-0000-4000-8000-000000000001",
+      location: { kind: "floor" },
+    };
+    const session: CampusMapEditSession = {
+      ...editSession(),
+      status: "conflict",
+      conflict: { kind: "current", currentRevisionId, currentFact },
+    };
+
+    expect(
+      decodeCampusMapEditSnapshot(encodeCampusMapEditSnapshot(session)),
+    ).toMatchObject({
+      status: "restored",
+      session: {
+        status: "conflict",
+        conflict: { kind: "unavailable", reason: "location-labels" },
       },
     });
   });

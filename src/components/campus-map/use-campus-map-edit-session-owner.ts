@@ -11,6 +11,7 @@ import {
   encodeCampusMapEditSnapshot,
   isCampusMapEditDirty,
   transitionCampusMapEdit,
+  type CampusMapEditDraft,
   type CampusMapEditEvent,
   type CampusMapIndoorLocationDisplay,
   type CampusMapEditSession,
@@ -19,8 +20,55 @@ import type {
   CampusMapDriverIntent,
   CampusMapSceneDriver,
 } from "@/lib/campus-map/scene-driver";
+import type { CampusMapPublishResult } from "@/lib/campus-map/publish-contract";
 
 const SNAPSHOT_KEY = "cupedia:campus-map:edit-session:v1";
+const CONFLICT_DISPLAY_TIMEOUT_MS = 1_500;
+
+function conflictDisplayTarget(
+  result: CampusMapPublishResult,
+  draft: CampusMapEditDraft,
+): { placeId: string; revisionId: string } | null {
+  if (result.status !== "conflict") return null;
+  const conflict = result.conflicts.find(
+    (item) => item.currentRevisionId && item.currentSnapshot,
+  );
+  if (!conflict?.currentRevisionId || !conflict.currentSnapshot) return null;
+  const current = conflict.currentSnapshot;
+  const placementChanged =
+    draft.fact.buildingId !== current.buildingId ||
+    draft.fact.floorId !== current.floorId ||
+    JSON.stringify(draft.fact.location) !== JSON.stringify(current.location);
+  if (!placementChanged || current.location.kind === "outdoor-point") {
+    return null;
+  }
+  return { placeId: conflict.placeId, revisionId: conflict.currentRevisionId };
+}
+
+async function loadConflictLocationDisplay(target: {
+  placeId: string;
+  revisionId: string;
+}): Promise<CampusMapIndoorLocationDisplay | null> {
+  let timeoutId: number | null = null;
+  try {
+    const current = await Promise.race([
+      loadCampusMapEditablePlace(target.placeId),
+      new Promise<null>((resolve) => {
+        timeoutId = window.setTimeout(
+          () => resolve(null),
+          CONFLICT_DISPLAY_TIMEOUT_MS,
+        );
+      }),
+    ]);
+    return current?.baseRevisionId === target.revisionId
+      ? current.locationDisplay
+      : null;
+  } catch {
+    return null;
+  } finally {
+    if (timeoutId !== null) window.clearTimeout(timeoutId);
+  }
+}
 
 export function useCampusMapEditSessionOwner({
   driver,
@@ -79,24 +127,12 @@ export function useCampusMapEditSessionOwner({
             async (result) => {
               let conflictLocationDisplay: CampusMapIndoorLocationDisplay | null =
                 null;
-              if (result.status === "conflict") {
-                const conflict = result.conflicts.find(
-                  (item) => item.currentRevisionId && item.currentSnapshot,
-                );
-                if (conflict?.currentRevisionId) {
-                  try {
-                    const current = await loadCampusMapEditablePlace(
-                      conflict.placeId,
-                    );
-                    if (
-                      current?.baseRevisionId === conflict.currentRevisionId
-                    ) {
-                      conflictLocationDisplay = current.locationDisplay;
-                    }
-                  } catch {
-                    // The conflict remains recoverable with generic indoor labels.
-                  }
-                }
+              const target = transition.session
+                ? conflictDisplayTarget(result, transition.session.draft)
+                : null;
+              if (target) {
+                conflictLocationDisplay =
+                  await loadConflictLocationDisplay(target);
               }
               dispatcherRef.current({
                 type: "PUBLISH_RESULT",
