@@ -1,108 +1,88 @@
-# Contributing to CUpedia
+# Contribute to CUpedia
 
-Thanks for your interest in contributing!
+This guide takes a contribution from local setup through a pull request. New contributors can start with [`good first issue`](https://github.com/HomuraCatMadoka/CUpedia/labels/good%20first%20issue) or [`help wanted`](https://github.com/HomuraCatMadoka/CUpedia/labels/help%20wanted).
 
-New here? Look for issues labelled
-[`good first issue`](https://github.com/HomuraCatMadoka/CUpedia/labels/good%20first%20issue)
-or [`help wanted`](https://github.com/HomuraCatMadoka/CUpedia/labels/help%20wanted).
+## Set up your fork
 
-## Getting Started
+Use Node.js 20, pnpm 10, and Docker with Docker Compose.
 
-Prerequisites: Docker, Node, and pnpm.
-
-1. [Fork the repo](https://github.com/HomuraCatMadoka/CUpedia/fork) on GitHub, then clone your fork:
+1. [Fork CUpedia](https://github.com/HomuraCatMadoka/CUpedia/fork), then clone your fork:
 
    ```bash
-   git clone https://github.com/YOUR_USERNAME/CUpedia.git
+   git clone https://github.com/your_github_username/CUpedia.git
    cd CUpedia
+   git remote add upstream https://github.com/HomuraCatMadoka/CUpedia.git
    ```
 
-2. Install dependencies and run the one-command setup:
+2. Install dependencies and bootstrap the local services:
 
    ```bash
    pnpm install
-   pnpm bootstrap   # writes .env.local, starts docker, creates the bucket, migrates, seeds
+   pnpm bootstrap
    ```
 
-   `pnpm bootstrap` is idempotent — safe to re-run any time. See
-   [AGENTS.md](AGENTS.md) for what each step does and how to reset the stack.
-
-3. Start the dev server:
+3. Start the development server:
 
    ```bash
    pnpm dev
    ```
 
-4. Open http://localhost:3000 and sign in with a seed account
-   (`admin@test.com` / `password123`).
+4. Open `http://localhost:3000` and sign in with `admin@test.com` and `password123`.
 
-## Making Changes
+`pnpm bootstrap` is safe to repeat and preserves an existing `.env.local`. The [local setup guide](docs/development/setup.md) explains its services, fixtures, environment variables, and destructive reset command.
 
-1. Create a branch from `main`:
+## Prepare a change
+
+1. Choose or create one GitHub issue. Each issue gets an independent pull request.
+2. Update `main`, then create a focused branch. Prefix it with the change kind, such as `feat/`, `fix/`, `refactor/`, or `docs/`:
 
    ```bash
-   git switch -c feat/my-feature
+   git fetch upstream
+   git switch main
+   git merge --ff-only upstream/main
+   git switch -c feat/short-topic
    ```
 
-2. Make your changes. See [AGENTS.md](AGENTS.md) for project structure, coding
-   conventions, and the per-change validation matrix.
-
-3. Verify before committing (the **Ready** profile — all must pass):
+3. Read the relevant entry in the [documentation index](docs/README.md). For domain behavior, start with the [context map](CONTEXT-MAP.md).
+4. Make the smallest change that satisfies the issue and preserve unrelated working-tree changes.
+5. Run the Ready baseline:
 
    ```bash
    pnpm lint
    pnpm test
-   pnpm tsc --noEmit
+   pnpm typecheck
    ```
 
-   If you changed pages or components, also check the browser at
-   `localhost:3000`. For end-to-end flows, run `pnpm test:e2e` (one-time setup:
-   `pnpm exec playwright install chromium`).
+6. Add the checks required by the change. Pages and components need a browser check; database changes need migration and focused database verification; dependency or build changes need `pnpm build`. The [testing guide](docs/development/testing.md) contains the complete matrix.
 
-4. Commit using [Conventional Commits](https://www.conventionalcommits.org)
-   (`type: description`, e.g. `feat: add revision rollback`,
-   `fix: edit conflict detection`). Common types: `feat`, `fix`, `perf`,
-   `refactor`, `docs`, `test`, `chore`, `ci`.
+## Commit and open the pull request
 
-5. Push to your fork and open a PR against `main`.
+Use a concise Conventional Commit in `type: description` form. Common types are `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `chore`, and `ci`.
 
-## Proposing New Features
+Push the branch to your fork and open a pull request against `main`. Complete the repository template, including a line that starts with `Issue Number:` and uses `close #number` or `ref #number`.
 
-**Small bug fixes can go straight to a PR** (still reference an issue — see below).
-For new features, please open a
-[Feature Request Discussion](https://github.com/HomuraCatMadoka/CUpedia/discussions/new?category=ideas)
-first. This lets us validate the idea, agree on scope and approach, and avoid
-duplicate work. Once accepted, reference the discussion in your PR.
+Pull requests follow these rules:
 
-## Pull Request Requirements
+- Keep one issue per PR; merge a dependency before branching its dependent work from the updated `main`
+- Prefer follow-up commits to force pushes; the repository squash-merges PRs
+- Explain any skipped browser, database, build, or environment check
+- Keep secrets and `.env` values out of commits, logs, issues, and PR descriptions
 
-- **One issue per PR.** Each GitHub issue gets its own independent PR — don't
-  bundle multiple issues together.
-- **Reference the issue.** The PR description must contain a line starting with
-  `Issue Number:` and link the issue with `close #<id>` (or `ref #<id>` when it
-  doesn't fully resolve it).
-- **Order dependent work.** When issues depend on each other, merge the blocker
-  PR first, then branch the next PR off the updated `main`.
-- **Prefer follow-up commits over force-push.** PRs are squash-merged, so a
-  messy intermediate history is fine.
-- Fill in the PR template checklist (lint / test / browser / DB migration / no secrets).
+## Follow the engineering boundaries
 
-## Guidelines
+- Use Server Components by default and add `"use client"` only for browser state or client hooks.
+- Route Wiki public mutations through `src/lib/wiki-actions.ts` and private page draft mutations through `src/lib/wiki-draft-actions.ts`.
+- For schema changes, follow the [database workflow](docs/development/database.md), commit the schema and new migration together, and use `migrate` rather than `push`.
+- Treat committed migrations as immutable. Put SQL outside Drizzle's schema model in a new custom migration.
+- Follow the existing ESLint and Prettier configuration. The pre-commit hook formats and lints supported staged files.
 
-- Follow the existing code style (ESLint + Prettier, enforced via the pre-commit hook).
-- Server Components by default; `"use client"` only when necessary.
-- All wiki mutations go through `src/lib/wiki-actions.ts`.
-- DB schema changes must commit both `src/db/schema.ts` and the generated
-  migration (`pnpm drizzle-kit generate`). Never edit migration files by hand,
-  and never use `drizzle-kit push`.
-- Don't commit `.env` files or secrets.
+## Propose a feature
 
-## Reporting Bugs & Security Issues
+Small fixes still need an issue reference, but they can pair a concise issue with an immediate PR. For a new feature, open a [Feature Request Discussion](https://github.com/HomuraCatMadoka/CUpedia/discussions/new?category=ideas) first so maintainers can agree on the problem, scope, and domain boundary.
 
-- **Bugs:** open an [issue](https://github.com/HomuraCatMadoka/CUpedia/issues/new/choose) using the bug report template.
-- **Security vulnerabilities:** do **not** open a public issue — see [SECURITY.md](SECURITY.md).
+## Report bugs and security issues
 
-## Questions?
+- Report a bug with the [issue chooser](https://github.com/HomuraCatMadoka/CUpedia/issues/new/choose).
+- Report a vulnerability privately by following [SECURITY.md](SECURITY.md); do not publish vulnerability details in an issue, discussion, or PR.
 
-Open a [Discussion](https://github.com/HomuraCatMadoka/CUpedia/discussions) if
-you have questions or want to propose ideas before coding.
+Use [GitHub Discussions](https://github.com/HomuraCatMadoka/CUpedia/discussions) for questions that do not yet have a bounded implementation task.

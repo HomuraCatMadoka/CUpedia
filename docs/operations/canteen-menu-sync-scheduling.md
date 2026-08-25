@@ -1,5 +1,8 @@
 # Production canteen menu sync scheduling
 
+Status: Current
+Last verified: 2026-08-25 against `.github/workflows/canteen-menu-sync.yml`
+
 GitHub Actions is the only production scheduler for recurring canteen menu
 sync. It wakes the fixed `https://cupedia.org/api/internal/canteen-menu-sync/next`
 endpoint three times per day. The endpoint, not the workflow, selects and claims
