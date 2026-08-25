@@ -125,6 +125,7 @@ describe("AmapCampusPrototype", () => {
     expect(screen.queryByRole("combobox", { name: "无障碍通行" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "更多资料" }));
     expect(screen.getByRole("combobox", { name: "无障碍通行" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "添加资料来源" }));
     fireEvent.click(screen.getByRole("button", { name: "使用现场观察来源" }));
     fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
     expect(
