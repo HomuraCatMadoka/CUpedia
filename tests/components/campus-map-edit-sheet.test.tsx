@@ -58,19 +58,13 @@ describe("Campus Map single-page edit Sheet", () => {
         onEvent={onEvent}
       />,
     );
-    const nameInput = screen.getByRole("textbox", { name: "地点名称" });
-    expect(screen.getByText("高德识别 · 科学馆")).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "饮水点" })).toBeTruthy();
+    const nameInput = screen.getByLabelText("地点名称");
+    expect(screen.queryByRole("textbox", { name: "地点名称" })).toBeNull();
+    expect(screen.getByText("科学馆")).toBeTruthy();
+    expect(screen.getByText("高德参考 · 香港中文大学中央大道")).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: "饮水点" })).toBeNull();
 
-    fireEvent.change(nameInput, { target: { value: "科学馆饮水点" } });
-    expect(onEvent).toHaveBeenLastCalledWith({
-      type: "CHANGE_FACT",
-      fact: expect.objectContaining({
-        name: "科学馆饮水点",
-        location: null,
-      }),
-    });
-    fireEvent.click(screen.getByRole("button", { name: "继续填写" }));
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
     expect(onEvent).toHaveBeenLastCalledWith({
       type: "CONFIRM_POSITION",
       position: placing.draft.placementCandidate,
@@ -104,7 +98,22 @@ describe("Campus Map single-page edit Sheet", () => {
   it("keeps every place type discoverable without a hidden horizontal scroller", () => {
     render(
       <CampusMapEditSheet
-        session={{ status: "placing", draft: draft() }}
+        session={{
+          status: "editing",
+          draft: {
+            ...draft(),
+            fact: {
+              ...draft().fact,
+              location: {
+                kind: "outdoor-point",
+                longitude: 114.2,
+                latitude: 22.4,
+                crs: "wgs84",
+                precision: "approximate",
+              },
+            },
+          },
+        }}
         centerPosition={[114.2, 22.4]}
         onEvent={vi.fn()}
       />,
@@ -288,7 +297,7 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "其他定位方式" }));
+    fireEvent.click(screen.getByRole("button", { name: "输入坐标" }));
     const useCoordinates = screen.getByRole("button", {
       name: "使用输入坐标",
     }) as HTMLButtonElement;

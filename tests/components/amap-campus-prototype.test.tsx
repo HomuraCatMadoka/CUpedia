@@ -111,26 +111,29 @@ describe("AmapCampusPrototype", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     expect(
-      await screen.findByRole("heading", { name: "添加地点" }),
+      await screen.findByRole("heading", { name: "选择地点位置" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("拖动地图对准地点，名称和类型下一步填写。"),
     ).toBeTruthy();
     expect(screen.getByText("地图中心位置")).toBeTruthy();
-    const nameInput = screen.getByLabelText("地点名称");
-    expect(screen.getByRole("radio", { name: "饮水点" })).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: "地点名称" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "饮水点" })).toBeNull();
     expect(screen.queryByRole("textbox", { name: "经度（WGS84）" })).toBeNull();
 
-    fireEvent.click(screen.getByText("其他定位方式"));
+    fireEvent.click(screen.getByRole("button", { name: "输入坐标" }));
     expect(screen.getByRole("textbox", { name: "经度（WGS84）" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "纬度（WGS84）" })).toBeTruthy();
-    fireEvent.change(nameInput, { target: { value: "新饮水点" } });
 
-    fireEvent.click(screen.getByRole("button", { name: "继续填写" }));
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
     expect(
       await screen.findByRole("heading", { name: "添加地点" }),
     ).toBeTruthy();
     expect(document.activeElement).toBe(
       screen.getByRole("heading", { name: "添加地点" }),
     );
-    expect(screen.getByLabelText("地点名称")).toBe(nameInput);
+    const nameInput = screen.getByLabelText("地点名称");
+    fireEvent.change(nameInput, { target: { value: "新饮水点" } });
     expect(screen.getByText("地图上的地点")).toBeTruthy();
     expect(screen.getByRole("button", { name: "重新定位" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "饮水点" })).toBeTruthy();
@@ -156,6 +159,7 @@ describe("AmapCampusPrototype", () => {
   it("keeps a dirty Add draft when browser Back is cancelled", async () => {
     render(<AmapCampusPrototype />);
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
     fireEvent.change(await screen.findByLabelText("地点名称"), {
       target: { value: "未发布地点" },
     });
@@ -396,7 +400,7 @@ describe("AmapCampusPrototype", () => {
     const mapControls = addButton.parentElement;
 
     fireEvent.click(addButton);
-    await screen.findByRole("heading", { name: "添加地点" });
+    await screen.findByRole("heading", { name: "选择地点位置" });
 
     expect(searchHeader?.getAttribute("aria-hidden")).toBe("true");
     expect(searchHeader?.hasAttribute("inert")).toBe(true);

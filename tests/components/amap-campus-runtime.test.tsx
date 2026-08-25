@@ -121,7 +121,7 @@ describe("AmapCampusPrototype runtime effects", () => {
         pois: [{ id: "new-poi", name: "新位置", distance: "8" }],
       },
     });
-    expect(await screen.findByText("高德识别 · 新位置")).not.toBeNull();
+    expect(await screen.findByText("新位置")).not.toBeNull();
     await runtime.resolveGeocode(0, "complete", {
       regeocode: {
         formattedAddress: "旧位置一",
@@ -134,12 +134,10 @@ describe("AmapCampusPrototype runtime effects", () => {
         pois: [{ id: "old-poi-2", name: "旧位置二" }],
       },
     });
-    expect(screen.getByText("高德识别 · 新位置")).not.toBeNull();
+    expect(screen.getByText("新位置")).not.toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "继续填写" }));
-    await waitFor(() =>
-      expect(screen.queryByText("高德识别 · 新位置")).toBeNull(),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
+    await waitFor(() => expect(screen.queryByText("新位置")).toBeNull());
     expect(screen.getByText("地图上的地点")).not.toBeNull();
     const restored = JSON.parse(
       window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
@@ -166,7 +164,7 @@ describe("AmapCampusPrototype runtime effects", () => {
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
-    fireEvent.click(screen.getByRole("button", { name: "其他定位方式" }));
+    fireEvent.click(screen.getByRole("button", { name: "输入坐标" }));
     fireEvent.change(screen.getByRole("textbox", { name: "经度（WGS84）" }), {
       target: { value: "114.21" },
     });
@@ -196,7 +194,7 @@ describe("AmapCampusPrototype runtime effects", () => {
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
-    fireEvent.click(screen.getByRole("button", { name: "其他定位方式" }));
+    fireEvent.click(screen.getByRole("button", { name: "输入坐标" }));
     fireEvent.change(screen.getByRole("textbox", { name: "经度（WGS84）" }), {
       target: { value: "114.21" },
     });
@@ -241,7 +239,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     const { runtime, map } = await renderWithRuntime({
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
-    await screen.findByRole("heading", { name: "添加地点" });
+    await screen.findByRole("heading", { name: "选择地点位置" });
     await runtime.flushAnimationFrames();
 
     expect(map.setZoomAndCenter).toHaveBeenCalledWith(
@@ -274,14 +272,14 @@ describe("AmapCampusPrototype runtime effects", () => {
     });
     const pin = document.querySelector("[data-campus-map-center-pin]");
     expect(pin?.getAttribute("data-moving")).toBe("false");
-    expect(screen.getByText("高德识别 · 中央校园")).not.toBeNull();
+    expect(screen.getByText("中央校园")).not.toBeNull();
 
     await act(async () => map.emit("movestart", {}));
     expect(pin?.getAttribute("data-moving")).toBe("true");
     const pending = screen.getByRole("button", { name: "正在确定位置…" });
     expect((pending as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(pending);
-    expect(screen.getByText(/移动地图，让图钉对准/)).not.toBeNull();
+    expect(screen.getByText(/拖动地图对准地点/)).not.toBeNull();
 
     await act(async () => {
       map.center = { lng: 114.211, lat: 22.421 };
@@ -292,7 +290,7 @@ describe("AmapCampusPrototype runtime effects", () => {
       expect(
         (
           screen.getByRole("button", {
-            name: "继续填写",
+            name: "使用此位置",
           }) as HTMLButtonElement
         ).disabled,
       ).toBe(false),
@@ -302,14 +300,25 @@ describe("AmapCampusPrototype runtime effects", () => {
   it("refreshes a placing candidate after closing during a map gesture", async () => {
     const { map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
-      target: { value: "拖动中的地点" },
-    });
     await waitFor(() =>
       expect(
         (
           screen.getByRole("button", {
-            name: "继续填写",
+            name: "使用此位置",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
+      target: { value: "拖动中的地点" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "重新定位" }));
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "使用此位置",
           }) as HTMLButtonElement
         ).disabled,
       ).toBe(false),
@@ -340,19 +349,19 @@ describe("AmapCampusPrototype runtime effects", () => {
   it("focuses and expands the compact source entry after required validation", async () => {
     const { runtime } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
-      target: { value: "需要来源的地点" },
-    });
     await waitFor(() =>
       expect(
         (
           screen.getByRole("button", {
-            name: "继续填写",
+            name: "使用此位置",
           }) as HTMLButtonElement
         ).disabled,
       ).toBe(false),
     );
-    fireEvent.click(screen.getByRole("button", { name: "继续填写" }));
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
+      target: { value: "需要来源的地点" },
+    });
     expect(screen.queryByLabelText("现场观察时间（香港时间）")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "发布新地点" }));
@@ -376,7 +385,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     await act(async () => map.emit("longpress", {}));
 
     expect(
-      await screen.findByRole("heading", { name: "添加地点" }),
+      await screen.findByRole("heading", { name: "选择地点位置" }),
     ).not.toBeNull();
     expect(push).toHaveBeenCalledTimes(1);
   });
@@ -398,7 +407,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "添加这个类别的地点" }));
 
     expect(
-      await screen.findByRole("heading", { name: "添加地点" }),
+      await screen.findByRole("heading", { name: "选择地点位置" }),
     ).not.toBeNull();
     expect(push).toHaveBeenCalledTimes(1);
   });
@@ -422,7 +431,7 @@ describe("AmapCampusPrototype runtime effects", () => {
 
     expect(runtime.geocodeRequests).toHaveLength(2);
     expect(runtime.geocodeRequests[1]?.position).toEqual([114.212, 22.422]);
-    fireEvent.click(screen.getByRole("button", { name: "继续填写" }));
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
     const persisted = JSON.parse(
       window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
     );
@@ -506,16 +515,19 @@ describe("AmapCampusPrototype runtime effects", () => {
   it("does not dismiss an active edit task when the map background is clicked", async () => {
     const { runtime, map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "使用此位置",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
     fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
       target: { value: "不会被地图关闭的地点" },
     });
-    await waitFor(() =>
-      expect(
-        (screen.getByRole("button", { name: "继续填写" }) as HTMLButtonElement)
-          .disabled,
-      ).toBe(false),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "继续填写" }));
     expect(window.location.search).toContain("task=create");
 
     await act(async () => {

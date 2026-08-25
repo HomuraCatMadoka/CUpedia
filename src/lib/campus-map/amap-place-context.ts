@@ -72,6 +72,25 @@ function clean(value: string | undefined): string | null {
   return normalized ? normalized : null;
 }
 
+const AMAP_CAMPUS_CONTAINER_NAMES = new Set([
+  "cuhk",
+  "thechineseuniversityofhongkong",
+  "香港中文大学",
+  "香港中文大學",
+]);
+
+function isCampusContainerPoi(poi: AmapProviderPoi): boolean {
+  const name = clean(poi.name)?.toLocaleLowerCase().replace(/\s+/g, "");
+  return name ? AMAP_CAMPUS_CONTAINER_NAMES.has(name) : false;
+}
+
+function selectContextPoi(
+  pois: readonly AmapProviderPoi[] | undefined,
+): AmapProviderPoi | undefined {
+  const namedPois = pois?.filter((poi) => clean(poi.name)) ?? [];
+  return namedPois.find((poi) => !isCampusContainerPoi(poi)) ?? namedPois[0];
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -273,7 +292,7 @@ export function createAmapPlaceContextResolver(
         };
       }
 
-      const nearestPoi = result.pois?.find((poi) => clean(poi.name));
+      const nearestPoi = selectContextPoi(result.pois);
       const address = clean(result.formattedAddress);
       const label = clean(nearestPoi?.name) ?? address;
       if (!label) return { status: "empty" };

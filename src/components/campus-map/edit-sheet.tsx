@@ -583,11 +583,9 @@ export function CampusMapEditSheet({
     keyboardLatitudeNumber <= 90;
   const resolvedContext =
     placeContext?.status === "resolved" ? placeContext.context : null;
-  const placementLabel = resolvedContext
-    ? `高德识别 · ${resolvedContext.label}`
-    : "地图中心位置";
+  const placementLabel = resolvedContext?.label ?? "地图中心位置";
   const placementDescription = resolvedContext?.address
-    ? resolvedContext.address
+    ? `高德参考 · ${resolvedContext.address}`
     : placeContext?.status === "loading"
       ? "正在确定位置…"
       : placeContext?.status === "rate-limited"
@@ -600,15 +598,24 @@ export function CampusMapEditSheet({
               ? "高德未识别到附近地点，可继续填写"
               : "移动地图，让图钉对准地点";
   const coordinateEntry = isPlacing ? (
-    <div className="rounded-xl border border-black/10 bg-white px-3 py-2">
+    <div
+      className={cn(
+        showCoordinateEntry
+          ? "rounded-xl border border-black/10 bg-white px-3 py-2"
+          : "-mt-2",
+      )}
+    >
       <button
         type="button"
         aria-expanded={showCoordinateEntry}
         aria-controls={`${fieldPrefix}-coordinate-entry`}
-        className="flex min-h-10 w-full touch-manipulation items-center text-left text-sm font-semibold hover:text-[#176346] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+        className={cn(
+          "flex min-h-11 touch-manipulation items-center rounded-lg text-left text-sm font-semibold text-[#176346] hover:bg-[#edf5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]",
+          showCoordinateEntry ? "w-full" : "w-auto px-2",
+        )}
         onClick={() => setShowCoordinateEntry((current) => !current)}
       >
-        其他定位方式
+        {showCoordinateEntry ? "收起坐标输入" : "输入坐标"}
       </button>
       {showCoordinateEntry ? (
         <fieldset id={`${fieldPrefix}-coordinate-entry`} className="pb-2">
@@ -971,12 +978,18 @@ export function CampusMapEditSheet({
           tabIndex={-1}
           className="rounded-sm pr-10 text-xl font-semibold text-balance focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
         >
-          {draft.mode === "add" ? "添加地点" : "建议修改"}
+          {isPlacing
+            ? draft.mode === "add"
+              ? "选择地点位置"
+              : "调整地点位置"
+            : draft.mode === "add"
+              ? "添加地点"
+              : "建议修改"}
         </h2>
         <p className="mt-1 text-sm text-neutral-600">
           {isPlacing
             ? draft.mode === "add"
-              ? "移动地图，让图钉对准要添加的地点；也可以先填写资料。"
+              ? "拖动地图对准地点，名称和类型下一步填写。"
               : "移动地图，让图钉对准地点的新位置。"
             : draft.mode === "add"
               ? "补充这个位置的资料。"
@@ -1046,69 +1059,71 @@ export function CampusMapEditSheet({
           </div>
         ) : null}
         {coordinateEntry}
-        <label
-          className="block text-sm font-medium"
-          htmlFor={`${fieldPrefix}-name`}
-        >
-          {fieldLabel("name", "地点名称")}
-          <input
-            id={`${fieldPrefix}-name`}
-            name="campus-map-place-name"
-            autoComplete="off"
-            data-edit-field="name"
-            className={fieldClass}
-            value={fact.name}
-            aria-invalid={session.localError === "name"}
-            onChange={(event) =>
-              updateFact({ ...fullFact, name: event.target.value })
-            }
-          />
-        </label>
-        <fieldset
-          data-edit-field="pinType"
-          tabIndex={-1}
-          className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
-        >
-          <legend className="mb-2 text-sm font-medium">
-            {fieldLabel("pinType", "地点类型")}
-          </legend>
-          <div className="flex flex-wrap gap-2">
-            {CAMPUS_MAP_EDIT_SCHEMA.presets.map((item) => (
-              <label
-                key={item.pinType}
-                className={cn(
-                  "flex min-h-11 shrink-0 cursor-pointer touch-manipulation items-center rounded-xl border px-3 text-sm font-semibold transition-colors active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 motion-reduce:transform-none",
-                  fact.pinType === item.pinType
-                    ? "border-[#176346] bg-[#e4f1eb] text-[#174b38]"
-                    : "border-black/15 bg-white text-neutral-700 hover:bg-neutral-50",
-                )}
-              >
-                <input
-                  type="radio"
-                  name={`${fieldPrefix}-pin-type`}
-                  value={item.pinType}
-                  checked={fact.pinType === item.pinType}
-                  className="sr-only"
-                  data-edit-field={
-                    fact.pinType === item.pinType ? "pinType" : undefined
-                  }
-                  onChange={() => {
-                    const pinType = item.pinType;
-                    updateFact({
-                      ...fullFact,
-                      pinType,
-                      name: fact.name.trim() ? fact.name : item.defaultName,
-                      capabilities:
-                        pinType === "printer" ? fact.capabilities : [],
-                      gender: pinType === "toilet" ? fact.gender : "unknown",
-                    });
-                  }}
-                />
-                {item.label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        <div hidden={isPlacing} className="space-y-4">
+          <label
+            className="block text-sm font-medium"
+            htmlFor={`${fieldPrefix}-name`}
+          >
+            {fieldLabel("name", "地点名称")}
+            <input
+              id={`${fieldPrefix}-name`}
+              name="campus-map-place-name"
+              autoComplete="off"
+              data-edit-field="name"
+              className={fieldClass}
+              value={fact.name}
+              aria-invalid={session.localError === "name"}
+              onChange={(event) =>
+                updateFact({ ...fullFact, name: event.target.value })
+              }
+            />
+          </label>
+          <fieldset
+            data-edit-field="pinType"
+            tabIndex={-1}
+            className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
+          >
+            <legend className="mb-2 text-sm font-medium">
+              {fieldLabel("pinType", "地点类型")}
+            </legend>
+            <div className="flex flex-wrap gap-2">
+              {CAMPUS_MAP_EDIT_SCHEMA.presets.map((item) => (
+                <label
+                  key={item.pinType}
+                  className={cn(
+                    "flex min-h-11 shrink-0 cursor-pointer touch-manipulation items-center rounded-xl border px-3 text-sm font-semibold transition-colors active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 motion-reduce:transform-none",
+                    fact.pinType === item.pinType
+                      ? "border-[#176346] bg-[#e4f1eb] text-[#174b38]"
+                      : "border-black/15 bg-white text-neutral-700 hover:bg-neutral-50",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name={`${fieldPrefix}-pin-type`}
+                    value={item.pinType}
+                    checked={fact.pinType === item.pinType}
+                    className="sr-only"
+                    data-edit-field={
+                      fact.pinType === item.pinType ? "pinType" : undefined
+                    }
+                    onChange={() => {
+                      const pinType = item.pinType;
+                      updateFact({
+                        ...fullFact,
+                        pinType,
+                        name: fact.name.trim() ? fact.name : item.defaultName,
+                        capabilities:
+                          pinType === "printer" ? fact.capabilities : [],
+                        gender: pinType === "toilet" ? fact.gender : "unknown",
+                      });
+                    }}
+                  />
+                  {item.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </div>
         <button
           type="button"
           hidden={isPlacing}
@@ -1507,7 +1522,7 @@ export function CampusMapEditSheet({
             ? placementPending
               ? "正在确定位置…"
               : draft.mode === "add"
-                ? "继续填写"
+                ? "使用此位置"
                 : "确认新位置"
             : session.status === "publishing"
               ? "正在发布…"

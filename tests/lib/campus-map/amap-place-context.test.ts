@@ -147,6 +147,42 @@ describe("AMap place context resolver", () => {
     expect(result).not.toHaveProperty("source");
   });
 
+  it("prefers a nearby building over the campus container", async () => {
+    const resolver = createAmapPlaceContextResolver({
+      reverseGeocode: vi.fn().mockResolvedValue({
+        status: "complete" as const,
+        formattedAddress: "香港新界沙田区中央道香港中文大学",
+        pois: [
+          {
+            id: "campus",
+            name: "香港中文大学",
+            distanceMeters: 0,
+          },
+          {
+            id: "shaw-hall",
+            name: "邵逸夫堂",
+            distanceMeters: 14,
+          },
+        ],
+      }),
+    });
+
+    await expect(
+      resolver.resolveLatest({
+        longitude: 114.2098,
+        latitude: 22.4197,
+        crs: "gcj02",
+      }),
+    ).resolves.toMatchObject({
+      status: "resolved",
+      context: {
+        label: "邵逸夫堂",
+        providerPoiId: "shaw-hall",
+        distanceMeters: 14,
+      },
+    });
+  });
+
   it("lets only the newest map center update visible context", async () => {
     const first = deferred<{
       status: "complete";
