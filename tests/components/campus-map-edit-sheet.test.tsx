@@ -135,12 +135,16 @@ describe("Campus Map single-page edit Sheet", () => {
     ).toBeTruthy();
     expect(screen.getByText(/没有独立名称时可保留默认名称/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "修改位置" })).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "开放与使用条件（可选）" }),
-    ).toBeTruthy();
+    const optionalDetails = screen.getByRole("button", {
+      name: "开放与使用条件（可选）",
+    });
     expect(screen.getByText("资料依据")).toBeTruthy();
     expect(screen.getByText(/发布前至少提供一项/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "填写现场观察" })).toBeTruthy();
+    const sourceEntry = screen.getByRole("button", { name: "填写现场观察" });
+    expect(
+      sourceEntry.compareDocumentPosition(optionalDetails) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("sends the active schema required fields to the pure publish transition", () => {

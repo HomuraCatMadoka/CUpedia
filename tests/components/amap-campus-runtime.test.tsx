@@ -222,7 +222,7 @@ describe("AmapCampusPrototype runtime effects", () => {
       },
     });
 
-    expect(screen.getByText(/建筑名称只帮助确认位置/)).not.toBeNull();
+    expect(screen.getByText(/轻点地图名称直接选择/)).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
 
     expect(await screen.findByText("科学馆附近")).not.toBeNull();
@@ -650,7 +650,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     const pending = screen.getByRole("button", { name: "正在确定位置…" });
     expect((pending as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(pending);
-    expect(screen.getByText(/建筑名称只帮助确认位置/)).not.toBeNull();
+    expect(screen.getByText(/轻点地图名称直接选择/)).not.toBeNull();
 
     await act(async () => {
       map.center = { lng: 114.211, lat: 22.421 };

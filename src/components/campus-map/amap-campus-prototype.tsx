@@ -1773,7 +1773,7 @@ export function AmapCampusPrototype({
       <p className="sr-only" aria-live="polite">
         {editAnnouncement || editRestoreNotice}
       </p>
-      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${editSession?.status === "placing" ? "calc(48dvh + 4px)" : editSession ? "calc(64dvh + 4px)" : state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}`}</style>
+      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${editSession?.status === "placing" ? "calc(48dvh + 4px)" : editSession ? "calc(65dvh + 4px)" : state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}${editSession && editSession.status !== "placing" ? "@media(max-width:639px){.amap-logo,.amap-copyright{bottom:calc(90dvh + 4px)!important}}" : ""}`}</style>
       <div className="absolute inset-0">
         <div
           id="amap-campus-canvas"
@@ -2044,7 +2044,7 @@ export function AmapCampusPrototype({
           editSession?.status === "placing"
             ? "h-[48dvh] max-h-[65dvh] md:inset-y-4 md:h-auto md:max-h-[calc(100dvh-32px)]"
             : editSession
-              ? "h-[65dvh] md:h-auto"
+              ? "h-[90dvh] sm:h-[65dvh] md:h-auto"
               : state.sheet.snap === "full"
                 ? "h-[72dvh] md:h-auto"
                 : "h-[min(248px,36dvh)] md:h-auto md:max-h-[calc(100%-32px)]",

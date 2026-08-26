@@ -1066,7 +1066,7 @@ export function CampusMapEditSheet({
         <p className="mt-1 text-sm text-neutral-600">
           {isPlacing
             ? draft.mode === "add"
-              ? "移动地图，让图钉对准设施；建筑名称只帮助确认位置。"
+              ? "拖动地图对准设施，或轻点地图名称直接选择；建筑只作位置参考。"
               : "移动地图或轻点地图标签，选择新的设施位置。"
             : draft.mode === "add"
               ? "位置已确定。选择类型，再确认名称或编号。"
@@ -1211,6 +1211,115 @@ export function CampusMapEditSheet({
                 : "没有独立名称时可保留默认名称；如有正式名称或编号，请直接修改。"}
             </span>
           </div>
+        </div>
+        <div hidden={isPlacing} className="rounded-xl border p-3">
+          <div className="px-1">
+            <p className="text-sm font-semibold">资料依据</p>
+            <p
+              id={`${fieldPrefix}-source-help`}
+              className="mt-1 text-xs leading-5 text-neutral-600"
+            >
+              你从哪里确认这项资料？发布前至少提供一项。
+            </p>
+          </div>
+          <button
+            type="button"
+            data-edit-field="sources"
+            aria-expanded={sourceEntryExpanded}
+            aria-controls={`${fieldPrefix}-source-entry`}
+            aria-describedby={
+              session.localError === "sources"
+                ? `${fieldPrefix}-source-help ${fieldPrefix}-source-error`
+                : `${fieldPrefix}-source-help`
+            }
+            aria-label={
+              sourceEntryExpanded
+                ? "收起现场观察"
+                : draft.sources.length
+                  ? "修改现场观察"
+                  : "填写现场观察"
+            }
+            className="mt-2 flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-1 text-left text-sm font-semibold text-[#176346] hover:bg-[#edf5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+            onClick={() => setShowSourceEntry((current) => !current)}
+          >
+            <span>
+              {draft.sources.length ? "修改现场观察" : "填写现场观察"}
+            </span>
+            <ChevronDownIcon
+              aria-hidden="true"
+              className={cn(
+                "size-4 transition-transform motion-reduce:transition-none",
+                sourceEntryExpanded && "rotate-180",
+              )}
+            />
+          </button>
+          {session.localError === "sources" ? (
+            <p
+              id={`${fieldPrefix}-source-error`}
+              className="px-1 text-xs text-red-700"
+              role="alert"
+            >
+              请提供资料依据。
+            </p>
+          ) : null}
+          {draft.sources.length && !sourceEntryExpanded ? (
+            <p className="px-1 text-xs text-[#176346]">
+              已记录：{draft.sources[0]?.ref}
+            </p>
+          ) : null}
+          {sourceEntryExpanded ? (
+            <fieldset id={`${fieldPrefix}-source-entry`} className="mt-3">
+              <legend className="sr-only">现场观察</legend>
+              <label
+                className="block text-sm"
+                htmlFor={`${fieldPrefix}-source-date`}
+              >
+                现场观察时间（香港时间）
+                <input
+                  id={`${fieldPrefix}-source-date`}
+                  name="campus-map-source-observed-at"
+                  autoComplete="off"
+                  data-edit-field="sourceObservedAt"
+                  className={fieldClass}
+                  type="datetime-local"
+                  value={sourceObservedAt}
+                  required
+                  aria-invalid={session.localError === "sourceObservedAt"}
+                  onChange={(event) => setSourceObservedAt(event.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className={cn(secondaryClass, "mt-3 w-full")}
+                onClick={() => {
+                  const observationTimestamp = Date.parse(
+                    `${sourceObservedAt}:00+08:00`,
+                  );
+                  const observationValid =
+                    sourceObservedAt !== "" &&
+                    Number.isFinite(observationTimestamp) &&
+                    observationTimestamp <= Date.now();
+                  if (!observationValid) {
+                    onEvent({
+                      type: "REPORT_LOCAL_ERROR",
+                      field: "sourceObservedAt",
+                    });
+                    return;
+                  }
+                  updateSources([
+                    observationSource(sourceObservedAt, observationTimestamp),
+                  ]);
+                }}
+              >
+                {draft.sources.length ? "更新观察时间" : "记录现场观察"}
+              </button>
+              {draft.sources.length ? (
+                <p className="mt-2 text-xs text-[#176346]">
+                  已记录：{draft.sources[0]?.ref}
+                </p>
+              ) : null}
+            </fieldset>
+          ) : null}
         </div>
         <button
           type="button"
@@ -1486,115 +1595,6 @@ export function CampusMapEditSheet({
                 updateFact({ ...fullFact, temporaryStatus })
               }
             />
-          ) : null}
-        </div>
-        <div hidden={isPlacing} className="rounded-xl border p-3">
-          <div className="px-1">
-            <p className="text-sm font-semibold">资料依据</p>
-            <p
-              id={`${fieldPrefix}-source-help`}
-              className="mt-1 text-xs leading-5 text-neutral-600"
-            >
-              你从哪里确认这项资料？发布前至少提供一项。
-            </p>
-          </div>
-          <button
-            type="button"
-            data-edit-field="sources"
-            aria-expanded={sourceEntryExpanded}
-            aria-controls={`${fieldPrefix}-source-entry`}
-            aria-describedby={
-              session.localError === "sources"
-                ? `${fieldPrefix}-source-help ${fieldPrefix}-source-error`
-                : `${fieldPrefix}-source-help`
-            }
-            aria-label={
-              sourceEntryExpanded
-                ? "收起现场观察"
-                : draft.sources.length
-                  ? "修改现场观察"
-                  : "填写现场观察"
-            }
-            className="mt-2 flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-1 text-left text-sm font-semibold text-[#176346] hover:bg-[#edf5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-            onClick={() => setShowSourceEntry((current) => !current)}
-          >
-            <span>
-              {draft.sources.length ? "修改现场观察" : "填写现场观察"}
-            </span>
-            <ChevronDownIcon
-              aria-hidden="true"
-              className={cn(
-                "size-4 transition-transform motion-reduce:transition-none",
-                sourceEntryExpanded && "rotate-180",
-              )}
-            />
-          </button>
-          {session.localError === "sources" ? (
-            <p
-              id={`${fieldPrefix}-source-error`}
-              className="px-1 text-xs text-red-700"
-              role="alert"
-            >
-              请提供资料依据。
-            </p>
-          ) : null}
-          {draft.sources.length && !sourceEntryExpanded ? (
-            <p className="px-1 text-xs text-[#176346]">
-              已记录：{draft.sources[0]?.ref}
-            </p>
-          ) : null}
-          {sourceEntryExpanded ? (
-            <fieldset id={`${fieldPrefix}-source-entry`} className="mt-3">
-              <legend className="sr-only">现场观察</legend>
-              <label
-                className="block text-sm"
-                htmlFor={`${fieldPrefix}-source-date`}
-              >
-                现场观察时间（香港时间）
-                <input
-                  id={`${fieldPrefix}-source-date`}
-                  name="campus-map-source-observed-at"
-                  autoComplete="off"
-                  data-edit-field="sourceObservedAt"
-                  className={fieldClass}
-                  type="datetime-local"
-                  value={sourceObservedAt}
-                  required
-                  aria-invalid={session.localError === "sourceObservedAt"}
-                  onChange={(event) => setSourceObservedAt(event.target.value)}
-                />
-              </label>
-              <button
-                type="button"
-                className={cn(secondaryClass, "mt-3 w-full")}
-                onClick={() => {
-                  const observationTimestamp = Date.parse(
-                    `${sourceObservedAt}:00+08:00`,
-                  );
-                  const observationValid =
-                    sourceObservedAt !== "" &&
-                    Number.isFinite(observationTimestamp) &&
-                    observationTimestamp <= Date.now();
-                  if (!observationValid) {
-                    onEvent({
-                      type: "REPORT_LOCAL_ERROR",
-                      field: "sourceObservedAt",
-                    });
-                    return;
-                  }
-                  updateSources([
-                    observationSource(sourceObservedAt, observationTimestamp),
-                  ]);
-                }}
-              >
-                {draft.sources.length ? "更新观察时间" : "记录现场观察"}
-              </button>
-              {draft.sources.length ? (
-                <p className="mt-2 text-xs text-[#176346]">
-                  已记录：{draft.sources[0]?.ref}
-                </p>
-              ) : null}
-            </fieldset>
           ) : null}
         </div>
       </div>

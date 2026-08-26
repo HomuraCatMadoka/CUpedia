@@ -34,6 +34,16 @@ test.beforeEach(async ({ page }) => {
           options.center?.[0] ?? 114.2072,
           options.center?.[1] ?? 22.4191,
         );
+        const attribution = document.createElement("div");
+        attribution.className = "amap-copyright";
+        attribution.textContent = "高德地图参考";
+        Object.assign(attribution.style, {
+          position: "absolute",
+          bottom: "0",
+          left: "0",
+          height: "16px",
+        });
+        document.getElementById(containerId)?.append(attribution);
       }
 
       on(event: string, handler: (payload: Record<string, unknown>) => void) {
@@ -95,6 +105,7 @@ test.beforeEach(async ({ page }) => {
       ) {
         queueMicrotask(() =>
           callback("complete", {
+            info: "OK",
             regeocode: {
               formattedAddress: "香港中文大学",
               pois: [],
@@ -165,6 +176,37 @@ test("Campus Map editing keeps its primary action inside a 390px-high viewport",
   expect(
     await page.evaluate(() => document.documentElement.scrollHeight),
   ).toBeLessThanOrEqual(390);
+});
+
+test("Campus Map editing exposes the name control in a compact mobile viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 545, height: 688 });
+  await page.goto("/prototype/campus-map");
+
+  await page.getByRole("button", { name: "添加地点" }).click();
+  await page.getByRole("button", { name: "使用此位置" }).click();
+
+  const sheet = page.getByRole("region", { name: "添加校内设施" });
+  const name = page.getByRole("textbox", { name: "设施名称或编号" });
+  const source = page.getByRole("button", { name: "填写现场观察" });
+  const publish = page.getByRole("button", { name: "发布设施" });
+  const attribution = page.locator(".amap-copyright");
+  const sheetBox = await sheet.boundingBox();
+  const nameBox = await name.boundingBox();
+  const sourceBox = await source.boundingBox();
+  const publishBox = await publish.boundingBox();
+  const attributionBox = await attribution.boundingBox();
+  expect(sheetBox).not.toBeNull();
+  expect(nameBox).not.toBeNull();
+  expect(sourceBox).not.toBeNull();
+  expect(publishBox).not.toBeNull();
+  expect(attributionBox).not.toBeNull();
+  expect(nameBox!.y + nameBox!.height).toBeLessThanOrEqual(publishBox!.y);
+  expect(sourceBox!.y + sourceBox!.height).toBeLessThanOrEqual(publishBox!.y);
+  expect(attributionBox!.y + attributionBox!.height).toBeLessThanOrEqual(
+    sheetBox!.y,
+  );
 });
 
 test("Campus Map editing supports the keyboard placement and dirty-close path", async ({
