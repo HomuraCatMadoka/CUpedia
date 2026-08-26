@@ -59,7 +59,6 @@ describe("Campus Map single-page edit Sheet", () => {
         onEvent={onEvent}
       />,
     );
-    const nameInput = screen.getByLabelText("设施名称或编号");
     expect(
       screen.queryByRole("textbox", { name: "设施名称或编号" }),
     ).toBeNull();
@@ -95,12 +94,13 @@ describe("Campus Map single-page edit Sheet", () => {
         onEvent={onEvent}
       />,
     );
-    expect(screen.getByRole("textbox", { name: "设施名称或编号" })).toBe(
-      nameInput,
-    );
+    expect(screen.getByRole("group", { name: "设施类型" })).toBeTruthy();
+    expect(
+      screen.queryByRole("textbox", { name: "设施名称或编号" }),
+    ).toBeNull();
   });
 
-  it("asks for facility identity and evidence in plain product language", () => {
+  it("keeps the confirmed Add Sheet to location, facility type, and publish", () => {
     render(
       <CampusMapEditSheet
         session={{
@@ -125,26 +125,16 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     expect(screen.getByRole("heading", { name: "添加校内设施" })).toBeTruthy();
-    const typeGroup = screen.getByRole("group", { name: "设施类型" });
-    const nameInput = screen.getByRole("textbox", {
-      name: "设施名称或编号",
-    });
-    expect(
-      typeGroup.compareDocumentPosition(nameInput) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(screen.getByText("已按类型预填，可修改")).toBeTruthy();
+    expect(screen.getByRole("group", { name: "设施类型" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "修改位置" })).toBeTruthy();
-    const optionalDetails = screen.getByRole("button", {
-      name: "开放与使用条件（可选）",
-    });
-    expect(screen.getByText("资料依据")).toBeTruthy();
-    expect(screen.getByText(/发布前至少记录一项/)).toBeTruthy();
-    const sourceEntry = screen.getByRole("button", { name: "填写现场观察" });
     expect(
-      sourceEntry.compareDocumentPosition(optionalDetails) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      screen.queryByRole("textbox", { name: "设施名称或编号" }),
+    ).toBeNull();
+    expect(screen.queryByText("资料依据")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "开放与使用条件（可选）" }),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "发布设施" })).toBeTruthy();
   });
 
   it("sends the active schema required fields to the pure publish transition", () => {
@@ -196,11 +186,12 @@ describe("Campus Map single-page edit Sheet", () => {
 
     expect(onEvent).toHaveBeenLastCalledWith({
       type: "REQUEST_PUBLISH",
+      accessedOn: "2026-08-26",
       requiredFields: ["name", "pinType", "capabilities", "location"],
     });
   });
 
-  it("shows a supported field newly made applicable by the server schema", () => {
+  it("keeps server-applicable optional fields out of the streamlined Sheet", () => {
     const factSchema = {
       version: 1,
       definition: {
@@ -246,7 +237,7 @@ describe("Campus Map single-page edit Sheet", () => {
 
     expect(
       document.querySelector('[data-edit-field="capabilities"]'),
-    ).toBeTruthy();
+    ).toBeNull();
   });
 
   it("keeps programmatic heading focus visible for keyboard users", () => {
@@ -437,13 +428,11 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    fireEvent.change(screen.getByRole("textbox", { name: "设施名称或编号" }), {
-      target: { value: "修改后重新发布" },
-    });
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
 
     expect(onEvent).toHaveBeenLastCalledWith({
-      type: "CHANGE_FACT",
-      fact: expect.objectContaining({ name: "修改后重新发布" }),
+      type: "CHANGE_PIN_TYPE",
+      pinType: "toilet",
       idempotencyKey: expect.any(String),
     });
     expect(onEvent.mock.calls.at(-1)?.[0].idempotencyKey).not.toBe(
@@ -503,7 +492,7 @@ describe("Campus Map single-page edit Sheet", () => {
     ).toBeTruthy();
   });
 
-  it("creates editable weekly hours and honest observation timestamps", () => {
+  it("keeps source and optional metadata controls out of the streamlined Sheet", () => {
     const onEvent = vi.fn();
     const session: CampusMapEditSession = {
       status: "editing",
@@ -530,44 +519,9 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     expect(screen.queryByLabelText("现场观察时间（香港时间）")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "填写现场观察" }));
-
-    fireEvent.change(screen.getByLabelText("现场观察时间（香港时间）"), {
-      target: { value: "" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "记录现场观察" }));
-    expect(onEvent.mock.calls.at(-1)?.[0]).toEqual({
-      type: "REPORT_LOCAL_ERROR",
-      field: "sourceObservedAt",
-    });
-
-    fireEvent.change(screen.getByLabelText("开放时间"), {
-      target: { value: "weekly" },
-    });
-    expect(onEvent.mock.calls.at(-1)?.[0]).toMatchObject({
-      type: "CHANGE_FACT",
-      fact: {
-        accessSchedule: {
-          kind: "weekly",
-          timezone: "Asia/Hong_Kong",
-          intervals: [{ opensAt: "09:00", closesAt: "17:00" }],
-        },
-      },
-    });
-
-    fireEvent.change(screen.getByLabelText("现场观察时间（香港时间）"), {
-      target: { value: "2026-08-24T14:30" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "记录现场观察" }));
-    expect(onEvent.mock.calls.at(-1)?.[0]).toMatchObject({
-      type: "CHANGE_SOURCES",
-      sources: [
-        {
-          accessedOn: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-          observedAt: "2026-08-24T06:30:00.000Z",
-        },
-      ],
-    });
+    expect(screen.queryByRole("combobox", { name: "开放时间" })).toBeNull();
+    expect(screen.queryByText("资料依据")).toBeNull();
+    expect(onEvent).not.toHaveBeenCalled();
   });
 
   it("rejects blank keyboard coordinates instead of treating them as zero", () => {
@@ -596,7 +550,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(useCoordinates.disabled).toBe(true);
   });
 
-  it("expands and exposes a real focus target when source validation fails", () => {
+  it("does not resurrect removed source controls for an old local error", () => {
     const session: CampusMapEditSession = {
       status: "editing",
       localError: "sources",
@@ -623,15 +577,11 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    const sourceTarget = document.querySelector<HTMLElement>(
-      '[data-edit-field="sources"]',
-    );
-    expect(sourceTarget?.tagName).toBe("BUTTON");
-    expect(sourceTarget?.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByLabelText("现场观察时间（香港时间）")).toBeTruthy();
+    expect(document.querySelector('[data-edit-field="sources"]')).toBeNull();
+    expect(screen.queryByLabelText("现场观察时间（香港时间）")).toBeNull();
   });
 
-  it("expands optional details and exposes capabilities as a focus target", () => {
+  it("does not resurrect removed optional controls for an old local error", () => {
     const session: CampusMapEditSession = {
       status: "editing",
       localError: "capabilities",
@@ -661,12 +611,10 @@ describe("Campus Map single-page edit Sheet", () => {
 
     expect(
       document.querySelector('[data-edit-field="capabilities"]'),
-    ).toBeTruthy();
+    ).toBeNull();
     expect(
-      screen
-        .getByRole("button", { name: "开放与使用条件（可选）" })
-        .getAttribute("aria-expanded"),
-    ).toBe("true");
+      screen.queryByRole("button", { name: "开放与使用条件（可选）" }),
+    ).toBeNull();
   });
 
   it("makes the map location row programmatically focusable", () => {
@@ -761,7 +709,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.queryByText(/WGS84 · 约略/)).toBeNull();
   });
 
-  it("reveals optional fields when local validation targets one", () => {
+  it("keeps optional fields removed when local validation targets one", () => {
     const session: CampusMapEditSession = {
       status: "editing",
       localError: "accessSchedule",
@@ -789,11 +737,9 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     expect(
-      screen
-        .getByRole("button", { name: "开放与使用条件（可选）" })
-        .getAttribute("aria-expanded"),
-    ).toBe("true");
-    expect(screen.getByRole("combobox", { name: "开放时间" })).toBeTruthy();
+      screen.queryByRole("button", { name: "开放与使用条件（可选）" }),
+    ).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "开放时间" })).toBeNull();
   });
 
   it("uses reposition wording for an Edit placement", () => {

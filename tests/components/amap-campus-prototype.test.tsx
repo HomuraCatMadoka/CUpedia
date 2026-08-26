@@ -136,18 +136,11 @@ describe("AmapCampusPrototype", () => {
     expect(document.activeElement).toBe(
       screen.getByRole("heading", { name: "添加校内设施" }),
     );
-    const nameInput = screen.getByLabelText("设施名称或编号");
-    fireEvent.change(nameInput, { target: { value: "新饮水点" } });
     expect(screen.getByText("地图坐标")).toBeTruthy();
     expect(screen.getByRole("button", { name: "修改位置" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "饮水点" })).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "无障碍通行" })).toBeNull();
-    fireEvent.click(
-      screen.getByRole("button", { name: "开放与使用条件（可选）" }),
-    );
-    expect(screen.getByRole("combobox", { name: "无障碍通行" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "填写现场观察" }));
-    fireEvent.click(screen.getByRole("button", { name: "记录现场观察" }));
+    expect(screen.queryByText("资料依据")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
     expect(
       await screen.findByRole("heading", { name: "放弃未发布的修改？" }),
@@ -166,9 +159,7 @@ describe("AmapCampusPrototype", () => {
     render(<AmapCampusPrototype />);
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
-    fireEvent.change(await screen.findByLabelText("设施名称或编号"), {
-      target: { value: "未发布地点" },
-    });
+    await screen.findByRole("group", { name: "设施类型" });
 
     await act(async () => window.history.back());
     expect(
@@ -176,7 +167,9 @@ describe("AmapCampusPrototype", () => {
     ).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
 
-    expect(await screen.findByDisplayValue("未发布地点")).not.toBeNull();
+    expect(
+      await screen.findByRole("group", { name: "设施类型" }),
+    ).not.toBeNull();
     await waitFor(() =>
       expect(window.location.search).toContain("task=create"),
     );
@@ -201,9 +194,7 @@ describe("AmapCampusPrototype", () => {
     expect(window.location.search).toBe(
       "?v=1&task=edit&id=71000000-0000-4000-8000-000000000005",
     );
-    fireEvent.change(screen.getByLabelText("设施名称或编号"), {
-      target: { value: "更新后的饮水机" },
-    });
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
     expect(
       screen.getByRole("button", { name: "发布修改" }).hasAttribute("disabled"),
     ).toBe(false);
@@ -364,11 +355,7 @@ describe("AmapCampusPrototype", () => {
     await screen.findByRole("heading", { name: "饮水机" });
     fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
     await screen.findByRole("heading", { name: "修改设施" });
-    fireEvent.change(screen.getByRole("textbox", { name: "设施名称或编号" }), {
-      target: { value: "我的名称" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "填写现场观察" }));
-    fireEvent.click(screen.getByRole("button", { name: "记录现场观察" }));
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
     vi.mocked(loadCampusMapEditablePlace).mockClear();
     vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
       status: "conflict",

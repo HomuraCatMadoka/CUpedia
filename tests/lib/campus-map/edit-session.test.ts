@@ -537,6 +537,52 @@ describe("Campus Map edit session transition", () => {
     expect(command).not.toHaveProperty("discussion");
   });
 
+  it("adds honest hidden submission provenance when the simplified Sheet publishes", () => {
+    const positioned = transitionCampusMapEdit(
+      transitionCampusMapEdit(null, {
+        type: "START_ADD",
+        idempotencyKey: firstKey,
+      }).session,
+      {
+        type: "CONFIRM_POSITION",
+        position: {
+          longitude: 114.2072,
+          latitude: 22.4191,
+          crs: "wgs84",
+          precision: "approximate",
+          method: "pointer",
+        },
+      },
+    ).session!;
+
+    const publishing = transitionCampusMapEdit(positioned, {
+      type: "REQUEST_PUBLISH",
+      accessedOn: "2026-08-26",
+    });
+
+    expect(publishing.session?.status).toBe("publishing");
+    expect(publishing.commands).toContainEqual({
+      kind: "publish",
+      command: expect.objectContaining({
+        sourceSummary: "来源：地图提交",
+        changes: [
+          expect.objectContaining({
+            fact: expect.objectContaining({ name: "饮水机" }),
+            sources: [
+              expect.objectContaining({
+                kind: "other",
+                ref: "CUpedia Campus Map submission",
+                accessedOn: "2026-08-26",
+                observedAt: null,
+                rightsStatus: "unknown",
+              }),
+            ],
+          }),
+        ],
+      }),
+    });
+  });
+
   it("focuses local errors and blocks publishing an unchanged Edit", () => {
     const unchanged = transitionCampusMapEdit(editSession(), {
       type: "REQUEST_PUBLISH",

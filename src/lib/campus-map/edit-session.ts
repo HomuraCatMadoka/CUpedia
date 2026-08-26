@@ -151,6 +151,7 @@ export type CampusMapEditEvent =
   | {
       type: "REQUEST_PUBLISH";
       requiredFields?: readonly CampusMapEditFieldKey[];
+      accessedOn?: string;
     }
   | {
       type: "PUBLISH_RESULT";
@@ -176,6 +177,7 @@ export interface CampusMapEditTransition {
 }
 
 const DEFAULT_PRESET = CAMPUS_MAP_EDIT_SCHEMA.presets[0];
+const MAP_SUBMISSION_SOURCE_REF = "CUpedia Campus Map submission";
 
 const DEFAULT_FACT: CampusMapEditDraft["fact"] = {
   name: DEFAULT_PRESET.defaultName,
@@ -398,14 +400,22 @@ function normalizeServerErrorTarget(field: string | undefined): string {
 function publishTransition(
   session: CampusMapEditSession,
   requiredFields: readonly CampusMapEditFieldKey[] = [],
+  accessedOn?: string,
 ): CampusMapEditTransition {
   if (session.status === "published" || session.status === "publishing") {
     return rejected(session);
   }
   if (!isCampusMapEditDirty(session)) return rejected(session);
-  const error = firstInvalidCampusMapEditField(session.draft, requiredFields);
+  const draft =
+    session.draft.sources.length === 0 && isDateOnly(accessedOn)
+      ? {
+          ...session.draft,
+          sources: [mapSubmissionSource(accessedOn)],
+        }
+      : session.draft;
+  const error = firstInvalidCampusMapEditField(draft, requiredFields);
   if (error) {
-    const next = { ...editable(session), localError: error };
+    const next = { ...editable(session), draft, localError: error };
     return {
       accepted: true,
       session: next,
@@ -418,7 +428,7 @@ function publishTransition(
   }
   const next: CampusMapEditSession = {
     status: "publishing",
-    draft: session.draft,
+    draft,
   };
   return {
     accepted: true,
@@ -428,6 +438,35 @@ function publishTransition(
       { kind: "publish", command: deriveCampusMapPublishCommand(next.draft) },
       { kind: "announce", message: "正在发布地点资料" },
     ],
+  };
+}
+
+function isDateOnly(value: string | undefined): value is string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+function mapSubmissionSource(accessedOn: string): CampusMapPublishSourceInput {
+  return {
+    kind: "other",
+    ref: MAP_SUBMISSION_SOURCE_REF,
+    url: null,
+    owner: null,
+    version: null,
+    snapshotHash: null,
+    accessedOn,
+    observedAt: null,
+    rightsStatus: "unknown",
+    limitations:
+      "用户仅通过 Campus Map 提交位置与设施类型；未提供独立资料来源。",
+    note: null,
+    sourceCoordinate: null,
   };
 }
 
@@ -538,10 +577,7 @@ export function transitionCampusMapEdit(
       session: next,
       commands: [
         { kind: "persist-snapshot" },
-        {
-          kind: "focus",
-          target: method === "pointer" ? "form-heading" : "name",
-        },
+        { kind: "focus", target: "form-heading" },
         { kind: "announce", message: "位置已锁定，请填写地点资料" },
       ],
     };
@@ -716,7 +752,7 @@ export function transitionCampusMapEdit(
 
   if (event.type === "REQUEST_PUBLISH") {
     if (session.status !== "editing") return rejected(session);
-    return publishTransition(session, event.requiredFields);
+    return publishTransition(session, event.requiredFields, event.accessedOn);
   }
 
   if (event.type === "PUBLISH_RESULT") {
@@ -1026,7 +1062,13 @@ export function deriveCampusMapPublishCommand(
       ? `新增地点：${fact.name}（${PIN_LABELS[fact.pinType]}）`
       : `更新地点：${changedFields.join("、") || "来源"}`;
   const sourceLabels = Array.from(
-    new Set(draft.sources.map((item) => SOURCE_LABELS[item.kind])),
+    new Set(
+      draft.sources.map((item) =>
+        item.kind === "other" && item.ref === MAP_SUBMISSION_SOURCE_REF
+          ? "地图提交"
+          : SOURCE_LABELS[item.kind],
+      ),
+    ),
   );
   const sourceSummary = `来源：${sourceLabels.join("、") || "未提供"}`;
   const change =

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useId, useState } from "react";
-import { ChevronDownIcon, MapPinIcon } from "lucide-react";
+import { MapPinIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { AMAP_PROTOTYPE_BUILDINGS } from "@/lib/campus-map/amap-prototype-catalog";
@@ -13,14 +13,8 @@ import {
   type CampusMapIndoorLocationDisplay,
   type CampusMapEditSession,
 } from "@/lib/campus-map/edit-session";
-import {
-  CAMPUS_MAP_EDIT_SCHEMA,
-  type CampusMapEditFieldKey,
-} from "@/lib/campus-map/edit-schema";
-import type {
-  CampusMapPublishFactInput,
-  CampusMapPublishSourceInput,
-} from "@/lib/campus-map/publish-contract";
+import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
+import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
 
 interface CampusMapEditSheetProps {
@@ -48,41 +42,6 @@ function today(): string {
   }).format(new Date());
 }
 
-function nowLocal(): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Hong_Kong",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date());
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((item) => item.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
-}
-
-function observationSource(
-  localTime: string,
-  timestamp: number,
-): CampusMapPublishSourceInput {
-  return {
-    kind: "field-observation",
-    ref: `现场观察 ${localTime.replace("T", " ")}`,
-    url: null,
-    owner: null,
-    version: null,
-    snapshotHash: null,
-    accessedOn: today(),
-    observedAt: new Date(timestamp).toISOString(),
-    rightsStatus: "original-observation",
-    limitations: null,
-    note: null,
-    sourceCoordinate: null,
-  };
-}
-
 const WEEKDAYS = [
   ["mon", "一"],
   ["tue", "二"],
@@ -95,8 +54,8 @@ const WEEKDAYS = [
 
 function messageForError(code: string): string {
   const messages: Record<string, string> = {
-    "fact-name-required": "请填写设施名称或编号。",
-    "source-required": "请提供资料依据。",
+    "fact-name-required": "设施资料不完整，请重新选择类型。",
+    "source-required": "发布记录缺少来源标记，请重试。",
     "invalid-location": "位置资料不完整，请修改位置。",
     "base-revision-conflict": "地点资料已被其他人更新。",
     "invalid-place-id": "这个过渡地点尚未连接到正式 Place。",
@@ -450,43 +409,6 @@ function conflictValue(
   }
 }
 
-function SelectField<T extends string>({
-  id,
-  label,
-  value,
-  options,
-  onChange,
-  field,
-}: {
-  id: string;
-  label: string;
-  value: T;
-  options: readonly { value: T; label: string }[];
-  onChange(value: T): void;
-  field: string;
-}) {
-  return (
-    <label className="block text-sm font-medium" htmlFor={id}>
-      {label}
-      <select
-        id={id}
-        name={field}
-        autoComplete="off"
-        data-edit-field={field}
-        className={fieldClass}
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
 export function CampusMapEditSheet({
   session,
   centerPosition,
@@ -502,74 +424,25 @@ export function CampusMapEditSheet({
   const [keyboardLatitude, setKeyboardLatitude] = useState(
     String(centerPosition[1]),
   );
-  const [sourceObservedAt, setSourceObservedAt] = useState(nowLocal);
   const [showCoordinateEntry, setShowCoordinateEntry] = useState(false);
-  const [showMoreDetails, setShowMoreDetails] = useState(false);
-  const [showSourceEntry, setShowSourceEntry] = useState(false);
   const [conflictSelection, setConflictSelection] = useState<{
     key: string;
     fields: ConflictChoiceKey[];
   }>({ key: "", fields: [] });
   const draft = session.draft;
   const fact = draft.fact;
-  const preset =
-    CAMPUS_MAP_EDIT_SCHEMA.presets.find(
-      (item) => item.pinType === fact.pinType,
-    ) ?? CAMPUS_MAP_EDIT_SCHEMA.presets[0];
-  const serverApplicableFields =
-    factSchema?.definition.pinTypes[fact.pinType].applicableFields;
   const serverRequiredFields =
     factSchema?.definition.pinTypes[fact.pinType].requiredFields;
-  const visible = new Set<CampusMapEditFieldKey>(
-    serverApplicableFields
-      ? [...serverApplicableFields, "sources"]
-      : preset.fields,
-  );
   const freshAttempt = () =>
     session.status === "temporarily-unavailable"
       ? { idempotencyKey: crypto.randomUUID() }
       : {};
-  const updateFact = (next: CampusMapEditSession["draft"]["fact"]) =>
-    onEvent({ type: "CHANGE_FACT", fact: next, ...freshAttempt() });
-  const updateSources = (sources: CampusMapPublishSourceInput[]) =>
-    onEvent({ type: "CHANGE_SOURCES", sources, ...freshAttempt() });
-  const fullFact = fact;
-  const weeklySchedule =
-    fact.accessSchedule.kind === "weekly" ? fact.accessSchedule : null;
-  const fieldLabel = (field: string, fallback: string) =>
-    factSchema?.displayMetadata[field]?.label ?? fallback;
   const conflictKey =
     session.status === "conflict" && session.conflict?.kind === "current"
       ? `${session.draft.idempotencyKey}:${session.conflict.currentRevisionId}`
       : "";
   const conflictKeepFields =
     conflictSelection.key === conflictKey ? conflictSelection.fields : [];
-  const optionalFieldNames = new Set([
-    "gender",
-    "capabilities",
-    "wheelchairAccess",
-    "audience",
-    "credentialRequirement",
-    "accessSchedule",
-    "reservationRequirement",
-    "temporaryStatus",
-  ]);
-  const hasOptionalServerError = Boolean(
-    session.serverErrors?.some(
-      (error) =>
-        error.anchor.field !== undefined &&
-        optionalFieldNames.has(error.anchor.field),
-    ),
-  );
-  const hasOptionalLocalError =
-    session.localError !== undefined &&
-    optionalFieldNames.has(session.localError);
-  const optionalDetailsVisible =
-    showMoreDetails || hasOptionalServerError || hasOptionalLocalError;
-  const sourceEntryExpanded =
-    showSourceEntry ||
-    session.localError === "sources" ||
-    session.localError === "sourceObservedAt";
 
   if (session.status === "published" && session.receipt) {
     const receipt = session.receipt;
@@ -1059,8 +932,8 @@ export function CampusMapEditSheet({
               ? "拖动地图对准设施，或轻点地图名称直接选择；建筑只作位置参考。"
               : "移动地图或轻点地图标签，选择新的设施位置。"
             : draft.mode === "add"
-              ? "位置已确定。选择类型，再确认名称或编号。"
-              : "更新设施资料，未改内容会保持不变。"}
+              ? "位置已确定。选择设施类型后即可发布。"
+              : "确认设施类型和位置后即可发布修改。"}
         </p>
       </div>
       <div
@@ -1081,58 +954,56 @@ export function CampusMapEditSheet({
             ))}
           </div>
         ) : null}
-        {visible.has("location") ? (
-          <div
-            data-edit-field="location"
-            tabIndex={-1}
-            className="rounded-xl bg-[#edf5f1] px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-          >
-            <div className="flex items-start gap-3">
-              <MapPinIcon
-                aria-hidden="true"
-                className="mt-0.5 size-5 shrink-0 text-[#176346]"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold" aria-live="polite">
-                  {isPlacing
-                    ? placementLabel
-                    : (lockedOutdoorLabel ??
-                      friendlyLocationLabel(fact, draft.locationDisplay))}
-                </p>
+        <div
+          data-edit-field="location"
+          tabIndex={-1}
+          className="rounded-xl bg-[#edf5f1] px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+        >
+          <div className="flex items-start gap-3">
+            <MapPinIcon
+              aria-hidden="true"
+              className="mt-0.5 size-5 shrink-0 text-[#176346]"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold" aria-live="polite">
+                {isPlacing
+                  ? placementLabel
+                  : (lockedOutdoorLabel ??
+                    friendlyLocationLabel(fact, draft.locationDisplay))}
+              </p>
+              <p
+                className={cn(
+                  "mt-0.5 text-xs text-neutral-600",
+                  !isPlacing && "truncate",
+                )}
+                aria-live="polite"
+              >
+                {isPlacing
+                  ? placementDescription
+                  : describeLocation(fact, draft.locationDisplay)}
+              </p>
+              {isPlacing ? (
                 <p
-                  className={cn(
-                    "mt-0.5 text-xs text-neutral-600",
-                    !isPlacing && "truncate",
-                  )}
+                  className="mt-0.5 text-xs text-neutral-500"
                   aria-live="polite"
                 >
-                  {isPlacing
-                    ? placementDescription
-                    : describeLocation(fact, draft.locationDisplay)}
+                  {placementReference}
                 </p>
-                {isPlacing ? (
-                  <p
-                    className="mt-0.5 text-xs text-neutral-500"
-                    aria-live="polite"
-                  >
-                    {placementReference}
-                  </p>
-                ) : null}
-              </div>
-              {!isPlacing ? (
-                <button
-                  type="button"
-                  className="min-h-10 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-                  onClick={() =>
-                    onEvent({ type: "START_REPOSITION", ...freshAttempt() })
-                  }
-                >
-                  修改位置
-                </button>
               ) : null}
             </div>
+            {!isPlacing ? (
+              <button
+                type="button"
+                className="min-h-10 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                onClick={() =>
+                  onEvent({ type: "START_REPOSITION", ...freshAttempt() })
+                }
+              >
+                修改位置
+              </button>
+            ) : null}
           </div>
-        ) : null}
+        </div>
         {coordinateEntry}
         <div hidden={isPlacing} className="space-y-3 md:space-y-4">
           <fieldset
@@ -1174,426 +1045,6 @@ export function CampusMapEditSheet({
               ))}
             </div>
           </fieldset>
-          <div className="text-sm font-medium">
-            <label
-              className="flex items-center justify-between gap-2"
-              htmlFor={`${fieldPrefix}-name`}
-            >
-              <span>设施名称或编号</span>
-              <span
-                aria-hidden="true"
-                className="text-xs font-normal text-neutral-500"
-              >
-                {draft.mode === "add"
-                  ? "已按类型预填，可修改"
-                  : "保留原名称，可修改"}
-              </span>
-            </label>
-            <input
-              id={`${fieldPrefix}-name`}
-              name="campus-map-place-name"
-              autoComplete="off"
-              data-edit-field="name"
-              className={fieldClass}
-              value={fact.name}
-              aria-label="设施名称或编号"
-              aria-describedby={`${fieldPrefix}-name-help`}
-              aria-invalid={session.localError === "name"}
-              onChange={(event) =>
-                updateFact({ ...fullFact, name: event.target.value })
-              }
-            />
-            <span id={`${fieldPrefix}-name-help`} className="sr-only">
-              {fact.pinType === "classroom"
-                ? "填写课室编号或正式名称，例如 YIA LT6。"
-                : "可保留默认名称，或填写正式名称/编号。"}
-            </span>
-          </div>
-        </div>
-        <div hidden={isPlacing} className="rounded-xl border p-2.5 md:p-3">
-          <div className="flex items-center gap-2">
-            <div className="min-w-0 flex-1 px-1">
-              <p className="text-sm font-semibold">资料依据</p>
-              <p
-                id={`${fieldPrefix}-source-help`}
-                className="text-xs leading-5 text-neutral-600"
-              >
-                发布前至少记录一项。
-              </p>
-            </div>
-            <button
-              type="button"
-              data-edit-field="sources"
-              aria-expanded={sourceEntryExpanded}
-              aria-controls={`${fieldPrefix}-source-entry`}
-              aria-describedby={
-                session.localError === "sources"
-                  ? `${fieldPrefix}-source-help ${fieldPrefix}-source-error`
-                  : `${fieldPrefix}-source-help`
-              }
-              aria-label={
-                sourceEntryExpanded
-                  ? "收起现场观察"
-                  : draft.sources.length
-                    ? "修改现场观察"
-                    : "填写现场观察"
-              }
-              className="flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 text-left text-sm font-semibold text-[#176346] hover:bg-[#edf5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-              onClick={() => setShowSourceEntry((current) => !current)}
-            >
-              <span>{draft.sources.length ? "修改观察" : "现场观察"}</span>
-              <ChevronDownIcon
-                aria-hidden="true"
-                className={cn(
-                  "size-4 transition-transform motion-reduce:transition-none",
-                  sourceEntryExpanded && "rotate-180",
-                )}
-              />
-            </button>
-          </div>
-          {session.localError === "sources" ? (
-            <p
-              id={`${fieldPrefix}-source-error`}
-              className="px-1 text-xs text-red-700"
-              role="alert"
-            >
-              请提供资料依据。
-            </p>
-          ) : null}
-          {draft.sources.length && !sourceEntryExpanded ? (
-            <p className="px-1 text-xs text-[#176346]">
-              已记录：{draft.sources[0]?.ref}
-            </p>
-          ) : null}
-          {sourceEntryExpanded ? (
-            <fieldset id={`${fieldPrefix}-source-entry`} className="mt-3">
-              <legend className="sr-only">现场观察</legend>
-              <label
-                className="block text-sm"
-                htmlFor={`${fieldPrefix}-source-date`}
-              >
-                现场观察时间（香港时间）
-                <input
-                  id={`${fieldPrefix}-source-date`}
-                  name="campus-map-source-observed-at"
-                  autoComplete="off"
-                  data-edit-field="sourceObservedAt"
-                  className={fieldClass}
-                  type="datetime-local"
-                  value={sourceObservedAt}
-                  required
-                  aria-invalid={session.localError === "sourceObservedAt"}
-                  onChange={(event) => setSourceObservedAt(event.target.value)}
-                />
-              </label>
-              <button
-                type="button"
-                className={cn(secondaryClass, "mt-3 w-full")}
-                onClick={() => {
-                  const observationTimestamp = Date.parse(
-                    `${sourceObservedAt}:00+08:00`,
-                  );
-                  const observationValid =
-                    sourceObservedAt !== "" &&
-                    Number.isFinite(observationTimestamp) &&
-                    observationTimestamp <= Date.now();
-                  if (!observationValid) {
-                    onEvent({
-                      type: "REPORT_LOCAL_ERROR",
-                      field: "sourceObservedAt",
-                    });
-                    return;
-                  }
-                  updateSources([
-                    observationSource(sourceObservedAt, observationTimestamp),
-                  ]);
-                }}
-              >
-                {draft.sources.length ? "更新观察时间" : "记录现场观察"}
-              </button>
-              {draft.sources.length ? (
-                <p className="mt-2 text-xs text-[#176346]">
-                  已记录：{draft.sources[0]?.ref}
-                </p>
-              ) : null}
-            </fieldset>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          hidden={isPlacing}
-          aria-expanded={optionalDetailsVisible}
-          aria-controls={`${fieldPrefix}-optional-details`}
-          className="flex min-h-11 w-full items-center justify-between rounded-xl border border-black/15 bg-white px-3 text-left text-sm font-semibold hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-          onClick={() => setShowMoreDetails((current) => !current)}
-        >
-          <span>开放与使用条件（可选）</span>
-          <ChevronDownIcon
-            aria-hidden="true"
-            className={cn(
-              "size-4 transition-transform motion-reduce:transition-none",
-              optionalDetailsVisible && "rotate-180",
-            )}
-          />
-        </button>
-        <div
-          id={`${fieldPrefix}-optional-details`}
-          className="space-y-4"
-          hidden={isPlacing || !optionalDetailsVisible}
-        >
-          {visible.has("gender") ? (
-            <SelectField
-              id={`${fieldPrefix}-gender`}
-              field="gender"
-              label={fieldLabel("gender", "性别属性")}
-              value={fact.gender}
-              options={CAMPUS_MAP_EDIT_SCHEMA.options.gender}
-              onChange={(gender) => updateFact({ ...fullFact, gender })}
-            />
-          ) : null}
-          {visible.has("capabilities") ? (
-            <fieldset
-              data-edit-field="capabilities"
-              tabIndex={-1}
-              className="rounded-xl border p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-            >
-              <legend className="px-1 text-sm font-medium">
-                {fieldLabel("capabilities", "服务能力")}
-              </legend>
-              {CAMPUS_MAP_EDIT_SCHEMA.options.capabilities.map((option) => (
-                <label
-                  key={option.value}
-                  className="mr-4 inline-flex min-h-11 items-center gap-2 text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    name={`${fieldPrefix}-capabilities`}
-                    checked={fact.capabilities.includes(option.value)}
-                    onChange={(event) =>
-                      updateFact({
-                        ...fullFact,
-                        capabilities: event.target.checked
-                          ? [...fact.capabilities, option.value]
-                          : fact.capabilities.filter(
-                              (item) => item !== option.value,
-                            ),
-                      })
-                    }
-                  />
-                  {option.label}
-                </label>
-              ))}
-            </fieldset>
-          ) : null}
-          {visible.has("wheelchairAccess") ? (
-            <SelectField
-              id={`${fieldPrefix}-wheelchair`}
-              field="wheelchairAccess"
-              label={fieldLabel("wheelchairAccess", "无障碍通行")}
-              value={fact.wheelchairAccess}
-              options={CAMPUS_MAP_EDIT_SCHEMA.options.wheelchairAccess}
-              onChange={(wheelchairAccess) =>
-                updateFact({ ...fullFact, wheelchairAccess })
-              }
-            />
-          ) : null}
-          {visible.has("audience") ? (
-            <SelectField
-              id={`${fieldPrefix}-audience`}
-              field="audience"
-              label={fieldLabel("audience", "开放对象")}
-              value={fact.audience}
-              options={CAMPUS_MAP_EDIT_SCHEMA.options.audience}
-              onChange={(audience) => updateFact({ ...fullFact, audience })}
-            />
-          ) : null}
-          {visible.has("credentialRequirement") ? (
-            <SelectField
-              id={`${fieldPrefix}-credential`}
-              field="credentialRequirement"
-              label={fieldLabel("credentialRequirement", "凭证要求")}
-              value={fact.credentialRequirement}
-              options={CAMPUS_MAP_EDIT_SCHEMA.options.credentialRequirement}
-              onChange={(credentialRequirement) =>
-                updateFact({ ...fullFact, credentialRequirement })
-              }
-            />
-          ) : null}
-          {visible.has("accessSchedule") ? (
-            <div className="space-y-3">
-              <SelectField
-                id={`${fieldPrefix}-schedule`}
-                field="accessSchedule"
-                label={fieldLabel("accessSchedule", "开放时间")}
-                value={fact.accessSchedule.kind}
-                options={CAMPUS_MAP_EDIT_SCHEMA.options.accessSchedule}
-                onChange={(kind) =>
-                  updateFact({
-                    ...fullFact,
-                    accessSchedule:
-                      kind === "weekly"
-                        ? {
-                            kind: "weekly",
-                            timezone: "Asia/Hong_Kong",
-                            intervals: [
-                              {
-                                days: ["mon", "tue", "wed", "thu", "fri"],
-                                opensAt: "09:00",
-                                closesAt: "17:00",
-                              },
-                            ],
-                          }
-                        : { kind },
-                  })
-                }
-              />
-              {weeklySchedule ? (
-                <fieldset className="rounded-xl border p-3">
-                  <legend className="px-1 text-sm font-medium">
-                    每周开放时段（香港时间）
-                  </legend>
-                  {weeklySchedule.intervals.map((interval, index) => (
-                    <div
-                      key={index}
-                      className="mt-2 rounded-lg bg-neutral-50 p-2"
-                    >
-                      <div className="flex flex-wrap gap-2">
-                        {WEEKDAYS.map(([day, label]) => (
-                          <label
-                            key={day}
-                            className="flex min-h-11 items-center gap-1"
-                          >
-                            <input
-                              type="checkbox"
-                              name={`${fieldPrefix}-schedule-days-${index}`}
-                              checked={interval.days.includes(day)}
-                              onChange={(event) => {
-                                const intervals = weeklySchedule.intervals.map(
-                                  (item, itemIndex) =>
-                                    itemIndex === index
-                                      ? {
-                                          ...item,
-                                          days: event.target.checked
-                                            ? [...item.days, day]
-                                            : item.days.filter(
-                                                (value) => value !== day,
-                                              ),
-                                        }
-                                      : item,
-                                );
-                                updateFact({
-                                  ...fullFact,
-                                  accessSchedule: {
-                                    ...weeklySchedule,
-                                    intervals,
-                                  },
-                                });
-                              }}
-                            />
-                            周{label}
-                          </label>
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {(["opensAt", "closesAt"] as const).map((field) => (
-                          <label key={field} className="text-xs">
-                            {field === "opensAt" ? "开始" : "结束"}
-                            <input
-                              type="time"
-                              name={`${fieldPrefix}-${field}-${index}`}
-                              autoComplete="off"
-                              className={fieldClass}
-                              value={interval[field]}
-                              onChange={(event) => {
-                                const intervals = weeklySchedule.intervals.map(
-                                  (item, itemIndex) =>
-                                    itemIndex === index
-                                      ? { ...item, [field]: event.target.value }
-                                      : item,
-                                );
-                                updateFact({
-                                  ...fullFact,
-                                  accessSchedule: {
-                                    ...weeklySchedule,
-                                    intervals,
-                                  },
-                                });
-                              }}
-                            />
-                          </label>
-                        ))}
-                      </div>
-                      {weeklySchedule.intervals.length > 1 ? (
-                        <button
-                          type="button"
-                          className={cn(secondaryClass, "mt-2 w-full")}
-                          onClick={() =>
-                            updateFact({
-                              ...fullFact,
-                              accessSchedule: {
-                                ...weeklySchedule,
-                                intervals: weeklySchedule.intervals.filter(
-                                  (_, itemIndex) => itemIndex !== index,
-                                ),
-                              },
-                            })
-                          }
-                        >
-                          删除此时段
-                        </button>
-                      ) : null}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    className={cn(secondaryClass, "mt-2 w-full")}
-                    onClick={() =>
-                      updateFact({
-                        ...fullFact,
-                        accessSchedule: {
-                          ...weeklySchedule,
-                          intervals: [
-                            ...weeklySchedule.intervals,
-                            {
-                              days: ["mon"],
-                              opensAt: "09:00",
-                              closesAt: "17:00",
-                            },
-                          ],
-                        },
-                      })
-                    }
-                  >
-                    添加时段
-                  </button>
-                </fieldset>
-              ) : null}
-            </div>
-          ) : null}
-          {visible.has("reservationRequirement") ? (
-            <SelectField
-              id={`${fieldPrefix}-reservation`}
-              field="reservationRequirement"
-              label={fieldLabel("reservationRequirement", "预约要求")}
-              value={fact.reservationRequirement}
-              options={CAMPUS_MAP_EDIT_SCHEMA.options.reservationRequirement}
-              onChange={(reservationRequirement) =>
-                updateFact({ ...fullFact, reservationRequirement })
-              }
-            />
-          ) : null}
-          {visible.has("temporaryStatus") ? (
-            <SelectField
-              id={`${fieldPrefix}-temporary-status`}
-              field="temporaryStatus"
-              label={fieldLabel("temporaryStatus", "临时状态")}
-              value={fact.temporaryStatus}
-              options={CAMPUS_MAP_EDIT_SCHEMA.options.temporaryStatus}
-              onChange={(temporaryStatus) =>
-                updateFact({ ...fullFact, temporaryStatus })
-              }
-            />
-          ) : null}
         </div>
       </div>
       <div className="absolute inset-x-0 bottom-0 border-t bg-white px-4 pt-4 pb-[max(16px,env(safe-area-inset-bottom))] md:rounded-b-2xl md:pb-4">
@@ -1611,6 +1062,7 @@ export function CampusMapEditSheet({
                 ? { type: "CONFIRM_POSITION", position: placementPosition }
                 : {
                     type: "REQUEST_PUBLISH",
+                    accessedOn: today(),
                     ...(serverRequiredFields
                       ? { requiredFields: serverRequiredFields }
                       : {}),

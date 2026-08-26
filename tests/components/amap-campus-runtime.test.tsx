@@ -228,14 +228,10 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(await screen.findByText("科学馆附近")).not.toBeNull();
     expect(screen.getByText(/114\.208010, 22\.419660/)).not.toBeNull();
     expect(screen.queryByText(/高德参考/)).toBeNull();
-    expect(screen.getByText("已按类型预填，可修改")).not.toBeNull();
+    expect(screen.getByRole("radio", { name: "饮水点" })).not.toBeNull();
     expect(
-      (
-        screen.getByRole("textbox", {
-          name: "设施名称或编号",
-        }) as HTMLInputElement
-      ).value,
-    ).toBe("饮水机");
+      screen.queryByRole("textbox", { name: "设施名称或编号" }),
+    ).toBeNull();
   });
 
   it("lets Add select an exact AMap label without publishing provider identity", async () => {
@@ -283,13 +279,7 @@ describe("AmapCampusPrototype runtime effects", () => {
 
     expect(await screen.findByText("邵逸夫堂")).not.toBeNull();
     expect(screen.queryByText("高德地图参考")).toBeNull();
-    expect(
-      (
-        screen.getByRole("textbox", {
-          name: "设施名称或编号",
-        }) as HTMLInputElement
-      ).value,
-    ).toBe("饮水机");
+    expect(screen.getByRole("radio", { name: "饮水点" })).not.toBeNull();
 
     const restored = JSON.parse(
       window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
@@ -361,7 +351,7 @@ describe("AmapCampusPrototype runtime effects", () => {
       0,
     );
     expect(document.activeElement).toBe(
-      screen.getByLabelText("设施名称或编号"),
+      screen.getByRole("heading", { name: "添加校内设施" }),
     );
   });
 
@@ -682,9 +672,6 @@ describe("AmapCampusPrototype runtime effects", () => {
       ).toBe(false),
     );
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "设施名称或编号" }), {
-      target: { value: "拖动中的地点" },
-    });
     fireEvent.click(screen.getByRole("button", { name: "修改位置" }));
     await act(async () => map.emit("moveend", {}));
     await waitFor(() =>
@@ -719,8 +706,8 @@ describe("AmapCampusPrototype runtime effects", () => {
     });
   });
 
-  it("focuses and expands the compact source entry after required validation", async () => {
-    const { runtime } = await renderWithRuntime();
+  it("publishes without exposing a source-entry step", async () => {
+    await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     await waitFor(() =>
       expect(
@@ -732,22 +719,9 @@ describe("AmapCampusPrototype runtime effects", () => {
       ).toBe(false),
     );
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "设施名称或编号" }), {
-      target: { value: "需要来源的地点" },
-    });
     expect(screen.queryByLabelText("现场观察时间（香港时间）")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
-    await runtime.flushAnimationFrames();
-
-    expect(document.activeElement?.getAttribute("data-edit-field")).toBe(
-      "sources",
-    );
-    expect(scrollIntoView).toHaveBeenCalledWith({
-      block: "center",
-      inline: "nearest",
-    });
-    expect(screen.getByLabelText("现场观察时间（香港时间）")).not.toBeNull();
+    expect(screen.queryByText("资料依据")).toBeNull();
+    expect(screen.getByRole("button", { name: "发布设施" })).not.toBeNull();
   });
 
   it("opens Add once from a map long-press", async () => {
@@ -898,9 +872,6 @@ describe("AmapCampusPrototype runtime effects", () => {
       ).toBe(false),
     );
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "设施名称或编号" }), {
-      target: { value: "不会被地图关闭的地点" },
-    });
     expect(window.location.search).toContain("task=create");
 
     await act(async () => {
