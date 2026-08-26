@@ -1,8 +1,8 @@
 # Production canteen menu-sync scheduling
 
 Status: Current
-Last verified: 2026-08-26 against migrations 0094–0095 and
-`.github/workflows/canteen-menu-sync.yml`
+Last verified: 2026-08-27 against migrations 0094–0095,
+`.github/workflows/canteen-menu-sync.yml`, and the Issue #764 rollout wizard
 
 Supabase Cron is the primary clock for the first breakfast, lunch, and dinner
 drains. GitHub Actions starts later as an independent fallback and continues to
@@ -118,6 +118,31 @@ manually update/delete their rows.
 ## Production preflight
 
 Complete and record every item before activation.
+
+For the initial production activation or a routine bearer rotation, run the
+reviewed wizard from the repository root:
+
+```bash
+scripts/issue-764-production-rollout-wizard.sh
+```
+
+The wizard keeps the bearer only in process memory and the clipboard, verifies
+the checks below, and requires a separate confirmation immediately before
+activation. Its preflight parses the live workflow as an exact YAML contract,
+requires the Vault secret's non-secret metadata to change during this run,
+checks the production scheduler-audit column allowlist, and confirms that
+Issue #757 remains open. If the terminal is closed after activation, resume the
+first natural-window checks without rotating credentials again:
+
+```bash
+scripts/issue-764-production-rollout-wizard.sh verify
+```
+
+The SQL below remains the source of truth for investigation, deactivation, and
+recovery. Do not replace the wizard with copied SQL for the normal rollout.
+The verification evidence starts the separate seven-day clock only when the
+production recovery issue is already closed; otherwise it records that the
+clock has not started.
 
 1. Confirm the intended application commit is the current Vercel Production
    deployment and is **Ready**. The deployment must contain the current `/next`
