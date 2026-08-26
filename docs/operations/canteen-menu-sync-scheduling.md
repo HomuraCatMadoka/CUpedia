@@ -42,6 +42,30 @@ cross-midnight evidence keeps the existing provider-boundary and 45-minute
 fallback behavior. [ADR 0030](../adr/0030-stop-scoped-observations-at-refresh-horizons.md)
 records this menu-domain boundary; neither production clock owns it.
 
+## Refresh-horizon post-deploy verification
+
+Verify this behavior only after the merged `main` commit is the current Vercel
+Production deployment. Keep both Supabase Cron and the GitHub fallback enabled;
+changing either clock would invalidate the observation.
+
+1. Wait for a natural non-empty meal-period success whose `scope_evidence`
+   contains an integer `refreshUntilMinute`. Record its source ID, run ID,
+   `sync_window_key`, `observed_at`, item count, and the same-day HKT horizon.
+2. Wait for at least one ordinary scheduled wake after that horizon and before
+   the coarse meal window ends. Do not use a caller-supplied source or time.
+3. Query `canteen_menu_sync_runs` for that source from the horizon through the
+   coarse window end. There must be no later run: the application creates the
+   run before the provider request, so this proves that the source was neither
+   claimed nor fetched. Other due sources may still run normally.
+4. Confirm the recorded successful snapshot remains the latest accepted menu,
+   its items remain publicly visible, and no later `EMPTY_PINME_MENU` or
+   `MENU_SYNC_RETRY_LIMIT` was recorded for the source. A transport `no-work`
+   response alone is not sufficient evidence because scheduler transport audit
+   intentionally contains no source IDs.
+5. Repeat once before a horizon or on a source without usable horizon evidence.
+   The existing provider-boundary or 45-minute fallback must still create a due
+   observation, preserving the fail-closed control case.
+
 Do not create a second job, change the origin for a preview deployment, write
 `cron.job` directly, or put a source ID into a cron command. The database claim
 and run history make repeated wake-ups safe; the clocks do not implement menu
