@@ -44,6 +44,8 @@ describe("Supabase canteen menu scheduler migration #757", () => {
     expect(migrationSql).toContain("LIMIT 500");
     expect(migrationSql).toContain("details.runid = audit.cron_run_id");
     expect(migrationSql).toContain("primary_completed_at timestamptz");
+    expect(migrationSql).toContain("current_setting('pg_net.ttl', true)");
+    expect(migrationSql).toContain("net.check_worker_is_up()");
   });
 
   it("uses supported cron functions and keeps all privileged helpers private", () => {
@@ -79,6 +81,9 @@ describe("Supabase canteen menu scheduler migration #757", () => {
     expect(runbookText).toContain("current_setting('cron.timezone')");
     expect(runbookText).toContain("all 16 Supabase ticks missing");
     expect(runbookText).toContain("evidence-unmatched");
+    expect(runbookText).toMatch(
+      /`net` must not appear in the\s+Data API exposed-schema list/,
+    );
   });
 });
 
@@ -705,6 +710,10 @@ describe.skipIf(!hasSupabaseSchedulerDb)(
           schema_usage: boolean;
           table_access: boolean;
           function_access: boolean;
+          can_login: boolean;
+          net_schema_usage: boolean;
+          request_queue_access: boolean;
+          response_access: boolean;
         }>(
           `select
              has_schema_privilege($1, 'canteen_menu_scheduler', 'USAGE')
@@ -718,7 +727,20 @@ describe.skipIf(!hasSupabaseSchedulerDb)(
                $1,
                'canteen_menu_scheduler.enqueue_canteen_menu_sync_wakeup()',
                'EXECUTE'
-             ) as function_access`,
+             ) as function_access,
+             (select rolcanlogin from pg_roles where rolname = $1)
+               as can_login,
+             has_schema_privilege($1, 'net', 'USAGE') as net_schema_usage,
+             has_table_privilege(
+               $1,
+               'net.http_request_queue',
+               'SELECT'
+             ) as request_queue_access,
+             has_table_privilege(
+               $1,
+               'net._http_response',
+               'SELECT'
+             ) as response_access`,
           [role],
         );
         expect(privileges.rows).toEqual([
@@ -726,9 +748,46 @@ describe.skipIf(!hasSupabaseSchedulerDb)(
             schema_usage: false,
             table_access: false,
             function_access: false,
+            can_login: false,
+            net_schema_usage: true,
+            request_queue_access: true,
+            response_access: true,
           },
         ]);
       }
+
+      const pgNetStorage = await pool.query<{
+        table_name: string;
+        persistence: string;
+      }>(
+        `select class.relname as table_name,
+                class.relpersistence as persistence
+         from pg_class as class
+         join pg_namespace as namespace on namespace.oid = class.relnamespace
+         where namespace.nspname = 'net'
+           and class.relname in ('http_request_queue', '_http_response')
+         order by class.relname`,
+      );
+      expect(pgNetStorage.rows).toEqual([
+        { table_name: "_http_response", persistence: "u" },
+        { table_name: "http_request_queue", persistence: "u" },
+      ]);
+      const pgNetRuntime = await pool.query<{
+        response_ttl_bounded: boolean;
+        worker_running: boolean;
+      }>(
+        `select current_setting('pg_net.ttl')::interval > interval '0 seconds'
+                  and current_setting('pg_net.ttl')::interval <= interval '6 hours'
+                  as response_ttl_bounded,
+                exists (
+                  select 1
+                  from pg_stat_activity
+                  where backend_type ilike '%pg_net%'
+                ) as worker_running`,
+      );
+      expect(pgNetRuntime.rows).toEqual([
+        { response_ttl_bounded: true, worker_running: true },
+      ]);
 
       const trigger = await pool.query<{
         name: string;
@@ -852,6 +911,53 @@ describe.skipIf(!hasSupabaseSchedulerDb)(
         runtimeToken,
       );
     }, 15_000);
+
+    it("does not let response classification abort the pg_net worker insert", async () => {
+      const requestId = -930099;
+      const client = await pool.connect();
+      try {
+        await client.query("begin");
+        await client.query(
+          `insert into canteen_menu_scheduler.delivery_audit (
+             expected_tick_at,
+             sync_window_key,
+             request_id
+           ) values ($1, $2, $3)`,
+          [TEST_TICK, TEST_WINDOW, requestId],
+        );
+        await expect(
+          client.query(
+            `insert into net._http_response (
+               id,
+               status_code,
+               content_type,
+               content,
+               timed_out,
+               error_msg
+             ) values ($1, 99, 'application/json', '{}', false, null)`,
+            [requestId],
+          ),
+        ).resolves.toBeDefined();
+        const audit = await client.query<{
+          delivery_error: string | null;
+          completed_at: Date | null;
+        }>(
+          `select delivery_error, completed_at
+           from canteen_menu_scheduler.delivery_audit
+           where request_id = $1`,
+          [requestId],
+        );
+        expect(audit.rows).toEqual([
+          {
+            delivery_error: "transport-error",
+            completed_at: expect.any(Date),
+          },
+        ]);
+      } finally {
+        await client.query("rollback");
+        client.release();
+      }
+    });
 
     it("separates timeout, connection, and non-2xx HTTP failures", async () => {
       const runtimeToken = randomBytes(32).toString("hex");

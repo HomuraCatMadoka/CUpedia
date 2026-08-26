@@ -47,12 +47,36 @@ reconciles the reviewed job and leaves both controls off:
 - `canteen_menu_scheduler.activation.active = false`
 
 No migration or database replay sends a production request. Activation requires
-the exact job, the `postgres` owner, and exactly one non-empty Vault secret with
-the fixed name. The activation row and cron job must both be active before an
+the exact job, the `postgres` owner, exactly one non-empty Vault secret with the
+fixed name, a running `pg_net` worker, and a positive `pg_net.ttl` no greater
+than six hours. The activation row and cron job must both be active before an
 enqueue is allowed.
 
 Run production SQL below as the database `postgres` role. Client roles cannot
 see the private schema, tables, or functions.
+
+## Short-lived `pg_net` transport storage
+
+Vault is the only durable source for the bearer, and scheduler audit never
+stores a token, header, request body, or full response body. The asynchronous
+transport still has an unavoidable private boundary: `pg_net` writes the
+prepared Authorization header and empty body to its UNLOGGED request queue
+until the worker consumes the row, and stores each response in its UNLOGGED
+response table until TTL cleanup. Supabase owns the `net` schema and restores
+platform grants that give its client roles schema usage and give `PUBLIC` table
+privileges, so application migrations cannot reliably revoke those ACLs. The
+actual API boundary is that `net` is not an exposed Data API schema; `anon` and
+`authenticated` are also `NOLOGIN`, and CUpedia exposes no routine that proxies
+arbitrary SQL into `net`. Production preflight must verify those facts and a
+response TTL no greater than six hours before activation.
+
+Supabase [generally warns against triggers on `pg_net` internal
+tables](https://supabase.com/docs/guides/troubleshooting/webhook-debugging-guide-M8sk47).
+This reviewed exception reads only rows whose request IDs are already in
+scheduler audit, calls no `pg_net` API, and downgrades ordinary classifier/audit
+errors instead of re-raising them into the worker. It copies bounded result
+metadata into the 14-day audit. Do not add other triggers to `pg_net` tables or
+manually update/delete their rows.
 
 ## Production preflight
 
@@ -80,16 +104,55 @@ Complete and record every item before activation.
    live; a local or pending workflow change does not make the first cycle
    attributable to Supabase.
 
-2. Confirm the migration completed and the required extensions are present:
+2. In Supabase **Integrations → Data API**, record the current exposed-schema
+   list. Expected: `public,graphql_public`, matching the current [server-only
+   boundary audit](./supabase-data-api-boundary.md). `net` must not appear in the
+   Data API exposed-schema list. Stop if it is exposed; changing extension table
+   grants from an application migration is not a supported substitute for this
+   gate.
+
+3. Confirm the migration completed, required extensions are present, and the
+   short-lived `pg_net` transport boundary is healthy:
 
    ```sql
    SELECT extname, extversion
    FROM pg_extension
    WHERE extname IN ('pg_cron', 'pg_net', 'supabase_vault')
    ORDER BY extname;
+
+   SELECT current_setting('pg_net.ttl', true) AS pg_net_ttl;
+   SELECT net.check_worker_is_up();
+
+   SELECT role.rolname, role.rolcanlogin,
+          has_schema_privilege(role.rolname, 'net', 'USAGE')
+            AS net_schema_usage,
+          has_table_privilege(
+            role.rolname,
+            'net.http_request_queue',
+            'SELECT'
+          ) AS request_queue_select
+   FROM pg_roles AS role
+   WHERE role.rolname IN ('anon', 'authenticated')
+   ORDER BY role.rolname;
+
+   SELECT class.relname, class.relpersistence
+   FROM pg_class AS class
+   JOIN pg_namespace AS namespace ON namespace.oid = class.relnamespace
+   WHERE namespace.nspname = 'net'
+     AND class.relname IN ('http_request_queue', '_http_response')
+   ORDER BY class.relname;
    ```
 
-3. Confirm the Cron clock is UTC and exactly one reviewed, inactive job exists:
+   Expected: all three extensions exist; `pg_net_ttl` is greater than zero and
+   no more than `6 hours`; `net.check_worker_is_up()` completes without error;
+   `anon` and `authenticated` both have `rolcanlogin = false`; and both transport
+   rows have `relpersistence = 'u'` (UNLOGGED). `net_schema_usage` and
+   `request_queue_select` are expected to be true on the pinned Supabase image:
+   they expose the platform-owned ACL exception that makes step 2 mandatory,
+   not an alternate access approval. Do not activate if any other result
+   differs.
+
+4. Confirm the Cron clock is UTC and exactly one reviewed, inactive job exists:
 
    ```sql
    SELECT current_setting('cron.timezone') AS cron_timezone;
@@ -112,7 +175,7 @@ Complete and record every item before activation.
    `reconcile_job()` deliberately returns the installation to inactive and
    unconfigured state.
 
-4. Capture the source baseline. Review intentionally enabled sources, meal
+5. Capture the source baseline. Review intentionally enabled sources, meal
    periods, closed weekdays, stale claims, last successes, and current errors:
 
    ```sql
@@ -151,7 +214,7 @@ Complete and record every item before activation.
    ORDER BY weekday.hkt_weekday, meal.meal_period;
    ```
 
-5. Capture the preceding seven-day business baseline:
+6. Capture the preceding seven-day business baseline:
 
    ```sql
    SELECT source.id, source.provider, source.external_store_id,
@@ -227,7 +290,7 @@ Complete and record every item before activation.
    ORDER BY status, error_code;
    ```
 
-6. Record database headroom before adding the clock:
+7. Record database headroom before adding the clock:
 
    ```sql
    SELECT pg_size_pretty(pg_database_size(current_database())) AS database_size;
@@ -238,12 +301,12 @@ Complete and record every item before activation.
    WHERE datname = current_database();
    ```
 
-7. Provision the bearer through the approved Supabase Vault secret-entry UI or
+8. Provision the bearer through the approved Supabase Vault secret-entry UI or
    secret-management channel. Use the stable name
    `cupedia_canteen_menu_sync_bearer` and the same securely generated value as
    the production endpoint expects. Never paste the value into SQL, shell
    history, an issue, a pull request, or a chat.
-8. Verify only non-secret Vault metadata:
+9. Verify only non-secret Vault metadata:
 
    ```sql
    SELECT id, name, created_at, updated_at
@@ -265,9 +328,9 @@ preflight, then run:
 SELECT canteen_menu_scheduler.activate();
 ```
 
-The call is repeatable. It verifies the UTC Cron timezone, exact sole job, and
-Vault secret, then changes the activation guard and cron state in one
-transaction. Verify both controls:
+The call is repeatable. It verifies the UTC Cron timezone, exact sole job, Vault
+secret, bounded `pg_net` TTL, and running worker, then changes the activation
+guard and cron state in one transaction. Verify both controls:
 
 ```sql
 SELECT environment, active, activated_at, deactivated_at, updated_at
@@ -308,20 +371,26 @@ There is no safe need to read the current value.
 For routine rotation:
 
 1. Pick a gap between scheduled wakes and deactivate Supabase Cron.
-2. Generate a new high-entropy value in the approved secret manager.
-3. In one short maintenance window, replace the value in Vercel Production,
+2. Confirm `SELECT count(*) FROM net.http_request_queue;` returns zero. If it
+   does not, investigate the worker; changing Vault does not rewrite a header
+   already queued inside `pg_net`, and operators must not delete queue rows.
+3. Generate a new high-entropy value in the approved secret manager.
+4. In one short maintenance window, replace the value in Vercel Production,
    the GitHub Actions secret, and the existing Vault secret with the stable
    name. Because the endpoint accepts one value, avoid a scheduled GitHub run
    during this three-system update.
-4. Verify only Vault metadata and deployment readiness. Never test by printing
+5. Verify only Vault metadata and deployment readiness. Never test by printing
    or selecting the value.
-5. Use `workflow_dispatch` once and confirm its business run and non-empty
+6. Use `workflow_dispatch` once and confirm its business run and non-empty
    snapshot, then activate Supabase Cron and begin the health checks below.
 
-For emergency revocation, deactivate first, revoke or replace the value in all
-three systems, and keep the scheduler inactive until a manual fallback run and
-business snapshot succeed. Deleting only the Vault copy blocks the primary but
-does not revoke copies used by the endpoint or GitHub fallback.
+For emergency revocation, deactivate first and invalidate the old endpoint
+credential before changing its Vault and GitHub copies. That makes any request
+already queued with the old header fail authentication when the worker resumes.
+Keep the scheduler inactive until the request queue is empty and a manual
+fallback run plus business snapshot succeed. Deleting only the Vault copy blocks
+future primary enqueues but does not erase a queued header or revoke copies used
+by the endpoint and GitHub fallback.
 
 ## Four-layer health checks
 
@@ -357,7 +426,9 @@ FROM net.http_request_queue;
    matching reviewed-job history.
 2. **HTTP enqueue/delivery:** the tick created a correlated `pg_net` request and
    received a result. Investigate `enqueue-failed`, `http-pending`,
-   `http-timeout`, or `http-failed`.
+   `http-timeout`, or `http-failed`. The audit stores only bounded metadata;
+   `pg_net` removes a consumed request queue row and retains the private full
+   response only until its configured TTL.
 3. **Endpoint contract:** 401/403, malformed JSON, unknown dispositions,
    `retry-later`, and `stop-for-review` remain distinct. A 2xx response is not
    yet proof of menu completion.
@@ -587,8 +658,9 @@ For a full clock rollback:
    `canteen_menu_scheduler.reconcile_job()`, review its inactive state, repeat
    the full preflight, and explicitly activate.
 
-5. Remove or rotate the Vault secret only after deactivation. If the endpoint
-   and GitHub fallback still operate, keep their credential valid.
+5. Remove or rotate the Vault secret only after deactivation and an empty
+   `net.http_request_queue`. If the endpoint and GitHub fallback still operate,
+   keep their credential valid.
 
 Rollback never rewrites menu runs, snapshots, identities, votes, comments, or
 current-menu projection. It changes only which clock wakes the existing

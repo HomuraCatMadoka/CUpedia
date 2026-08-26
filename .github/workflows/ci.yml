@@ -194,7 +194,7 @@ jobs:
             --fail-on none \
             --output-format json \
             | tee "$RUNNER_TEMP/supabase-scheduler-advisors.json"
-          jq -e 'all(.[];
+          jq -e '.results | all(.[];
             (.name == "function_search_path_mutable" and
              .metadata.name == "prevent_campus_bus_arrival_observation_mutation") or
             (.name == "extension_in_public" and .metadata.name == "pg_trgm")

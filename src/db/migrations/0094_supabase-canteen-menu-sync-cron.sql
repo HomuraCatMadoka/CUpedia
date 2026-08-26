@@ -304,6 +304,24 @@ BEGIN
   WHERE request_id = NEW.id;
 
   RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  -- pg_net performs this insert in its background worker. Classifier and audit
+  -- errors must not reject that insert when an unexpected response shape or a
+  -- local audit constraint changes. Keep a bounded failure marker when possible
+  -- and otherwise leave the response for pg_net's own TTL cleanup.
+  BEGIN
+    UPDATE canteen_menu_scheduler.delivery_audit
+    SET http_status = NULL,
+        delivery_error = 'transport-error',
+        endpoint_disposition = NULL,
+        business_code = NULL,
+        completed_at = COALESCE(NEW.created, clock_timestamp())
+    WHERE request_id = NEW.id;
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+
+  RETURN NEW;
 END
 $function$;
 --> statement-breakpoint
@@ -654,6 +672,7 @@ DECLARE
   reviewed_job_id bigint;
   named_job_count integer;
   secret_count integer;
+  pg_net_ttl interval;
 BEGIN
   IF current_user <> 'postgres' THEN
     RAISE EXCEPTION USING
@@ -698,6 +717,36 @@ BEGIN
       MESSAGE = 'CANTEEN_MENU_SYNC_VAULT_SECRET_MISSING',
       ERRCODE = 'P0001';
   END IF;
+
+  BEGIN
+    pg_net_ttl := NULLIF(current_setting('pg_net.ttl', true), '')::interval;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE EXCEPTION USING
+      MESSAGE = 'CANTEEN_MENU_SYNC_PG_NET_TTL_INVALID',
+      ERRCODE = 'P0001';
+  END;
+
+  IF pg_net_ttl IS NULL
+    OR pg_net_ttl <= interval '0 seconds'
+    OR pg_net_ttl > interval '6 hours' THEN
+    RAISE EXCEPTION USING
+      MESSAGE = 'CANTEEN_MENU_SYNC_PG_NET_TTL_INVALID',
+      ERRCODE = 'P0001';
+  END IF;
+
+  IF to_regprocedure('net.check_worker_is_up()') IS NULL THEN
+    RAISE EXCEPTION USING
+      MESSAGE = 'CANTEEN_MENU_SYNC_PG_NET_WORKER_UNAVAILABLE',
+      ERRCODE = 'P0001';
+  END IF;
+
+  BEGIN
+    EXECUTE 'SELECT net.check_worker_is_up()';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE EXCEPTION USING
+      MESSAGE = 'CANTEEN_MENU_SYNC_PG_NET_WORKER_UNAVAILABLE',
+      ERRCODE = 'P0001';
+  END;
 
   UPDATE canteen_menu_scheduler.activation
   SET environment = 'production',
@@ -1162,6 +1211,9 @@ $client_roles$;
 
 DO $supabase_scheduler$
 BEGIN
+  -- Supabase owns pg_net's schema and table ACLs and restores its platform
+  -- grants when the extension is installed. The runbook therefore makes
+  -- keeping `net` outside the Data API exposed-schema list an activation gate.
   IF to_regclass('net._http_response') IS NOT NULL THEN
     EXECUTE
       'CREATE OR REPLACE TRIGGER canteen_menu_scheduler_capture_response '

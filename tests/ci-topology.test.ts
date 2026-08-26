@@ -196,6 +196,7 @@ describe("tiered CI topology (#670)", () => {
     expect(advisors.run).toContain("supabase db advisors");
     expect(advisors.run).toContain("--type all");
     expect(advisors.run).toContain("--level warn");
+    expect(advisors.run).toContain(".results | all(.[];");
     expect(advisors.run).toContain("function_search_path_mutable");
     expect(advisors.run).toContain("extension_in_public");
   });
