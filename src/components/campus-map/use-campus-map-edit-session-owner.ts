@@ -78,13 +78,14 @@ export function useCampusMapEditSessionOwner({
   driver: CampusMapSceneDriver;
   dispatch(intent: CampusMapDriverIntent): void;
 }) {
-  const { ensureContributorSetup } = useContributorSetup();
+  const { requestContributorSetup } = useContributorSetup();
   const [session, setSession] = useState<CampusMapEditSession | null>(null);
   const sessionRef = useRef<CampusMapEditSession | null>(null);
   const dispatcherRef = useRef<(event: CampusMapEditEvent) => void>(() => {});
   const restoredRef = useRef(false);
   const editLoadTokenRef = useRef(0);
   const rateLimitTimerRef = useRef<number | null>(null);
+  const mountedRef = useRef(false);
   const [announcement, setAnnouncement] = useState("");
   const [restoreNotice, setRestoreNotice] = useState("");
 
@@ -192,14 +193,29 @@ export function useCampusMapEditSessionOwner({
         applyEvent(event);
         return;
       }
-      void ensureContributorSetup({
+      const requestedSession = sessionRef.current;
+      void requestContributorSetup({
         recheck: event.type === "CONTRIBUTOR_SETUP_COMPLETED",
-      }).then((complete) => {
-        if (complete) applyEvent(event);
+      }).then((outcome) => {
+        if (
+          !mountedRef.current ||
+          sessionRef.current !== requestedSession ||
+          outcome === "cancelled"
+        ) {
+          return;
+        }
+        applyEvent(event);
       });
     },
-    [applyEvent, ensureContributorSetup],
+    [applyEvent, requestContributorSetup],
   );
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     dispatcherRef.current = dispatchEvent;

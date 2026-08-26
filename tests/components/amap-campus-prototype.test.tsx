@@ -12,8 +12,8 @@ import {
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockEnsureContributorSetup } = vi.hoisted(() => ({
-  mockEnsureContributorSetup: vi.fn(),
+const { mockRequestContributorSetup } = vi.hoisted(() => ({
+  mockRequestContributorSetup: vi.fn(),
 }));
 
 vi.mock("next/script", () => ({
@@ -21,7 +21,8 @@ vi.mock("next/script", () => ({
 }));
 vi.mock("@/components/auth/contributor-setup-provider", () => ({
   useContributorSetup: () => ({
-    ensureContributorSetup: mockEnsureContributorSetup,
+    ensureContributorSetup: vi.fn(async () => true),
+    requestContributorSetup: mockRequestContributorSetup,
   }),
 }));
 vi.mock("@/lib/campus-map/edit-actions", () => ({
@@ -71,8 +72,9 @@ import type {
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  mockEnsureContributorSetup.mockReset();
-  mockEnsureContributorSetup.mockResolvedValue(true);
+  vi.mocked(publishCampusMapEdit).mockReset();
+  mockRequestContributorSetup.mockReset();
+  mockRequestContributorSetup.mockResolvedValue("complete");
   window.sessionStorage.clear();
   window.history.replaceState(null, "", "/prototype/campus-map");
   vi.stubGlobal(
@@ -118,7 +120,7 @@ async function selectScienceCentre() {
 
 describe("AmapCampusPrototype", () => {
   it("keeps the draft and does not publish when contributor setup is cancelled", async () => {
-    mockEnsureContributorSetup.mockResolvedValueOnce(false);
+    mockRequestContributorSetup.mockResolvedValueOnce("cancelled");
     render(<AmapCampusPrototype />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
@@ -126,11 +128,60 @@ describe("AmapCampusPrototype", () => {
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
 
-    await waitFor(() => expect(mockEnsureContributorSetup).toHaveBeenCalled());
+    await waitFor(() => expect(mockRequestContributorSetup).toHaveBeenCalled());
     expect(publishCampusMapEdit).not.toHaveBeenCalled();
     expect(screen.getByRole("heading", { name: "添加校内设施" })).toBeTruthy();
     expect(
       (screen.getByRole("radio", { name: "洗手间" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+  });
+
+  it("lets the publisher report expired authentication when setup status is unavailable", async () => {
+    mockRequestContributorSetup.mockResolvedValueOnce("unavailable");
+    vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
+      status: "authentication-required",
+      code: "authentication-required",
+    });
+    render(<AmapCampusPrototype />);
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
+
+    expect(
+      await screen.findByText("登录后会回到这份草稿，但不会自动发布。"),
+    ).toBeTruthy();
+    expect(publishCampusMapEdit).toHaveBeenCalledOnce();
+  });
+
+  it("does not apply a completed setup check to a replacement edit session", async () => {
+    let resolveSetup!: () => void;
+    mockRequestContributorSetup.mockReturnValueOnce(
+      new Promise<"complete">((resolve) => {
+        resolveSetup = () => resolve("complete");
+      }),
+    );
+    render(<AmapCampusPrototype />);
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
+    await waitFor(() => expect(mockRequestContributorSetup).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
+    fireEvent.click(await screen.findByRole("button", { name: "放弃草稿" }));
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("radio", { name: "打印服务" }));
+
+    await act(async () => resolveSetup());
+
+    expect(publishCampusMapEdit).not.toHaveBeenCalled();
+    expect(
+      (screen.getByRole("radio", { name: "打印服务" }) as HTMLInputElement)
         .checked,
     ).toBe(true);
   });

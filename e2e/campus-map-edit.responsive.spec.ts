@@ -177,7 +177,11 @@ test("Campus Map and its AMap config require authentication", async ({
   const draftUrl = page.url();
 
   await page.context().clearCookies();
-  await page.goto(draftUrl);
+  await page.getByRole("button", { name: "发布设施" }).click();
+  await expect(
+    page.getByText("登录后会回到这份草稿，但不会自动发布。"),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "前往登录" }).click();
   await expect(page).toHaveURL(/\/login\?/);
   await page.getByLabel("CUHK 邮箱").fill("user@test.com");
   await page.getByLabel("密码").fill("password123");

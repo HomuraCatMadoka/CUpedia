@@ -16,10 +16,16 @@ import type { MissingContributorSetup } from "@/lib/contributor-account";
 
 type SetupContext = {
   ensureContributorSetup: (options?: { recheck?: boolean }) => Promise<boolean>;
+  requestContributorSetup: (options?: {
+    recheck?: boolean;
+  }) => Promise<ContributorSetupOutcome>;
 };
+
+export type ContributorSetupOutcome = "complete" | "cancelled" | "unavailable";
 
 const ContributorSetupContext = createContext<SetupContext>({
   ensureContributorSetup: async () => true,
+  requestContributorSetup: async () => "complete",
 });
 
 export function ContributorSetupProvider({
@@ -33,21 +39,21 @@ export function ContributorSetupProvider({
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const pending = useRef<Array<(complete: boolean) => void>>([]);
+  const pending = useRef<Array<(outcome: ContributorSetupOutcome) => void>>([]);
   const knownComplete = useRef(false);
   const statusCheck = useRef<Promise<{
     complete: boolean;
     needs: MissingContributorSetup;
   }> | null>(null);
 
-  const finishPending = useCallback((complete: boolean) => {
-    for (const resolve of pending.current.splice(0)) resolve(complete);
+  const finishPending = useCallback((outcome: ContributorSetupOutcome) => {
+    for (const resolve of pending.current.splice(0)) resolve(outcome);
   }, []);
 
-  const ensureContributorSetup = useCallback(
+  const requestContributorSetup = useCallback(
     async (options?: { recheck?: boolean }) => {
       if (options?.recheck) knownComplete.current = false;
-      if (knownComplete.current) return true;
+      if (knownComplete.current) return "complete" as const;
       try {
         if (!statusCheck.current) {
           statusCheck.current = (async () => {
@@ -62,19 +68,27 @@ export function ContributorSetupProvider({
           });
         }
         const result = await statusCheck.current;
-        if (knownComplete.current) return true;
+        if (knownComplete.current) return "complete" as const;
         if (result.complete) {
           knownComplete.current = true;
-          return true;
+          return "complete" as const;
         }
         setNeeds(result.needs);
         setError("");
-        return new Promise<boolean>((resolve) => pending.current.push(resolve));
+        return new Promise<ContributorSetupOutcome>((resolve) =>
+          pending.current.push(resolve),
+        );
       } catch {
-        return false;
+        return "unavailable" as const;
       }
     },
     [],
+  );
+
+  const ensureContributorSetup = useCallback(
+    async (options?: { recheck?: boolean }) =>
+      (await requestContributorSetup(options)) === "complete",
+    [requestContributorSetup],
   );
 
   const saveSetup = async () => {
@@ -105,7 +119,7 @@ export function ContributorSetupProvider({
       setNickname("");
       setPassword("");
       setConfirmation("");
-      finishPending(true);
+      finishPending("complete");
     } catch {
       setError("保存失败，请重试");
     } finally {
@@ -123,7 +137,9 @@ export function ContributorSetupProvider({
   };
 
   return (
-    <ContributorSetupContext.Provider value={{ ensureContributorSetup }}>
+    <ContributorSetupContext.Provider
+      value={{ ensureContributorSetup, requestContributorSetup }}
+    >
       {children}
       {needs && (
         <div
@@ -198,7 +214,7 @@ export function ContributorSetupProvider({
                 variant="ghost"
                 onClick={() => {
                   setNeeds(null);
-                  finishPending(false);
+                  finishPending("cancelled");
                 }}
               >
                 稍后再说
