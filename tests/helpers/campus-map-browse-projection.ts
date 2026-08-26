@@ -34,7 +34,8 @@ export function createAmapPrototypeBrowseFixture(): CampusMapBrowseProjection {
             audience,
             credentialRequirement:
               audience === "public" ? "none" : "campus-card",
-            schedule: { kind: "unknown" },
+            schedule:
+              audience === "public" ? { kind: "always" } : { kind: "unknown" },
             reservationRequirement: "none",
             temporaryStatus: "normal",
           },

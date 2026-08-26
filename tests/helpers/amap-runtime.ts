@@ -196,6 +196,10 @@ export function installAmapRuntime(options?: {
       data: readonly Record<string, unknown>[],
       private readonly clusterOptions: {
         renderMarker?: (input: { marker: MockMarker }) => void;
+        renderClusterMarker?: (input: {
+          count: number;
+          marker: MockMarker;
+        }) => void;
       },
     ) {
       if (options?.markerClusterStatus === "constructor-error") {
@@ -221,6 +225,12 @@ export function installAmapRuntime(options?: {
 
     emit(event: string, payload: Record<string, unknown>) {
       for (const handler of this.handlers.get(event) ?? []) handler(payload);
+    }
+
+    renderCluster(count = this.data.length) {
+      const marker = new MockMarker();
+      this.clusterOptions.renderClusterMarker?.({ count, marker });
+      return marker;
     }
 
     setData(data: readonly Record<string, unknown>[]) {

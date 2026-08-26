@@ -244,6 +244,14 @@ function publishedOutdoorProjection(placeId: string) {
 }
 
 describe("AmapCampusPrototype", () => {
+  it("uses the formal edit schema labels for browse categories", () => {
+    render(<AmapCampusPrototype />);
+
+    expect(screen.getByRole("button", { name: "饮水点" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "打印服务" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "打印机" })).toBeNull();
+  });
+
   it("searches formal Current facts and lists same-type Places separately in the Building card", async () => {
     render(
       <AmapCampusPrototype
@@ -352,8 +360,8 @@ describe("AmapCampusPrototype", () => {
       ).not.toBeNull(),
     );
     expect(screen.getByText("校内独立地点 · 新发布饮水点")).not.toBeNull();
-    expect(screen.getByText("室外位置 · 公众可达")).not.toBeNull();
-    expect(screen.queryByText("建筑内 · 公众可达")).toBeNull();
+    expect(screen.getByText("室外位置 · 开放条件未完全核实")).not.toBeNull();
+    expect(screen.queryByText(/公众可达/)).toBeNull();
     expect(window.location.search).toContain("scene=search");
   });
 
@@ -925,7 +933,7 @@ describe("AmapCampusPrototype", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个洗手间地点",
+        name: "2 栋建筑 · 2 个洗手间",
       }),
     ).not.toBeNull();
     expect(window.location.search).toContain("scene=category&id=toilet");
@@ -944,7 +952,7 @@ describe("AmapCampusPrototype", () => {
     });
     expect(
       await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个洗手间地点",
+        name: "2 栋建筑 · 2 个洗手间",
       }),
     ).not.toBeNull();
   });
@@ -954,16 +962,16 @@ describe("AmapCampusPrototype", () => {
     const replace = vi.spyOn(window.history, "replaceState");
     render(<AmapCampusPrototype initialSearch="?category=toilet&panel=peek" />);
     await screen.findByRole("heading", {
-      name: "2 栋建筑 · 2 个洗手间地点",
+      name: "2 栋建筑 · 2 个洗手间",
     });
     const pushesBefore = push.mock.calls.length;
     const replacesBefore = replace.mock.calls.length;
 
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
     expect(
       await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水机地点",
+        name: "2 栋建筑 · 2 个饮水点",
       }),
     ).not.toBeNull();
     expect(push.mock.calls.length).toBe(pushesBefore);
@@ -1122,11 +1130,11 @@ describe("AmapCampusPrototype", () => {
   it("opens a browsable result sheet when a facility category is selected", async () => {
     render(<AmapCampusPrototype />);
 
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
     expect(
       await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水机地点",
+        name: "2 栋建筑 · 2 个饮水点",
       }),
     ).not.toBeNull();
     expect(
@@ -1139,7 +1147,7 @@ describe("AmapCampusPrototype", () => {
 
   it("restores navigation from browser history state", async () => {
     render(<AmapCampusPrototype />);
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
     fireEvent.click(screen.getByRole("button", { name: /科学馆 · 1\/F/ }));
     const facilityHistory = window.history.state;
 
@@ -1150,7 +1158,7 @@ describe("AmapCampusPrototype", () => {
       );
     });
     await screen.findByRole("heading", { name: "饮水机" });
-    fireEvent.click(screen.getByRole("button", { name: "返回饮水机列表" }));
+    fireEvent.click(screen.getByRole("button", { name: "返回饮水点列表" }));
     await act(async () => {
       window.dispatchEvent(
         new PopStateEvent("popstate", { state: window.history.state }),
@@ -1158,7 +1166,7 @@ describe("AmapCampusPrototype", () => {
     });
     expect(
       await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水机地点",
+        name: "2 栋建筑 · 2 个饮水点",
       }),
     ).not.toBeNull();
   });

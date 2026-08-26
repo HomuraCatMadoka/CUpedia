@@ -826,7 +826,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     );
     const push = vi.spyOn(window.history, "pushState");
     await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "打印机" }));
+    fireEvent.click(screen.getByRole("button", { name: "打印服务" }));
     expect(await screen.findByText("当前没有已收录地点")).not.toBeNull();
     push.mockClear();
 
@@ -1244,9 +1244,9 @@ describe("AmapCampusPrototype runtime effects", () => {
 
   it("fits cluster members without selecting the first facility", async () => {
     const { runtime, map } = await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
     await screen.findByRole("heading", {
-      name: "2 栋建筑 · 2 个饮水机地点",
+      name: "2 栋建筑 · 2 个饮水点",
     });
     await waitFor(() => {
       expect(
@@ -1271,19 +1271,60 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(map.setBounds).toHaveBeenCalledTimes(1);
     expect(
       screen.getByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水机地点",
+        name: "2 栋建筑 · 2 个饮水点",
       }),
     ).not.toBeNull();
     expect(window.location.search).not.toContain("scene=facility");
+  });
+
+  it("counts stable Places rather than Building anchors in cluster data", async () => {
+    const scienceWater = originalFacilityFixtures.find(
+      (facility) =>
+        facility.buildingId === "science-centre" &&
+        facility.category === "water",
+    )!;
+    mutableFacilityFixtures.push({
+      ...scienceWater,
+      id: "71000000-0000-4000-8000-000000000006",
+      name: "东翼饮水机",
+    });
+
+    const { runtime } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    await screen.findByRole("heading", {
+      name: "2 栋建筑 · 3 个饮水点",
+    });
+
+    const cluster = await waitFor(() => {
+      const match = runtime.clusters.findLast(
+        (candidate) => candidate.data.length === 3,
+      );
+      expect(match).toBeDefined();
+      return match!;
+    });
+    const clusterMarker = cluster.renderCluster();
+    expect(clusterMarker.content).toContain('aria-label="3 个饮水点"');
+    expect(clusterMarker.content).toContain(">3</button>");
+
+    const sciencePresence = cluster.data.filter(
+      (item) => item.markerKey === "building:science-centre:water",
+    );
+    expect(sciencePresence).toHaveLength(2);
+    await act(async () => {
+      cluster.emit("click", { clusterData: sciencePresence });
+    });
+    expect(
+      await screen.findByRole("heading", { name: "科学馆" }),
+    ).not.toBeNull();
   });
 
   it("projects the University Library water fixture at the library building anchor", async () => {
     const { runtime } = await renderWithRuntime({
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
     await screen.findByRole("heading", {
-      name: "2 栋建筑 · 2 个饮水机地点",
+      name: "2 栋建筑 · 2 个饮水点",
     });
     await waitFor(() => {
       expect(
@@ -1311,7 +1352,7 @@ describe("AmapCampusPrototype runtime effects", () => {
   it("keeps one facility selection when a marker emits a companion map click", async () => {
     const push = vi.spyOn(window.history, "pushState");
     const { runtime, map } = await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
     await waitFor(() => {
       expect(
         runtime.markers.some(
@@ -1350,11 +1391,11 @@ describe("AmapCampusPrototype runtime effects", () => {
   it("keeps category results honest while the marker plugin is pending", async () => {
     await renderWithRuntime({ markerClusterStatus: "pending" });
 
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
     expect(
       await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水机地点",
+        name: "2 栋建筑 · 2 个饮水点",
       }),
     ).not.toBeNull();
     expect(screen.getByRole("status").textContent).toContain(
@@ -1365,11 +1406,11 @@ describe("AmapCampusPrototype runtime effects", () => {
   it("keeps the result list usable when the marker plugin fails", async () => {
     await renderWithRuntime({ markerClusterStatus: "plugin-error" });
 
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
     expect(
       await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水机地点",
+        name: "2 栋建筑 · 2 个饮水点",
       }),
     ).not.toBeNull();
     expect((await screen.findByRole("status")).textContent).toContain(
@@ -1380,11 +1421,11 @@ describe("AmapCampusPrototype runtime effects", () => {
   it("keeps the result list usable when MarkerCluster construction fails", async () => {
     await renderWithRuntime({ markerClusterStatus: "constructor-error" });
 
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
     expect(
       await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水机地点",
+        name: "2 栋建筑 · 2 个饮水点",
       }),
     ).not.toBeNull();
     expect((await screen.findByRole("status")).textContent).toContain(
@@ -1400,11 +1441,11 @@ describe("AmapCampusPrototype runtime effects", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "洗手间" }));
     await screen.findByRole("heading", {
-      name: "2 栋建筑 · 2 个洗手间地点",
+      name: "2 栋建筑 · 2 个洗手间",
     });
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
     await screen.findByRole("heading", {
-      name: "2 栋建筑 · 2 个饮水机地点",
+      name: "2 栋建筑 · 2 个饮水点",
     });
 
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();

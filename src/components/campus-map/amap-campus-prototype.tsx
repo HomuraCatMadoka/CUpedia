@@ -75,6 +75,7 @@ import {
   type CampusMapBrowseProjection,
 } from "@/lib/campus-map/browse-projection";
 import { CampusMapBrowseProjectionStore } from "@/lib/campus-map/browse-projection-store";
+import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
 import {
   CampusMapSceneDriver,
   type CampusMapDriverCameraCommand,
@@ -115,13 +116,14 @@ interface AMapEvent {
   lnglat: AMapLngLat;
   clusterData?: ReadonlyArray<{
     lnglat: AMapLngLat | Position;
+    markerKey?: string;
   }>;
   originEvent?: { target?: Element | null };
 }
 
 interface AMapMarker {
   on(event: string, handler: () => void): void;
-  getExtData(): { markerKey?: string } | undefined;
+  getExtData(): { markerKey?: string; facilityId?: string } | undefined;
   setContent(content: string): void;
   setzIndex(zIndex: number): void;
 }
@@ -202,28 +204,25 @@ declare global {
   }
 }
 
-const CATEGORIES: ReadonlyArray<{
-  id: Amenity;
-  label: string;
-  icon: typeof ToiletIcon;
-  color: string;
-}> = [
-  { id: "toilet", label: "洗手间", icon: ToiletIcon, color: "#1b6f55" },
-  { id: "water", label: "饮水机", icon: DropletsIcon, color: "#227a9b" },
-  { id: "printer", label: "打印机", icon: PrinterIcon, color: "#675aa7" },
+const CATEGORY_PRESENTATION = {
+  toilet: { icon: ToiletIcon, color: "#1b6f55" },
+  water: { icon: DropletsIcon, color: "#227a9b" },
+  printer: { icon: PrinterIcon, color: "#675aa7" },
+  "common-space": { icon: UsersRoundIcon, color: "#9a5b32" },
+  classroom: { icon: SchoolIcon, color: "#a33f52" },
+} satisfies Record<
+  Amenity,
   {
-    id: "common-space",
-    label: "公共空间",
-    icon: UsersRoundIcon,
-    color: "#9a5b32",
-  },
-  {
-    id: "classroom",
-    label: "课室",
-    icon: SchoolIcon,
-    color: "#a33f52",
-  },
-];
+    icon: typeof ToiletIcon;
+    color: string;
+  }
+>;
+
+const CATEGORIES = CAMPUS_MAP_EDIT_SCHEMA.presets.map((preset) => ({
+  id: preset.pinType,
+  label: preset.label,
+  ...CATEGORY_PRESENTATION[preset.pinType],
+}));
 
 function sceneCatalogFor(
   projection: CampusMapBrowseProjection,
@@ -496,16 +495,35 @@ function accessLabel(facility: Facility) {
   if (facility.access.temporaryStatus === "temporarily-closed") {
     return "暂时停用";
   }
+  if (
+    facility.access.audience === "unknown" ||
+    facility.access.credentialRequirement === "unknown" ||
+    facility.access.schedule.kind === "unknown" ||
+    facility.access.reservationRequirement === "unknown" ||
+    facility.access.temporaryStatus === "unknown"
+  ) {
+    return "开放条件未完全核实";
+  }
+  const conditions: string[] = [];
+  if (facility.access.audience === "cuhk-member") {
+    conditions.push("限中大成员");
+  } else if (facility.access.audience === "library-member") {
+    conditions.push("限图书馆成员");
+  }
   if (facility.access.credentialRequirement === "campus-card") {
-    return "需校园卡";
+    conditions.push("需校园卡");
+  } else if (facility.access.credentialRequirement === "library-card") {
+    conditions.push("需图书证");
+  } else if (facility.access.credentialRequirement === "other") {
+    conditions.push("需其他凭证");
   }
-  if (facility.access.credentialRequirement === "library-card") {
-    return "需图书证";
+  if (facility.access.schedule.kind === "weekly") {
+    conditions.push("按时段开放");
   }
-  if (facility.access.audience === "public") return "公众可达";
-  if (facility.access.audience === "cuhk-member") return "需 CUHK 身份";
-  if (facility.access.audience === "library-member") return "限图书馆成员";
-  return "开放条件未知";
+  if (facility.access.reservationRequirement === "required") {
+    conditions.push("需要预约");
+  }
+  return conditions.length > 0 ? conditions.join(" · ") : "公众可达";
 }
 
 function browseMarkerKey(marker: CampusMapBrowseMarker) {
@@ -557,12 +575,12 @@ function browseMarkerView(
     name:
       markerPlaces.length === 1
         ? markerPlaces[0]!.name
-        : `${markerPlaces.length} 个${style.label}地点`,
+        : `${markerPlaces.length} 个${style.label}`,
     buildingName: building.name,
     floorLabel: locationLabel,
     category: marker.pinType,
     color: style.color,
-    markerLabel: `${building.name}有 ${markerPlaces.length} 个${style.label}地点，建筑位置参考`,
+    markerLabel: `${building.name}有 ${markerPlaces.length} 个${style.label}，建筑位置参考`,
   };
 }
 
@@ -1771,22 +1789,15 @@ export function AmapCampusPrototype({
           ? amapPositionsRef.current[`place:${marker.placeId}`]
           : amapPositionsRef.current[`building:${marker.buildingId}`];
       const markerKey = browseMarkerKey(marker);
-      const facilityId =
-        marker.kind === "place"
-          ? marker.placeId
-          : marker.placeIds.length === 1
-            ? marker.placeIds[0]
-            : undefined;
-      return position
-        ? [
-            {
-              lnglat: position,
-              markerKey,
-              facilityId,
-              extData: { markerKey, facilityId },
-            },
-          ]
-        : [];
+      if (!position) return [];
+      const placeIds =
+        marker.kind === "place" ? [marker.placeId] : marker.placeIds;
+      return placeIds.map((placeId) => ({
+        lnglat: position,
+        markerKey,
+        facilityId: placeId,
+        extData: { markerKey, facilityId: placeId },
+      }));
     });
 
     if (
@@ -1865,12 +1876,29 @@ export function AmapCampusPrototype({
             marker: AMapMarker;
           }) => {
             marker.setContent(
-              `<button type="button" data-cupedia-marker="true" aria-label="${count} 个${style.label}地图目标" style="display:grid;min-width:46px;height:46px;place-items:center;border:3px solid white;border-radius:999px;background:${style.color};color:white;font:700 14px system-ui;box-shadow:0 3px 12px rgba(0,0,0,.22);padding:0 12px">${count}</button>`,
+              `<button type="button" data-cupedia-marker="true" aria-label="${count} 个${style.label}" style="display:grid;min-width:46px;height:46px;place-items:center;border:3px solid white;border-radius:999px;background:${style.color};color:white;font:700 14px system-ui;box-shadow:0 3px 12px rgba(0,0,0,.22);padding:0 12px">${count}</button>`,
             );
           },
         });
         cluster.on("click", (event) => {
           interactionAdapterRef.current.dispatchProviderTarget(() => {
+            const markerKeys = new Set(
+              event.clusterData
+                ?.map(({ markerKey }) => markerKey)
+                .filter((markerKey): markerKey is string => Boolean(markerKey)),
+            );
+            if (markerKeys.size === 1) {
+              const [markerKey] = markerKeys;
+              const projectedMarker = markerByKey.get(markerKey!);
+              if (projectedMarker?.kind === "building-presence") {
+                const building = buildingsRef.current.find(
+                  (candidate) =>
+                    candidate.buildingId === projectedMarker.buildingId,
+                );
+                if (building) selectBuilding(building);
+                return;
+              }
+            }
             const positions = event.clusterData?.map(({ lnglat }) =>
               "lng" in lnglat ? ([lnglat.lng, lnglat.lat] as Position) : lnglat,
             );
@@ -2407,7 +2435,7 @@ export function AmapCampusPrototype({
                   className="text-xl font-semibold"
                 >
                   {categoryBuildingCount} 栋建筑 · {categoryFacilities.length}{" "}
-                  个{activeCategoryStyle.label}地点
+                  个{activeCategoryStyle.label}
                 </h2>
               </div>
               <button
