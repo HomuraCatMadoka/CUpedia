@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PROTOTYPE — CUSIS 临时连接流程</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f6f2;
+        --paper: #ffffff;
+        --ink: #1f2924;
+        --muted: #637068;
+        --line: #dce2dc;
+        --accent: #176b4d;
+        --accent-soft: #e4f1eb;
+        --warn: #9a5b13;
+        --warn-soft: #fff1d9;
+        --danger: #9f3434;
+        --danger-soft: #fdeaea;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.55 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+      main {
+        width: min(1120px, calc(100% - 32px));
+        margin: 36px auto 72px;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+      h1 {
+        margin-bottom: 8px;
+        font-size: clamp(28px, 4vw, 42px);
+        line-height: 1.12;
+      }
+      h2 {
+        font-size: 19px;
+      }
+      button,
+      select,
+      input {
+        font: inherit;
+      }
+      button {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--paper);
+        color: var(--ink);
+        padding: 9px 12px;
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: var(--accent);
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+      }
+      code {
+        background: #edf0ed;
+        border-radius: 5px;
+        padding: 1px 5px;
+      }
+      .eyebrow {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .lede {
+        max-width: 780px;
+        color: var(--muted);
+        font-size: 17px;
+      }
+      .question {
+        margin: 24px 0;
+        border-left: 4px solid var(--accent);
+        background: var(--accent-soft);
+        padding: 16px 18px;
+      }
+      .question strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 18px;
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--paper);
+        padding: 20px;
+      }
+      .state-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .badge {
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        padding: 4px 10px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .notice {
+        margin: 14px 0 18px;
+        border-radius: 10px;
+        padding: 11px 13px;
+        background: #f0f2ef;
+        color: var(--muted);
+      }
+      .notice.warn {
+        background: var(--warn-soft);
+        color: var(--warn);
+      }
+      .notice.error {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+      dl {
+        display: grid;
+        grid-template-columns: 150px 1fr;
+        margin: 0;
+      }
+      dt,
+      dd {
+        border-top: 1px solid var(--line);
+        padding: 9px 0;
+      }
+      dt {
+        color: var(--muted);
+      }
+      dd {
+        margin: 0;
+        font-weight: 650;
+      }
+      .datasets {
+        display: grid;
+        gap: 8px;
+      }
+      .dataset {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .filters {
+        display: grid;
+        gap: 8px;
+      }
+      label {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .section {
+        margin-top: 18px;
+      }
+      .tabs {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      .tabs button[aria-selected="true"] {
+        background: var(--ink);
+        color: white;
+        border-color: var(--ink);
+      }
+      .walkthrough {
+        min-height: 210px;
+      }
+      .steps {
+        display: grid;
+        gap: 9px;
+        counter-reset: step;
+      }
+      .step {
+        display: grid;
+        grid-template-columns: 28px 1fr auto;
+        align-items: center;
+        gap: 10px;
+      }
+      .step::before {
+        counter-increment: step;
+        content: counter(step);
+        display: grid;
+        place-items: center;
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        background: #edf0ed;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .step.done {
+        color: var(--muted);
+        text-decoration: line-through;
+      }
+      .architecture {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        align-items: stretch;
+      }
+      .architecture div {
+        display: grid;
+        place-items: center;
+        min-height: 74px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px;
+        text-align: center;
+      }
+      .architecture div:not(:last-child)::after {
+        content: "→";
+        position: absolute;
+        transform: translateX(calc(50% + 54px));
+        color: var(--accent);
+        font-weight: 900;
+      }
+      .footnote {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      @media (max-width: 760px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        dl {
+          grid-template-columns: 118px 1fr;
+        }
+        .architecture {
+          grid-template-columns: 1fr;
+        }
+        .architecture div::after {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">PROTOTYPE · 可丢弃的交互实验</div>
+      <h1>CUSIS 临时连接</h1>
+      <p class="lede">
+        按按钮体验一次完整同步：点击后在小窗口登录
+        CUSIS、读取课程、筛选要导入的内容，再交给 CUpedia
+        分析。此页面不连接真实账号，也不会保存数据。
+      </p>
+
+      <div class="question">
+        <strong>这个原型要回答的问题</strong>
+        在不安装浏览器插件的前提下，“CUpedia route +
+        临时浏览器小窗口”的登录、同步、筛选和确认流程，是否足够清楚和可恢复？
+      </div>
+
+      <section class="card section">
+        <h2>先理解这条连接</h2>
+        <div class="architecture">
+          <div>CUpedia<br />同步页面</div>
+          <div>
+            临时浏览器<br /><small>本机 Playwright / Vercel Sandbox</small>
+          </div>
+          <div>CUSIS<br /><small>你亲自登录</small></div>
+          <div>课程快照<br /><small>不含密码和 cookie</small></div>
+        </div>
+        <p class="footnote" style="margin: 12px 0 0">
+          普通网页不能读取直接打开的 CUSIS
+          窗口。临时浏览器持有登录状态，在窗口内读取页面并只把课程 JSON 交给
+          CUpedia；关闭后 cookie 一起销毁。
+        </p>
+      </section>
+
+      <div class="grid section">
+        <section class="card">
+          <div class="state-title">
+            <h2 style="margin: 0">当前状态</h2>
+            <span class="badge" id="phase"></span>
+          </div>
+          <div class="notice" id="notice"></div>
+          <dl>
+            <dt>运行位置</dt>
+            <dd id="runtime"></dd>
+            <dt>临时浏览器</dt>
+            <dd id="helper"></dd>
+            <dt>CUSIS 登录</dt>
+            <dd id="login"></dd>
+            <dt>读取进度</dt>
+            <dd><div class="datasets" id="datasets"></div></dd>
+            <dt>筛选结果</dt>
+            <dd id="selection"></dd>
+            <dt>保存状态</dt>
+            <dd id="saved"></dd>
+          </dl>
+        </section>
+
+        <section class="card">
+          <h2>导入范围</h2>
+          <div class="filters">
+            <label
+              ><input type="checkbox" data-filter="completed" checked />
+              以前修过的课程</label
+            >
+            <label
+              ><input type="checkbox" data-filter="current" checked />
+              本学期课程</label
+            >
+            <label
+              ><input type="checkbox" data-filter="cart" checked /> Shopping
+              Cart</label
+            >
+            <label
+              ><input type="checkbox" data-filter="requirements" checked />
+              学业要求</label
+            >
+          </div>
+          <p class="footnote" style="margin-top: 14px">
+            筛选发生在读取完成之后。先在本机预览，最后一步才保存到 CUpedia。
+          </p>
+        </section>
+      </div>
+
+      <section class="card section">
+        <h2>自由操作</h2>
+        <div class="actions" id="free-actions"></div>
+      </section>
+
+      <section class="card section walkthrough">
+        <h2>跟着情景走一遍</h2>
+        <div class="tabs" id="scenario-tabs"></div>
+        <div id="scenario-copy"></div>
+        <div class="steps" id="scenario-steps"></div>
+      </section>
+    </main>
+
+    <script>
+      // Portable state machine: no DOM access and no side effects.
+      const SyncFlow = (() => {
+        const emptyDatasets = () => ({
+          current: "未读取",
+          cart: "未读取",
+          completed: "未读取",
+          requirements: "未读取",
+        });
+        const initial = () => ({
+          phase: "准备开始",
+          runtime: "本机 Playwright",
+          helper: "未启动",
+          login: "未登录",
+          session: "无",
+          datasets: emptyDatasets(),
+          filters: {
+            completed: true,
+            current: true,
+            cart: true,
+            requirements: true,
+          },
+          selectedCount: 0,
+          saved: false,
+          notice: "点击连接后会打开一扇临时 CUSIS 浏览器小窗口。",
+          tone: "normal",
+        });
+
+        const reject = (state, notice) => ({ ...state, notice, tone: "warn" });
+
+        function transition(state, action) {
+          switch (action.type) {
+            case "RESET":
+              return initial();
+            case "USE_PUBLIC_WEB":
+              return {
+                ...initial(),
+                runtime: "直接打开 CUSIS",
+                phase: "无法连接",
+                notice:
+                  "普通 popup 被浏览器隔离，CUpedia 不能读取 cusis.cuhk.edu.hk 的登录状态。线上版本需要 Vercel Sandbox 承载临时浏览器。",
+                tone: "error",
+              };
+            case "START_HELPER":
+              if (state.runtime === "直接打开 CUSIS")
+                return reject(
+                  state,
+                  "直接打开的跨域 popup 不能交出 cookie 或页面内容。",
+                );
+              return {
+                ...state,
+                helper: "已就绪",
+                phase: "等待登录",
+                notice:
+                  "临时浏览器已就绪。现在打开 CUSIS，并由你亲自完成登录和 MFA。",
+                tone: "normal",
+              };
+            case "OPEN_LOGIN":
+              if (state.helper !== "已就绪")
+                return reject(
+                  state,
+                  "请先启动临时浏览器，否则没人能持有 CUSIS 登录状态。",
+                );
+              return {
+                ...state,
+                login: "登录窗口已打开",
+                phase: "等待登录",
+                notice: "请在新窗口登录。密码和 MFA 只交给 CUHK。",
+                tone: "normal",
+              };
+            case "LOGIN_SUCCESS":
+              if (state.login !== "登录窗口已打开")
+                return reject(state, "还没有可确认的登录窗口。");
+              return {
+                ...state,
+                login: "已登录",
+                session: "临时有效",
+                phase: "可以同步",
+                notice: "连接成功。现在可以只读地获取四类数据。",
+                tone: "normal",
+              };
+            case "START_SYNC":
+              if (state.session !== "临时有效")
+                return reject(state, "当前没有有效的 CUSIS 登录，请重新登录。");
+              return {
+                ...state,
+                phase: "正在读取",
+                datasets: {
+                  current: "读取中",
+                  cart: "读取中",
+                  completed: "读取中",
+                  requirements: "读取中",
+                },
+                notice: "正在依次打开四个页面。不要关闭 CUSIS 登录窗口。",
+                tone: "normal",
+              };
+            case "SYNC_SUCCESS":
+              if (state.phase !== "正在读取")
+                return reject(state, "请先开始同步。");
+              return {
+                ...state,
+                phase: "等待筛选",
+                datasets: {
+                  current: "12 门",
+                  cart: "4 门",
+                  completed: "31 门",
+                  requirements: "18 项",
+                },
+                selectedCount: 65,
+                notice: "读取完成。请检查范围，再决定是否保存。",
+                tone: "normal",
+              };
+            case "SYNC_PARTIAL":
+              if (state.phase !== "正在读取")
+                return reject(state, "请先开始同步。");
+              return {
+                ...state,
+                phase: "部分完成",
+                datasets: {
+                  current: "12 门",
+                  cart: "4 门",
+                  completed: "31 门",
+                  requirements: "读取失败",
+                },
+                selectedCount: 47,
+                notice:
+                  "课程已读取，但学业要求页面失败。你可以先导入课程，或重新登录后补读。",
+                tone: "warn",
+              };
+            case "SESSION_EXPIRED":
+              return {
+                ...state,
+                phase: "连接已过期",
+                login: "需要重新登录",
+                session: "已过期",
+                datasets: emptyDatasets(),
+                selectedCount: 0,
+                notice:
+                  "CUSIS session 已过期。重新登录后再读取；旧页面状态不能继续使用。",
+                tone: "error",
+              };
+            case "SET_FILTER": {
+              const filters = { ...state.filters, [action.name]: action.value };
+              const base = {
+                completed: 31,
+                current: 12,
+                cart: 4,
+                requirements: 18,
+              };
+              const count = Object.entries(base).reduce(
+                (sum, [key, value]) =>
+                  sum +
+                  (filters[key] &&
+                  state.datasets[key] !== "读取失败" &&
+                  state.datasets[key] !== "未读取"
+                    ? value
+                    : 0),
+                0,
+              );
+              return {
+                ...state,
+                filters,
+                selectedCount: count,
+                notice:
+                  state.phase === "等待筛选" || state.phase === "部分完成"
+                    ? "筛选已更新，但还没有保存。"
+                    : state.notice,
+                tone: "normal",
+              };
+            }
+            case "IMPORT":
+              if (!["等待筛选", "部分完成"].includes(state.phase))
+                return reject(state, "需要先完成一次读取和预览。");
+              if (state.selectedCount === 0)
+                return reject(state, "当前没有选择任何内容。");
+              return {
+                ...state,
+                phase: "已完成",
+                saved: true,
+                notice: `已把 ${state.selectedCount} 项快照保存给 CUpedia。CUSIS session 没有被保存。`,
+                tone: "normal",
+              };
+            default:
+              return state;
+          }
+        }
+        return { initial, transition };
+      })();
+
+      const actions = [
+        ["启动临时浏览器", { type: "START_HELPER" }],
+        ["打开 CUSIS 登录", { type: "OPEN_LOGIN" }],
+        ["模拟登录成功", { type: "LOGIN_SUCCESS" }],
+        ["读取全部数据", { type: "START_SYNC" }],
+        ["模拟读取成功", { type: "SYNC_SUCCESS" }],
+        ["模拟部分失败", { type: "SYNC_PARTIAL" }],
+        ["模拟 session 过期", { type: "SESSION_EXPIRED" }],
+        ["保存所选内容", { type: "IMPORT" }],
+        ["改为直接打开 CUSIS", { type: "USE_PUBLIC_WEB" }],
+        ["重置", { type: "RESET" }],
+      ];
+
+      const scenarios = [
+        {
+          name: "顺利同步",
+          copy: "体验最理想的流程。重点看登录完成后不会立刻保存，而是先读取、筛选、预览。",
+          steps: actions
+            .slice(0, 5)
+            .concat([["保存所选内容", { type: "IMPORT" }]]),
+        },
+        {
+          name: "登录过期",
+          copy: "CUSIS 会话随时可能过期。这里验证流程是否明确要求重新登录，而不是偷偷重放旧状态。",
+          steps: actions.slice(0, 3).concat([
+            ["模拟 session 过期", { type: "SESSION_EXPIRED" }],
+            ["尝试读取", { type: "START_SYNC" }],
+          ]),
+        },
+        {
+          name: "部分读取失败",
+          copy: "毕业要求页面最复杂，可能单独失败。这里验证用户能否先导入已成功的课程数据。",
+          steps: actions.slice(0, 4).concat([
+            ["模拟学业要求失败", { type: "SYNC_PARTIAL" }],
+            ["保存其余内容", { type: "IMPORT" }],
+          ]),
+        },
+        {
+          name: "直接打开 CUSIS",
+          copy: "验证关键限制：普通 popup 可以显示 CUSIS，但 CUpedia 不能读取另一个网站的 cookie 或页面内容。",
+          steps: [
+            ["改为直接打开 CUSIS", { type: "USE_PUBLIC_WEB" }],
+            ["尝试接管窗口", { type: "START_HELPER" }],
+            ["尝试打开登录", { type: "OPEN_LOGIN" }],
+          ],
+        },
+      ];
+
+      let state = SyncFlow.initial();
+      let activeScenario = 0;
+      let scenarioStep = 0;
+
+      const labels = {
+        current: "本学期课程",
+        cart: "Shopping Cart",
+        completed: "历史课程",
+        requirements: "学业要求",
+      };
+
+      function dispatch(action) {
+        state = SyncFlow.transition(state, action);
+        render();
+      }
+
+      function render() {
+        document.querySelector("#phase").textContent = state.phase;
+        document.querySelector("#runtime").textContent = state.runtime;
+        document.querySelector("#helper").textContent = state.helper;
+        document.querySelector("#login").textContent =
+          `${state.login} · session ${state.session}`;
+        document.querySelector("#selection").textContent = state.selectedCount
+          ? `${state.selectedCount} 项待保存`
+          : "暂无";
+        document.querySelector("#saved").textContent = state.saved
+          ? "已保存快照"
+          : "尚未保存";
+        const notice = document.querySelector("#notice");
+        notice.textContent = state.notice;
+        notice.className = `notice ${state.tone === "normal" ? "" : state.tone}`;
+        document.querySelector("#datasets").innerHTML = Object.entries(
+          state.datasets,
+        )
+          .map(
+            ([key, value]) =>
+              `<div class="dataset"><span>${labels[key]}</span><span>${value}</span></div>`,
+          )
+          .join("");
+        document.querySelectorAll("[data-filter]").forEach((input) => {
+          input.checked = state.filters[input.dataset.filter];
+        });
+        renderScenario();
+      }
+
+      document.querySelector("#free-actions").innerHTML = actions
+        .map(
+          (entry, index) =>
+            `<button data-action="${index}" class="${index === 0 ? "primary" : ""}">${entry[0]}</button>`,
+        )
+        .join("");
+      document
+        .querySelectorAll("[data-action]")
+        .forEach((button) =>
+          button.addEventListener("click", () =>
+            dispatch(actions[Number(button.dataset.action)][1]),
+          ),
+        );
+      document.querySelectorAll("[data-filter]").forEach((input) =>
+        input.addEventListener("change", () =>
+          dispatch({
+            type: "SET_FILTER",
+            name: input.dataset.filter,
+            value: input.checked,
+          }),
+        ),
+      );
+
+      document.querySelector("#scenario-tabs").innerHTML = scenarios
+        .map(
+          (scenario, index) =>
+            `<button data-scenario="${index}" aria-selected="${index === 0}">${scenario.name}</button>`,
+        )
+        .join("");
+      document.querySelectorAll("[data-scenario]").forEach((button) =>
+        button.addEventListener("click", () => {
+          activeScenario = Number(button.dataset.scenario);
+          scenarioStep = 0;
+          state = SyncFlow.initial();
+          render();
+        }),
+      );
+
+      function renderScenario() {
+        const scenario = scenarios[activeScenario];
+        document
+          .querySelectorAll("[data-scenario]")
+          .forEach((button, index) =>
+            button.setAttribute(
+              "aria-selected",
+              String(index === activeScenario),
+            ),
+          );
+        document.querySelector("#scenario-copy").innerHTML =
+          `<p>${scenario.copy}</p>`;
+        document.querySelector("#scenario-steps").innerHTML = scenario.steps
+          .map(
+            (entry, index) =>
+              `<div class="step ${index < scenarioStep ? "done" : ""}"><span>${entry[0]}</span><button data-step="${index}" ${index !== scenarioStep ? "disabled" : ""}>执行</button></div>`,
+          )
+          .join("");
+        const current = document.querySelector(`[data-step="${scenarioStep}"]`);
+        if (current)
+          current.addEventListener("click", () => {
+            dispatch(scenario.steps[scenarioStep][1]);
+            scenarioStep += 1;
+            render();
+          });
+      }
+
+      render();
+    </script>
+  </body>
+</html>
