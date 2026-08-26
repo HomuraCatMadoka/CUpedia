@@ -170,6 +170,10 @@ export type MenuSnapshotScopeEvidence =
       categoryPeriodCodes: string[];
       categoryCount: number;
       groupCount: number;
+      /** Advisory HKT clock boundaries; never menu-content authority. */
+      refreshBoundaryMinutes?: number[];
+      /** Last same-day HKT minute where another provider read may be useful. */
+      refreshUntilMinute?: number;
     }
   | {
       provider: "pinme";
@@ -187,6 +191,8 @@ export type MenuSnapshotScopeEvidence =
       }>;
       /** Advisory HKT clock boundaries; never menu-content authority. */
       refreshBoundaryMinutes?: number[];
+      /** Last same-day HKT minute where another provider read may be useful. */
+      refreshUntilMinute?: number;
       serviceWindows: Array<{
         startTime: string;
         endTime: string;
