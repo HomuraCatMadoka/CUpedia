@@ -114,7 +114,9 @@ describe("AmapCampusPrototype", () => {
       await screen.findByRole("heading", { name: "选择设施位置" }),
     ).toBeTruthy();
     expect(
-      screen.getByText("移动地图，让图钉对准设施；建筑名称只帮助确认位置。"),
+      screen.getByText(
+        "拖动地图对准设施，或轻点地图名称直接选择；建筑只作位置参考。",
+      ),
     ).toBeTruthy();
     expect(screen.getByText("地图坐标")).toBeTruthy();
     expect(
