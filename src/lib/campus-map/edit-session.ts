@@ -369,9 +369,6 @@ function transitionFactChange(
 function normalizeServerErrorTarget(field: string | undefined): string {
   if (!field) return "form-heading";
   const path = field.split(/[^A-Za-z]+/).filter(Boolean);
-  if (path.includes("sources") || path.includes("sourceSummary")) {
-    return path.includes("observedAt") ? "sourceObservedAt" : "sources";
-  }
   if (
     path.includes("location") ||
     path.includes("buildingId") ||
@@ -379,22 +376,8 @@ function normalizeServerErrorTarget(field: string | undefined): string {
   ) {
     return "location";
   }
-  if (path.includes("observedAt") || path.includes("sourceObservedAt")) {
-    return "sourceObservedAt";
-  }
-  const directTarget = [
-    "name",
-    "pinType",
-    "capabilities",
-    "gender",
-    "wheelchairAccess",
-    "audience",
-    "credentialRequirement",
-    "accessSchedule",
-    "reservationRequirement",
-    "temporaryStatus",
-  ].find((candidate) => path.includes(candidate));
-  return directTarget ?? "form-heading";
+  if (path.includes("pinType")) return "pinType";
+  return "form-heading";
 }
 
 function publishTransition(
@@ -421,7 +404,7 @@ function publishTransition(
       session: next,
       commands: [
         { kind: "persist-snapshot" },
-        { kind: "focus", target: error },
+        { kind: "focus", target: normalizeServerErrorTarget(error) },
         { kind: "announce", message: "请先完成必填资料" },
       ],
     };
@@ -641,7 +624,7 @@ export function transitionCampusMapEdit(
       session: next,
       commands: [
         { kind: "persist-snapshot" },
-        { kind: "focus", target: event.field },
+        { kind: "focus", target: normalizeServerErrorTarget(event.field) },
         { kind: "announce", message: "请检查这个字段" },
       ],
     };

@@ -638,7 +638,10 @@ describe("Campus Map edit session transition", () => {
       status: "editing",
       localError: "name",
     });
-    expect(invalid.commands).toContainEqual({ kind: "focus", target: "name" });
+    expect(invalid.commands).toContainEqual({
+      kind: "focus",
+      target: "form-heading",
+    });
   });
 
   it("derives local required-field checks from the active fact schema", () => {
@@ -667,16 +670,17 @@ describe("Campus Map edit session transition", () => {
     });
     expect(invalid.commands).toContainEqual({
       kind: "focus",
-      target: "capabilities",
+      target: "form-heading",
     });
   });
 
   it.each([
     ["location.precision", "location"],
     ["changes.0.fact.floorId", "location"],
-    ["sources.0.url", "sources"],
-    ["sources.0.observedAt", "sourceObservedAt"],
-    ["changes.0.fact.accessSchedule.intervals.0.opensAt", "accessSchedule"],
+    ["sources.0.url", "form-heading"],
+    ["sources.0.observedAt", "form-heading"],
+    ["changes.0.fact.accessSchedule.intervals.0.opensAt", "form-heading"],
+    ["changes.0.fact.pinType", "pinType"],
     ["comment", "form-heading"],
   ])(
     "normalizes server error path %s to the real focus target %s",
@@ -938,6 +942,10 @@ describe("Campus Map edit session transition", () => {
       status: "temporarily-unavailable",
       localError: "sourceObservedAt",
       draft: { idempotencyKey: firstKey },
+    });
+    expect(reported.commands).toContainEqual({
+      kind: "focus",
+      target: "form-heading",
     });
     expect(
       transitionCampusMapEdit(reported.session, {
