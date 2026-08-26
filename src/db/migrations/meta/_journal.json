@@ -659,6 +659,20 @@
       "when": 1787556741800,
       "tag": "0093_late_meggan",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1787720667246,
+      "tag": "0094_supabase-canteen-menu-sync-cron",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1787747407237,
+      "tag": "0095_harden-supabase-canteen-menu-sync-cron",
+      "breakpoints": true
     }
   ]
 }

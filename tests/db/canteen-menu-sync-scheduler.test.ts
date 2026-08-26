@@ -860,14 +860,72 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
     },
   );
 
+  it("returns no-work to the minute-37 fallback after a healthy primary drain", async () => {
+    let databaseNow = new Date("2099-08-20T03:17:00.000Z");
+    readMenuSyncDatabaseNow.mockImplementation(async () => databaseNow);
+    const { sourceId } = await createEligibleSource("主窗口已完成来源");
+    fetchMenuFromProvider.mockResolvedValue(
+      buildPinmeMenuSyncPayload(pinmeCurrent),
+    );
+
+    await expect(syncNextDueMenuSource()).resolves.toMatchObject({
+      disposition: "continue",
+      sourceId,
+      result: { status: "applied" },
+    });
+
+    databaseNow = new Date("2099-08-20T03:37:00.000Z");
+    await expect(syncNextDueMenuSource()).resolves.toEqual({
+      disposition: "no-work",
+      window: "2099-08-20/lunch",
+    });
+    expect(fetchMenuFromProvider).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets the minute-37 fallback drain a source left incomplete by primary", async () => {
+    let databaseNow = new Date("2099-08-20T03:17:00.000Z");
+    readMenuSyncDatabaseNow.mockImplementation(async () => databaseNow);
+    const first = await createEligibleSource("主窗口来源甲");
+    const second = await createEligibleSource("主窗口来源乙");
+    fetchMenuFromProvider.mockResolvedValue(
+      buildPinmeMenuSyncPayload(pinmeCurrent),
+    );
+
+    const primaryResult = await syncNextDueMenuSource();
+    expect(primaryResult).toMatchObject({
+      disposition: "continue",
+      result: { status: "applied" },
+    });
+
+    databaseNow = new Date("2099-08-20T03:37:00.000Z");
+    const fallbackResult = await syncNextDueMenuSource();
+    expect(fallbackResult).toMatchObject({
+      disposition: "continue",
+      result: { status: "applied" },
+    });
+    expect(
+      new Set(
+        [primaryResult, fallbackResult].flatMap((result) =>
+          "sourceId" in result ? [result.sourceId] : [],
+        ),
+      ),
+    ).toEqual(new Set([first.sourceId, second.sourceId]));
+    await expect(syncNextDueMenuSource()).resolves.toEqual({
+      disposition: "no-work",
+      window: "2099-08-20/lunch",
+    });
+    expect(fetchMenuFromProvider).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     { failures: 1, minutesAgo: 3 },
     { failures: 2, minutesAgo: 6 },
   ])(
     "retries after the bounded backoff for $failures failure(s)",
     async ({ failures, minutesAgo }) => {
+      const databaseNow = new Date("2099-08-20T03:17:00.000Z");
+      readMenuSyncDatabaseNow.mockImplementation(async () => databaseNow);
       const { sourceId } = await createEligibleSource("退避完成的来源");
-      const databaseNow = await currentTestDatabaseNow();
       const completedAt = new Date(databaseNow.getTime() - minutesAgo * 60_000);
       await db.insert(canteenMenuSyncRuns).values(
         Array.from({ length: failures }, (_, index) => ({

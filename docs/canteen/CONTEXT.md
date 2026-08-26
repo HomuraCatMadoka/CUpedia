@@ -77,8 +77,8 @@ _Avoid_: 把多个 `partial` 观察合成并标记为 `complete catalog`；让 a
 **餐段当前可见性（Meal-period activity）**: 菜品当前是否出现在某个早、午、晚餐 Tab。一个权威餐段观察只拥有这个局部状态：缺席可移除该餐段，但不能推断未观察餐段。旧 `["allday"]` 托管数据在第一次局部更新时展开为该来源配置的具体餐段，避免未配置餐段永久阻止收敛。
 _Avoid_: 用一个全局布尔值表达三个餐段状态；因午餐缺席而移除早餐或晚餐；让供应商原始声明时段覆盖当前观察事实。
 
-**菜单观察调度（Menu observation scheduling）**: 调度器按数据库时间判断一个来源是否需要再次观察。目录观察在一个粗餐段内只做一次；餐段作用域观察在供应商刷新边界或 45 分钟兜底后再次到期，但两次成功读取至少间隔 10 分钟。工作流从 08:17 到 23:47 每半小时唤醒，覆盖完整晚餐窗口；没有到期来源时不会请求供应商。
-_Avoid_: 为每家店硬编码一个 cron；把工作流唤醒次数等同于供应商请求次数；让一次 scoped success 排空整个餐段。
+**菜单观察调度（Menu observation scheduling）**: 调度器按数据库时间判断一个来源是否需要再次观察。每个粗餐段先有一个短的主领取窗口，独立后备在主窗口之后才启动，使完成责任可分辨；餐段内仍保留发布刷新唤醒。目录观察在一个粗餐段内只做一次；餐段作用域观察在供应商刷新边界或 45 分钟兜底后再次到期，但两次成功读取至少间隔 10 分钟。唤醒、HTTP 成功或 `no-work` 都不等于菜单已完成；最终成功要求每个适用来源都有成功 run 及非空快照。没有到期来源时不会请求供应商。
+_Avoid_: 为每家店硬编码一个 cron；把调度送达或端点响应等同于业务完成；让一次 scoped success 排空整个餐段。
 
 **菜品活跃性（Menu item activity）**: 菜品是否仍在至少一个当前餐段展示；不活跃是可逆状态，同一外部身份再次出现时恢复原 UUID 及其历史。局部观察移除最后一个可见餐段时，`isAvailable` 才变为 false；目录权威仍可直接更新整店活跃性。
 _Avoid_: 把不活跃称为删除或永久退役；为重新上架创建新 UUID；因保留历史身份而继续公开展示已不在任何当前餐段的菜品。
@@ -115,3 +115,5 @@ _Avoid_: 与菜品赞踩表混用；把日榜做成 upsert/可取消。
 - [0014 — 外部菜单同步保留菜品身份与历史](../adr/0014-canteen-external-menu-sync.md)
 - [0025：菜单同步与点餐交接分离](../adr/0025-separate-menu-sync-from-ordering-handoff.md)
 - [0026：跨供应商发布窗口刷新当前菜单](../adr/0026-refresh-current-menus-across-provider-publication-windows.md)
+- [0028：以 Supabase Cron 作为菜单同步主时钟](../adr/0028-use-supabase-cron-as-primary-menu-sync-clock.md)
+- [0029：约束 Supabase pg_net 传输证据边界](../adr/0029-bound-supabase-pg-net-transport-evidence.md)
