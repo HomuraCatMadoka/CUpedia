@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CampusMapEditSheet } from "@/components/campus-map/edit-sheet";
 import {
@@ -14,6 +14,8 @@ import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
 const placeId = "20000000-0000-4000-8000-000000000001";
 const revisionId = "30000000-0000-4000-8000-000000000001";
 const changesetId = "40000000-0000-4000-8000-000000000001";
+
+afterEach(() => vi.useRealTimers());
 
 function draft() {
   return createCampusMapEditDraft({
@@ -138,6 +140,8 @@ describe("Campus Map single-page edit Sheet", () => {
   });
 
   it("sends the active schema required fields to the pure publish transition", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-26T04:00:00Z"));
     const onEvent = vi.fn();
     const factSchema = {
       version: 1,

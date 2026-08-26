@@ -177,7 +177,7 @@ export interface CampusMapEditTransition {
 }
 
 const DEFAULT_PRESET = CAMPUS_MAP_EDIT_SCHEMA.presets[0];
-const MAP_SUBMISSION_SOURCE_REF = "CUpedia Campus Map submission";
+const MAP_SUBMISSION_SOURCE_PREFIX = "CUpedia Campus Map submission ";
 
 const DEFAULT_FACT: CampusMapEditDraft["fact"] = {
   name: DEFAULT_PRESET.defaultName,
@@ -455,7 +455,7 @@ function isDateOnly(value: string | undefined): value is string {
 function mapSubmissionSource(accessedOn: string): CampusMapPublishSourceInput {
   return {
     kind: "other",
-    ref: MAP_SUBMISSION_SOURCE_REF,
+    ref: `${MAP_SUBMISSION_SOURCE_PREFIX}${accessedOn}`,
     url: null,
     owner: null,
     version: null,
@@ -669,10 +669,6 @@ export function transitionCampusMapEdit(
       ...session.draft.fact,
       name: shouldApplyDefault ? nextPreset.defaultName : currentName,
       pinType: event.pinType,
-      capabilities:
-        event.pinType === "printer" ? session.draft.fact.capabilities : [],
-      gender:
-        event.pinType === "toilet" ? session.draft.fact.gender : "unknown",
     };
     return transitionFactChange(session, fact, event.idempotencyKey);
   }
@@ -1064,7 +1060,8 @@ export function deriveCampusMapPublishCommand(
   const sourceLabels = Array.from(
     new Set(
       draft.sources.map((item) =>
-        item.kind === "other" && item.ref === MAP_SUBMISSION_SOURCE_REF
+        item.kind === "other" &&
+        item.ref.startsWith(MAP_SUBMISSION_SOURCE_PREFIX)
           ? "地图提交"
           : SOURCE_LABELS[item.kind],
       ),

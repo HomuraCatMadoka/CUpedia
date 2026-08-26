@@ -295,6 +295,40 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
+  it("preserves hidden Edit facts across a facility-type round trip", () => {
+    const printerFact: CampusMapPublishFactInput = {
+      ...fact,
+      pinType: "printer",
+      capabilities: ["print", "scan"],
+      gender: "female",
+    };
+    const started: CampusMapEditSession = {
+      status: "editing",
+      draft: createCampusMapEditDraft({
+        mode: "edit",
+        placeId,
+        baseRevisionId,
+        idempotencyKey: firstKey,
+        fact: printerFact,
+        sources: [source],
+      }),
+    };
+    const toilet = transitionCampusMapEdit(started, {
+      type: "CHANGE_PIN_TYPE",
+      pinType: "toilet",
+    }).session;
+    const printer = transitionCampusMapEdit(toilet, {
+      type: "CHANGE_PIN_TYPE",
+      pinType: "printer",
+    }).session;
+
+    expect(printer?.draft.fact).toMatchObject({
+      pinType: "printer",
+      capabilities: ["print", "scan"],
+      gender: "female",
+    });
+  });
+
   it("starts Edit with stable identity and a clean baseline", () => {
     const session = editSession();
 
@@ -571,7 +605,7 @@ describe("Campus Map edit session transition", () => {
             sources: [
               expect.objectContaining({
                 kind: "other",
-                ref: "CUpedia Campus Map submission",
+                ref: "CUpedia Campus Map submission 2026-08-26",
                 accessedOn: "2026-08-26",
                 observedAt: null,
                 rightsStatus: "unknown",
