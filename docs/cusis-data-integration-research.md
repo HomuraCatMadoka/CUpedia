@@ -48,6 +48,44 @@ The code establishes two distinct mechanisms:
 
 A case-insensitive search of all nine loaded assets found no occurrence of `SSR_GET_ENROLLMENT`, `SCC_SC_GETCART`, `SCC_SC_GETITEM`, `SSR_CRSE_HIST_FL`, `SSR_TERM_STA1_FL`, or `SSR_TERM_STA3_FL`. Therefore the landing-page bundle proves **generic REST capability**, but reveals no enabled endpoint for the four requested data sets. Feature-specific code may be loaded only after entering the relevant component; that could not be tested with this account because the corresponding navigation collections were unavailable.
 
+## Authenticated follow-up (2026-08-26)
+
+A second user-authorized, read-only Chrome session used an account that could open the relevant student components. This follow-up recorded component paths, form field names, rendered field structure, and loaded asset names. It did not copy credentials, cookies, storage, `IC*` field values, course values, grades, cart contents, or requirement results into the repository. No enrol, drop, swap, cart mutation, request replay, endpoint guessing, cross-identity test, or rate-limit test was attempted.
+
+Institutional permission was not established for this follow-up. The evidence is therefore suitable for technical feasibility research, but not as authorization to automate or deploy against the observed interfaces.
+
+### Observed CUHK component map
+
+| Requested data                | Authenticated UI route                                   | Observed component transaction                                                                                                                                                                                                                                                                                                                     | Observed output shape                                                                                                                                                                          |
+| ----------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Current-term enrolled courses | **Manage Classes** -> **View My Classes**                | The navigation link targeted `/psc/CSPRD_newwin/EMPLOYEE/SA/c/SSR_STUDENT_FL.SSR_COMPONENT_FL.GBL?Page=SSR_VW_CLASS_FL`. The loaded form had a POST action at the corresponding `/psc/CSPRD/EMPLOYEE/SA/c/` component with `ICAJAX=1`, `ICAGTarget=start`, and `ICAJAXTrf=true`.                                                                   | The component rendered inside the Activity Guide. No course values were retained.                                                                                                              |
+| Shopping cart                 | **Manage Classes** -> **Shopping Cart / Enroll classes** | The navigation link targeted `/psc/CSPRD_newwin/EMPLOYEE/SA/c/SSR_STUDENT_FL.SSR_SHOP_CART_FL.GBL?Page=SSR_SHOP_CART_FL`. The loaded form had a POST action at the corresponding `/psc/CSPRD/EMPLOYEE/SA/c/` component with `ICAJAX=1`, `ICAGTarget=start`, and `ICAJAXTrf=true`.                                                                  | The page loaded the shopping-cart component and CUHK-specific cart styling. No cart values were retained and no action control was used.                                                       |
+| Previously taken courses      | **Academic Records** -> **Course History**               | The navigation link targeted `/psc/CSPRD_newwin/EMPLOYEE/SA/c/SSR_STUDENT_ACAD_REC_FL.SSR_CRSE_HIST_FL.GBL?Page=SSR_CRSE_HIST_FL`. The loaded form had a POST action at the corresponding `/psc/CSPRD/EMPLOYEE/SA/c/` component with `ICAJAX=1` and `ICAGTarget=start`.                                                                            | A server-rendered table exposed the columns **Class**, **Description**, **Term**, **Grade**, **Units**, and **Status**. Multiple rows rendered, but no cell values or row count were retained. |
+| Graduation requirements       | **Academic Progress** -> **My Academic Requirements**    | The canonical link targeted `/psc/CSPRD_newwin/EMPLOYEE/SA/c/SA_LEARNER_SERVICES.SAA_SS_DPR_ADB.GBL`. Direct navigation redirected to a numbered `CSPRD_*` site path and the page posted back to the same `SAA_SS_DPR_ADB.GBL` component. The numbered site suffix should be treated as deployment/session routing, not a stable integration base. | The classic PIA page exposed report-timestamp and expandable/collapsible requirement-grid controls. No programme, requirement, satisfaction, or course values were retained.                   |
+
+The CUHK production component names do not exactly match the generic Oracle page names used as public feasibility evidence. In particular, the observed current-classes page used `SSR_VW_CLASS_FL` rather than `SSR_TERM_STA1_FL`, the cart used `SSR_SHOP_CART_FL` rather than `SSR_TERM_STA3_FL`, and academic requirements used the classic `SAA_SS_DPR_ADB` component. This is direct evidence that an implementation cannot safely infer CUHK routes from Oracle documentation alone.
+
+### Observed PIA request contract
+
+The landing page and loaded components exposed URL-encoded POST forms with the standard PeopleSoft state fields, including `ICType`, `ICElementNum`, `ICStateNum`, `ICAction`, `ICFocus`, `ICChanged`, `ICResubmit`, `ICSID`, and `ICAppClsData`. Activity Guide components were loaded into the navigation shell and exposed their own `.GBL` form actions with `ICAJAX=1`; the academic-requirements page used a classic full-page PIA form.
+
+This contract is page state, not a resource API:
+
+- the action depends on a live authenticated browser session and component state;
+- the request and response are coupled to PeopleSoft page/control names;
+- the course-history result is rendered HTML rather than a verified JSON schema;
+- the observed routes provide no versioning, third-party authorization scope, stability promise, or CORS contract.
+
+### Feature bundle follow-up
+
+The current landing-page inventory exposed ten scripts, including `PT_AJAX_NET_MIN_1.js`, `PT_COMMON_FMODE_MIN_1.js`, and `PT_WORKER_MIN_1.js`. The Activity Guide pages additionally loaded generic guided-process, navigation, chart, and typeahead scripts. The cart state added `SSR_ALIGN_LINES_SC_FLEXGRID_JS_MIN_1.js`, `SSR_SHOPPING_CART_FL_1.css`, and the CUHK-specific `CU_PRE_CART_FL_1.css`. The classic academic-requirements page instead loaded `PT_COMMON_MIN_1.js`, `PT_RC_JS_MIN_1.js`, `PT_POPUPSCRIPT_win*_MIN_1.js`, and `PT_GRIDSCRIPT_win*_MIN_1.js` with `PSSTYLEREQ_1.css`; the `win*` suffix is page-instance-specific.
+
+A token search of the live page markup and inline scripts found no `/PSIGW/RESTListeningConnector/`, `SSR_GET_ENROLLMENT`, `SCC_SC_GETCART`, or `SCC_SC_GETITEM` reference. The browser resource interface could inventory but not export external JavaScript bodies, while unauthenticated command-line retrieval returned `403`. Therefore this follow-up did not repeat the earlier source-body search. The earlier bundle finding remains the evidence for generic REST-listener awareness; the current feature pages add no evidence that a requested service operation is enabled.
+
+### Effect on the earlier assessment
+
+The earlier navigation failure did not generalize to the account/session used for this follow-up. All four requested data sets now have authenticated UI-path and component-level evidence. This materially improves the feasibility case for a sanctioned browser-local export or institutional adapter, but it does **not** change the API conclusion: no supported CUHK student-facing API, service-operation deployment, permission grant, OAuth flow, or production automation approval was verified.
+
 ## Feasibility by requested data set
 
 | Requested data                                 | Verified data/UI availability                                                                                                                                                                              | Verified service capability                                                                                                                                                                                                              | CUHK API availability                                                                                  | Assessment                                                                                                                                                        |
@@ -58,6 +96,8 @@ A case-insensitive search of all nine loaded assets found no occurrence of `SSR_
 | Current-term enrolled courses                  | Oracle's **View My Classes** component `SSR_TERM_STA1_FL` shows enrolled, waitlisted, and dropped classes by term.                                                                                         | Oracle documents Enrollment Web Services (EWS). The delivered `SSR_ENROLLMENT` / `SSR_GET_ENROLLMENT` operation retrieves a student's StudyList details; Oracle also says Campus Mobile receives class-schedule information through EWS. | **Unknown**                                                                                            | This is the strongest candidate for a sanctioned read-only API, subject to CUHK deployment and authorization.                                                     |
 
 Sources for the table: [Oracle: Managing Academic Records in Fluid UI](https://docs.oracle.com/en/applications/peoplesoft/campus-solutions/9.2.038/campus-self-service/managing-academic-records-using-peoplesoft-fluid-user-interface.html), [Oracle: Managing Classes in Fluid UI](https://docs.oracle.com/en/applications/peoplesoft/campus-solutions/9.2.038/campus-self-service/managing-classes-using-peoplesoft-fluid-user-interface.html), [Oracle: Shopping Cart Framework](https://docs.oracle.com/en/applications/peoplesoft/campus-solutions/9.2.038/campus-community-fundamentals/understanding-shopping-cart-framework.html), [Oracle: `SCC_SC_GETITEM`](https://docs.oracle.com/en/applications/peoplesoft/campus-solutions/9.2.038/campus-community-fundamentals/scc-sc-getitem.html), [Oracle: Enrollment Web Services](https://docs.oracle.com/en/applications/peoplesoft/campus-solutions/9.2.038/student-records/understanding-enrollment-web-services.html), [Oracle: delivered `SSR_GET_ENROLLMENT` behavior](https://docs.oracle.com/cd/E29389_01/psft/acrobat/hrcs90lsfn-b0312.pdf), [Oracle: Campus Mobile class schedule via EWS](https://docs.oracle.com/cd/_F11339_01/cs92pbr11/eng/cs/lsss/task_UsingClassSchedule-4c7ffe.html), [CUHK: Review Academic Advisement Report](https://www.cuhk.edu.hk/cusis/howto/review-acad-advisement.pdf).
+
+The 2026-08-26 follow-up upgrades **Verified data/UI availability** for all four rows from public-document evidence to authenticated CUHK component observation. It does not change the **CUHK API availability** column.
 
 ### Important distinction: UI network calls are not automatically a public API
 
@@ -155,6 +195,8 @@ Allow a student to upload or paste an official CUSIS-generated report/export and
 ## Proposed authorized discovery checklist
 
 The following work should occur only with a volunteer student's informed consent and written CUHK approval, using a test account/environment if available:
+
+The narrower 2026-08-26 follow-up completed the component-path and interface-classification portions of items 1-3 under user authorization, but without established written CUHK approval. It deliberately did not perform the replay, authorization-boundary, security-control, rate-limit, or production-approval work in items 4-7. Those steps remain required before implementation.
 
 1. Record product/version headers and the four UI navigation paths without capturing unrelated personal data.
 2. In browser DevTools, filter to XHR/fetch while opening each page; record method, path template, content type, status, response shape, required headers, and whether the request is read-only.
