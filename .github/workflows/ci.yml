@@ -305,7 +305,7 @@ jobs:
           cache: pnpm
 
       - name: Download Next build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: next-build
 
@@ -377,7 +377,7 @@ jobs:
           version: 10
 
       - name: Download Next build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: next-build
 
