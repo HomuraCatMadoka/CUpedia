@@ -229,7 +229,7 @@ describe("Campus Map browse projection (#647)", () => {
     expect(projection.markers).toEqual([]);
   });
 
-  it("keeps only the newest revision if a stale page repeats the same Place", () => {
+  it("fails duplicate revisions for one Place closed instead of inventing another Current selector", () => {
     const placeId = "30000000-0000-4000-8000-000000000014";
     const older = floorPlace(placeId, "40000000-0000-4000-8000-000000000014");
     const newer = {
@@ -243,13 +243,10 @@ describe("Campus Map browse projection (#647)", () => {
       places: [older, newer],
     });
 
-    expect(projection.places).toHaveLength(1);
-    expect(projection.places[0]).toMatchObject({
-      placeId,
-      revisionId: newer.revisionId,
-      name: "新名称",
-    });
-    expect(projection.buildings[0]?.placeIds).toEqual([placeId]);
+    expect(projection.places).toEqual([]);
+    expect(projection.buildings[0]?.placeIds).toEqual([]);
+    expect(projection.presences).toEqual([]);
+    expect(projection.markers).toEqual([]);
   });
 
   it("returns every matching Place with honest Building, location, and equipment counts", () => {
@@ -296,6 +293,26 @@ describe("Campus Map browse projection (#647)", () => {
       locations: 0,
       equipment: "unknown",
     });
+  });
+
+  it("can limit Place matches to their own names without rebuilding search rules in React", () => {
+    const projection = projectCampusMapBrowse({
+      buildings: [building],
+      places: [
+        floorPlace(
+          "30000000-0000-4000-8000-000000000016",
+          "40000000-0000-4000-8000-000000000016",
+        ),
+      ],
+    });
+
+    const results = queryCampusMapBrowse(projection, {
+      query: "科学馆",
+      placeMatch: "name",
+    });
+
+    expect(results.buildings).toHaveLength(1);
+    expect(results.places).toEqual([]);
   });
 
   it("returns nearby Places separately and labels Building-anchor distances as approximate evidence", () => {

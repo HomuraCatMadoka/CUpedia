@@ -12,16 +12,16 @@ import {
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockLoadBrowseProjection, mockResolveProviderTarget } = vi.hoisted(
+const { mockLoadBrowseProjection, mockLoadProviderPoiCard } = vi.hoisted(
   () => ({
     mockLoadBrowseProjection: vi.fn(),
-    mockResolveProviderTarget: vi.fn(),
+    mockLoadProviderPoiCard: vi.fn(),
   }),
 );
 
 vi.mock("@/lib/campus-map/browse-actions", () => ({
   loadCampusMapBrowseProjection: mockLoadBrowseProjection,
-  resolveCampusMapProviderTarget: mockResolveProviderTarget,
+  loadCampusMapAmapPoiCard: mockLoadProviderPoiCard,
 }));
 
 import { AmapCampusPrototype as AmapCampusPrototypeView } from "@/components/campus-map/amap-campus-prototype";
@@ -72,16 +72,44 @@ beforeEach(() => {
   mockLoadBrowseProjection.mockImplementation(async () =>
     createAmapPrototypeBrowseFixture(),
   );
-  mockResolveProviderTarget.mockReset();
-  mockResolveProviderTarget.mockImplementation(
-    async ({ providerObjectId }: { providerObjectId: string }) => {
+  mockLoadProviderPoiCard.mockReset();
+  mockLoadProviderPoiCard.mockImplementation(
+    async ({
+      providerObjectId,
+      name,
+      position,
+    }: {
+      providerObjectId: string | null;
+      name: string;
+      position: readonly [number, number];
+    }) => {
       if (providerObjectId === "B0J2RXUQB6") {
-        return { kind: "building" as const, buildingId: "science-centre" };
+        return {
+          kind: "linked" as const,
+          title: "科学馆",
+          selectionTarget: {
+            kind: "building" as const,
+            buildingId: "science-centre",
+          },
+        };
       }
       if (providerObjectId === "test-wmy-poi") {
-        return { kind: "building" as const, buildingId: "wmy" };
+        return {
+          kind: "linked" as const,
+          title: "伍何曼原楼",
+          selectionTarget: {
+            kind: "building" as const,
+            buildingId: "wmy",
+          },
+        };
       }
-      return null;
+      return {
+        kind: "transient" as const,
+        externalId: providerObjectId ?? `${position[0]},${position[1]}`,
+        title: name,
+        sourceLabel: "高德地图地点" as const,
+        position,
+      };
     },
   );
   vi.stubGlobal(
@@ -965,14 +993,16 @@ describe("AmapCampusPrototype runtime effects", () => {
 
   it("does not let an older provider-mapping response replace the latest Building", async () => {
     let resolveFirst!: (value: {
-      kind: "building";
-      buildingId: string;
+      kind: "linked";
+      title: string;
+      selectionTarget: { kind: "building"; buildingId: string };
     }) => void;
     let resolveSecond!: (value: {
-      kind: "building";
-      buildingId: string;
+      kind: "linked";
+      title: string;
+      selectionTarget: { kind: "building"; buildingId: string };
     }) => void;
-    mockResolveProviderTarget
+    mockLoadProviderPoiCard
       .mockImplementationOnce(
         () => new Promise((resolve) => (resolveFirst = resolve)),
       )
@@ -1000,25 +1030,82 @@ describe("AmapCampusPrototype runtime effects", () => {
       });
     });
     await act(async () =>
-      resolveSecond({ kind: "building", buildingId: "wmy" }),
+      resolveSecond({
+        kind: "linked",
+        title: "伍何曼原楼",
+        selectionTarget: { kind: "building", buildingId: "wmy" },
+      }),
     );
     await screen.findByRole("heading", { name: "伍何曼原楼" });
 
     await act(async () =>
-      resolveFirst({ kind: "building", buildingId: "science-centre" }),
+      resolveFirst({
+        kind: "linked",
+        title: "科学馆",
+        selectionTarget: {
+          kind: "building",
+          buildingId: "science-centre",
+        },
+      }),
     );
 
     expect(screen.getByRole("heading", { name: "伍何曼原楼" })).not.toBeNull();
     expect(window.location.search).toContain("scene=building&id=wmy");
   });
 
+  it("does not let a pending provider response replace a newer manual selection", async () => {
+    let resolveProvider!: (value: {
+      kind: "linked";
+      title: string;
+      selectionTarget: { kind: "building"; buildingId: string };
+    }) => void;
+    mockLoadProviderPoiCard.mockImplementationOnce(
+      () => new Promise((resolve) => (resolveProvider = resolve)),
+    );
+    const { map } = await renderWithRuntime();
+
+    await act(async () => {
+      map.emit("hotspotclick", {
+        id: "test-wmy-poi",
+        name: "伍何曼原楼",
+        lnglat: { lng: 114.21161, lat: 22.4167 },
+      });
+    });
+    const search = screen.getByPlaceholderText("搜索建筑");
+    fireEvent.change(search, { target: { value: "科学馆" } });
+    const scienceResult = await waitFor(() =>
+      document.querySelector<HTMLButtonElement>(
+        '[data-search-result="science-centre"]',
+      ),
+    );
+    fireEvent.click(scienceResult!);
+    await screen.findByRole("heading", { name: "科学馆" });
+
+    await act(async () =>
+      resolveProvider({
+        kind: "linked",
+        title: "伍何曼原楼",
+        selectionTarget: { kind: "building", buildingId: "wmy" },
+      }),
+    );
+
+    expect(screen.getByRole("heading", { name: "科学馆" })).not.toBeNull();
+    expect(window.location.search).toContain(
+      "scene=building&id=science-centre",
+    );
+  });
+
   it("opens an explicitly mapped provider POI as the canonical Place", async () => {
     const placeId = "71000000-0000-4000-8000-000000000005";
-    mockResolveProviderTarget.mockResolvedValueOnce({
-      kind: "place",
-      placeId,
-      buildingId: "university-library",
-      floorId: "G",
+    mockLoadProviderPoiCard.mockResolvedValueOnce({
+      kind: "linked",
+      title: "饮水机",
+      selectionTarget: {
+        kind: "place",
+        placeId,
+        buildingId: "university-library",
+        floorId: "G",
+      },
     });
     const { runtime, map } = await renderWithRuntime();
 
@@ -1252,7 +1339,7 @@ describe("AmapCampusPrototype runtime effects", () => {
         name: "2 栋建筑 · 2 个饮水机地点",
       }),
     ).not.toBeNull();
-    expect(screen.getByRole("status").textContent).toContain(
+    expect((await screen.findByRole("status")).textContent).toContain(
       "地图标记加载失败，列表仍可使用",
     );
   });
@@ -1267,7 +1354,7 @@ describe("AmapCampusPrototype runtime effects", () => {
         name: "2 栋建筑 · 2 个饮水机地点",
       }),
     ).not.toBeNull();
-    expect(screen.getByRole("status").textContent).toContain(
+    expect((await screen.findByRole("status")).textContent).toContain(
       "地图标记加载失败，列表仍可使用",
     );
   });

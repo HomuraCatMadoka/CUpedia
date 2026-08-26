@@ -14,12 +14,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockLoadBrowseProjection,
+  mockLoadProviderPoiCard,
   mockRequestContributorSetup,
-  mockResolveProviderTarget,
 } = vi.hoisted(() => ({
   mockLoadBrowseProjection: vi.fn(),
+  mockLoadProviderPoiCard: vi.fn(),
   mockRequestContributorSetup: vi.fn(),
-  mockResolveProviderTarget: vi.fn(),
 }));
 
 vi.mock("next/script", () => ({
@@ -63,7 +63,7 @@ vi.mock("@/lib/campus-map/edit-actions", () => ({
 }));
 vi.mock("@/lib/campus-map/browse-actions", () => ({
   loadCampusMapBrowseProjection: mockLoadBrowseProjection,
-  resolveCampusMapProviderTarget: mockResolveProviderTarget,
+  loadCampusMapAmapPoiCard: mockLoadProviderPoiCard,
 }));
 
 import { AmapCampusPrototype as AmapCampusPrototypeView } from "@/components/campus-map/amap-campus-prototype";
@@ -103,8 +103,7 @@ beforeEach(() => {
   mockLoadBrowseProjection.mockImplementation(async () =>
     createAmapPrototypeBrowseFixture(),
   );
-  mockResolveProviderTarget.mockReset();
-  mockResolveProviderTarget.mockResolvedValue(null);
+  mockLoadProviderPoiCard.mockReset();
   window.sessionStorage.clear();
   window.history.replaceState(null, "", "/prototype/campus-map");
   vi.stubGlobal(
@@ -313,12 +312,15 @@ describe("AmapCampusPrototype", () => {
       expect(search.closest("header")?.hasAttribute("inert")).toBe(false),
     );
     await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
       window.dispatchEvent(
         new PopStateEvent("popstate", { state: window.history.state }),
       );
+      await Promise.resolve();
     });
-    fireEvent.change(search, { target: { value: "新发布饮水点" } });
-    fireEvent.submit(search.closest("form")!);
+    const activeSearch = screen.getByPlaceholderText("搜索建筑");
+    fireEvent.change(activeSearch, { target: { value: "新发布饮水点" } });
+    fireEvent.submit(activeSearch.closest("form")!);
 
     await waitFor(() =>
       expect(window.location.search).toContain("scene=search"),
@@ -329,6 +331,28 @@ describe("AmapCampusPrototype", () => {
       ).not.toBeNull(),
     );
     expect(screen.getByText("校内独立地点 · 新发布饮水点")).not.toBeNull();
+    expect(
+      screen.getByText("校内独立地点 · 新发布饮水点").closest("button"),
+    ).toBeNull();
+  });
+
+  it("restores standalone Current Place search results from formal data after refresh", async () => {
+    const placeId = "30000000-0000-4000-8000-000000000020";
+
+    render(
+      <AmapCampusPrototype
+        initialSearch="?v=1&scene=search&q=新发布饮水点&snap=peek"
+        initialBrowseProjection={publishedOutdoorProjection(placeId)}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(
+        document.querySelector(`[data-search-result="${placeId}"]`),
+      ).not.toBeNull(),
+    );
+    expect(screen.getByText("校内独立地点 · 新发布饮水点")).not.toBeNull();
+    expect(window.location.search).toContain("scene=search");
   });
 
   it("keeps the draft and does not publish when contributor setup is cancelled", async () => {

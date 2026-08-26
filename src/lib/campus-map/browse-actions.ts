@@ -2,6 +2,10 @@
 
 import { readCampusMapBrowse } from "./browse-projection";
 import {
+  projectCampusMapAmapPoiCard,
+  type CampusMapAmapPoiInput,
+} from "./amap-browse-projection";
+import {
   listCampusMapBrowseBuildings,
   listCampusMapCurrentPlaces,
   resolveCampusMapProviderSelection,
@@ -15,13 +19,15 @@ export async function loadCampusMapBrowseProjection() {
   });
 }
 
-/** Provider IDs are lookup input only; the result contains canonical IDs. */
-export async function resolveCampusMapProviderTarget(input: {
-  provider: string;
-  providerObjectId: string;
-}) {
-  return resolveCampusMapProviderSelection(
-    input.provider,
-    input.providerObjectId,
-  );
+/** Returns one linked or transient AMap card without exposing mapping rules. */
+export async function loadCampusMapAmapPoiCard(input: CampusMapAmapPoiInput) {
+  const projectionPromise = loadCampusMapBrowseProjection();
+  const mappingPromise = input.providerObjectId
+    ? resolveCampusMapProviderSelection("amap", input.providerObjectId)
+    : Promise.resolve(null);
+  const [projection, mapping] = await Promise.all([
+    projectionPromise,
+    mappingPromise,
+  ]);
+  return projectCampusMapAmapPoiCard(projection, input, mapping);
 }

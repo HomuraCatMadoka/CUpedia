@@ -214,7 +214,11 @@ function distanceMeters(
 
 export function queryCampusMapBrowse(
   projection: CampusMapBrowseProjection,
-  filters: { query?: string; pinType?: CampusMapPinType } = {},
+  filters: {
+    query?: string;
+    pinType?: CampusMapPinType;
+    placeMatch?: "all" | "name";
+  } = {},
 ): CampusMapBrowseResults {
   const queryParts = (filters.query ?? "")
     .trim()
@@ -235,14 +239,23 @@ export function queryCampusMapBrowse(
     const building = place.buildingId
       ? buildingById.get(place.buildingId)
       : undefined;
-    return matchesQuery([
-      place.name,
-      place.floorLabel,
-      building?.name ?? null,
-      building?.englishName ?? null,
-      building?.code ?? null,
-      ...(building?.aliases ?? []),
-    ]);
+    if (
+      !matchesQuery([
+        place.name,
+        place.floorLabel,
+        building?.name ?? null,
+        building?.englishName ?? null,
+        building?.code ?? null,
+        ...(building?.aliases ?? []),
+      ])
+    ) {
+      return false;
+    }
+    return filters.placeMatch === "name"
+      ? queryParts.some((part) =>
+          normalizedSearchTerm(place.name).includes(part),
+        )
+      : true;
   });
   const matchingBuildingIds = new Set(
     places.flatMap((place) => (place.buildingId ? [place.buildingId] : [])),
@@ -345,17 +358,14 @@ export function projectCampusMapBrowse(input: {
   places: readonly CampusMapCurrentPlace[];
 }): CampusMapBrowseProjection {
   const currentPlaceById = new Map<string, CampusMapCurrentPlace>();
+  const duplicatePlaceIds = new Set<string>();
   for (const place of input.places) {
     if (!isValidCurrentPlace(place)) continue;
-    const existing = currentPlaceById.get(place.id);
-    if (
-      !existing ||
-      place.publishedAt.getTime() > existing.publishedAt.getTime() ||
-      (place.publishedAt.getTime() === existing.publishedAt.getTime() &&
-        place.revisionId.localeCompare(existing.revisionId) > 0)
-    ) {
-      currentPlaceById.set(place.id, place);
-    }
+    if (currentPlaceById.has(place.id)) duplicatePlaceIds.add(place.id);
+    else currentPlaceById.set(place.id, place);
+  }
+  for (const duplicatePlaceId of duplicatePlaceIds) {
+    currentPlaceById.delete(duplicatePlaceId);
   }
   const places = [...currentPlaceById.values()].map(
     (place): CampusMapBrowsePlace => {

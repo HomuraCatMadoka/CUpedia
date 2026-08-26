@@ -56,9 +56,15 @@ import {
   type CampusMapAmenity,
 } from "@/lib/campus-map/facility-marker";
 import {
+  loadCampusMapAmapPoiCard,
   loadCampusMapBrowseProjection,
-  resolveCampusMapProviderTarget,
 } from "@/lib/campus-map/browse-actions";
+import {
+  CampusMapAmapCoordinateProjector,
+  CampusMapAmapPoiCardResolver,
+  createCampusMapAmapPoiCardContent,
+  createTransientCampusMapAmapPoiCard,
+} from "@/lib/campus-map/amap-browse-projection";
 import {
   CAMPUS_MAP_DEFAULT_VIEW_CENTER as CAMPUS_CENTER,
   EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
@@ -364,7 +370,7 @@ function projectedState(
   const selection: CampusMapState["selection"] =
     scene.kind === "building"
       ? { kind: "building", buildingId: scene.buildingId }
-      : scene.kind === "facility" && facility
+      : scene.kind === "facility" && facility?.buildingId
         ? {
             kind: "facility",
             facilityId: scene.facilityId,
@@ -681,8 +687,10 @@ export function AmapCampusPrototype({
   } | null>(null);
   const [placeContextResolverVersion, setPlaceContextResolverVersion] =
     useState(0);
-  const providerSelectionTokenRef = useRef(0);
-  const coordinateProjectionTokenRef = useRef(0);
+  const providerPoiCardResolverRef = useRef(
+    new CampusMapAmapPoiCardResolver(loadCampusMapAmapPoiCard),
+  );
+  const coordinateProjectorRef = useRef(new CampusMapAmapCoordinateProjector());
   const didSetInitialCenterRef = useRef(false);
 
   const positionFor = useCallback(
@@ -716,8 +724,8 @@ export function AmapCampusPrototype({
     mapDraggingRef.current = false;
     userGestureAwaitingMoveEndRef.current = false;
     pendingSelectionTokenRef.current = null;
-    providerSelectionTokenRef.current += 1;
-    coordinateProjectionTokenRef.current += 1;
+    providerPoiCardResolverRef.current.invalidate();
+    coordinateProjectorRef.current.invalidate();
     didSetInitialCenterRef.current = false;
     setMapReady(false);
     setMapMoving(false);
@@ -1049,15 +1057,13 @@ export function AmapCampusPrototype({
         const AMap = window.AMap;
         const map = mapRef.current;
         if (!AMap || !map) return;
-        const content = document.createElement("div");
-        content.className = "min-w-36 px-1 py-0.5 text-[#17211c]";
-        const title = document.createElement("strong");
-        title.className = "block text-sm font-semibold";
-        title.textContent = overlay.name;
-        const source = document.createElement("span");
-        source.className = "mt-1 block text-xs text-neutral-500";
-        source.textContent = "高德地图地点";
-        content.append(title, source);
+        const card = createTransientCampusMapAmapPoiCard({
+          providerObjectId: overlay.externalId,
+          name: overlay.name,
+          position: overlay.position,
+        });
+        if (!card || card.kind !== "transient") return;
+        const content = createCampusMapAmapPoiCardContent(document, card);
         const previousInfoWindow = infoWindowRef.current;
         infoWindowRef.current = null;
         previousInfoWindow?.close();
@@ -1469,27 +1475,32 @@ export function AmapCampusPrototype({
           );
           return;
         }
-        const providerPoiId =
-          event.id ?? `${event.lnglat.lng},${event.lnglat.lat}`;
-        const openTransient = () =>
-          dispatch({
-            type: "OPEN_PROVIDER_POI",
-            providerPoiId,
-            name: event.name?.trim() || "高德地图地点",
-            position: [event.lnglat.lng, event.lnglat.lat],
-          });
-        if (!event.id) {
-          openTransient();
-          return;
-        }
-        const selectionToken = ++providerSelectionTokenRef.current;
-        void resolveCampusMapProviderTarget({
-          provider: "amap",
-          providerObjectId: event.id,
-        }).then(
-          (target) => {
-            if (selectionToken !== providerSelectionTokenRef.current) return;
-            if (target?.kind === "building") {
+        const input = {
+          providerObjectId: event.id ?? null,
+          name: event.name?.trim() || "高德地图地点",
+          position: [event.lnglat.lng, event.lnglat.lat] as const,
+        };
+        const driverToken = driver.getSnapshot().transitionToken;
+        void providerPoiCardResolverRef.current
+          .resolveLatest(input)
+          .then((result) => {
+            if (
+              result.status === "superseded" ||
+              !result.card ||
+              driver.getSnapshot().transitionToken !== driverToken
+            )
+              return;
+            if (result.card.kind === "transient") {
+              dispatch({
+                type: "OPEN_PROVIDER_POI",
+                providerPoiId: result.card.externalId,
+                name: result.card.title,
+                position: result.card.position,
+              });
+              return;
+            }
+            const target = result.card.selectionTarget;
+            if (target.kind === "building") {
               const building = buildingsRef.current.find(
                 (item) => item.buildingId === target.buildingId,
               );
@@ -1497,17 +1508,12 @@ export function AmapCampusPrototype({
                 selectBuilding(building);
                 return;
               }
-            } else if (target?.kind === "place") {
+            } else {
               const facility = facilitiesRef.current.find(
                 (item) => item.placeId === target.placeId,
               );
               if (facility?.buildingId && facility.floorId) {
                 selectFacility(facility, "search");
-                return;
-              }
-              if (facility && !facility.buildingId) {
-                setQueryDraft(facility.name);
-                dispatch({ type: "SEARCH", query: facility.name });
                 return;
               }
               const building = target.buildingId
@@ -1519,16 +1525,14 @@ export function AmapCampusPrototype({
                 selectBuilding(building);
                 return;
               }
+              if (facility) {
+                setQueryDraft(facility.name);
+                dispatch({ type: "SEARCH", query: facility.name });
+                return;
+              }
               return;
             }
-            openTransient();
-          },
-          () => {
-            if (selectionToken === providerSelectionTokenRef.current) {
-              openTransient();
-            }
-          },
-        );
+          });
       });
     });
     map.on("click", (event) => {
@@ -1536,7 +1540,6 @@ export function AmapCampusPrototype({
         if (event.originEvent?.target?.closest?.("[data-cupedia-marker]"))
           return;
         if (editSessionActiveRef.current) return;
-        providerSelectionTokenRef.current += 1;
         dispatch({ type: "DISMISS" });
       });
     });
@@ -1681,99 +1684,40 @@ export function AmapCampusPrototype({
     const AMap = window.AMap;
     const map = mapRef.current;
     if (!mapReady || !AMap || !map) return;
-    const entries = [
-      ...browseProjection.buildings.flatMap((building) =>
-        building.anchor
-          ? [
-              {
-                key: `building:${building.buildingId}`,
-                position: [
-                  building.anchor.longitude,
-                  building.anchor.latitude,
-                ] as Position,
-              },
-            ]
-          : [],
-      ),
-      ...browseProjection.markers.flatMap((marker) =>
-        marker.kind === "place"
-          ? [
-              {
-                key: `place:${marker.placeId}`,
-                position: [
-                  marker.position.longitude,
-                  marker.position.latitude,
-                ] as Position,
-              },
-            ]
-          : [],
-      ),
-    ];
-    const sourcePositions: Position[] = [
-      [CAMPUS_CENTER[0], CAMPUS_CENTER[1]],
-      ...entries.map(({ position }) => [position[0], position[1]] as Position),
-    ];
-    const token = ++coordinateProjectionTokenRef.current;
-    AMap.convertFrom(sourcePositions, "gps", (status, result) => {
-      if (
-        token !== coordinateProjectionTokenRef.current ||
-        mapRef.current !== map
-      ) {
-        return;
-      }
-      const locations = status === "complete" ? result.locations : undefined;
-      if (!locations || locations.length !== sourcePositions.length) {
-        amapPositionsRef.current = {};
-        setCoordinateVersion(0);
-        setMapLoadError("coordinates");
-        return;
-      }
-      const converted: Record<string, Position> = {};
-      for (const [index, entry] of entries.entries()) {
-        const location = locations[index + 1];
-        if (
-          !location ||
-          !Number.isFinite(location.lng) ||
-          !Number.isFinite(location.lat)
-        ) {
+    void coordinateProjectorRef.current
+      .projectLatest(browseProjection, {
+        convertFrom: (positions, source, callback) =>
+          AMap.convertFrom(positions, source, callback),
+      })
+      .then((projection) => {
+        if (projection.status === "superseded" || mapRef.current !== map) {
+          return;
+        }
+        if (projection.status === "error") {
           amapPositionsRef.current = {};
           setCoordinateVersion(0);
           setMapLoadError("coordinates");
           return;
         }
-        converted[entry.key] = [location.lng, location.lat];
-      }
-      const convertedCenter = locations[0];
-      if (
-        !convertedCenter ||
-        !Number.isFinite(convertedCenter.lng) ||
-        !Number.isFinite(convertedCenter.lat)
-      ) {
-        amapPositionsRef.current = {};
-        setCoordinateVersion(0);
-        setMapLoadError("coordinates");
-        return;
-      }
-      converted.__campus = [convertedCenter.lng, convertedCenter.lat];
-      const convertedOffset: Position = [
-        convertedCenter.lng - CAMPUS_CENTER[0],
-        convertedCenter.lat - CAMPUS_CENTER[1],
-      ];
-      amapOffsetRef.current = convertedOffset;
-      amapPositionsRef.current = converted;
-      setAmapOffset(convertedOffset);
-      setCenterPosition(CAMPUS_CENTER);
-      setProviderCenterPosition([convertedCenter.lng, convertedCenter.lat]);
-      setCoordinateVersion((version) => version + 1);
-      setMapLoadError(null);
-      const pendingCamera = pendingDriverCameraRef.current;
-      if (pendingCamera) {
-        executeDriverCamera(pendingCamera.command, pendingCamera.context);
-      } else if (!didSetInitialCenterRef.current) {
-        didSetInitialCenterRef.current = true;
-        map.setZoomAndCenter(17.2, convertedCenter, true, 0);
-      }
-    });
+        const converted = {
+          ...projection.positions,
+          __campus: projection.center,
+        };
+        amapOffsetRef.current = projection.offset;
+        amapPositionsRef.current = converted;
+        setAmapOffset(projection.offset);
+        setCenterPosition(CAMPUS_CENTER);
+        setProviderCenterPosition(projection.center);
+        setCoordinateVersion((version) => version + 1);
+        setMapLoadError(null);
+        const pendingCamera = pendingDriverCameraRef.current;
+        if (pendingCamera) {
+          executeDriverCamera(pendingCamera.command, pendingCamera.context);
+        } else if (!didSetInitialCenterRef.current) {
+          didSetInitialCenterRef.current = true;
+          map.setZoomAndCenter(17.2, projection.center, true, 0);
+        }
+      });
   }, [browseProjection, executeDriverCamera, mapReady]);
 
   useEffect(() => {
@@ -2010,8 +1954,8 @@ export function AmapCampusPrototype({
       clusterRef.current = null;
       clusterCategoryRef.current = null;
       clusterProjectionRef.current = null;
-      providerSelectionTokenRef.current += 1;
-      coordinateProjectionTokenRef.current += 1;
+      providerPoiCardResolverRef.current.invalidate();
+      coordinateProjectorRef.current.invalidate();
       const infoWindow = infoWindowRef.current;
       infoWindowRef.current = null;
       infoWindow?.close();
@@ -2025,23 +1969,14 @@ export function AmapCampusPrototype({
     if (!state.mapFilter.query.trim()) return [];
     const results = queryCampusMapBrowse(browseProjection, {
       query: state.mapFilter.query,
-    });
-    const queryParts = state.mapFilter.query
-      .normalize("NFKC")
-      .toLocaleLowerCase()
-      .trim()
-      .split(/\s+/u)
-      .filter(Boolean);
-    const placesWithExplicitNameMatch = results.places.filter((place) => {
-      const placeName = place.name.normalize("NFKC").toLocaleLowerCase();
-      return queryParts.some((part) => placeName.includes(part));
+      placeMatch: "name",
     });
     return [
       ...results.buildings.map((building) => ({
         kind: "building" as const,
         building,
       })),
-      ...placesWithExplicitNameMatch.map((facility) => ({
+      ...results.places.map((facility) => ({
         kind: "facility" as const,
         facility,
         building:
