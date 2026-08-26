@@ -910,7 +910,7 @@ async function evaluatePublishWarnings(
     const currentDuplicates = currentCandidates.filter(
       (candidate) =>
         !commandPlaceIds.has(candidate.placeId) &&
-        duplicateLocation(candidate, change.fact),
+        isPreciseOutdoorDuplicateCandidate(candidate, change.fact),
     );
     const duplicateCandidates: unknown[] = currentDuplicates.map(
       (candidate) => ({
@@ -929,7 +929,10 @@ async function evaluatePublishWarnings(
           candidateNormalizedName === undefined ||
           candidateNormalizedName !== normalizedName ||
           candidate.fact.pinType !== change.fact.pinType ||
-          !duplicateLocation(toDuplicateLocation(candidate.fact), change.fact)
+          !isPreciseOutdoorDuplicateCandidate(
+            toDuplicateLocation(candidate.fact),
+            change.fact,
+          )
         ) {
           return [];
         }
@@ -1014,7 +1017,7 @@ function toDuplicateLocation(fact: CampusMapPublishFactInput) {
   };
 }
 
-function duplicateLocation(
+function isPreciseOutdoorDuplicateCandidate(
   candidate: {
     locationKind: string;
     buildingId: string | null;
