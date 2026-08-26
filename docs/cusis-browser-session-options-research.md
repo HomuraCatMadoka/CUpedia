@@ -60,6 +60,19 @@ Playwright 可以用 `headless: false` 打开本机窗口，也可以用 [`launc
 
 这条路适合先证明：登录和 MFA 是否能完成、四类页面能否稳定定位、数据能否标准化。它不适合线上用户，因为部署后“本机”变成了 Vercel 的服务器，用户看不到那个窗口。
 
+#### 本机原型实测（2026-08-27）
+
+`/cusis-sync-prototype` 已验证以下最小链路：Next.js 服务端启动一个独立的有界面 Chrome；用户直接在 CUHK 页面完成登录；服务端随后在同一个临时 BrowserContext 中依次打开 CUSIS 组件；结束后关闭 context 和浏览器。状态接口随后回到 `idle`，原型没有导出 Cookie、storageState、成绩、页面原文或 HTML。
+
+本次毕业账号实测得到：
+
+- CUHK SSO/MFA 可以完成，登录后落到 CUSIS `Homepage`。
+- 同一登录态可以直接打开 `SSR_VW_CLASS_FL`（页面标题 `View My Classes`）和 `SSR_CRSE_HIST_FL`（页面标题 `Course History`）。两个页面各自加载了 PeopleSoft form 和 table，证明页面级 adapter 可以复用临时会话，不必保存 Cookie 文件。
+- 两个页面都没有提取到课程编号。由于测试账号已毕业，而且渲染正文很短，这只能说明该账号不足以验证字段 parser，不能说明在读学生也会返回空数据。
+- 原型现已为 current、history、cart、requirements 四个组件提供独立只读入口，并提供一次登录依次读取四项后销毁窗口的入口。Shopping Cart、学业要求和非空课程字段仍需用有对应数据的账号实测。
+
+这次验证回答了架构问题：可以把 CUSIS 页面访问封装成 CUpedia 内部 adapter/API，但该 adapter 必须运行在持有临时浏览器会话的环境中。它不是 CUSIS 官方 API，也不能在普通 CUpedia 前端里读取另一个窗口的 Cookie。
+
 Playwright 也支持导出包含 Cookie、localStorage 和 IndexedDB 的 [`storageState`](https://playwright.dev/docs/api/class-browsercontext#browser-context-storage-state)，但官方明确提醒这类文件可能让持有者冒充账号，不能提交进仓库。[Playwright authentication 指南](https://playwright.dev/docs/auth)
 
 ### 3. Vercel Function 自带 Chromium / Playwright
