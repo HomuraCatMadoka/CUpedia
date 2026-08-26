@@ -116,3 +116,4 @@ _Avoid_: 与菜品赞踩表混用；把日榜做成 upsert/可取消。
 - [0025：菜单同步与点餐交接分离](../adr/0025-separate-menu-sync-from-ordering-handoff.md)
 - [0026：跨供应商发布窗口刷新当前菜单](../adr/0026-refresh-current-menus-across-provider-publication-windows.md)
 - [0028：以 Supabase Cron 作为菜单同步主时钟](../adr/0028-use-supabase-cron-as-primary-menu-sync-clock.md)
+- [0029：约束 Supabase pg_net 传输证据边界](../adr/0029-bound-supabase-pg-net-transport-evidence.md)

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded in part by [ADR 0029](0029-bound-supabase-pg-net-transport-evidence.md)
 
 ## Context
 
@@ -38,33 +38,19 @@ must not become callable or readable by client roles.
    command, database, owner, and inactive state. Installation is always inactive
    and resets the separate production activation guard; activation is an
    explicit runbook step after deployment and Vault preflight.
-3. Vault is the only durable source for the bearer, under the stable name
-   `cupedia_canteen_menu_sync_bearer`; scheduler audit, cron command text, and
-   application tables never copy it. `pg_net` necessarily places each prepared
-   Authorization header and empty request body in its private UNLOGGED request
-   queue until the worker consumes the row, then keeps the response in its
-   private UNLOGGED response table until TTL cleanup. Supabase owns the `net`
-   schema and restores platform grants that include client-role schema usage and
-   `PUBLIC` table privileges, so this migration cannot truthfully revoke those
-   extension ACLs. Instead, the runbook activation gate requires production's
-   Data API list of exposed schemas to exclude `net`, while the platform client
-   roles remain `NOLOGIN`. Activation also requires a healthy worker and a
-   positive response TTL no greater than six hours. Missing activation, an
-   unexpected owner, a missing secret, an unavailable worker, an unsafe TTL, or
-   a changed job contract fails closed before outbound work.
+3. The bearer exists only as the Vault secret named
+   `cupedia_canteen_menu_sync_bearer`. The enqueue function builds the
+   Authorization header in memory and neither the header, token, request body,
+   nor response body is persisted. Missing activation, an unexpected owner, a
+   missing secret, or a changed job contract fails closed before outbound work.
 4. Scheduler objects live in the private `canteen_menu_scheduler` schema. Tables
    use row-level security, public and client-role privileges are revoked, and
    helpers use caller privileges with pinned search paths. The HTTP response
-   trigger is a narrow, recorded exception to Supabase's general warning not to
-   add triggers to `pg_net` internals: it matches only request IDs already in
-   scheduler audit, calls no `pg_net` function, uses caller privileges, and
-   downgrades ordinary classifier/audit errors instead of re-raising them into
-   the worker. It copies only a bounded status, error class, endpoint
-   disposition, business code, timestamps, and correlation IDs; headers and
-   full bodies remain only inside `pg_net` until its TTL cleanup. These
-   extension-coupled objects are intentionally installed by a custom migration
-   outside the application-owned Drizzle schema; application code never queries
-   them through Drizzle.
+   trigger retains only a bounded status, error class, endpoint disposition,
+   business code, timestamps, and correlation IDs. These extension-coupled,
+   infrastructure-only objects are intentionally installed by a custom
+   migration outside the application-owned Drizzle schema; application code
+   never queries them through Drizzle.
 5. Delivery and cron-run evidence is retained for 14 days, giving a seven-day
    observation period plus recovery margin. Health is evaluated in four layers:
    cron tick, HTTP enqueue, HTTP/endpoint result, and business completion. Final
@@ -104,13 +90,5 @@ projection.
 - Scheduler audit data is intentionally less useful for debugging response
   bodies because retaining bodies or headers would create a secret-leak path.
   Business runs and snapshots remain the detailed source of truth.
-- `pg_net` still has a short-lived transport copy of the request header and
-  response body in UNLOGGED extension tables with platform-owned broad ACLs.
-  Safety therefore also depends on `net` remaining outside the Data API list of
-  exposed schemas and on there being no exposed routine that proxies arbitrary
-  SQL into `net`. A stopped worker can extend the request copy's lifetime, so
-  activation checks worker health, operations watch queue depth, and credential
-  rotation waits for an empty queue or invalidates the old endpoint credential
-  first.
 - Local databases without `pg_cron`, `pg_net`, or Vault still replay the schema,
   but only a Supabase-compatible database installs the runnable job.

@@ -1,7 +1,8 @@
 # Production canteen menu-sync scheduling
 
 Status: Current
-Last verified: 2026-08-26 against `src/db/migrations/0094_supabase-canteen-menu-sync-cron.sql` and `.github/workflows/canteen-menu-sync.yml`
+Last verified: 2026-08-26 against migrations 0094–0095 and
+`.github/workflows/canteen-menu-sync.yml`
 
 Supabase Cron is the primary clock for the first breakfast, lunch, and dinner
 drains. GitHub Actions starts later as an independent fallback and continues to
@@ -39,8 +40,10 @@ business rules.
 ## Fail-closed installation state
 
 Migration 0094 installs available `pg_cron` and `pg_net` extensions, private
-scheduler objects, the response classifier, and the one named job. Every replay
-reconciles the reviewed job and leaves both controls off:
+scheduler objects, the response classifier, and the one named job. Migration
+0095 hardens response classification and guards every transition to active
+state with the reviewed `pg_net` runtime bounds. Every full replay reconciles
+the reviewed job and leaves both controls off:
 
 - `cron.job.active = false`
 - `canteen_menu_scheduler.activation.environment = 'unconfigured'`

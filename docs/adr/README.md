@@ -32,6 +32,7 @@ Architectural decision records (ADRs) explain why CUpedia accepted a durable bou
 - [0026: Refresh current menus across provider publication windows](0026-refresh-current-menus-across-provider-publication-windows.md)
 - [0027: Use iCHEF setting-item UUIDs as product identity](0027-ichef-setting-item-identity.md)
 - [0028: Use Supabase Cron as the primary menu-sync clock](0028-use-supabase-cron-as-primary-menu-sync-clock.md)
+- [0029: Bound Supabase pg_net transport evidence](0029-bound-supabase-pg-net-transport-evidence.md)
 
 ## Maintain the index
 

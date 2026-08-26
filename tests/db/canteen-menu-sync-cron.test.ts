@@ -10,6 +10,21 @@ const migrationSql = readFileSync(
   "src/db/migrations/0094_supabase-canteen-menu-sync-cron.sql",
   "utf8",
 );
+const hardeningMigrationSql = readFileSync(
+  "src/db/migrations/0095_harden-supabase-canteen-menu-sync-cron.sql",
+  "utf8",
+);
+const migrationJournal = JSON.parse(
+  readFileSync("src/db/migrations/meta/_journal.json", "utf8"),
+) as {
+  entries: Array<{ idx: number; tag: string }>;
+};
+const schedulerSnapshot = JSON.parse(
+  readFileSync("src/db/migrations/meta/0094_snapshot.json", "utf8"),
+) as { id: string };
+const hardeningSnapshot = JSON.parse(
+  readFileSync("src/db/migrations/meta/0095_snapshot.json", "utf8"),
+) as { prevId: string };
 const runbookText = readFileSync(
   "docs/operations/canteen-menu-sync-scheduling.md",
   "utf8",
@@ -44,8 +59,20 @@ describe("Supabase canteen menu scheduler migration #757", () => {
     expect(migrationSql).toContain("LIMIT 500");
     expect(migrationSql).toContain("details.runid = audit.cron_run_id");
     expect(migrationSql).toContain("primary_completed_at timestamptz");
-    expect(migrationSql).toContain("current_setting('pg_net.ttl', true)");
-    expect(migrationSql).toContain("net.check_worker_is_up()");
+    expect(hardeningMigrationSql).toContain(
+      "current_setting('pg_net.ttl', true)",
+    );
+    expect(hardeningMigrationSql).toContain("net.check_worker_is_up()");
+    expect(hardeningMigrationSql).toContain(
+      "BEFORE INSERT OR UPDATE OF active",
+    );
+    expect(
+      migrationJournal.entries.slice(-2).map(({ idx, tag }) => ({ idx, tag })),
+    ).toEqual([
+      { idx: 94, tag: "0094_supabase-canteen-menu-sync-cron" },
+      { idx: 95, tag: "0095_harden-supabase-canteen-menu-sync-cron" },
+    ]);
+    expect(hardeningSnapshot.prevId).toBe(schedulerSnapshot.id);
   });
 
   it("uses supported cron functions and keeps all privileged helpers private", () => {
@@ -58,6 +85,10 @@ describe("Supabase canteen menu scheduler migration #757", () => {
     expect(
       migrationSql.match(/SECURITY INVOKER/g)?.length,
     ).toBeGreaterThanOrEqual(8);
+    expect(hardeningMigrationSql).not.toMatch(/security\s+definer/i);
+    expect(
+      hardeningMigrationSql.match(/SECURITY INVOKER/g)?.length,
+    ).toBeGreaterThanOrEqual(2);
     expect(migrationSql).toContain(
       "REVOKE ALL ON SCHEMA canteen_menu_scheduler FROM PUBLIC",
     );
@@ -296,6 +327,7 @@ describe.skipIf(!hasSupabaseSchedulerDb)(
       const queuedBeforeReplay = await queueCount(pool);
 
       await pool.query(migrationSql);
+      await pool.query(hardeningMigrationSql);
       expect(await readReviewedJobs(pool)).toEqual([
         {
           jobid: initialJob[0].jobid,
@@ -317,7 +349,9 @@ describe.skipIf(!hasSupabaseSchedulerDb)(
         "SELECT 1",
       );
       await pool.query(migrationSql);
+      await pool.query(hardeningMigrationSql);
       await pool.query(migrationSql);
+      await pool.query(hardeningMigrationSql);
 
       const reconciledJobs = await readReviewedJobs(pool);
       expect(reconciledJobs).toEqual([
@@ -698,7 +732,7 @@ describe.skipIf(!hasSupabaseSchedulerDb)(
          where namespace.nspname = 'canteen_menu_scheduler'
          order by procedure.proname`,
       );
-      expect(functions.rows).toHaveLength(8);
+      expect(functions.rows).toHaveLength(9);
       for (const fn of functions.rows) {
         expect(fn.security_definer).toBe(false);
         expect(fn.config).toContain("search_path=pg_catalog");
@@ -803,6 +837,25 @@ describe.skipIf(!hasSupabaseSchedulerDb)(
       expect(trigger.rows).toEqual([
         {
           name: "canteen_menu_scheduler_capture_response",
+          security_definer: false,
+        },
+      ]);
+      const activationTrigger = await pool.query<{
+        name: string;
+        security_definer: boolean;
+      }>(
+        `select trigger.tgname as name,
+                procedure.prosecdef as security_definer
+         from pg_trigger as trigger
+         join pg_proc as procedure on procedure.oid = trigger.tgfoid
+         where trigger.tgrelid =
+               'canteen_menu_scheduler.activation'::regclass
+           and trigger.tgname =
+               'canteen_menu_scheduler_guard_activation_runtime'`,
+      );
+      expect(activationTrigger.rows).toEqual([
+        {
+          name: "canteen_menu_scheduler_guard_activation_runtime",
           security_definer: false,
         },
       ]);
