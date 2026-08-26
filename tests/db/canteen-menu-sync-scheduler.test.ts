@@ -544,6 +544,17 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
                 price: 20,
               })),
             },
+            ...(endTime === "17:00"
+              ? []
+              : [
+                  {
+                    group_id: "102",
+                    local_name: "稍后发布候选",
+                    start_time: endTime,
+                    end_time: "17:00",
+                    products: [],
+                  },
+                ]),
           ],
         },
       });
@@ -777,6 +788,80 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
     ]);
     expect(runs).toEqual([{ status: "failed", errorCode: "EMPTY_PINME_MENU" }]);
     expect(snapshots).toEqual([]);
+  });
+
+  it("does not claim or call PinMe after a successful observation's refresh horizon (#762)", async () => {
+    const observedAt = new Date("2099-08-20T11:44:01.000Z"); // 19:44 HKT
+    const checkedAt = new Date("2099-08-20T12:04:21.000Z"); // 20:04 HKT
+    const { sourceId } = await createEligibleSource("晚餐刷新截止来源", {
+      syncMealPeriods: ["dinner"],
+    });
+    const payload = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: {
+        menu_group: [
+          {
+            menu_id: "5150",
+            start_time: "17:00",
+            end_time: "20:30",
+            groups: ["101"],
+          },
+        ],
+        group: [
+          {
+            group_id: "101",
+            start_time: "17:00",
+            end_time: "19:45",
+            products: [
+              { product_id: "dinner", local_name: "晚餐菜品", price: 30 },
+            ],
+          },
+          {
+            group_id: "102",
+            start_time: "17:00",
+            end_time: "20:00",
+            products: [],
+          },
+        ],
+      },
+    });
+    fetchMenuFromProvider.mockImplementation(async (_source, context) => ({
+      ...payload,
+      observationScope: {
+        kind: "meal-period" as const,
+        mealPeriod: context.mealPeriod,
+      },
+    }));
+
+    readMenuSyncDatabaseNow.mockResolvedValue(observedAt);
+    await expect(syncNextDueMenuSource()).resolves.toMatchObject({
+      disposition: "continue",
+      sourceId,
+      result: { status: "applied", itemCount: 1 },
+    });
+
+    readMenuSyncDatabaseNow.mockResolvedValue(checkedAt);
+    await expect(syncNextDueMenuSource()).resolves.toEqual({
+      disposition: "no-work",
+      window: "2099-08-20/dinner",
+    });
+    expect(fetchMenuFromProvider).toHaveBeenCalledTimes(1);
+
+    const [runs, snapshots] = await Promise.all([
+      db
+        .select({ status: canteenMenuSyncRuns.status })
+        .from(canteenMenuSyncRuns)
+        .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId)),
+      db
+        .select({ scopeEvidence: canteenMenuSyncSnapshots.scopeEvidence })
+        .from(canteenMenuSyncSnapshots)
+        .where(eq(canteenMenuSyncSnapshots.menuSourceId, sourceId)),
+    ]);
+    expect(runs).toEqual([{ status: "applied" }]);
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0]?.scopeEvidence).toMatchObject({
+      refreshUntilMinute: 20 * 60,
+    });
   });
 
   it("returns stop-for-review immediately when the third transient attempt fails", async () => {

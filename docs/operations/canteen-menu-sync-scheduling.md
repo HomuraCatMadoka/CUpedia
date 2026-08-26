@@ -32,6 +32,16 @@ The database job contract is exact:
 - bearer secret name: `cupedia_canteen_menu_sync_bearer`
 - HTTP timeout: 65 seconds
 
+Meal-period snapshots may carry a provider-neutral `refreshUntilMinute` hint
+derived from bounded, unambiguous same-day service windows. At or after that
+horizon, the endpoint stops claiming repeat observations for that source in the
+current coarse meal window. This suppresses a provider read only: it does not
+deactivate menu items, prove that a menu is empty, or change initial-window
+completion evidence. Missing, malformed, out-of-range, ambiguous, or
+cross-midnight evidence keeps the existing provider-boundary and 45-minute
+fallback behavior. [ADR 0030](../adr/0030-stop-scoped-observations-at-refresh-horizons.md)
+records this menu-domain boundary; neither production clock owns it.
+
 Do not create a second job, change the origin for a preview deployment, write
 `cron.job` directly, or put a source ID into a cron command. The database claim
 and run history make repeated wake-ups safe; the clocks do not implement menu

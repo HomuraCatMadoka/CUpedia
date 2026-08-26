@@ -407,6 +407,7 @@ describe("PINME menu adapter", () => {
       publicationCompatibilityKey: expect.stringMatching(/^[a-f0-9]{24}$/),
       publicationWindows: [],
       refreshBoundaryMinutes: [11 * 60, 14 * 60, 17 * 60, 21 * 60],
+      refreshUntilMinute: 21 * 60,
       serviceWindows: [
         { startTime: "11:00", endTime: "14:00" },
         { startTime: "17:00", endTime: "21:00" },
@@ -464,8 +465,77 @@ describe("PINME menu adapter", () => {
         { publicationId: "5150", startTime: "11:00", endTime: "14:30" },
       ],
       refreshBoundaryMinutes: [11 * 60, 14 * 60 + 30, 17 * 60],
+      refreshUntilMinute: 17 * 60,
     });
   });
+
+  it("derives the refresh horizon from the broad group pool, not the publication wrapper", () => {
+    const result = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: {
+        menu_group: [
+          {
+            menu_id: "5150",
+            start_time: "17:00",
+            end_time: "20:30",
+            groups: ["101"],
+          },
+        ],
+        group: [
+          {
+            group_id: "101",
+            start_time: "17:00",
+            end_time: "19:45",
+            products: [
+              { product_id: "dinner", local_name: "晚餐菜品", price: 30 },
+            ],
+          },
+          {
+            group_id: "102",
+            start_time: "17:00",
+            end_time: "20:00",
+            products: [],
+          },
+        ],
+      },
+    });
+
+    expect(result.scopeEvidence).toMatchObject({
+      provider: "pinme",
+      refreshUntilMinute: 20 * 60,
+      refreshBoundaryMinutes: [17 * 60, 19 * 60 + 45, 20 * 60, 20 * 60 + 30],
+    });
+  });
+
+  it.each([
+    { label: "missing", group: { start_time: "17:00" } },
+    { label: "malformed", group: { start_time: "17:00", end_time: "later" } },
+    {
+      label: "cross-midnight",
+      group: { start_time: "22:00", end_time: "02:00" },
+    },
+  ])(
+    "omits an ambiguous refresh horizon for $label group-pool evidence",
+    ({ group }) => {
+      const result = buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          menu_group: [{ groups: ["101"] }],
+          group: [
+            {
+              group_id: "101",
+              ...group,
+              products: [
+                { product_id: "dinner", local_name: "晚餐菜品", price: 30 },
+              ],
+            },
+          ],
+        },
+      });
+
+      expect(result.scopeEvidence).not.toHaveProperty("refreshUntilMinute");
+    },
+  );
 
   it("fails closed when two rows publish the same product identity", () => {
     const duplicate = pinmePayload([

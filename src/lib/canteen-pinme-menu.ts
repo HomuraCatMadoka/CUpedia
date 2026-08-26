@@ -63,6 +63,7 @@ function referencedPinmeGroups(data: JsonObject): {
   publicationKey: string;
   publicationWindows: PinmePublicationWindow[];
   refreshBoundaryMinutes: number[];
+  refreshUntilMinute?: number;
 } {
   if (!Array.isArray(data.menu_group) || !Array.isArray(data.group)) {
     throw new Error("INVALID_PINME_MENU_TOPOLOGY");
@@ -83,6 +84,8 @@ function referencedPinmeGroups(data: JsonObject): {
   }> = [];
   const publicationWindows = new Map<string, PinmePublicationWindow>();
   const refreshBoundaryMinutes = new Set<number>();
+  let refreshUntilMinute: number | undefined;
+  let hasBoundedRefreshHorizon = data.group.length > 0;
   let referenceCount = 0;
   for (const menuGroupValue of data.menu_group) {
     const menuGroup = object(menuGroupValue);
@@ -133,8 +136,17 @@ function referencedPinmeGroups(data: JsonObject): {
     groupsById.set(groupId, group);
     const window = serviceWindow(group);
     if (window) {
-      refreshBoundaryMinutes.add(minuteOfDay(window.startTime));
-      refreshBoundaryMinutes.add(minuteOfDay(window.endTime));
+      const startMinute = minuteOfDay(window.startTime);
+      const endMinute = minuteOfDay(window.endTime);
+      refreshBoundaryMinutes.add(startMinute);
+      refreshBoundaryMinutes.add(endMinute);
+      if (startMinute >= endMinute) {
+        hasBoundedRefreshHorizon = false;
+      } else {
+        refreshUntilMinute = Math.max(refreshUntilMinute ?? 0, endMinute);
+      }
+    } else {
+      hasBoundedRefreshHorizon = false;
     }
   }
 
@@ -166,6 +178,9 @@ function referencedPinmeGroups(data: JsonObject): {
     refreshBoundaryMinutes: [...refreshBoundaryMinutes]
       .sort((left, right) => left - right)
       .slice(0, MAX_PINME_REFRESH_BOUNDARIES),
+    ...(hasBoundedRefreshHorizon && refreshUntilMinute !== undefined
+      ? { refreshUntilMinute }
+      : {}),
   };
 }
 
@@ -390,6 +405,9 @@ export function buildPinmeMenuSyncPayload(
       publicationCompatibilityKey,
       publicationWindows: topology.publicationWindows,
       refreshBoundaryMinutes: topology.refreshBoundaryMinutes,
+      ...(topology.refreshUntilMinute !== undefined
+        ? { refreshUntilMinute: topology.refreshUntilMinute }
+        : {}),
       serviceWindows: normalizedServiceWindows,
     },
   };

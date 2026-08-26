@@ -3,6 +3,7 @@
 ## Status
 
 Superseded in part by [ADR 0028](0028-use-supabase-cron-as-primary-menu-sync-clock.md)
+and [ADR 0030](0030-stop-scoped-observations-at-refresh-horizons.md)
 
 ## Context
 

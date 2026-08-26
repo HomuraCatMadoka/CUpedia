@@ -40,15 +40,56 @@ function refreshBoundaryMinutes(evidence: Record<string, unknown>): number[] {
     .sort((left, right) => left - right);
 }
 
+function refreshUntilMinute(evidence: Record<string, unknown>): number | null {
+  const value = evidence.refreshUntilMinute;
+  return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 1439
+    ? Number(value)
+    : null;
+}
+
+function observationClock(latest: LatestMenuSourceObservation): {
+  minuteOfDay: number;
+  millisecondsIntoMinute: number;
+} | null {
+  if (
+    !Number.isInteger(latest.observedMinuteOfDay) ||
+    latest.observedMinuteOfDay < 0 ||
+    latest.observedMinuteOfDay > 1439
+  ) {
+    return null;
+  }
+  return {
+    minuteOfDay: latest.observedMinuteOfDay,
+    millisecondsIntoMinute:
+      latest.observedAt.getUTCSeconds() * 1_000 +
+      latest.observedAt.getUTCMilliseconds(),
+  };
+}
+
 /**
- * Returns the next time a successful observation becomes stale in this coarse
- * meal period. Provider boundaries can advance the bounded fallback refresh.
+ * Returns the next useful refresh time for a successful observation at the
+ * database check time. Provider boundaries can advance the bounded fallback.
  */
 export function nextMenuSourceObservationAt(
   window: MenuSyncWindow,
   latest: LatestMenuSourceObservation,
+  databaseNow: Date,
 ): Date | null {
   if (latest.observationScope !== "meal-period") return null;
+
+  const clock = observationClock(latest);
+  if (clock) {
+    const horizonMinute = refreshUntilMinute(latest.scopeEvidence);
+    if (horizonMinute !== null) {
+      if (horizonMinute <= clock.minuteOfDay) return null;
+      const horizonAt = new Date(
+        latest.observedAt.getTime() +
+          (horizonMinute - clock.minuteOfDay) * 60 * 1_000 -
+          clock.millisecondsIntoMinute,
+      );
+      if (databaseNow >= horizonAt) return null;
+    }
+  }
 
   const earliestRepeatAt = new Date(
     latest.observedAt.getTime() + MIN_SCOPED_OBSERVATION_INTERVAL_MS,
@@ -56,22 +97,15 @@ export function nextMenuSourceObservationAt(
   const candidates = [
     new Date(latest.observedAt.getTime() + SCOPED_OBSERVATION_REFRESH_MS),
   ];
-  if (
-    Number.isInteger(latest.observedMinuteOfDay) &&
-    latest.observedMinuteOfDay >= 0 &&
-    latest.observedMinuteOfDay <= 1439
-  ) {
-    const millisecondsIntoMinute =
-      latest.observedAt.getUTCSeconds() * 1_000 +
-      latest.observedAt.getUTCMilliseconds();
+  if (clock) {
     const nextBoundary = refreshBoundaryMinutes(latest.scopeEvidence).find(
-      (minute) => minute > latest.observedMinuteOfDay,
+      (minute) => minute > clock.minuteOfDay,
     );
     if (nextBoundary !== undefined) {
       const boundaryAt = new Date(
         latest.observedAt.getTime() +
-          (nextBoundary - latest.observedMinuteOfDay) * 60 * 1_000 -
-          millisecondsIntoMinute,
+          (nextBoundary - clock.minuteOfDay) * 60 * 1_000 -
+          clock.millisecondsIntoMinute,
       );
       candidates.push(
         boundaryAt < earliestRepeatAt ? earliestRepeatAt : boundaryAt,
@@ -288,7 +322,7 @@ async function readMenuSourceScheduleFacts(
         }
       : null;
     const dueAt = latest
-      ? nextMenuSourceObservationAt(window, latest)
+      ? nextMenuSourceObservationAt(window, latest, databaseNow)
       : window.claimsStartAt;
     if (!dueAt || dueAt > databaseNow) return [];
 
