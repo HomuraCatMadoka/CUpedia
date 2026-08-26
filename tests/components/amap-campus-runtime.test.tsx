@@ -136,6 +136,7 @@ afterEach(() => {
 });
 
 async function renderWithRuntime(options?: {
+  deferConvertFrom?: boolean;
   convertFromFails?: boolean;
   convertFromMutatesInput?: boolean;
   convertFromOffset?: { longitude: number; latitude: number };
@@ -152,7 +153,16 @@ async function renderWithRuntime(options?: {
   const runtime = installAmapRuntime(options);
   render(<AmapCampusPrototype />);
   await waitFor(() => expect(runtime.maps).toHaveLength(1));
-  return { runtime, map: runtime.maps[0]! };
+  const map = runtime.maps[0]!;
+  await waitFor(() =>
+    expect(runtime.coordinateConversionRequests).toHaveLength(1),
+  );
+  if (!options?.deferConvertFrom) {
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+  return { runtime, map };
 }
 
 describe("AmapCampusPrototype runtime effects", () => {
@@ -876,6 +886,29 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(push).toHaveBeenCalledTimes(1);
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();
     expect(map.panTo).not.toHaveBeenCalled();
+  });
+
+  it("does not let a late coordinate projection override a newer linked hotspot", async () => {
+    const { runtime, map } = await renderWithRuntime({
+      deferConvertFrom: true,
+    });
+
+    await act(async () => {
+      map.emit("hotspotclick", {
+        id: "B0J2RXUQB6",
+        name: "ScienceCentre科学馆",
+        lnglat: { lng: 114.20801, lat: 22.41966 },
+      });
+    });
+    await screen.findByRole("heading", { name: "科学馆" });
+
+    await runtime.flushCoordinateConversions();
+    await runtime.flushAnimationFrames();
+
+    expect(window.location.search).toContain(
+      "scene=building&id=science-centre",
+    );
+    expect(map.setZoomAndCenter).not.toHaveBeenCalled();
   });
 
   it("does not dismiss a linked hotspot when its companion map click arrives later", async () => {

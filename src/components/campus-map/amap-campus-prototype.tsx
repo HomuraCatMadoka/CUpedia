@@ -1684,6 +1684,7 @@ export function AmapCampusPrototype({
     const AMap = window.AMap;
     const map = mapRef.current;
     if (!mapReady || !AMap || !map) return;
+    const transitionToken = driver.getSnapshot().transitionToken;
     void coordinateProjectorRef.current
       .projectLatest(browseProjection, {
         convertFrom: (positions, source, callback) =>
@@ -1703,22 +1704,31 @@ export function AmapCampusPrototype({
           ...projection.positions,
           __campus: projection.center,
         };
+        const projectionStillOwnsScene =
+          driver.getSnapshot().transitionToken === transitionToken;
         amapOffsetRef.current = projection.offset;
         amapPositionsRef.current = converted;
         setAmapOffset(projection.offset);
-        setCenterPosition(CAMPUS_CENTER);
-        setProviderCenterPosition(projection.center);
+        if (projectionStillOwnsScene) {
+          setCenterPosition(CAMPUS_CENTER);
+          setProviderCenterPosition(projection.center);
+        }
         setCoordinateVersion((version) => version + 1);
         setMapLoadError(null);
+        const shouldSetInitialCenter = !didSetInitialCenterRef.current;
+        if (shouldSetInitialCenter) didSetInitialCenterRef.current = true;
         const pendingCamera = pendingDriverCameraRef.current;
         if (pendingCamera) {
           executeDriverCamera(pendingCamera.command, pendingCamera.context);
-        } else if (!didSetInitialCenterRef.current) {
-          didSetInitialCenterRef.current = true;
+        } else if (
+          shouldSetInitialCenter &&
+          projectionStillOwnsScene &&
+          !editSessionActiveRef.current
+        ) {
           map.setZoomAndCenter(17.2, projection.center, true, 0);
         }
       });
-  }, [browseProjection, executeDriverCamera, mapReady]);
+  }, [browseProjection, driver, executeDriverCamera, mapReady]);
 
   useEffect(() => {
     if (
