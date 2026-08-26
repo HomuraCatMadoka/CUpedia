@@ -48,7 +48,6 @@ import {
 } from "@/lib/campus-map/amap-place-context";
 import {
   parseCampusMapState,
-  type CampusMapCatalog,
   type CampusMapState,
 } from "@/lib/campus-map/map-state";
 import {
@@ -74,7 +73,15 @@ import {
   type CampusMapBrowsePlace,
   type CampusMapBrowseProjection,
 } from "@/lib/campus-map/browse-projection";
-import { CampusMapBrowseProjectionStore } from "@/lib/campus-map/browse-projection-store";
+import {
+  CampusMapBrowseProjectionStore,
+  type CampusMapBrowseRefreshResult,
+} from "@/lib/campus-map/browse-projection-store";
+import {
+  createCampusMapSceneCatalog,
+  createLegacyCampusMapCatalog,
+  RefreshableCampusMapSceneCatalog,
+} from "@/lib/campus-map/browse-scene-catalog";
 import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
 import {
   CampusMapSceneDriver,
@@ -224,66 +231,6 @@ const CATEGORIES = CAMPUS_MAP_EDIT_SCHEMA.presets.map((preset) => ({
   ...CATEGORY_PRESENTATION[preset.pinType],
 }));
 
-function sceneCatalogFor(
-  projection: CampusMapBrowseProjection,
-): CampusMapSceneCatalog {
-  return {
-    categories: CATEGORIES.map((category) => category.id),
-    buildings: Object.fromEntries(
-      projection.buildings.map((building) => [
-        building.buildingId,
-        { floorIds: building.floors.map((floor) => floor.floorId) },
-      ]),
-    ),
-    facilities: Object.fromEntries(
-      projection.places.flatMap((place) =>
-        place.buildingId && place.floorId
-          ? [
-              [
-                place.placeId,
-                {
-                  buildingId: place.buildingId,
-                  floorId: place.floorId,
-                  category: place.pinType,
-                },
-              ],
-            ]
-          : [],
-      ),
-    ),
-    contents: {},
-  };
-}
-
-class RefreshableSceneCatalog implements CampusMapSceneCatalog {
-  categories: CampusMapSceneCatalog["categories"];
-  buildings: CampusMapSceneCatalog["buildings"];
-  facilities: CampusMapSceneCatalog["facilities"];
-  contents: CampusMapSceneCatalog["contents"];
-
-  constructor(initial: CampusMapSceneCatalog) {
-    this.categories = initial.categories;
-    this.buildings = initial.buildings;
-    this.facilities = initial.facilities;
-    this.contents = initial.contents;
-  }
-
-  replace(next: CampusMapSceneCatalog) {
-    this.categories = next.categories;
-    this.buildings = next.buildings;
-    this.facilities = next.facilities;
-    this.contents = next.contents;
-  }
-}
-
-function legacyCatalogFor(catalog: CampusMapSceneCatalog): CampusMapCatalog {
-  return {
-    categories: CATEGORIES.map((category) => category.id),
-    buildings: catalog.buildings,
-    facilities: catalog.facilities,
-  };
-}
-
 function canonicalSessionFromLegacySearch(
   search: string,
   catalog: CampusMapSceneCatalog,
@@ -296,7 +243,10 @@ function canonicalSessionFromLegacySearch(
   ) {
     params.set("building", "science-centre");
   }
-  const state = parseCampusMapState(params, legacyCatalogFor(catalog));
+  const state = parseCampusMapState(
+    params,
+    createLegacyCampusMapCatalog(catalog),
+  );
   const snap = state.sheet.snap === "full" ? "full" : "peek";
   if (state.selection.kind === "facility") {
     return {
@@ -605,10 +555,12 @@ export function AmapCampusPrototype({
   initialSearch = "",
   factSchema = null,
   initialBrowseProjection = EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
+  onPublishedProjectionRefreshed,
 }: {
   initialSearch?: string;
   factSchema?: CampusMapFactSchema | null;
   initialBrowseProjection?: CampusMapBrowseProjection;
+  onPublishedProjectionRefreshed?(result: CampusMapBrowseRefreshResult): void;
 }) {
   const [projectionStore] = useState(
     () =>
@@ -624,11 +576,21 @@ export function AmapCampusPrototype({
   );
   const browseProjection = browseSnapshot.projection;
   const sceneCatalog = useMemo(
-    () => sceneCatalogFor(browseProjection),
+    () =>
+      createCampusMapSceneCatalog(
+        browseProjection,
+        CATEGORIES.map((category) => category.id),
+      ),
     [browseProjection],
   );
   const [driverCatalog] = useState(
-    () => new RefreshableSceneCatalog(sceneCatalogFor(initialBrowseProjection)),
+    () =>
+      new RefreshableCampusMapSceneCatalog(
+        createCampusMapSceneCatalog(
+          initialBrowseProjection,
+          CATEGORIES.map((category) => category.id),
+        ),
+      ),
   );
   useEffect(() => {
     driverCatalog.replace(sceneCatalog);
@@ -1158,9 +1120,11 @@ export function AmapCampusPrototype({
   const refreshAfterPublish = useCallback(
     async (receipt: { changes: Array<{ placeId: string }> }) => {
       const placeId = receipt.changes[0]?.placeId;
-      if (placeId) await projectionStore.refresh({ placeId });
+      if (!placeId) return;
+      const result = await projectionStore.refresh({ placeId });
+      onPublishedProjectionRefreshed?.(result);
     },
-    [projectionStore],
+    [onPublishedProjectionRefreshed, projectionStore],
   );
 
   const {
@@ -1892,23 +1856,6 @@ export function AmapCampusPrototype({
         });
         cluster.on("click", (event) => {
           interactionAdapterRef.current.dispatchProviderTarget(() => {
-            const markerKeys = new Set(
-              event.clusterData
-                ?.map(({ markerKey }) => markerKey)
-                .filter((markerKey): markerKey is string => Boolean(markerKey)),
-            );
-            if (markerKeys.size === 1) {
-              const [markerKey] = markerKeys;
-              const projectedMarker = markerByKey.get(markerKey!);
-              if (projectedMarker?.kind === "building-presence") {
-                const building = buildingsRef.current.find(
-                  (candidate) =>
-                    candidate.buildingId === projectedMarker.buildingId,
-                );
-                if (building) selectBuilding(building);
-                return;
-              }
-            }
             const positions = event.clusterData?.map(({ lnglat }) =>
               "lng" in lnglat ? ([lnglat.lng, lnglat.lat] as Position) : lnglat,
             );

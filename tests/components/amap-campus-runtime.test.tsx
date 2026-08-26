@@ -1277,7 +1277,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(window.location.search).not.toContain("scene=facility");
   });
 
-  it("counts stable Places rather than Building anchors in cluster data", async () => {
+  it("fits co-located Places before opening their Building presence", async () => {
     const scienceWater = originalFacilityFixtures.find(
       (facility) =>
         facility.buildingId === "science-centre" &&
@@ -1289,7 +1289,7 @@ describe("AmapCampusPrototype runtime effects", () => {
       name: "东翼饮水机",
     });
 
-    const { runtime } = await renderWithRuntime();
+    const { runtime, map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
     await screen.findByRole("heading", {
       name: "2 栋建筑 · 3 个饮水点",
@@ -1310,11 +1310,14 @@ describe("AmapCampusPrototype runtime effects", () => {
       (item) => item.markerKey === "building:science-centre:water",
     );
     expect(sciencePresence).toHaveLength(2);
+    map.setBounds.mockClear();
     await act(async () => {
       cluster.emit("click", { clusterData: sciencePresence });
     });
+    expect(map.setBounds).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
     expect(
-      await screen.findByRole("heading", { name: "科学馆" }),
+      screen.getByRole("heading", { name: "2 栋建筑 · 3 个饮水点" }),
     ).not.toBeNull();
   });
 

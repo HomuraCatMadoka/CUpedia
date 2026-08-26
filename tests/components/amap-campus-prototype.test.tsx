@@ -275,6 +275,7 @@ describe("AmapCampusPrototype", () => {
 
   it("refetches Current facts after publish so a standalone Place is searchable", async () => {
     const placeId = "30000000-0000-4000-8000-000000000020";
+    const onPublishedProjectionRefreshed = vi.fn();
     vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
       status: "published",
       changesetId: "50000000-0000-4000-8000-000000000020",
@@ -296,6 +297,7 @@ describe("AmapCampusPrototype", () => {
           buildings: [],
           places: [],
         })}
+        onPublishedProjectionRefreshed={onPublishedProjectionRefreshed}
       />,
     );
 
@@ -314,6 +316,17 @@ describe("AmapCampusPrototype", () => {
       await mockLoadBrowseProjection.mock.results[0]!.value;
       await Promise.resolve();
     });
+    await waitFor(() =>
+      expect(onPublishedProjectionRefreshed).toHaveBeenCalledWith({
+        status: "applied",
+        selectionTarget: {
+          kind: "place",
+          placeId,
+          buildingId: null,
+          floorId: null,
+        },
+      }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
     const search = screen.getByPlaceholderText("搜索建筑");
     await waitFor(() =>
