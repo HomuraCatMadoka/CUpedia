@@ -4,6 +4,7 @@ import {
   CameraRequestGate,
   cameraPolicyFor,
   deriveCameraPadding,
+  placementAnchorPoint,
   type ScreenRect,
 } from "@/lib/campus-map/camera-policy";
 
@@ -15,6 +16,21 @@ const desktopMap: ScreenRect = {
 };
 
 describe("campus map camera policy", () => {
+  it("uses the visible map centre as the mobile placement anchor", () => {
+    expect(placementAnchorPoint({ width: 390, height: 720 })).toEqual({
+      x: 195,
+      y: expect.closeTo(187.2, 10),
+    });
+    expect(placementAnchorPoint({ width: 720, height: 390 })).toEqual({
+      x: 360,
+      y: expect.closeTo(101.4, 10),
+    });
+    expect(placementAnchorPoint({ width: 1440, height: 900 })).toEqual({
+      x: 720,
+      y: 450,
+    });
+  });
+
   it("derives right padding from a desktop side panel's actual overlap", () => {
     expect(
       deriveCameraPadding(desktopMap, {

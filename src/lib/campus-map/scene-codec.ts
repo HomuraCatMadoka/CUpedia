@@ -140,7 +140,11 @@ export function encodeCampusMapUrl(
   });
 
   if (normalized.mode === "task") {
-    params.set("task", "create");
+    params.set("task", normalized.task.kind);
+    if (normalized.task.kind === "edit") {
+      params.set("id", normalized.task.placeId);
+      return params;
+    }
     params.set("anchor", normalized.task.anchor.kind);
     if (normalized.task.anchor.kind === "building") {
       params.set("id", normalized.task.anchor.buildingId);
@@ -202,6 +206,20 @@ export function decodeCampusMapUrl(
   if (taskKind) {
     if (!hasOnlyUrlKeys(params, ["v", "task", "anchor", "id"])) {
       return fallback("conflicting-fields");
+    }
+    if (taskKind === "edit") {
+      if (!hasOnlyUrlKeys(params, ["v", "task", "id"])) {
+        return fallback("conflicting-fields");
+      }
+      const placeId = params.get("id");
+      if (!isCanonicalCampusMapId(placeId)) return fallback("invalid-identity");
+      const session: CampusMapSession = {
+        mode: "task",
+        task: { kind: "edit", placeId },
+      };
+      return validSession(session, catalog)
+        ? { status: "decoded", session }
+        : fallback("unknown-entity");
     }
     if (taskKind !== "create") return fallback("invalid-task");
     const anchor = params.get("anchor");

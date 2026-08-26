@@ -35,11 +35,21 @@ export type CampusMapDriverCameraCommand =
   | {
       kind: "fit";
       positions: ReadonlyArray<readonly [longitude: number, latitude: number]>;
+    }
+  | {
+      kind: "edit-position";
+      position: readonly [longitude: number, latitude: number];
+      reason:
+        | "draft-restore"
+        | "keyboard-placement"
+        | "provider-placement"
+        | "reposition";
     };
 
 export type CampusMapDriverFocusCommand =
   | CampusMapFocusCommand
-  | { kind: "result"; resultId: string };
+  | { kind: "result"; resultId: string }
+  | { kind: "edit-field"; field: string };
 
 export type CampusMapSheetCommand =
   | { kind: "hide" }
@@ -101,7 +111,7 @@ interface CampusMapDriverCommit {
 }
 
 function sheetCommand(session: CampusMapSession): CampusMapSheetCommand {
-  if (session.mode === "task") return { kind: "hide" };
+  if (session.mode === "task") return { kind: "show", snap: "full" };
   const scene = session.scene;
   return "snap" in scene
     ? { kind: "show", snap: scene.snap }
@@ -241,6 +251,30 @@ export class CampusMapSceneDriver {
     this.bumpToken();
     const context = this.effectContext();
     this.ports.camera({ kind: "cancel" }, context);
+  }
+
+  recenterEditPosition(
+    position: readonly [longitude: number, latitude: number],
+    reason:
+      | "draft-restore"
+      | "keyboard-placement"
+      | "provider-placement"
+      | "reposition",
+  ) {
+    this.ports.camera(
+      { kind: "edit-position", position, reason },
+      this.effectContext(),
+    );
+  }
+
+  focusEditField(field: string) {
+    this.bumpToken();
+    this.ports.focus({ kind: "edit-field", field }, this.effectContext());
+  }
+
+  focusContributionForm() {
+    this.bumpToken();
+    this.ports.focus({ kind: "contribution-form" }, this.effectContext());
   }
 
   updateSheetGeometry(nextRect: ScreenRect | null) {

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { AmapCampusPrototype } from "@/components/campus-map/amap-campus-prototype";
+import { requireAuth } from "@/lib/auth-guard";
+import { getCampusMapFactSchema } from "@/lib/campus-map/fact-store";
 
 export const metadata: Metadata = {
   title: "Campus Map 高德交互原型",
@@ -15,11 +17,21 @@ interface PageProps {
 export default async function CampusMapPrototypePage({
   searchParams,
 }: PageProps) {
-  if (process.env.NODE_ENV === "production") notFound();
+  if (process.env.NODE_ENV === "production" && process.env.E2E_TEST !== "1") {
+    notFound();
+  }
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(await searchParams)) {
     if (Array.isArray(value)) value.forEach((item) => params.append(key, item));
     else if (value !== undefined) params.set(key, value);
   }
-  return <AmapCampusPrototype initialSearch={params.toString()} />;
+  const callbackUrl = `/prototype/campus-map${params.size ? `?${params.toString()}` : ""}`;
+  await requireAuth(callbackUrl);
+  const factSchema = await getCampusMapFactSchema().catch(() => null);
+  return (
+    <AmapCampusPrototype
+      initialSearch={params.toString()}
+      factSchema={factSchema}
+    />
+  );
 }

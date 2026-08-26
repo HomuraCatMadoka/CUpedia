@@ -29,7 +29,10 @@ export type CampusMapSessionSemantics =
       } | null;
       buildingId: string | null;
       focus: CampusMapFocusCommand;
-      contributionAnchor: CampusMapContributionTask["anchor"];
+      contributionAnchor: Extract<
+        CampusMapContributionTask,
+        { kind: "create" }
+      >["anchor"];
       persistence: CampusMapPersistenceProjection;
     };
 
@@ -126,7 +129,17 @@ export function resolveCampusMapSessionSemantics(
   catalog: CampusMapSceneCatalog,
 ): CampusMapSessionSemantics {
   if (session.mode === "task") {
-    const anchor = session.task.anchor;
+    const editedPlace =
+      session.task.kind === "edit"
+        ? findFacility(catalog, session.task.placeId)
+        : null;
+    if (session.task.kind === "edit" && !editedPlace) {
+      return { status: "invalid", reason: "unknown-facility" };
+    }
+    const anchor =
+      session.task.kind === "create"
+        ? session.task.anchor
+        : { kind: "building" as const, buildingId: editedPlace!.buildingId };
     if (
       anchor.kind === "building" &&
       !findBuilding(catalog, anchor.buildingId)

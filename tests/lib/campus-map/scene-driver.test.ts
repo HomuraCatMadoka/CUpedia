@@ -372,4 +372,23 @@ describe("CampusMapSceneDriver", () => {
     pending[2]();
     expect(executedTokens).toEqual([2]);
   });
+
+  it("routes edit-position camera work through the existing driver only", () => {
+    const runtime = harness();
+
+    runtime.driver.recenterEditPosition([114.2101, 22.4198], "draft-restore");
+
+    expect(runtime.ports.camera).toHaveBeenCalledWith(
+      {
+        kind: "edit-position",
+        position: [114.2101, 22.4198],
+        reason: "draft-restore",
+      },
+      expect.any(Object),
+    );
+    expect(runtime.history.pushState).not.toHaveBeenCalled();
+    expect(runtime.history.replaceState).not.toHaveBeenCalled();
+    expect(runtime.ports.focus).not.toHaveBeenCalled();
+    expect(runtime.ports.sheet).not.toHaveBeenCalled();
+  });
 });

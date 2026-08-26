@@ -12,14 +12,70 @@ import {
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const { mockRequestContributorSetup } = vi.hoisted(() => ({
+  mockRequestContributorSetup: vi.fn(),
+}));
+
 vi.mock("next/script", () => ({
   default: () => null,
 }));
+vi.mock("@/components/auth/contributor-setup-provider", () => ({
+  useContributorSetup: () => ({
+    ensureContributorSetup: vi.fn(async () => true),
+    requestContributorSetup: mockRequestContributorSetup,
+  }),
+}));
+vi.mock("@/lib/campus-map/edit-actions", () => ({
+  publishCampusMapEdit: vi.fn(),
+  loadCampusMapEditablePlace: vi.fn(async (placeId: string) => ({
+    placeId,
+    baseRevisionId: "72000000-0000-4000-8000-000000000005",
+    locationDisplay: null,
+    fact: {
+      name: "饮水机",
+      buildingId: null,
+      floorId: null,
+      pinType: "water",
+      capabilities: [],
+      gender: "unknown",
+      wheelchairAccess: "unknown",
+      audience: "cuhk-member",
+      credentialRequirement: "unknown",
+      accessSchedule: { kind: "unknown" },
+      reservationRequirement: "unknown",
+      temporaryStatus: "unknown",
+      location: {
+        kind: "outdoor-point",
+        longitude: 114.2049,
+        latitude: 22.4195,
+        crs: "wgs84",
+        precision: "approximate",
+      },
+      observedAt: null,
+    },
+  })),
+}));
 
 import { AmapCampusPrototype } from "@/components/campus-map/amap-campus-prototype";
+import {
+  loadCampusMapEditablePlace,
+  publishCampusMapEdit,
+} from "@/lib/campus-map/edit-actions";
+import {
+  encodeCampusMapEditSnapshot,
+  transitionCampusMapEdit,
+} from "@/lib/campus-map/edit-session";
+import type {
+  CampusMapPublishFactInput,
+  CampusMapPublishSourceInput,
+} from "@/lib/campus-map/publish-contract";
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  vi.mocked(publishCampusMapEdit).mockReset();
+  mockRequestContributorSetup.mockReset();
+  mockRequestContributorSetup.mockResolvedValue("complete");
+  window.sessionStorage.clear();
   window.history.replaceState(null, "", "/prototype/campus-map");
   vi.stubGlobal(
     "fetch",
@@ -63,11 +119,398 @@ async function selectScienceCentre() {
 }
 
 describe("AmapCampusPrototype", () => {
+  it("keeps the draft and does not publish when contributor setup is cancelled", async () => {
+    mockRequestContributorSetup.mockResolvedValueOnce("cancelled");
+    render(<AmapCampusPrototype />);
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
+
+    await waitFor(() => expect(mockRequestContributorSetup).toHaveBeenCalled());
+    expect(publishCampusMapEdit).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "添加校内设施" })).toBeTruthy();
+    expect(
+      (screen.getByRole("radio", { name: "洗手间" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+  });
+
+  it("lets the publisher report expired authentication when setup status is unavailable", async () => {
+    mockRequestContributorSetup.mockResolvedValueOnce("unavailable");
+    vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
+      status: "authentication-required",
+      code: "authentication-required",
+    });
+    render(<AmapCampusPrototype />);
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
+
+    expect(
+      await screen.findByText("登录后会回到这份草稿，但不会自动发布。"),
+    ).toBeTruthy();
+    expect(publishCampusMapEdit).toHaveBeenCalledOnce();
+  });
+
+  it("does not apply a completed setup check to a replacement edit session", async () => {
+    let resolveSetup!: () => void;
+    mockRequestContributorSetup.mockReturnValueOnce(
+      new Promise<"complete">((resolve) => {
+        resolveSetup = () => resolve("complete");
+      }),
+    );
+    render(<AmapCampusPrototype />);
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
+    await waitFor(() => expect(mockRequestContributorSetup).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
+    fireEvent.click(await screen.findByRole("button", { name: "放弃草稿" }));
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("radio", { name: "打印服务" }));
+
+    await act(async () => resolveSetup());
+
+    expect(publishCampusMapEdit).not.toHaveBeenCalled();
+    expect(
+      (screen.getByRole("radio", { name: "打印服务" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+  });
+
+  it("uses one Add session for natural center-pin placement and dirty close", async () => {
+    render(<AmapCampusPrototype />);
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    expect(
+      await screen.findByRole("heading", { name: "选择设施位置" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "拖动地图对准设施，或轻点地图名称直接选择；建筑只作位置参考。",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("地图坐标")).toBeTruthy();
+    expect(
+      screen.queryByRole("textbox", { name: "设施名称或编号" }),
+    ).toBeNull();
+    expect(screen.queryByRole("radio", { name: "饮水点" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "经度（WGS84）" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "输入坐标" }));
+    expect(screen.getByRole("textbox", { name: "经度（WGS84）" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "纬度（WGS84）" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
+    expect(
+      await screen.findByRole("heading", { name: "添加校内设施" }),
+    ).toBeTruthy();
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", { name: "添加校内设施" }),
+    );
+    expect(screen.getByText("地图坐标")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "修改位置" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "饮水点" })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "无障碍通行" })).toBeNull();
+    expect(screen.queryByText("资料依据")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
+    expect(
+      await screen.findByRole("heading", { name: "放弃未发布的修改？" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(
+      await screen.findByRole("heading", { name: "添加校内设施" }),
+    ).toBeTruthy();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(
+      await screen.findByRole("heading", { name: "放弃未发布的修改？" }),
+    ).toBeTruthy();
+  });
+
+  it("keeps a dirty Add draft when browser Back is cancelled", async () => {
+    render(<AmapCampusPrototype />);
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
+    await screen.findByRole("group", { name: "设施类型" });
+
+    await act(async () => window.history.back());
+    expect(
+      await screen.findByRole("heading", { name: "放弃未发布的修改？" }),
+    ).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+
+    expect(
+      await screen.findByRole("group", { name: "设施类型" }),
+    ).not.toBeNull();
+    await waitFor(() =>
+      expect(window.location.search).toContain("task=create"),
+    );
+  });
+
+  it("opens canonical Place Edit cleanly with stable task identity", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/prototype/campus-map?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
+    );
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    await screen.findByRole("heading", { name: "饮水机" });
+    fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
+    expect(
+      await screen.findByRole("heading", { name: "修改设施" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "发布修改" }).hasAttribute("disabled"),
+    ).toBe(true);
+    expect(window.location.search).toBe(
+      "?v=1&task=edit&id=71000000-0000-4000-8000-000000000005",
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
+    expect(
+      screen.getByRole("button", { name: "发布修改" }).hasAttribute("disabled"),
+    ).toBe(false);
+  });
+
+  it("rejects a restored Edit draft for a different URL Place", async () => {
+    const urlPlaceId = "71000000-0000-4000-8000-000000000005";
+    const savedPlaceId = "71000000-0000-4000-8000-000000000002";
+    const current = await vi.mocked(loadCampusMapEditablePlace)(savedPlaceId);
+    if (!current) throw new Error("missing edit fixture");
+    const saved = transitionCampusMapEdit(null, {
+      type: "START_EDIT",
+      placeId: savedPlaceId,
+      baseRevisionId: current.baseRevisionId,
+      fact: current.fact,
+      sources: [],
+      idempotencyKey: "10000000-0000-4000-8000-000000000009",
+    }).session!;
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(saved),
+    );
+    window.history.replaceState(
+      null,
+      "",
+      `/prototype/campus-map?v=1&task=edit&id=${urlPlaceId}`,
+    );
+
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    expect(await screen.findByText(/草稿与当前编辑目标不一致/)).toBeTruthy();
+    expect(
+      window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
+    ).toBeNull();
+    await waitFor(() => expect(window.location.search).not.toContain("task="));
+    expect(screen.queryByRole("heading", { name: "修改设施" })).toBeNull();
+  });
+
+  it("hydrates canonical indoor labels before showing a publish conflict", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000005";
+    const baseRevisionId = "72000000-0000-4000-8000-000000000005";
+    const currentRevisionId = "72000000-0000-4000-8000-000000000006";
+    const buildingId = "73000000-0000-4000-8000-000000000001";
+    const floorId = "74000000-0000-4000-8000-000000000001";
+    const initialFact: CampusMapPublishFactInput = {
+      name: "饮水机",
+      buildingId: null,
+      floorId: null,
+      pinType: "water",
+      capabilities: [],
+      gender: "unknown",
+      wheelchairAccess: "unknown",
+      audience: "cuhk-member",
+      credentialRequirement: "unknown",
+      accessSchedule: { kind: "unknown" },
+      reservationRequirement: "unknown",
+      temporaryStatus: "unknown",
+      location: {
+        kind: "outdoor-point",
+        longitude: 114.2049,
+        latitude: 22.4195,
+        crs: "wgs84",
+        precision: "approximate",
+      },
+      observedAt: null,
+    };
+    const source: CampusMapPublishSourceInput = {
+      kind: "field-observation",
+      ref: "现场观察 2026-08-25 12:00",
+      url: null,
+      owner: null,
+      version: null,
+      snapshotHash: null,
+      accessedOn: "2026-08-25",
+      observedAt: "2026-08-25T04:00:00.000Z",
+      rightsStatus: "original-observation",
+      limitations: null,
+      note: null,
+      sourceCoordinate: null,
+    };
+    const currentFact: CampusMapPublishFactInput = {
+      ...initialFact,
+      name: "科学馆饮水机",
+      buildingId,
+      floorId,
+      location: { kind: "floor" },
+    };
+    const started = transitionCampusMapEdit(null, {
+      type: "START_EDIT",
+      placeId,
+      baseRevisionId,
+      fact: initialFact,
+      sources: [source],
+      idempotencyKey: "10000000-0000-4000-8000-000000000008",
+    }).session!;
+    const changed = transitionCampusMapEdit(started, {
+      type: "CHANGE_FACT",
+      fact: { ...initialFact, name: "我的饮水机" },
+    }).session!;
+    const publishing = transitionCampusMapEdit(changed, {
+      type: "REQUEST_PUBLISH",
+    }).session!;
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(publishing),
+    );
+    window.history.replaceState(
+      null,
+      "",
+      `/prototype/campus-map?v=1&task=edit&id=${placeId}`,
+    );
+    vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
+      status: "conflict",
+      code: "base-revision-conflict",
+      conflicts: [
+        {
+          code: "base-revision-conflict",
+          anchor: { changeIndex: 0, placeId },
+          placeId,
+          expectedRevisionId: baseRevisionId,
+          currentRevisionId,
+          currentStatus: "active",
+          currentSnapshot: { ...currentFact, factSchemaVersion: 1 },
+        },
+      ],
+    });
+    vi.mocked(loadCampusMapEditablePlace).mockResolvedValueOnce({
+      placeId,
+      baseRevisionId: currentRevisionId,
+      fact: currentFact,
+      locationDisplay: {
+        buildingId,
+        buildingName: "科学馆",
+        floorId,
+        floorLabel: "1/F",
+      },
+    });
+
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    fireEvent.click(await screen.findByRole("button", { name: "安全重试" }));
+
+    expect(await screen.findByText("最新：科学馆 · 1/F")).toBeTruthy();
+    expect(document.body.textContent).not.toContain(buildingId);
+    expect(document.body.textContent).not.toContain(floorId);
+  });
+
+  it("shows a same-position conflict without waiting for another canonical read", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000005";
+    const current = await vi.mocked(loadCampusMapEditablePlace)(placeId);
+    if (!current) throw new Error("missing edit fixture");
+    window.history.replaceState(
+      null,
+      "",
+      `/prototype/campus-map?v=1&scene=facility&id=${placeId}&snap=peek`,
+    );
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    await screen.findByRole("heading", { name: "饮水机" });
+    fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
+    await screen.findByRole("heading", { name: "修改设施" });
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
+    vi.mocked(loadCampusMapEditablePlace).mockClear();
+    vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
+      status: "conflict",
+      code: "base-revision-conflict",
+      conflicts: [
+        {
+          code: "base-revision-conflict",
+          anchor: { changeIndex: 0, placeId },
+          placeId,
+          expectedRevisionId: current.baseRevisionId,
+          currentRevisionId: "72000000-0000-4000-8000-000000000006",
+          currentStatus: "active",
+          currentSnapshot: {
+            ...current.fact,
+            name: "最新名称",
+            factSchemaVersion: 1,
+          },
+        },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "发布修改" }));
+
+    expect(await screen.findByText("这处地点刚刚被其他人更新")).toBeTruthy();
+    expect(loadCampusMapEditablePlace).not.toHaveBeenCalled();
+  });
+
+  it("removes hidden map chrome from keyboard and screen-reader navigation during editing", async () => {
+    render(<AmapCampusPrototype />);
+    const searchHeader = screen
+      .getByPlaceholderText("搜索建筑")
+      .closest("header");
+    const filterNav = screen.getByRole("navigation", { name: "设施筛选" });
+    const addButton = screen.getByRole("button", { name: "添加地点" });
+    const mapControls = addButton.parentElement;
+
+    fireEvent.click(addButton);
+    await screen.findByRole("heading", { name: "选择设施位置" });
+
+    expect(searchHeader?.getAttribute("aria-hidden")).toBe("true");
+    expect(searchHeader?.hasAttribute("inert")).toBe(true);
+    expect(filterNav.parentElement?.getAttribute("aria-hidden")).toBe("true");
+    expect(filterNav.parentElement?.hasAttribute("inert")).toBe(true);
+    expect(mapControls?.getAttribute("aria-hidden")).toBe("true");
+    expect(mapControls?.hasAttribute("inert")).toBe(true);
+  });
+
+  it("drops a delayed Edit read after Escape changes the scene", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000005";
+    const canonical = await vi.mocked(loadCampusMapEditablePlace)(placeId);
+    let resolveRead!: (value: typeof canonical) => void;
+    vi.mocked(loadCampusMapEditablePlace).mockImplementationOnce(
+      () => new Promise((resolve) => (resolveRead = resolve)),
+    );
+    window.history.replaceState(
+      null,
+      "",
+      `/prototype/campus-map?v=1&scene=facility&id=${placeId}&snap=peek`,
+    );
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    await screen.findByRole("heading", { name: "饮水机" });
+    fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
+    fireEvent.keyDown(window, { key: "Escape" });
+    resolveRead(canonical);
+
+    await waitFor(() => expect(window.location.search).toBe("?v=1"));
+    expect(screen.queryByRole("heading", { name: "修改设施" })).toBeNull();
+  });
+
   it("hydrates a canonical facility deep link through the scene driver", async () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?v=1&scene=facility&id=library-gf-water&snap=peek",
+      "/prototype/campus-map?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
 
     render(<AmapCampusPrototype initialSearch={window.location.search} />);
@@ -75,7 +518,7 @@ describe("AmapCampusPrototype", () => {
     const heading = await screen.findByRole("heading", { name: "饮水机" });
     expect(heading.parentElement?.textContent).toContain("大学图书馆 · G/F");
     expect(window.location.search).toBe(
-      "?v=1&scene=facility&id=library-gf-water&snap=peek",
+      "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
     expect(window.history.state).toEqual({
       campusMapScene: true,
@@ -175,7 +618,7 @@ describe("AmapCampusPrototype", () => {
     await screen.findByRole("heading", { name: "洗手间" });
     expect(push).toHaveBeenCalledTimes(2);
     expect(window.location.search).toContain(
-      "scene=facility&id=science-lg-toilet",
+      "scene=facility&id=71000000-0000-4000-8000-000000000001",
     );
     expect(window.location.search).toContain("snap=peek");
   });
@@ -195,7 +638,7 @@ describe("AmapCampusPrototype", () => {
     });
     await screen.findByRole("heading", { name: "洗手间" });
     expect(window.location.search).toContain(
-      "scene=facility&id=science-lg-toilet",
+      "scene=facility&id=71000000-0000-4000-8000-000000000001",
     );
   });
 
@@ -203,7 +646,7 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?building=science-centre&facility=library-gf-water&panel=full",
+      "/prototype/campus-map?building=science-centre&facility=71000000-0000-4000-8000-000000000005&panel=full",
     );
     render(<AmapCampusPrototype initialSearch={window.location.search} />);
 
@@ -211,7 +654,7 @@ describe("AmapCampusPrototype", () => {
     expect(heading.parentElement?.textContent).toContain("大学图书馆 · G/F");
     await waitFor(() => {
       expect(window.location.search).toBe(
-        "?v=1&scene=facility&id=library-gf-water&snap=full",
+        "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=full",
       );
     });
   });
@@ -219,7 +662,7 @@ describe("AmapCampusPrototype", () => {
   it("returns a filtered facility deep link to its category in one action", async () => {
     const push = vi.spyOn(window.history, "pushState");
     render(
-      <AmapCampusPrototype initialSearch="?category=toilet&building=wmy&facility=wmy-5f-toilet&floor=5&amenity=toilet&panel=peek" />,
+      <AmapCampusPrototype initialSearch="?category=toilet&building=wmy&facility=71000000-0000-4000-8000-000000000003&floor=5&amenity=toilet&panel=peek" />,
     );
     await screen.findByRole("heading", { name: "洗手间" });
     const before = push.mock.calls.length;
@@ -270,7 +713,7 @@ describe("AmapCampusPrototype", () => {
   it("keeps a direct facility deep-link building fallback reversible", async () => {
     const push = vi.spyOn(window.history, "pushState");
     render(
-      <AmapCampusPrototype initialSearch="?category=toilet&building=wmy&facility=wmy-5f-toilet&floor=5&amenity=toilet&panel=peek" />,
+      <AmapCampusPrototype initialSearch="?category=toilet&building=wmy&facility=71000000-0000-4000-8000-000000000003&floor=5&amenity=toilet&panel=peek" />,
     );
     await screen.findByRole("heading", { name: "洗手间" });
     const before = push.mock.calls.length;
@@ -285,7 +728,7 @@ describe("AmapCampusPrototype", () => {
 
   it("labels building-level facility positions without claiming indoor precision", async () => {
     render(
-      <AmapCampusPrototype initialSearch="?building=wmy&facility=wmy-5f-toilet&floor=5&panel=peek" />,
+      <AmapCampusPrototype initialSearch="?building=wmy&facility=71000000-0000-4000-8000-000000000003&floor=5&panel=peek" />,
     );
 
     expect(
@@ -390,7 +833,7 @@ describe("AmapCampusPrototype", () => {
       await screen.findByRole("heading", { name: "饮水机" }),
     ).not.toBeNull();
     expect(window.location.search).toBe(
-      "?v=1&scene=facility&id=library-gf-water&snap=peek",
+      "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
   });
 

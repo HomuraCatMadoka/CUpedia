@@ -910,7 +910,7 @@ async function evaluatePublishWarnings(
     const currentDuplicates = currentCandidates.filter(
       (candidate) =>
         !commandPlaceIds.has(candidate.placeId) &&
-        duplicateLocation(candidate, change.fact),
+        isPreciseOutdoorDuplicateCandidate(candidate, change.fact),
     );
     const duplicateCandidates: unknown[] = currentDuplicates.map(
       (candidate) => ({
@@ -929,7 +929,10 @@ async function evaluatePublishWarnings(
           candidateNormalizedName === undefined ||
           candidateNormalizedName !== normalizedName ||
           candidate.fact.pinType !== change.fact.pinType ||
-          !duplicateLocation(toDuplicateLocation(candidate.fact), change.fact)
+          !isPreciseOutdoorDuplicateCandidate(
+            toDuplicateLocation(candidate.fact),
+            change.fact,
+          )
         ) {
           return [];
         }
@@ -1005,6 +1008,8 @@ function toDuplicateLocation(fact: CampusMapPublishFactInput) {
     locationKind: fact.location.kind,
     buildingId: fact.buildingId,
     floorId: fact.floorId,
+    pointPrecision:
+      fact.location.kind === "outdoor-point" ? fact.location.precision : null,
     longitude:
       fact.location.kind === "outdoor-point" ? fact.location.longitude : null,
     latitude:
@@ -1012,31 +1017,22 @@ function toDuplicateLocation(fact: CampusMapPublishFactInput) {
   };
 }
 
-function duplicateLocation(
+function isPreciseOutdoorDuplicateCandidate(
   candidate: {
     locationKind: string;
     buildingId: string | null;
     floorId: string | null;
+    pointPrecision: string | null;
     longitude: number | null;
     latitude: number | null;
   },
   fact: CampusMapPublishFactInput,
 ): boolean {
-  if (fact.location.kind === "building") {
-    return (
-      candidate.locationKind === "building" &&
-      candidate.buildingId === fact.buildingId
-    );
-  }
-  if (fact.location.kind === "floor") {
-    return (
-      candidate.locationKind === "floor" &&
-      candidate.buildingId === fact.buildingId &&
-      candidate.floorId === fact.floorId
-    );
-  }
+  if (fact.location.kind !== "outdoor-point") return false;
   return (
     candidate.locationKind === "outdoor-point" &&
+    candidate.pointPrecision === "precise" &&
+    fact.location.precision === "precise" &&
     candidate.longitude !== null &&
     candidate.latitude !== null &&
     Math.abs(candidate.longitude - fact.location.longitude) <= 0.0005 &&

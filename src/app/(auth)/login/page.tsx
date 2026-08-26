@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isAllowedEmail } from "@/lib/email";
+import { safeAuthReturnPath } from "@/lib/auth-return";
 
 type Tab = "password" | "otp";
 type OtpStep = "email" | "code";
@@ -17,6 +18,7 @@ const OTP_EXPIRY_SECONDS = 600;
 
 export default function LoginPage() {
   const router = useRouter();
+  const callbackUrlRef = useRef("/");
   const [tab, setTab] = useState<Tab>("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,6 +27,12 @@ export default function LoginPage() {
   const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    callbackUrlRef.current = safeAuthReturnPath(
+      new URLSearchParams(window.location.search).get("callbackUrl"),
+    );
+  }, []);
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -49,7 +57,7 @@ export default function LoginPage() {
       if (authError) {
         setError(authError.message ?? "登录失败，请检查邮箱和密码");
       } else {
-        router.push("/");
+        router.push(callbackUrlRef.current);
         router.refresh();
       }
     } catch {
@@ -108,7 +116,7 @@ export default function LoginPage() {
       if (authError) {
         setError(authError.message ?? "验证码无效或已过期");
       } else {
-        router.push("/");
+        router.push(callbackUrlRef.current);
         router.refresh();
       }
     } catch {

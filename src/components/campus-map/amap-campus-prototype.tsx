@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type CSSProperties,
   useCallback,
   useEffect,
   useMemo,
@@ -12,6 +13,7 @@ import {
   ArrowLeftIcon,
   DropletsIcon,
   LocateFixedIcon,
+  MapPinIcon,
   MinusIcon,
   PlusIcon,
   PrinterIcon,
@@ -20,11 +22,16 @@ import {
   XIcon,
 } from "lucide-react";
 
+import { CampusMapEditSheet } from "./edit-sheet";
+import { useCampusMapEditSessionOwner } from "./use-campus-map-edit-session-owner";
+
 import {
   CameraRequestGate,
+  MOBILE_PLACEMENT_ANCHOR_RATIO,
   cameraPolicyFor,
   deriveCameraPadding,
   nearestVisibleCameraPoint,
+  placementAnchorPoint,
   type CameraReason,
   type ScreenRect,
 } from "@/lib/campus-map/camera-policy";
@@ -32,6 +39,14 @@ import {
   AmapInteractionAdapter,
   resolveAmapHotspotTarget,
 } from "@/lib/campus-map/amap-interaction-adapter";
+import {
+  createAmapGeocoderAdapter,
+  createAmapPlaceContextResolver,
+  type AmapGeocoderService,
+  type AmapPlaceContextResolver,
+  type AmapPlaceContextResult,
+  type AmapResolvedPlaceContext,
+} from "@/lib/campus-map/amap-place-context";
 import {
   parseCampusMapState,
   type CampusMapCatalog,
@@ -65,6 +80,7 @@ import {
   type CampusMapSceneCatalog,
   type CampusMapSession,
 } from "@/lib/campus-map/scene-kernel";
+import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
 import { cn } from "@/lib/utils";
 
 type Amenity = CampusMapAmenity;
@@ -116,6 +132,7 @@ interface AMapMap {
   plugin(plugins: readonly string[], callback: () => void): void;
   getZoom(): number;
   getContainer(): HTMLElement;
+  getCenter(): AMapLngLat;
   lngLatToContainer(position: AMapLngLat): AMapPixel;
   containerToLngLat(position: AMapPixel): AMapLngLat;
   setZoomAndCenter(
@@ -146,9 +163,14 @@ interface AMapNamespace {
     options: Record<string, unknown>,
   ) => AMapMarkerCluster;
   InfoWindow: new (options: Record<string, unknown>) => AMapInfoWindow;
+  Geocoder: new (options: {
+    radius: number;
+    extensions: "all";
+  }) => AmapGeocoderService;
   LngLat: new (longitude: number, latitude: number) => AMapLngLat;
   Pixel: new (x: number, y: number) => AMapPixel;
   Bounds: new (southWest: AMapLngLat, northEast: AMapLngLat) => unknown;
+  plugin(plugins: readonly string[], callback: () => void): void;
   convertFrom(
     positions: readonly Position[],
     source: "gps",
@@ -341,6 +363,40 @@ function rect(element: Element): ScreenRect {
   };
 }
 
+function placementAnchorLngLat(
+  map: AMapMap,
+  mapElement: Element,
+  AMap: AMapNamespace,
+): AMapLngLat {
+  const mapRect = rect(mapElement);
+  const anchor = placementAnchorPoint({
+    width: mapRect.right - mapRect.left,
+    height: mapRect.bottom - mapRect.top,
+  });
+  return map.containerToLngLat(new AMap.Pixel(anchor.x, anchor.y));
+}
+
+function alignPositionToPlacementAnchor(map: AMapMap, mapElement: Element) {
+  const mapRect = rect(mapElement);
+  const width = mapRect.right - mapRect.left;
+  const height = mapRect.bottom - mapRect.top;
+  const anchor = placementAnchorPoint({ width, height });
+  const x = anchor.x - width / 2;
+  const y = anchor.y - height / 2;
+  if (x !== 0 || y !== 0) map.panBy(x, y, 0);
+}
+
+function samePlacementPosition(
+  left: Position,
+  right: Position,
+  tolerance = 0.00002,
+) {
+  return (
+    Math.abs(left[0] - right[0]) <= tolerance &&
+    Math.abs(left[1] - right[1]) <= tolerance
+  );
+}
+
 function normalized(value = "") {
   return value
     .normalize("NFKC")
@@ -391,8 +447,10 @@ function floorLabel(floorId: string) {
 
 export function AmapCampusPrototype({
   initialSearch = "",
+  factSchema = null,
 }: {
   initialSearch?: string;
+  factSchema?: CampusMapFactSchema | null;
 }) {
   const driverInitialSearch = useMemo(
     () => canonicalInitialSearch(initialSearch),
@@ -405,6 +463,18 @@ export function AmapCampusPrototype({
         null,
       ).mapFilter.query,
   );
+  const startAddRef = useRef<() => void>(() => {});
+  const editSessionActiveRef = useRef(false);
+  const editSessionPlacingRef = useRef(false);
+  const exactProviderPlaceRef = useRef<AmapResolvedPlaceContext | null>(null);
+  const [centerPosition, setCenterPosition] = useState<Position>(CAMPUS_CENTER);
+  const [providerCenterPosition, setProviderCenterPosition] =
+    useState<Position | null>(null);
+  const [placeContext, setPlaceContext] = useState<
+    AmapPlaceContextResult | { status: "loading" } | null
+  >(null);
+  const amapOffsetRef = useRef<Position>([0, 0]);
+  const [amapOffset, setAmapOffset] = useState<Position>([0, 0]);
   const [config, setConfig] = useState<
     | { status: "loading" }
     | { status: "missing" }
@@ -415,6 +485,8 @@ export function AmapCampusPrototype({
   >(null);
   const [mapLoadAttempt, setMapLoadAttempt] = useState(0);
   const [mapReady, setMapReady] = useState(false);
+  const [mapMoving, setMapMoving] = useState(false);
+  const [mapCenterRevision, setMapCenterRevision] = useState(0);
   const [coordinateVersion, setCoordinateVersion] = useState(0);
   const [clusterStatus, setClusterStatus] = useState<
     "loading" | "ready" | "error"
@@ -431,12 +503,29 @@ export function AmapCampusPrototype({
     command: CampusMapDriverCameraCommand;
     context: CampusMapDriverEffectContext;
   } | null>(null);
+  const pendingPlacementCameraRef = useRef<{
+    token: number;
+    context: CampusMapDriverEffectContext;
+    position: Position;
+  } | null>(null);
+  const placementCameraTokenRef = useRef(0);
+  const retiredPlacementCameraTargetsRef = useRef<Position[]>([]);
+  const lastSettledPlacementCameraTargetRef = useRef<Position | null>(null);
+  const mapDraggingRef = useRef(false);
+  const userGestureAwaitingMoveEndRef = useRef(false);
   const pendingSelectionTokenRef = useRef<number | null>(null);
   const amapPositionsRef = useRef<Readonly<Record<string, Position>>>({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const panelTitleRef = useRef<HTMLHeadingElement | null>(null);
   const interactionAdapterRef = useRef(new AmapInteractionAdapter());
   const pointerGestureCleanupRef = useRef<(() => void) | null>(null);
+  const placeContextResolverRef = useRef<AmapPlaceContextResolver | null>(null);
+  const placementTrackingRef = useRef<{
+    idempotencyKey: string;
+    mapCenterRevision: number;
+  } | null>(null);
+  const [placeContextResolverVersion, setPlaceContextResolverVersion] =
+    useState(0);
 
   const positionFor = useCallback(
     (building: Building) =>
@@ -456,11 +545,24 @@ export function AmapCampusPrototype({
     infoWindow?.close();
     mapRef.current?.destroy();
     mapRef.current = null;
+    placeContextResolverRef.current?.invalidate();
+    placeContextResolverRef.current = null;
     amapPositionsRef.current = {};
     cameraGateRef.current.invalidate();
     pendingDriverCameraRef.current = null;
+    pendingPlacementCameraRef.current = null;
+    placementCameraTokenRef.current += 1;
+    retiredPlacementCameraTargetsRef.current = [];
+    lastSettledPlacementCameraTargetRef.current = null;
+    mapDraggingRef.current = false;
+    userGestureAwaitingMoveEndRef.current = false;
     pendingSelectionTokenRef.current = null;
     setMapReady(false);
+    setMapMoving(false);
+    setMapCenterRevision(0);
+    setProviderCenterPosition(null);
+    setPlaceContext(null);
+    setAmapOffset([0, 0]);
     setCoordinateVersion(0);
     setClusterStatus("loading");
   }, []);
@@ -585,9 +687,19 @@ export function AmapCampusPrototype({
       context: CampusMapDriverEffectContext,
     ) => {
       if (camera.kind === "cancel") {
+        const pendingPlacementCamera = pendingPlacementCameraRef.current;
+        if (pendingPlacementCamera) {
+          retiredPlacementCameraTargetsRef.current = [
+            ...retiredPlacementCameraTargetsRef.current,
+            pendingPlacementCamera.position,
+          ].slice(-8);
+        }
         pendingDriverCameraRef.current = null;
+        pendingPlacementCameraRef.current = null;
+        placementCameraTokenRef.current += 1;
         cameraGateRef.current.invalidate();
         pendingSelectionTokenRef.current = null;
+        setMapMoving(false);
         return;
       }
       const map = mapRef.current;
@@ -599,6 +711,77 @@ export function AmapCampusPrototype({
       }
       pendingDriverCameraRef.current = null;
       if (!context.isCurrent()) return;
+      if (camera.kind === "edit-position") {
+        if (camera.reason !== "provider-placement") {
+          exactProviderPlaceRef.current = null;
+        }
+        const offset = amapOffsetRef.current;
+        const providerPosition: Position = [
+          camera.position[0] + offset[0],
+          camera.position[1] + offset[1],
+        ];
+        const previousPlacementCamera = pendingPlacementCameraRef.current;
+        if (previousPlacementCamera) {
+          retiredPlacementCameraTargetsRef.current = [
+            ...retiredPlacementCameraTargetsRef.current,
+            previousPlacementCamera.position,
+          ].slice(-8);
+        }
+        const previousSettledTarget =
+          lastSettledPlacementCameraTargetRef.current;
+        if (previousSettledTarget) {
+          retiredPlacementCameraTargetsRef.current = [
+            ...retiredPlacementCameraTargetsRef.current,
+            previousSettledTarget,
+          ].slice(-8);
+        }
+        lastSettledPlacementCameraTargetRef.current = null;
+        const currentProviderPosition = placementAnchorLngLat(
+          map,
+          mapElement,
+          AMap,
+        );
+        const currentPosition: Position = [
+          currentProviderPosition.lng - offset[0],
+          currentProviderPosition.lat - offset[1],
+        ];
+        if (samePlacementPosition(currentPosition, camera.position)) {
+          pendingPlacementCameraRef.current = null;
+          setMapMoving(false);
+          setCenterPosition([camera.position[0], camera.position[1]]);
+          setProviderCenterPosition(providerPosition);
+          setMapCenterRevision((revision) => revision + 1);
+          lastSettledPlacementCameraTargetRef.current = [
+            camera.position[0],
+            camera.position[1],
+          ];
+          return;
+        }
+        pendingPlacementCameraRef.current = {
+          token: ++placementCameraTokenRef.current,
+          context,
+          position: [camera.position[0], camera.position[1]],
+        };
+        setMapMoving(true);
+        setCenterPosition([camera.position[0], camera.position[1]]);
+        setProviderCenterPosition(providerPosition);
+        map.setZoomAndCenter(
+          map.getZoom(),
+          new AMap.LngLat(providerPosition[0], providerPosition[1]),
+          true,
+          0,
+        );
+        alignPositionToPlacementAnchor(map, mapElement);
+        return;
+      }
+      const pendingPlacementCamera = pendingPlacementCameraRef.current;
+      if (pendingPlacementCamera) {
+        retiredPlacementCameraTargetsRef.current = [
+          ...retiredPlacementCameraTargetsRef.current,
+          pendingPlacementCamera.position,
+        ].slice(-8);
+      }
+      pendingPlacementCameraRef.current = null;
       if (camera.kind === "fit") {
         cameraGateRef.current.invalidate();
         const longitudes = camera.positions.map((position) => position[0]);
@@ -661,7 +844,11 @@ export function AmapCampusPrototype({
         queueMicrotask(() => {
           window.requestAnimationFrame(() => {
             if (!context.isCurrent()) return;
-            if (focus.kind === "heading") {
+            if (focus.kind === "contribution-form") {
+              document
+                .querySelector<HTMLElement>("#campus-map-panel-title")
+                ?.focus({ preventScroll: true });
+            } else if (focus.kind === "heading") {
               panelTitleRef.current?.focus({ preventScroll: true });
             } else if (focus.kind === "results") {
               if (document.activeElement?.tagName !== "BUTTON") {
@@ -677,6 +864,12 @@ export function AmapCampusPrototype({
                 ?.focus({ preventScroll: true });
             } else if (focus.kind === "map") {
               mapElementRef.current?.focus({ preventScroll: true });
+            } else if (focus.kind === "edit-field") {
+              const target = Array.from(
+                document.querySelectorAll<HTMLElement>("[data-edit-field]"),
+              ).find((element) => element.dataset.editField === focus.field);
+              target?.focus({ preventScroll: true });
+              target?.scrollIntoView?.({ block: "center", inline: "nearest" });
             }
           });
         });
@@ -763,6 +956,168 @@ export function AmapCampusPrototype({
     [driver],
   );
 
+  const {
+    session: editSession,
+    dispatchEvent: dispatchEditEvent,
+    startAdd,
+    startEdit: startCanonicalEdit,
+    announcement: editAnnouncement,
+    restoreNotice: editRestoreNotice,
+  } = useCampusMapEditSessionOwner({ driver, dispatch });
+  const startAddAtPlacementAnchor = useCallback(() => {
+    const map = mapRef.current;
+    const mapElement = mapElementRef.current;
+    const AMap = typeof window === "undefined" ? undefined : window.AMap;
+    if (map && mapElement && AMap) {
+      const providerPosition = placementAnchorLngLat(map, mapElement, AMap);
+      const offset = amapOffsetRef.current;
+      setCenterPosition([
+        providerPosition.lng - offset[0],
+        providerPosition.lat - offset[1],
+      ]);
+      setProviderCenterPosition([providerPosition.lng, providerPosition.lat]);
+    }
+    startAdd();
+  }, [startAdd]);
+  const editSessionStatus = editSession?.status ?? null;
+  const editSessionIdempotencyKey = editSession?.draft.idempotencyKey ?? null;
+  const placementCandidate =
+    editSession?.status === "placing"
+      ? editSession.draft.placementCandidate
+      : null;
+  const placementPending = Boolean(
+    editSession?.status === "placing" &&
+    (mapMoving ||
+      !placementCandidate ||
+      Math.abs(placementCandidate.longitude - centerPosition[0]) > 0.00001 ||
+      Math.abs(placementCandidate.latitude - centerPosition[1]) > 0.00001),
+  );
+  const lockedOutdoorLocation =
+    editSession?.status !== "placing" &&
+    editSession?.draft.fact.location?.kind === "outdoor-point"
+      ? editSession.draft.fact.location
+      : null;
+  const contextProviderLongitude =
+    editSessionStatus === "placing"
+      ? (providerCenterPosition?.[0] ?? null)
+      : lockedOutdoorLocation && coordinateVersion > 0
+        ? lockedOutdoorLocation.longitude + amapOffset[0]
+        : null;
+  const contextProviderLatitude =
+    editSessionStatus === "placing"
+      ? (providerCenterPosition?.[1] ?? null)
+      : lockedOutdoorLocation && coordinateVersion > 0
+        ? lockedOutdoorLocation.latitude + amapOffset[1]
+        : null;
+  const placeContextMapRevision =
+    editSessionStatus === "placing" ? mapCenterRevision : 0;
+  useEffect(() => {
+    startAddRef.current = startAddAtPlacementAnchor;
+  }, [startAddAtPlacementAnchor]);
+  useEffect(() => {
+    editSessionActiveRef.current = Boolean(editSession);
+    editSessionPlacingRef.current = editSession?.status === "placing";
+    if (!editSession) {
+      exactProviderPlaceRef.current = null;
+    }
+  }, [editSession]);
+
+  useEffect(() => {
+    if (editSession?.status !== "placing") {
+      placementTrackingRef.current = null;
+      return;
+    }
+    const tracked = placementTrackingRef.current;
+    const isNewPlacement =
+      tracked?.idempotencyKey !== editSession.draft.idempotencyKey;
+    const centerMoved =
+      !isNewPlacement && tracked.mapCenterRevision !== mapCenterRevision;
+    placementTrackingRef.current = {
+      idempotencyKey: editSession.draft.idempotencyKey,
+      mapCenterRevision,
+    };
+    if (!editSession.draft.placementCandidate || centerMoved) {
+      dispatchEditEvent({
+        type: "UPDATE_PLACEMENT_CANDIDATE",
+        position: {
+          longitude: centerPosition[0],
+          latitude: centerPosition[1],
+          crs: "wgs84",
+          precision: "approximate",
+          method: "pointer",
+        },
+      });
+    }
+  }, [centerPosition, dispatchEditEvent, editSession, mapCenterRevision]);
+
+  useEffect(() => {
+    if (
+      !editSessionStatus ||
+      editSessionStatus === "published" ||
+      contextProviderLongitude === null ||
+      contextProviderLatitude === null
+    ) {
+      placeContextResolverRef.current?.invalidate();
+      queueMicrotask(() => setPlaceContext(null));
+      return;
+    }
+    const contextProviderPosition = {
+      longitude: contextProviderLongitude,
+      latitude: contextProviderLatitude,
+      crs: "gcj02" as const,
+    };
+    const exactProviderPlace = exactProviderPlaceRef.current;
+    if (
+      exactProviderPlace &&
+      Math.abs(
+        exactProviderPlace.providerPosition.longitude -
+          contextProviderPosition.longitude,
+      ) <= 0.00001 &&
+      Math.abs(
+        exactProviderPlace.providerPosition.latitude -
+          contextProviderPosition.latitude,
+      ) <= 0.00001
+    ) {
+      placeContextResolverRef.current?.invalidate();
+      queueMicrotask(() =>
+        setPlaceContext({ status: "resolved", context: exactProviderPlace }),
+      );
+      return;
+    }
+    exactProviderPlaceRef.current = null;
+    const resolver = placeContextResolverRef.current;
+    if (!resolver) return;
+    let current = true;
+    queueMicrotask(() => {
+      if (current) setPlaceContext({ status: "loading" });
+    });
+    const timeout = window.setTimeout(
+      () => {
+        void resolver.resolveLatest(contextProviderPosition).then((result) => {
+          if (current && result.status !== "superseded")
+            setPlaceContext(result);
+        });
+      },
+      placeContextMapRevision === 0 ? 0 : 200,
+    );
+    return () => {
+      current = false;
+      window.clearTimeout(timeout);
+    };
+  }, [
+    contextProviderLatitude,
+    contextProviderLongitude,
+    editSessionIdempotencyKey,
+    editSessionStatus,
+    placeContextMapRevision,
+    placeContextResolverVersion,
+  ]);
+
+  const startEdit = useCallback(
+    (facility: Facility) => void startCanonicalEdit(facility.id),
+    [startCanonicalEdit],
+  );
+
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
@@ -838,14 +1193,15 @@ export function AmapCampusPrototype({
   }, []);
 
   useEffect(() => {
-    driver.start();
-
     const handlePopState = (event: PopStateEvent) => {
       driver.restore(window.location.search, event.state);
+      if (editSession) {
+        dispatchEditEvent({ type: "REQUEST_CLOSE" });
+      }
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [driver]);
+  }, [dispatchEditEvent, driver, editSession]);
 
   const closeSelection = useCallback(() => {
     dispatch({ type: "DISMISS" });
@@ -858,6 +1214,11 @@ export function AmapCampusPrototype({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      if (editSession) {
+        event.preventDefault();
+        dispatchEditEvent({ type: "REQUEST_CLOSE" });
+        return;
+      }
       const current = driver.getSnapshot().session;
       if (current.mode === "browse" && current.scene.kind !== "map") {
         dispatch({ type: "DISMISS" });
@@ -865,7 +1226,7 @@ export function AmapCampusPrototype({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dispatch, driver]);
+  }, [dispatch, dispatchEditEvent, driver, editSession]);
 
   const initialiseMap = useCallback(() => {
     if (!window.AMap || mapRef.current) return;
@@ -890,45 +1251,95 @@ export function AmapCampusPrototype({
     } catch {
       setClusterStatus("error");
     }
-
-    AMap.convertFrom(
-      [CAMPUS_CENTER, ...BUILDINGS.map((building) => building.position)],
-      "gps",
-      (status, result) => {
+    try {
+      AMap.plugin(["AMap.Geocoder"], () => {
         if (mapRef.current !== map) return;
-        const locations = status === "complete" ? result.locations : undefined;
-        if (!locations || locations.length !== BUILDINGS.length + 1) {
-          setMapLoadError("coordinates");
-          return;
-        }
-        const converted = Object.fromEntries(
-          BUILDINGS.map((building, index) => {
-            const location = locations[index + 1];
-            return [
-              building.id,
-              location
-                ? ([location.lng, location.lat] as Position)
-                : building.position,
-            ];
-          }),
+        const geocoder = new AMap.Geocoder({
+          radius: 150,
+          extensions: "all",
+        });
+        placeContextResolverRef.current?.invalidate();
+        placeContextResolverRef.current = createAmapPlaceContextResolver(
+          createAmapGeocoderAdapter(geocoder),
         );
-        const convertedCenter = locations[0];
-        if (convertedCenter)
-          converted.__campus = [convertedCenter.lng, convertedCenter.lat];
-        amapPositionsRef.current = converted;
-        setCoordinateVersion((version) => version + 1);
-        const pendingCamera = pendingDriverCameraRef.current;
-        if (pendingCamera) {
-          executeDriverCamera(pendingCamera.command, pendingCamera.context);
-        } else {
-          const center = locations[0];
-          if (center) map.setZoomAndCenter(17.2, center, true, 0);
-        }
-      },
-    );
+        setPlaceContextResolverVersion((version) => version + 1);
+      });
+    } catch {
+      setPlaceContext({ status: "permanent-error" });
+    }
+
+    const conversionPositions = [
+      [CAMPUS_CENTER[0], CAMPUS_CENTER[1]] as const,
+      ...BUILDINGS.map(
+        (building) => [building.position[0], building.position[1]] as const,
+      ),
+    ];
+    AMap.convertFrom(conversionPositions, "gps", (status, result) => {
+      if (mapRef.current !== map) return;
+      const locations = status === "complete" ? result.locations : undefined;
+      if (!locations || locations.length !== BUILDINGS.length + 1) {
+        setMapLoadError("coordinates");
+        return;
+      }
+      const converted = Object.fromEntries(
+        BUILDINGS.map((building, index) => {
+          const location = locations[index + 1];
+          return [
+            building.id,
+            location
+              ? ([location.lng, location.lat] as Position)
+              : building.position,
+          ];
+        }),
+      );
+      const convertedCenter = locations[0];
+      if (convertedCenter) {
+        converted.__campus = [convertedCenter.lng, convertedCenter.lat];
+        const convertedOffset: Position = [
+          convertedCenter.lng - CAMPUS_CENTER[0],
+          convertedCenter.lat - CAMPUS_CENTER[1],
+        ];
+        amapOffsetRef.current = convertedOffset;
+        setAmapOffset(convertedOffset);
+        setCenterPosition(CAMPUS_CENTER);
+        setProviderCenterPosition([convertedCenter.lng, convertedCenter.lat]);
+      }
+      amapPositionsRef.current = converted;
+      setCoordinateVersion((version) => version + 1);
+      const pendingCamera = pendingDriverCameraRef.current;
+      if (pendingCamera) {
+        executeDriverCamera(pendingCamera.command, pendingCamera.context);
+      } else {
+        const center = locations[0];
+        if (center) map.setZoomAndCenter(17.2, center, true, 0);
+      }
+    });
 
     map.on("hotspotclick", (event) => {
       interactionAdapterRef.current.dispatchProviderTarget(() => {
+        if (editSessionPlacingRef.current) {
+          const providerPoiId =
+            event.id ?? `${event.lnglat.lng},${event.lnglat.lat}`;
+          const context: AmapResolvedPlaceContext = {
+            providerPosition: {
+              longitude: event.lnglat.lng,
+              latitude: event.lnglat.lat,
+              crs: "gcj02",
+            },
+            label: event.name?.trim() || "高德地图地点",
+            address: null,
+            providerPoiId,
+            distanceMeters: 0,
+          };
+          exactProviderPlaceRef.current = context;
+          setPlaceContext({ status: "resolved", context });
+          const offset = amapOffsetRef.current;
+          driver.recenterEditPosition(
+            [event.lnglat.lng - offset[0], event.lnglat.lat - offset[1]],
+            "provider-placement",
+          );
+          return;
+        }
         const target = resolveAmapHotspotTarget(
           event,
           BUILDINGS.map((building) => ({
@@ -957,12 +1368,84 @@ export function AmapCampusPrototype({
       interactionAdapterRef.current.dispatchMapClick(() => {
         if (event.originEvent?.target?.closest?.("[data-cupedia-marker]"))
           return;
+        if (editSessionActiveRef.current) return;
         dispatch({ type: "DISMISS" });
       });
     });
     map.on("dragstart", () => {
+      mapDraggingRef.current = true;
+      userGestureAwaitingMoveEndRef.current = true;
+      exactProviderPlaceRef.current = null;
       driver.interruptCamera();
     });
+    map.on("dragend", () => {
+      mapDraggingRef.current = false;
+    });
+    map.on("movestart", () => setMapMoving(true));
+    map.on("moveend", () => {
+      const center = editSessionPlacingRef.current
+        ? placementAnchorLngLat(map, map.getContainer(), AMap)
+        : map.getCenter();
+      const offset = amapOffsetRef.current;
+      const position: Position = [
+        center.lng - offset[0],
+        center.lat - offset[1],
+      ];
+      if (mapDraggingRef.current) return;
+      if (userGestureAwaitingMoveEndRef.current) {
+        userGestureAwaitingMoveEndRef.current = false;
+        setMapMoving(false);
+        setCenterPosition(position);
+        setProviderCenterPosition([center.lng, center.lat]);
+        setMapCenterRevision((revision) => revision + 1);
+        return;
+      }
+      const pendingPlacementCamera = pendingPlacementCameraRef.current;
+      if (pendingPlacementCamera) {
+        if (
+          pendingPlacementCamera.token !== placementCameraTokenRef.current ||
+          !pendingPlacementCamera.context.isCurrent()
+        ) {
+          pendingPlacementCameraRef.current = null;
+          setMapMoving(false);
+          return;
+        }
+        if (samePlacementPosition(position, pendingPlacementCamera.position)) {
+          pendingPlacementCameraRef.current = null;
+          setMapMoving(false);
+          setCenterPosition(pendingPlacementCamera.position);
+          setProviderCenterPosition([
+            pendingPlacementCamera.position[0] + offset[0],
+            pendingPlacementCamera.position[1] + offset[1],
+          ]);
+          setMapCenterRevision((revision) => revision + 1);
+          lastSettledPlacementCameraTargetRef.current =
+            pendingPlacementCamera.position;
+          return;
+        }
+        if (
+          retiredPlacementCameraTargetsRef.current.some((target) =>
+            samePlacementPosition(position, target),
+          )
+        ) {
+          return;
+        }
+        return;
+      }
+      if (
+        retiredPlacementCameraTargetsRef.current.some((target) =>
+          samePlacementPosition(position, target),
+        )
+      ) {
+        return;
+      }
+      setMapMoving(false);
+      setCenterPosition(position);
+      setProviderCenterPosition([center.lng, center.lat]);
+      setMapCenterRevision((revision) => revision + 1);
+    });
+    map.on("longpress", () => startAddRef.current());
+    map.on("rightclick", () => startAddRef.current());
     const cancelForUserZoom = () => {
       driver.interruptCamera();
     };
@@ -1188,14 +1671,14 @@ export function AmapCampusPrototype({
   useEffect(() => {
     const mapElement = mapElementRef.current;
     const panel = panelRef.current;
-    if (!mapElement || !panel || !selectedBuilding) return;
+    if (!mapElement || !panel || (!selectedBuilding && !editSession)) return;
     const observer = new ResizeObserver(() => {
       driver.updateSheetGeometry(panel.hidden ? null : rect(panel));
     });
     observer.observe(mapElement);
     observer.observe(panel);
     return () => observer.disconnect();
-  }, [driver, selectedBuilding]);
+  }, [driver, editSession, selectedBuilding]);
 
   useEffect(
     () => () => {
@@ -1276,11 +1759,22 @@ export function AmapCampusPrototype({
   const activeCategoryStyle = activeAmenity
     ? amenityStyle(activeAmenity)
     : null;
-  const chromeHidden = state.sheet.snap === "full";
+  const chromeHidden = Boolean(editSession) || state.sheet.snap === "full";
 
   return (
-    <main className="relative h-dvh min-h-[520px] w-full min-w-0 flex-1 overflow-hidden bg-[#dce7e9] text-[#17211c]">
-      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}`}</style>
+    <main
+      className="relative h-dvh min-h-0 w-full min-w-0 flex-1 overflow-hidden bg-[#dce7e9] text-[#17211c]"
+      style={
+        {
+          "--campus-map-placement-anchor-y": `${MOBILE_PLACEMENT_ANCHOR_RATIO * 100}dvh`,
+          "--campus-map-edit-sheet-height": "65dvh",
+        } as CSSProperties
+      }
+    >
+      <p className="sr-only" aria-live="polite">
+        {editAnnouncement || editRestoreNotice}
+      </p>
+      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${editSession?.status === "placing" ? "calc(48dvh + 4px)" : editSession ? "calc(var(--campus-map-edit-sheet-height) + 4px)" : state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}`}</style>
       <div className="absolute inset-0">
         <div
           id="amap-campus-canvas"
@@ -1289,6 +1783,24 @@ export function AmapCampusPrototype({
           className="h-full w-full"
         />
       </div>
+
+      {editSession?.status === "placing" ? (
+        <div
+          aria-hidden="true"
+          data-campus-map-center-pin
+          data-moving={mapMoving}
+          className={cn(
+            "pointer-events-none absolute top-[var(--campus-map-placement-anchor-y)] left-1/2 z-20 -translate-x-1/2 transition-transform duration-150 md:top-1/2 motion-reduce:transition-none",
+            mapMoving ? "-translate-y-[calc(100%+8px)]" : "-translate-y-full",
+          )}
+        >
+          <MapPinIcon
+            className="size-12 fill-[#176346] text-white drop-shadow-[0_4px_7px_rgba(23,33,28,.35)]"
+            strokeWidth={1.8}
+          />
+          <div className="mx-auto -mt-1 size-2 rounded-full bg-black/25" />
+        </div>
+      ) : null}
 
       {config.status === "missing" || mapLoadError ? (
         <div className="absolute inset-0 z-50 grid place-items-center bg-white/94 p-6">
@@ -1317,12 +1829,15 @@ export function AmapCampusPrototype({
       ) : null}
 
       <header
+        aria-hidden={editSession ? true : undefined}
+        inert={editSession ? true : undefined}
         className={cn(
           "pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start gap-2 p-3 transition-opacity md:p-4",
-          chromeHidden && "pointer-events-none opacity-0",
-          state.selection.kind !== "none" &&
+          chromeHidden && "invisible pointer-events-none opacity-0",
+          !editSession &&
+            state.selection.kind !== "none" &&
             state.sheet.snap === "full" &&
-            "md:opacity-100",
+            "md:visible md:opacity-100",
         )}
       >
         <form
@@ -1416,12 +1931,15 @@ export function AmapCampusPrototype({
       </header>
 
       <div
+        aria-hidden={editSession ? true : undefined}
+        inert={editSession ? true : undefined}
         className={cn(
           "pointer-events-none absolute inset-x-0 top-[68px] z-20 overflow-hidden px-3 transition-opacity md:top-[76px] md:flex md:justify-center",
-          chromeHidden && "pointer-events-none opacity-0",
-          state.selection.kind !== "none" &&
+          chromeHidden && "invisible pointer-events-none opacity-0",
+          !editSession &&
+            state.selection.kind !== "none" &&
             state.sheet.snap === "full" &&
-            "md:opacity-100",
+            "md:visible md:opacity-100",
         )}
       >
         <nav
@@ -1463,7 +1981,22 @@ export function AmapCampusPrototype({
         />
       </div>
 
-      <div className="absolute top-[124px] right-3 z-20 flex flex-col overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg md:top-auto md:right-auto md:bottom-6 md:left-4">
+      <div
+        aria-hidden={editSession ? true : undefined}
+        inert={editSession ? true : undefined}
+        className={cn(
+          "absolute top-[124px] right-3 z-20 flex flex-col overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg md:top-auto md:right-auto md:bottom-6 md:left-4",
+          editSession && "invisible pointer-events-none opacity-0",
+        )}
+      >
+        <button
+          type="button"
+          aria-label="添加地点"
+          className="flex min-h-11 items-center gap-2 border-b border-black/10 px-3 text-sm font-semibold hover:bg-neutral-50"
+          onClick={startAddAtPlacementAnchor}
+        >
+          <PlusIcon className="size-5" /> 添加地点
+        </button>
         <button
           type="button"
           aria-label="回到中大校园"
@@ -1501,38 +2034,74 @@ export function AmapCampusPrototype({
       <section
         ref={panelRef}
         hidden={
-          state.selection.kind === "external" ||
-          (state.selection.kind === "none" && !state.mapFilter.category)
+          !editSession &&
+          (state.selection.kind === "external" ||
+            (state.selection.kind === "none" && !state.mapFilter.category))
         }
         aria-labelledby="campus-map-panel-title"
         className={cn(
-          "absolute z-30 overflow-hidden border-black/10 bg-white shadow-[0_12px_40px_rgba(23,33,28,.24)]",
+          "absolute z-30 overflow-hidden overscroll-contain border-black/10 bg-white shadow-[0_12px_40px_rgba(23,33,28,.24)]",
           "inset-x-0 bottom-0 rounded-t-2xl border-t md:inset-y-4 md:right-4 md:left-auto md:w-[390px] md:rounded-2xl md:border",
-          state.sheet.snap === "full"
-            ? "h-[72dvh] md:h-auto"
-            : "h-[min(248px,36dvh)] md:h-auto md:max-h-[calc(100%-32px)]",
+          editSession?.status === "placing"
+            ? "h-[48dvh] max-h-[65dvh] md:inset-y-4 md:h-auto md:max-h-[calc(100dvh-32px)]"
+            : editSession
+              ? "h-[var(--campus-map-edit-sheet-height)] md:h-auto"
+              : state.sheet.snap === "full"
+                ? "h-[72dvh] md:h-auto"
+                : "h-[min(248px,36dvh)] md:h-auto md:max-h-[calc(100%-32px)]",
         )}
       >
-        <button
-          type="button"
-          aria-label={
-            state.sheet.snap === "full" ? "收起地点卡片" : "展开地点卡片"
-          }
-          aria-expanded={state.sheet.snap === "full"}
-          aria-controls="campus-map-panel-content"
-          className="mx-auto grid h-11 w-20 place-items-center rounded-b-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] md:hidden"
-          onClick={() => {
-            dispatch({
-              type: "SET_SNAP",
-              snap: state.sheet.snap === "full" ? "peek" : "full",
-            });
-          }}
-        >
-          <span className="h-1 w-10 rounded-full bg-neutral-300" />
-        </button>
-        {state.selection.kind === "none" &&
-        state.mapFilter.category &&
-        activeCategoryStyle ? (
+        {!editSession ? (
+          <button
+            type="button"
+            aria-label={
+              state.sheet.snap === "full" ? "收起地点卡片" : "展开地点卡片"
+            }
+            aria-expanded={state.sheet.snap === "full"}
+            aria-controls="campus-map-panel-content"
+            className="mx-auto grid h-11 w-20 place-items-center rounded-b-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] md:hidden"
+            onClick={() => {
+              dispatch({
+                type: "SET_SNAP",
+                snap: state.sheet.snap === "full" ? "peek" : "full",
+              });
+            }}
+          >
+            <span className="h-1 w-10 rounded-full bg-neutral-300" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label="关闭地图编辑"
+            disabled={editSession.status === "publishing"}
+            className="absolute top-2 right-3 z-10 grid size-11 place-items-center rounded-full bg-white hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+            onClick={() => dispatchEditEvent({ type: "REQUEST_CLOSE" })}
+          >
+            <XIcon aria-hidden="true" className="size-5" />
+          </button>
+        )}
+        {editSession ? (
+          <CampusMapEditSheet
+            session={editSession}
+            centerPosition={centerPosition}
+            placementPending={placementPending}
+            placeContext={
+              editSession.status === "placing" &&
+              mapMoving &&
+              !(
+                placeContext?.status === "resolved" &&
+                placeContext.context.distanceMeters === 0 &&
+                placeContext.context.address === null
+              )
+                ? { status: "loading" }
+                : placeContext
+            }
+            factSchema={factSchema}
+            onEvent={dispatchEditEvent}
+          />
+        ) : state.selection.kind === "none" &&
+          state.mapFilter.category &&
+          activeCategoryStyle ? (
           <div
             id="campus-map-panel-content"
             className="flex h-[calc(100%-44px)] flex-col"
@@ -1628,9 +2197,16 @@ export function AmapCampusPrototype({
                 </button>
               ) : null}
               {!categoryFacilities.length ? (
-                <p className="py-6 text-center text-sm text-neutral-500">
-                  当前没有已收录地点
-                </p>
+                <div className="py-6 text-center text-sm text-neutral-500">
+                  <p>当前没有已收录地点</p>
+                  <button
+                    type="button"
+                    className="mt-3 min-h-11 rounded-xl bg-[#174b38] px-4 font-semibold text-white"
+                    onClick={startAddAtPlacementAnchor}
+                  >
+                    添加这个类别的地点
+                  </button>
+                </div>
               ) : null}
             </div>
           </div>
@@ -1706,6 +2282,13 @@ export function AmapCampusPrototype({
                   }
                 >
                   定位所属建筑
+                </button>
+                <button
+                  type="button"
+                  className="mt-3 min-h-11 w-full rounded-xl border border-[#174b38] px-4 text-sm font-semibold text-[#174b38]"
+                  onClick={() => startEdit(selectedFacility)}
+                >
+                  建议修改
                 </button>
                 {state.sheet.snap === "full" ? (
                   <dl className="mt-5 grid gap-3 border-t border-black/8 pt-4 text-sm">

@@ -109,7 +109,7 @@ export const AMAP_PROTOTYPE_BUILDINGS: readonly AmapPrototypeBuilding[] = [
 
 export const AMAP_PROTOTYPE_FACILITIES: readonly AmapPrototypeFacility[] = [
   {
-    id: "science-lg-toilet",
+    id: "71000000-0000-4000-8000-000000000001",
     buildingId: "science-centre",
     category: "toilet",
     name: "洗手间",
@@ -119,7 +119,7 @@ export const AMAP_PROTOTYPE_FACILITIES: readonly AmapPrototypeFacility[] = [
     locationPrecision: "building",
   },
   {
-    id: "science-1f-water",
+    id: "71000000-0000-4000-8000-000000000002",
     buildingId: "science-centre",
     category: "water",
     name: "饮水机",
@@ -129,7 +129,7 @@ export const AMAP_PROTOTYPE_FACILITIES: readonly AmapPrototypeFacility[] = [
     locationPrecision: "building",
   },
   {
-    id: "wmy-5f-toilet",
+    id: "71000000-0000-4000-8000-000000000003",
     buildingId: "wmy",
     category: "toilet",
     name: "洗手间",
@@ -139,7 +139,7 @@ export const AMAP_PROTOTYPE_FACILITIES: readonly AmapPrototypeFacility[] = [
     locationPrecision: "building",
   },
   {
-    id: "wmy-6f-printer",
+    id: "71000000-0000-4000-8000-000000000004",
     buildingId: "wmy",
     category: "printer",
     name: "打印站",
@@ -149,7 +149,7 @@ export const AMAP_PROTOTYPE_FACILITIES: readonly AmapPrototypeFacility[] = [
     locationPrecision: "building",
   },
   {
-    id: "library-gf-water",
+    id: "71000000-0000-4000-8000-000000000005",
     buildingId: "university-library",
     category: "water",
     name: "饮水机",

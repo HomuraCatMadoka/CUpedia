@@ -20,6 +20,36 @@ import {
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
+import {
+  CAMPUS_MAP_AUDIENCES,
+  CAMPUS_MAP_CAPABILITIES,
+  CAMPUS_MAP_COORDINATE_CONVERSION_METHODS,
+  CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
+  CAMPUS_MAP_GENDERS,
+  CAMPUS_MAP_PIN_TYPES,
+  CAMPUS_MAP_PROVENANCE_KINDS,
+  CAMPUS_MAP_RESERVATION_REQUIREMENTS,
+  CAMPUS_MAP_RIGHTS_STATUSES,
+  CAMPUS_MAP_SOURCE_COORDINATE_CRS,
+  CAMPUS_MAP_TEMPORARY_STATUSES,
+  CAMPUS_MAP_WHEELCHAIR_ACCESS,
+} from "@/lib/campus-map/controlled-values";
+
+export {
+  CAMPUS_MAP_AUDIENCES,
+  CAMPUS_MAP_CAPABILITIES,
+  CAMPUS_MAP_COORDINATE_CONVERSION_METHODS,
+  CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
+  CAMPUS_MAP_GENDERS,
+  CAMPUS_MAP_PIN_TYPES,
+  CAMPUS_MAP_PROVENANCE_KINDS,
+  CAMPUS_MAP_RESERVATION_REQUIREMENTS,
+  CAMPUS_MAP_RIGHTS_STATUSES,
+  CAMPUS_MAP_SOURCE_COORDINATE_CRS,
+  CAMPUS_MAP_TEMPORARY_STATUSES,
+  CAMPUS_MAP_WHEELCHAIR_ACCESS,
+} from "@/lib/campus-map/controlled-values";
+
 // ── Better Auth core tables ──
 
 export const users = pgTable("users", {
@@ -1262,58 +1292,24 @@ export const notifications = pgTable(
 
 // ── Campus Map canonical facts (#717) ──
 
-export const CAMPUS_MAP_PIN_TYPES = [
-  "toilet",
-  "water",
-  "printer",
-  "common-space",
-  "classroom",
-] as const;
 export type CampusMapPinType = (typeof CAMPUS_MAP_PIN_TYPES)[number];
 
-export const CAMPUS_MAP_CAPABILITIES = ["print", "scan", "copy"] as const;
 export type CampusMapCapability = (typeof CAMPUS_MAP_CAPABILITIES)[number];
 
-export const CAMPUS_MAP_GENDERS = [
-  "male",
-  "female",
-  "all-gender",
-  "unknown",
-] as const;
 export type CampusMapGender = (typeof CAMPUS_MAP_GENDERS)[number];
 
-export const CAMPUS_MAP_WHEELCHAIR_ACCESS = [
-  "yes",
-  "limited",
-  "no",
-  "unknown",
-] as const;
 export type CampusMapWheelchairAccess =
   (typeof CAMPUS_MAP_WHEELCHAIR_ACCESS)[number];
 
-export const CAMPUS_MAP_AUDIENCES = [
-  "public",
-  "cuhk-member",
-  "library-member",
-  "unknown",
-] as const;
 export type CampusMapAudience = (typeof CAMPUS_MAP_AUDIENCES)[number];
 
-export const CAMPUS_MAP_CREDENTIAL_REQUIREMENTS = [
-  "none",
-  "campus-card",
-  "library-card",
-  "other",
-  "unknown",
-] as const;
 export type CampusMapCredentialRequirement =
   (typeof CAMPUS_MAP_CREDENTIAL_REQUIREMENTS)[number];
 
-export type CampusMapReservationRequirement = "none" | "required" | "unknown";
+export type CampusMapReservationRequirement =
+  (typeof CAMPUS_MAP_RESERVATION_REQUIREMENTS)[number];
 export type CampusMapTemporaryStatus =
-  | "normal"
-  | "temporarily-closed"
-  | "unknown";
+  (typeof CAMPUS_MAP_TEMPORARY_STATUSES)[number];
 export type CampusMapLocationKind = "building" | "floor" | "outdoor-point";
 export type CampusMapPointPrecision = "approximate" | "precise";
 export type CampusMapRevisionStatus = "active" | "retired" | "merged";
@@ -1324,32 +1320,10 @@ export type CampusMapPlaceOperation =
   | "restore"
   | "merge";
 export type CampusMapProvenanceKind =
-  | "official"
-  | "field-observation"
-  | "open-data"
-  | "provider-candidate"
-  | "other";
-export type CampusMapRightsStatus =
-  | "public-domain"
-  | "permission-granted"
-  | "original-observation"
-  | "restricted"
-  | "unknown";
-export const CAMPUS_MAP_SOURCE_COORDINATE_CRS = [
-  "wgs84",
-  "gcj02",
-  "hk80",
-  "hkpd",
-  "other",
-] as const;
+  (typeof CAMPUS_MAP_PROVENANCE_KINDS)[number];
+export type CampusMapRightsStatus = (typeof CAMPUS_MAP_RIGHTS_STATUSES)[number];
 export type CampusMapSourceCoordinateCrs =
   (typeof CAMPUS_MAP_SOURCE_COORDINATE_CRS)[number];
-export const CAMPUS_MAP_COORDINATE_CONVERSION_METHODS = [
-  "proj",
-  "manual",
-  "provider-adapter",
-  "other",
-] as const;
 export type CampusMapCoordinateConversionMethod =
   (typeof CAMPUS_MAP_COORDINATE_CONVERSION_METHODS)[number];
 

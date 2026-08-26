@@ -66,6 +66,24 @@ function createCommand(): CampusMapPublishCommand {
   };
 }
 
+function placeCreateAtPreciseOutdoorPoint(
+  command: CampusMapPublishCommand,
+  longitude = 114.207209,
+  latitude = 22.420129,
+): void {
+  const change = command.changes[0];
+  if (change.operation !== "create") throw new Error("bad fixture");
+  change.fact.buildingId = null;
+  change.fact.floorId = null;
+  change.fact.location = {
+    kind: "outdoor-point",
+    longitude,
+    latitude,
+    crs: "wgs84",
+    precision: "precise",
+  };
+}
+
 describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
   let pool: Pool;
   const actorIds: string[] = [];
@@ -2559,9 +2577,83 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     });
   });
 
+  it("publishes separate Places of the same type in one Building", async () => {
+    const [firstActorId, secondActorId] = await Promise.all([
+      createActor(),
+      createActor(),
+    ]);
+
+    const firstResult = await publishCampusMapChangeset(createCommand(), {
+      actorId: firstActorId,
+      clientIp: "203.0.113.27",
+    });
+    const secondResult = await publishCampusMapChangeset(createCommand(), {
+      actorId: secondActorId,
+      clientIp: "203.0.113.28",
+    });
+
+    expect(firstResult).toMatchObject({ status: "published", warnings: [] });
+    expect(secondResult).toMatchObject({ status: "published", warnings: [] });
+    if (
+      firstResult.status !== "published" ||
+      secondResult.status !== "published"
+    ) {
+      throw new Error("Building Places were not published");
+    }
+    expect(secondResult.changes[0].placeId).not.toBe(
+      firstResult.changes[0].placeId,
+    );
+  });
+
+  it("publishes separate approximate Places at the same coordinates", async () => {
+    const [firstActorId, secondActorId] = await Promise.all([
+      createActor(),
+      createActor(),
+    ]);
+    const first = createCommand();
+    const second = createCommand();
+    for (const command of [first, second]) {
+      const change = command.changes[0];
+      if (change.operation !== "create") throw new Error("bad fixture");
+      change.fact.name = "洗手间";
+      change.fact.pinType = "toilet";
+      change.fact.buildingId = null;
+      change.fact.floorId = null;
+      change.fact.location = {
+        kind: "outdoor-point",
+        longitude: 114.207209,
+        latitude: 22.420129,
+        crs: "wgs84",
+        precision: "approximate",
+      };
+    }
+
+    const firstResult = await publishCampusMapChangeset(first, {
+      actorId: firstActorId,
+      clientIp: "203.0.113.27",
+    });
+    const secondResult = await publishCampusMapChangeset(second, {
+      actorId: secondActorId,
+      clientIp: "203.0.113.28",
+    });
+
+    expect(firstResult).toMatchObject({ status: "published", warnings: [] });
+    expect(secondResult).toMatchObject({ status: "published", warnings: [] });
+    if (
+      firstResult.status !== "published" ||
+      secondResult.status !== "published"
+    ) {
+      throw new Error("approximate Places were not published");
+    }
+    expect(secondResult.changes[0].placeId).not.toBe(
+      firstResult.changes[0].placeId,
+    );
+  });
+
   it("warns on duplicates proposed inside one admin bulk command", async () => {
     const actorId = await createActor({ role: "admin" });
     const command = createCommand();
+    placeCreateAtPreciseOutdoorPoint(command);
     const first = command.changes[0];
     if (first.operation !== "create") throw new Error("bad fixture");
     const second = structuredClone(first);
@@ -2613,6 +2705,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
   it("uses PostgreSQL name normalization for bulk duplicate warnings", async () => {
     const actorId = await createActor({ role: "admin" });
     const command = createCommand();
+    placeCreateAtPreciseOutdoorPoint(command);
     const first = command.changes[0];
     if (first.operation !== "create") throw new Error("bad fixture");
     const second = structuredClone(first);
@@ -2643,6 +2736,8 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     const [actorA, actorB] = await Promise.all([createActor(), createActor()]);
     const commandA = createCommand();
     const commandB = createCommand();
+    placeCreateAtPreciseOutdoorPoint(commandA);
+    placeCreateAtPreciseOutdoorPoint(commandB);
     const changeA = commandA.changes[0];
     const changeB = commandB.changes[0];
     if (changeA.operation !== "create" || changeB.operation !== "create") {
@@ -2718,13 +2813,16 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       createActor(),
       createActor(),
     ]);
-    const existing = await publishCampusMapChangeset(createCommand(), {
+    const existingCommand = createCommand();
+    placeCreateAtPreciseOutdoorPoint(existingCommand);
+    const existing = await publishCampusMapChangeset(existingCommand, {
       actorId: existingActorId,
       clientIp: "203.0.113.28",
     });
     if (existing.status !== "published") throw new Error("create failed");
     const existingPlaceId = existing.changes[0].placeId;
     const candidate = createCommand();
+    placeCreateAtPreciseOutdoorPoint(candidate);
 
     const unacknowledged = await publishCampusMapChangeset(candidate, {
       actorId: candidateActorId,
@@ -2774,8 +2872,11 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
 
     const candidateChange = candidate.changes[0];
     if (candidateChange.operation !== "create") throw new Error("bad fixture");
+    if (candidateChange.fact.location.kind !== "outdoor-point") {
+      throw new Error("bad location fixture");
+    }
     candidate.warningAcknowledgements[0].fingerprint = fingerprint;
-    candidateChange.fact.buildingId = "00000000-0000-4000-8000-000000000804";
+    candidateChange.fact.location.longitude = 114.2072;
     const stale = await publishCampusMapChangeset(candidate, {
       actorId: candidateActorId,
       clientIp: "203.0.113.29",
@@ -2785,7 +2886,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       errors: [{ code: "warning-acknowledgement-invalid" }],
     });
 
-    candidateChange.fact.buildingId = "00000000-0000-4000-8000-000000000802";
+    candidateChange.fact.location.longitude = 114.207209;
     const acknowledged = await publishCampusMapChangeset(candidate, {
       actorId: candidateActorId,
       clientIp: "203.0.113.29",

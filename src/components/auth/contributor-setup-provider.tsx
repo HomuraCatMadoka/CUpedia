@@ -15,11 +15,17 @@ import { Label } from "@/components/ui/label";
 import type { MissingContributorSetup } from "@/lib/contributor-account";
 
 type SetupContext = {
-  ensureContributorSetup: () => Promise<boolean>;
+  ensureContributorSetup: (options?: { recheck?: boolean }) => Promise<boolean>;
+  requestContributorSetup: (options?: {
+    recheck?: boolean;
+  }) => Promise<ContributorSetupOutcome>;
 };
+
+export type ContributorSetupOutcome = "complete" | "cancelled" | "unavailable";
 
 const ContributorSetupContext = createContext<SetupContext>({
   ensureContributorSetup: async () => true,
+  requestContributorSetup: async () => "complete",
 });
 
 export function ContributorSetupProvider({
@@ -33,45 +39,57 @@ export function ContributorSetupProvider({
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const pending = useRef<Array<(complete: boolean) => void>>([]);
+  const pending = useRef<Array<(outcome: ContributorSetupOutcome) => void>>([]);
   const knownComplete = useRef(false);
   const statusCheck = useRef<Promise<{
     complete: boolean;
     needs: MissingContributorSetup;
   }> | null>(null);
 
-  const finishPending = useCallback((complete: boolean) => {
-    for (const resolve of pending.current.splice(0)) resolve(complete);
+  const finishPending = useCallback((outcome: ContributorSetupOutcome) => {
+    for (const resolve of pending.current.splice(0)) resolve(outcome);
   }, []);
 
-  const ensureContributorSetup = useCallback(async () => {
-    if (knownComplete.current) return true;
-    try {
-      if (!statusCheck.current) {
-        statusCheck.current = (async () => {
-          const response = await fetch("/api/auth/account-setup");
-          if (!response.ok) throw new Error("ACCOUNT_SETUP_STATUS_FAILED");
-          return (await response.json()) as {
-            complete: boolean;
-            needs: MissingContributorSetup;
-          };
-        })().finally(() => {
-          statusCheck.current = null;
-        });
+  const requestContributorSetup = useCallback(
+    async (options?: { recheck?: boolean }) => {
+      if (options?.recheck) knownComplete.current = false;
+      if (knownComplete.current) return "complete" as const;
+      try {
+        if (!statusCheck.current) {
+          statusCheck.current = (async () => {
+            const response = await fetch("/api/auth/account-setup");
+            if (!response.ok) throw new Error("ACCOUNT_SETUP_STATUS_FAILED");
+            return (await response.json()) as {
+              complete: boolean;
+              needs: MissingContributorSetup;
+            };
+          })().finally(() => {
+            statusCheck.current = null;
+          });
+        }
+        const result = await statusCheck.current;
+        if (knownComplete.current) return "complete" as const;
+        if (result.complete) {
+          knownComplete.current = true;
+          return "complete" as const;
+        }
+        setNeeds(result.needs);
+        setError("");
+        return new Promise<ContributorSetupOutcome>((resolve) =>
+          pending.current.push(resolve),
+        );
+      } catch {
+        return "unavailable" as const;
       }
-      const result = await statusCheck.current;
-      if (knownComplete.current) return true;
-      if (result.complete) {
-        knownComplete.current = true;
-        return true;
-      }
-      setNeeds(result.needs);
-      setError("");
-      return new Promise<boolean>((resolve) => pending.current.push(resolve));
-    } catch {
-      return false;
-    }
-  }, []);
+    },
+    [],
+  );
+
+  const ensureContributorSetup = useCallback(
+    async (options?: { recheck?: boolean }) =>
+      (await requestContributorSetup(options)) === "complete",
+    [requestContributorSetup],
+  );
 
   const saveSetup = async () => {
     if (!needs) return;
@@ -101,7 +119,7 @@ export function ContributorSetupProvider({
       setNickname("");
       setPassword("");
       setConfirmation("");
-      finishPending(true);
+      finishPending("complete");
     } catch {
       setError("保存失败，请重试");
     } finally {
@@ -119,7 +137,9 @@ export function ContributorSetupProvider({
   };
 
   return (
-    <ContributorSetupContext.Provider value={{ ensureContributorSetup }}>
+    <ContributorSetupContext.Provider
+      value={{ ensureContributorSetup, requestContributorSetup }}
+    >
       {children}
       {needs && (
         <div
@@ -194,7 +214,7 @@ export function ContributorSetupProvider({
                 variant="ghost"
                 onClick={() => {
                   setNeeds(null);
-                  finishPending(false);
+                  finishPending("cancelled");
                 }}
               >
                 稍后再说

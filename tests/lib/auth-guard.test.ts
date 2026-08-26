@@ -50,6 +50,16 @@ describe("requireAuth", () => {
     expect(mockRedirect).toHaveBeenCalledWith("/login");
   });
 
+  it("preserves a safe callback path when authentication is required", async () => {
+    mockGetSession.mockResolvedValue(null);
+    await expect(
+      requireAuth("/prototype/campus-map?v=1&task=create&anchor=map"),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockRedirect).toHaveBeenCalledWith(
+      "/login?callbackUrl=%2Fprototype%2Fcampus-map%3Fv%3D1%26task%3Dcreate%26anchor%3Dmap",
+    );
+  });
+
   it("propagates session lookup failures instead of treating them as logout", async () => {
     mockGetSession.mockRejectedValue(new Error("FAILED_TO_GET_SESSION"));
     await expect(requireAuth()).rejects.toThrow("FAILED_TO_GET_SESSION");

@@ -14,6 +14,49 @@ import type {
   CampusMapTemporaryStatus,
   CampusMapWheelchairAccess,
 } from "@/db/schema";
+import {
+  CAMPUS_MAP_AUDIENCES,
+  CAMPUS_MAP_CAPABILITIES,
+  CAMPUS_MAP_COORDINATE_CONVERSION_METHODS,
+  CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
+  CAMPUS_MAP_GENDERS,
+  CAMPUS_MAP_PIN_TYPES,
+  CAMPUS_MAP_PROVENANCE_KINDS,
+  CAMPUS_MAP_RESERVATION_REQUIREMENTS,
+  CAMPUS_MAP_RIGHTS_STATUSES,
+  CAMPUS_MAP_SOURCE_COORDINATE_CRS,
+  CAMPUS_MAP_TEMPORARY_STATUSES,
+  CAMPUS_MAP_WHEELCHAIR_ACCESS,
+} from "./controlled-values";
+
+/** Runtime values shared by publish clients and versioned snapshot codecs. */
+export const CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES = {
+  pinType: CAMPUS_MAP_PIN_TYPES,
+  capability: CAMPUS_MAP_CAPABILITIES,
+  gender: CAMPUS_MAP_GENDERS,
+  wheelchairAccess: CAMPUS_MAP_WHEELCHAIR_ACCESS,
+  audience: CAMPUS_MAP_AUDIENCES,
+  credentialRequirement: CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
+  reservationRequirement: CAMPUS_MAP_RESERVATION_REQUIREMENTS,
+  temporaryStatus: CAMPUS_MAP_TEMPORARY_STATUSES,
+  provenanceKind: CAMPUS_MAP_PROVENANCE_KINDS,
+  rightsStatus: CAMPUS_MAP_RIGHTS_STATUSES,
+  sourceCoordinateCrs: CAMPUS_MAP_SOURCE_COORDINATE_CRS,
+  coordinateConversionMethod: CAMPUS_MAP_COORDINATE_CONVERSION_METHODS,
+} as const satisfies {
+  pinType: readonly CampusMapPinType[];
+  capability: readonly CampusMapCapability[];
+  gender: readonly CampusMapGender[];
+  wheelchairAccess: readonly CampusMapWheelchairAccess[];
+  audience: readonly CampusMapAudience[];
+  credentialRequirement: readonly CampusMapCredentialRequirement[];
+  reservationRequirement: readonly CampusMapReservationRequirement[];
+  temporaryStatus: readonly CampusMapTemporaryStatus[];
+  provenanceKind: readonly CampusMapProvenanceKind[];
+  rightsStatus: readonly CampusMapRightsStatus[];
+  sourceCoordinateCrs: readonly CampusMapSourceCoordinateCrs[];
+  coordinateConversionMethod: readonly CampusMapCoordinateConversionMethod[];
+};
 
 export interface CampusMapPublishFactInput {
   name: string;
