@@ -1,5 +1,6 @@
 // ref #646
 import { expect, test } from "@playwright/test";
+import { loginWithPassword } from "./helpers/auth";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -148,6 +149,22 @@ test.beforeEach(async ({ page }) => {
       },
     });
   });
+
+  await loginWithPassword(page, "user@test.com", "password123");
+});
+
+test("Campus Map and its AMap config require authentication", async ({
+  browser,
+}) => {
+  const anonymous = await browser.newPage();
+  const configResponse = await anonymous.request.get("/api/campus-map/config");
+  expect(configResponse.status()).toBe(401);
+
+  await anonymous.goto("/prototype/campus-map?v=1&task=create&anchor=map");
+  await expect(anonymous).toHaveURL(/\/login\?/);
+  const callbackUrl = new URL(anonymous.url()).searchParams.get("callbackUrl");
+  expect(callbackUrl).toBe("/prototype/campus-map?v=1&task=create&anchor=map");
+  await anonymous.close();
 });
 
 test("Campus Map editing keeps its primary action inside a 390px-high viewport", async ({

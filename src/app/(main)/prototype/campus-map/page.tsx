@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { AmapCampusPrototype } from "@/components/campus-map/amap-campus-prototype";
+import { requireAuth } from "@/lib/auth-guard";
 import { getCampusMapFactSchema } from "@/lib/campus-map/fact-store";
 
 export const metadata: Metadata = {
@@ -24,6 +25,8 @@ export default async function CampusMapPrototypePage({
     if (Array.isArray(value)) value.forEach((item) => params.append(key, item));
     else if (value !== undefined) params.set(key, value);
   }
+  const callbackUrl = `/prototype/campus-map${params.size ? `?${params.toString()}` : ""}`;
+  await requireAuth(callbackUrl);
   const factSchema = await getCampusMapFactSchema().catch(() => null);
   return (
     <AmapCampusPrototype
