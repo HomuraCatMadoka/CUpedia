@@ -923,8 +923,9 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
   ])(
     "retries after the bounded backoff for $failures failure(s)",
     async ({ failures, minutesAgo }) => {
+      const databaseNow = new Date("2099-08-20T03:17:00.000Z");
+      readMenuSyncDatabaseNow.mockImplementation(async () => databaseNow);
       const { sourceId } = await createEligibleSource("退避完成的来源");
-      const databaseNow = await currentTestDatabaseNow();
       const completedAt = new Date(databaseNow.getTime() - minutesAgo * 60_000);
       await db.insert(canteenMenuSyncRuns).values(
         Array.from({ length: failures }, (_, index) => ({
