@@ -572,6 +572,17 @@ function floorLabel(floorId: string | null, displayLabel?: string | null) {
   return floorId.endsWith("/F") ? floorId : `${floorId}/F`;
 }
 
+function placeLocationLabel(place: Facility) {
+  switch (place.location.kind) {
+    case "outdoor-point":
+      return "室外位置";
+    case "building":
+      return "建筑内";
+    case "floor":
+      return place.location.floor.displayLabel;
+  }
+}
+
 export function AmapCampusPrototype({
   initialSearch = "",
   factSchema = null,
@@ -2158,7 +2169,7 @@ export function AmapCampusPrototype({
                         <span className="block truncate text-xs text-neutral-500">
                           {result.kind === "building"
                             ? (result.building.englishName ?? "正式校舍资料")
-                            : `${floorLabel(result.facility.floorId, result.facility.floorLabel)} · ${accessLabel(result.facility)}`}
+                            : `${placeLocationLabel(result.facility)} · ${accessLabel(result.facility)}`}
                         </span>
                       </span>
                     </>
@@ -2442,7 +2453,7 @@ export function AmapCampusPrototype({
                     <span className="min-w-0 flex-1">
                       <strong className="block text-sm">
                         {building?.name ?? "校内独立地点"} ·{" "}
-                        {floorLabel(facility.floorId, facility.floorLabel)}
+                        {placeLocationLabel(facility)}
                       </strong>
                       <span className="mt-0.5 block text-xs text-neutral-500">
                         {facility.name} · {accessLabel(facility)}

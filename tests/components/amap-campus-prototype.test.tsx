@@ -352,7 +352,23 @@ describe("AmapCampusPrototype", () => {
       ).not.toBeNull(),
     );
     expect(screen.getByText("校内独立地点 · 新发布饮水点")).not.toBeNull();
+    expect(screen.getByText("室外位置 · 公众可达")).not.toBeNull();
+    expect(screen.queryByText("建筑内 · 公众可达")).toBeNull();
     expect(window.location.search).toContain("scene=search");
+  });
+
+  it("describes an outdoor category Place without claiming a Building association", async () => {
+    const placeId = "30000000-0000-4000-8000-000000000020";
+
+    render(
+      <AmapCampusPrototype
+        initialSearch="?v=1&scene=category&id=water&snap=peek"
+        initialBrowseProjection={publishedOutdoorProjection(placeId)}
+      />,
+    );
+
+    expect(await screen.findByText("校内独立地点 · 室外位置")).not.toBeNull();
+    expect(screen.queryByText("校内独立地点 · 建筑内")).toBeNull();
   });
 
   it("keeps the draft and does not publish when contributor setup is cancelled", async () => {
