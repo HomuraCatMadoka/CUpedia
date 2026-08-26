@@ -14,6 +14,7 @@ import {
   campusMapFloors,
   campusMapPlaceChanges,
   campusMapPlaces,
+  campusMapProviderMappings,
   campusMapProvenanceSources,
   campusMapRevisionProvenance,
   campusMapRevisionVisibility,
@@ -25,9 +26,12 @@ import {
   getCampusMapPlaceHistory,
   getCampusMapPlaceRevision,
   CampusMapReadInputError,
+  listCampusMapBrowseBuildings,
   listCampusMapChangesets,
   listCampusMapCurrentPlaces,
+  resolveCampusMapProviderSelection,
 } from "@/lib/campus-map/fact-store";
+import { readCampusMapBrowse } from "@/lib/campus-map/browse-projection";
 
 function collectKeys(value: unknown, keys = new Set<string>()): Set<string> {
   if (Array.isArray(value)) {
@@ -66,6 +70,8 @@ const ids = {
   feedPlaceA: "00000000-0000-4000-8000-000000000720",
   feedPlaceB: "00000000-0000-4000-8000-000000000721",
   feedPlaceC: "00000000-0000-4000-8000-000000000722",
+  buildingMapping: "00000000-0000-4000-8000-000000000723",
+  placeMapping: "00000000-0000-4000-8000-000000000724",
 } as const;
 
 describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
@@ -98,6 +104,10 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       await client.query(
         `delete from campus_map_revision_provenance where revision_id = $1`,
         [ids.revision],
+      );
+      await client.query(
+        `delete from campus_map_provider_mappings where id = any($1::uuid[])`,
+        [[ids.buildingMapping, ids.placeMapping]],
       );
       await client.query(
         `delete from campus_map_fact_revisions where id = $1`,
@@ -272,6 +282,22 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       observedAt: new Date("2026-08-21T03:00:00Z"),
       publishedAt: new Date("2026-08-22T01:00:00Z"),
     });
+    await database.insert(campusMapProviderMappings).values([
+      {
+        id: ids.buildingMapping,
+        provider: "amap",
+        providerObjectId: "test-building-poi",
+        targetKind: "building",
+        buildingId: ids.building,
+      },
+      {
+        id: ids.placeMapping,
+        provider: "amap",
+        providerObjectId: "test-place-poi",
+        targetKind: "place",
+        placeId: ids.place,
+      },
+    ]);
     await database.insert(campusMapChangesets).values([
       {
         id: ids.feedA,
@@ -498,6 +524,71 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
     });
   });
 
+  it("builds the public browse projection from formal Buildings and Current facts", async () => {
+    const projection = await readCampusMapBrowse({
+      listBuildings: listCampusMapBrowseBuildings,
+      listCurrentPlaces: listCampusMapCurrentPlaces,
+    });
+
+    expect(
+      projection.buildings.find(
+        (building) => building.buildingId === ids.building,
+      ),
+    ).toMatchObject({
+      buildingId: ids.building,
+      name: "大学图书馆",
+      anchor: { longitude: 114.2, latitude: 22.4, crs: "wgs84" },
+      floors: [{ floorId: ids.floor, displayLabel: "G/F", sortOrder: 0 }],
+      placeIds: [ids.place],
+      selectionTarget: { kind: "building", buildingId: ids.building },
+    });
+    expect(
+      projection.places.filter((place) => place.placeId === ids.place),
+    ).toEqual([
+      expect.objectContaining({
+        placeId: ids.place,
+        revisionId: ids.revision,
+        buildingId: ids.building,
+        floorId: ids.floor,
+        selectionTarget: {
+          kind: "place",
+          placeId: ids.place,
+          buildingId: ids.building,
+          floorId: ids.floor,
+        },
+      }),
+    ]);
+    const keys = collectKeys(projection);
+    [
+      "actorIdSnapshot",
+      "provider",
+      "providerObjectId",
+      "redactionRef",
+      "sourceRef",
+      "sourceUrl",
+    ].forEach((key) => expect(keys).not.toContain(key));
+  });
+
+  it("resolves only exact provider mappings to canonical public targets", async () => {
+    await expect(
+      resolveCampusMapProviderSelection("amap", "test-building-poi"),
+    ).resolves.toEqual({ kind: "building", buildingId: ids.building });
+    await expect(
+      resolveCampusMapProviderSelection("amap", "test-place-poi"),
+    ).resolves.toEqual({
+      kind: "place",
+      placeId: ids.place,
+      buildingId: ids.building,
+      floorId: ids.floor,
+    });
+    await expect(
+      resolveCampusMapProviderSelection("amap", "大学图书馆"),
+    ).resolves.toBeNull();
+    await expect(
+      resolveCampusMapProviderSelection("amap", " test-place-poi"),
+    ).resolves.toBeNull();
+  });
+
   it("reads history using the revision's own schema and display metadata", async () => {
     const history = await getCampusMapPlaceHistory(ids.place);
     expect(history).toMatchObject({
@@ -668,6 +759,16 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       expect(
         (await getCampusMapChangeset(ids.changeset))?.changes[0],
       ).not.toHaveProperty("diff");
+      const projection = await readCampusMapBrowse({
+        listBuildings: listCampusMapBrowseBuildings,
+        listCurrentPlaces: listCampusMapCurrentPlaces,
+      });
+      expect(projection.places.map((place) => place.placeId)).not.toContain(
+        ids.place,
+      );
+      await expect(
+        resolveCampusMapProviderSelection("amap", "test-place-poi"),
+      ).resolves.toBeNull();
     } finally {
       await database
         .update(campusMapRevisionVisibility)

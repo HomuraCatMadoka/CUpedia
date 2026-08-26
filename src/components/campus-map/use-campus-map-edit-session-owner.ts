@@ -74,9 +74,13 @@ async function loadConflictLocationDisplay(target: {
 export function useCampusMapEditSessionOwner({
   driver,
   dispatch,
+  onPublished,
 }: {
   driver: CampusMapSceneDriver;
   dispatch(intent: CampusMapDriverIntent): void;
+  onPublished?(
+    receipt: Extract<CampusMapPublishResult, { status: "published" }>,
+  ): void | Promise<void>;
 }) {
   const { requestContributorSetup } = useContributorSetup();
   const [session, setSession] = useState<CampusMapEditSession | null>(null);
@@ -145,6 +149,9 @@ export function useCampusMapEditSessionOwner({
                 result,
                 conflictLocationDisplay,
               });
+              if (result.status === "published") {
+                void Promise.resolve(onPublished?.(result)).catch(() => {});
+              }
             },
             () =>
               dispatcherRef.current({
@@ -181,7 +188,7 @@ export function useCampusMapEditSessionOwner({
         );
       }
     },
-    [dispatch, driver],
+    [dispatch, driver, onPublished],
   );
 
   const dispatchEvent = useCallback(

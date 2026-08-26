@@ -9,11 +9,17 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { StrictMode } from "react";
+import { StrictMode, type ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockRequestContributorSetup } = vi.hoisted(() => ({
+const {
+  mockLoadBrowseProjection,
+  mockRequestContributorSetup,
+  mockResolveProviderTarget,
+} = vi.hoisted(() => ({
+  mockLoadBrowseProjection: vi.fn(),
   mockRequestContributorSetup: vi.fn(),
+  mockResolveProviderTarget: vi.fn(),
 }));
 
 vi.mock("next/script", () => ({
@@ -55,8 +61,12 @@ vi.mock("@/lib/campus-map/edit-actions", () => ({
     },
   })),
 }));
+vi.mock("@/lib/campus-map/browse-actions", () => ({
+  loadCampusMapBrowseProjection: mockLoadBrowseProjection,
+  resolveCampusMapProviderTarget: mockResolveProviderTarget,
+}));
 
-import { AmapCampusPrototype } from "@/components/campus-map/amap-campus-prototype";
+import { AmapCampusPrototype as AmapCampusPrototypeView } from "@/components/campus-map/amap-campus-prototype";
 import {
   loadCampusMapEditablePlace,
   publishCampusMapEdit,
@@ -65,16 +75,36 @@ import {
   encodeCampusMapEditSnapshot,
   transitionCampusMapEdit,
 } from "@/lib/campus-map/edit-session";
+import { projectCampusMapBrowse } from "@/lib/campus-map/browse-projection";
+import type { CampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
 import type {
   CampusMapPublishFactInput,
   CampusMapPublishSourceInput,
 } from "@/lib/campus-map/publish-contract";
+import { createAmapPrototypeBrowseFixture } from "../helpers/campus-map-browse-projection";
+
+function AmapCampusPrototype(
+  props: ComponentProps<typeof AmapCampusPrototypeView>,
+) {
+  return (
+    <AmapCampusPrototypeView
+      initialBrowseProjection={createAmapPrototypeBrowseFixture()}
+      {...props}
+    />
+  );
+}
 
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.mocked(publishCampusMapEdit).mockReset();
   mockRequestContributorSetup.mockReset();
   mockRequestContributorSetup.mockResolvedValue("complete");
+  mockLoadBrowseProjection.mockReset();
+  mockLoadBrowseProjection.mockImplementation(async () =>
+    createAmapPrototypeBrowseFixture(),
+  );
+  mockResolveProviderTarget.mockReset();
+  mockResolveProviderTarget.mockResolvedValue(null);
   window.sessionStorage.clear();
   window.history.replaceState(null, "", "/prototype/campus-map");
   vi.stubGlobal(
@@ -118,7 +148,189 @@ async function selectScienceCentre() {
   await screen.findByRole("heading", { name: "科学馆" });
 }
 
+function formalCurrentFactsProjection() {
+  const buildingId = "10000000-0000-4000-8000-000000000010";
+  const floorId = "20000000-0000-4000-8000-000000000010";
+  const currentPlace = (
+    placeId: string,
+    name: string,
+  ): CampusMapCurrentPlace => ({
+    id: placeId,
+    revisionId: placeId.replace("30000000", "40000000"),
+    factSchemaVersion: 1,
+    name,
+    pinType: "toilet",
+    capabilities: [],
+    access: {
+      audience: "public",
+      credentialRequirement: "none",
+      schedule: { kind: "unknown" },
+      reservationRequirement: "none",
+      temporaryStatus: "normal",
+    },
+    facets: { gender: "unknown", wheelchairAccess: "unknown" },
+    location: {
+      kind: "floor",
+      building: {
+        id: buildingId,
+        name: "何善衡工程学大楼",
+        englishName: "Ho Sin-Hang Engineering Building",
+        code: "ERB",
+      },
+      floor: { id: floorId, displayLabel: "1/F", sortOrder: 1 },
+    },
+    observedAt: null,
+    verifiedAt: null,
+    publishedAt: new Date("2026-08-26T00:00:00.000Z"),
+    provenance: [],
+  });
+  return projectCampusMapBrowse({
+    buildings: [
+      {
+        buildingId,
+        name: "何善衡工程学大楼",
+        englishName: "Ho Sin-Hang Engineering Building",
+        code: "ERB",
+        aliases: ["Engineering Building"],
+        anchor: {
+          longitude: 114.2101,
+          latitude: 22.4181,
+          crs: "wgs84",
+        },
+        floors: [{ floorId, displayLabel: "1/F", sortOrder: 1 }],
+      },
+    ],
+    places: [
+      currentPlace("30000000-0000-4000-8000-000000000010", "东翼洗手间"),
+      currentPlace("30000000-0000-4000-8000-000000000011", "西翼洗手间"),
+    ],
+  });
+}
+
+function publishedOutdoorProjection(placeId: string) {
+  return projectCampusMapBrowse({
+    buildings: [],
+    places: [
+      {
+        id: placeId,
+        revisionId: "40000000-0000-4000-8000-000000000020",
+        factSchemaVersion: 1,
+        name: "新发布饮水点",
+        pinType: "water",
+        capabilities: [],
+        access: {
+          audience: "public",
+          credentialRequirement: "none",
+          schedule: { kind: "unknown" },
+          reservationRequirement: "none",
+          temporaryStatus: "normal",
+        },
+        facets: { gender: "unknown", wheelchairAccess: "unknown" },
+        location: {
+          kind: "outdoor-point",
+          point: {
+            longitude: 114.21,
+            latitude: 22.42,
+            crs: "wgs84",
+            precision: "approximate",
+          },
+        },
+        observedAt: null,
+        verifiedAt: null,
+        publishedAt: new Date("2026-08-26T00:00:00.000Z"),
+        provenance: [],
+      },
+    ],
+  });
+}
+
 describe("AmapCampusPrototype", () => {
+  it("searches formal Current facts and lists same-type Places separately in the Building card", async () => {
+    render(
+      <AmapCampusPrototype
+        initialBrowseProjection={formalCurrentFactsProjection()}
+      />,
+    );
+    const search = screen.getByPlaceholderText("搜索建筑");
+    fireEvent.change(search, { target: { value: "何善衡工程学大楼" } });
+    const buildingResult = await waitFor(() =>
+      document.querySelector(
+        '[data-search-result="10000000-0000-4000-8000-000000000010"]',
+      ),
+    );
+    fireEvent.click(buildingResult!);
+    await screen.findByRole("heading", { name: "何善衡工程学大楼" });
+    fireEvent.click(screen.getByRole("button", { name: "展开地点卡片" }));
+
+    expect(screen.getByRole("button", { name: /东翼洗手间/ })).not.toBeNull();
+    expect(screen.getByRole("button", { name: /西翼洗手间/ })).not.toBeNull();
+  });
+
+  it("refetches Current facts after publish so a standalone Place is searchable", async () => {
+    const placeId = "30000000-0000-4000-8000-000000000020";
+    vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
+      status: "published",
+      changesetId: "50000000-0000-4000-8000-000000000020",
+      changes: [
+        {
+          placeId,
+          revisionId: "40000000-0000-4000-8000-000000000020",
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    });
+    mockLoadBrowseProjection.mockResolvedValueOnce(
+      publishedOutdoorProjection(placeId),
+    );
+    render(
+      <AmapCampusPrototype
+        initialBrowseProjection={projectCampusMapBrowse({
+          buildings: [],
+          places: [],
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("radio", { name: "饮水点" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
+
+    await waitFor(() =>
+      expect(mockLoadBrowseProjection).toHaveBeenCalledOnce(),
+    );
+    expect(mockLoadBrowseProjection).toHaveBeenCalledAfter(
+      vi.mocked(publishCampusMapEdit),
+    );
+    await act(async () => {
+      await mockLoadBrowseProjection.mock.results[0]!.value;
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
+    const search = screen.getByPlaceholderText("搜索建筑");
+    await waitFor(() =>
+      expect(search.closest("header")?.hasAttribute("inert")).toBe(false),
+    );
+    await act(async () => {
+      window.dispatchEvent(
+        new PopStateEvent("popstate", { state: window.history.state }),
+      );
+    });
+    fireEvent.change(search, { target: { value: "新发布饮水点" } });
+    fireEvent.submit(search.closest("form")!);
+
+    await waitFor(() =>
+      expect(window.location.search).toContain("scene=search"),
+    );
+    await waitFor(() =>
+      expect(
+        document.querySelector(`[data-search-result="${placeId}"]`),
+      ).not.toBeNull(),
+    );
+    expect(screen.getByText("校内独立地点 · 新发布饮水点")).not.toBeNull();
+  });
+
   it("keeps the draft and does not publish when contributor setup is cancelled", async () => {
     mockRequestContributorSetup.mockResolvedValueOnce("cancelled");
     render(<AmapCampusPrototype />);
@@ -614,7 +826,7 @@ describe("AmapCampusPrototype", () => {
     expect(window.location.search).toContain("floor=LG");
     expect(document.activeElement).toBe(floor);
 
-    fireEvent.click(screen.getByRole("button", { name: "洗手间公众可达" }));
+    fireEvent.click(screen.getByRole("button", { name: /洗手间.*公众可达/ }));
     await screen.findByRole("heading", { name: "洗手间" });
     expect(push).toHaveBeenCalledTimes(2);
     expect(window.location.search).toContain(
@@ -626,7 +838,7 @@ describe("AmapCampusPrototype", () => {
   it("uses browser history for facility back and hydrates the building", async () => {
     render(<AmapCampusPrototype initialSearch={window.location.search} />);
     await selectScienceCentre();
-    fireEvent.click(screen.getByRole("button", { name: "洗手间公众可达" }));
+    fireEvent.click(screen.getByRole("button", { name: /洗手间.*公众可达/ }));
     await screen.findByRole("heading", { name: "洗手间" });
 
     fireEvent.click(screen.getByRole("button", { name: "返回建筑" }));
@@ -672,7 +884,9 @@ describe("AmapCampusPrototype", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "2 栋建筑有洗手间" }),
+      await screen.findByRole("heading", {
+        name: "2 栋建筑 · 2 个洗手间地点",
+      }),
     ).not.toBeNull();
     expect(window.location.search).toContain("scene=category&id=toilet");
     expect(window.location.search).not.toContain("scene=facility");
@@ -689,7 +903,9 @@ describe("AmapCampusPrototype", () => {
       window.history.forward();
     });
     expect(
-      await screen.findByRole("heading", { name: "2 栋建筑有洗手间" }),
+      await screen.findByRole("heading", {
+        name: "2 栋建筑 · 2 个洗手间地点",
+      }),
     ).not.toBeNull();
   });
 
@@ -697,14 +913,18 @@ describe("AmapCampusPrototype", () => {
     const push = vi.spyOn(window.history, "pushState");
     const replace = vi.spyOn(window.history, "replaceState");
     render(<AmapCampusPrototype initialSearch="?category=toilet&panel=peek" />);
-    await screen.findByRole("heading", { name: "2 栋建筑有洗手间" });
+    await screen.findByRole("heading", {
+      name: "2 栋建筑 · 2 个洗手间地点",
+    });
     const pushesBefore = push.mock.calls.length;
     const replacesBefore = replace.mock.calls.length;
 
     fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
 
     expect(
-      await screen.findByRole("heading", { name: "2 栋建筑有饮水机" }),
+      await screen.findByRole("heading", {
+        name: "2 栋建筑 · 2 个饮水机地点",
+      }),
     ).not.toBeNull();
     expect(push.mock.calls.length).toBe(pushesBefore);
     expect(replace.mock.calls.length - replacesBefore).toBe(1);
@@ -852,7 +1072,9 @@ describe("AmapCampusPrototype", () => {
     await selectScienceCentre();
 
     const floor = screen.getByRole("button", { name: "LG/F" });
-    const facility = screen.getByRole("button", { name: "洗手间公众可达" });
+    const facility = screen.getByRole("button", {
+      name: /洗手间.*公众可达/,
+    });
     expect(floor.parentElement?.className).toContain("hidden");
     expect(facility.parentElement?.className).toContain("hidden");
   });
@@ -863,7 +1085,9 @@ describe("AmapCampusPrototype", () => {
     fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
 
     expect(
-      await screen.findByRole("heading", { name: "2 栋建筑有饮水机" }),
+      await screen.findByRole("heading", {
+        name: "2 栋建筑 · 2 个饮水机地点",
+      }),
     ).not.toBeNull();
     expect(
       screen.getByRole("button", { name: /科学馆 · 1\/F/ }),
@@ -893,7 +1117,9 @@ describe("AmapCampusPrototype", () => {
       );
     });
     expect(
-      await screen.findByRole("heading", { name: "2 栋建筑有饮水机" }),
+      await screen.findByRole("heading", {
+        name: "2 栋建筑 · 2 个饮水机地点",
+      }),
     ).not.toBeNull();
   });
 });

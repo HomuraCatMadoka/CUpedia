@@ -18,7 +18,9 @@ import {
   PlusIcon,
   PrinterIcon,
   SearchIcon,
+  SchoolIcon,
   ToiletIcon,
+  UsersRoundIcon,
   XIcon,
 } from "lucide-react";
 
@@ -35,10 +37,7 @@ import {
   type CameraReason,
   type ScreenRect,
 } from "@/lib/campus-map/camera-policy";
-import {
-  AmapInteractionAdapter,
-  resolveAmapHotspotTarget,
-} from "@/lib/campus-map/amap-interaction-adapter";
+import { AmapInteractionAdapter } from "@/lib/campus-map/amap-interaction-adapter";
 import {
   createAmapGeocoderAdapter,
   createAmapPlaceContextResolver,
@@ -57,13 +56,19 @@ import {
   type CampusMapAmenity,
 } from "@/lib/campus-map/facility-marker";
 import {
-  AMAP_PROTOTYPE_BUILDINGS as BUILDINGS,
-  AMAP_PROTOTYPE_CAMPUS_CENTER as CAMPUS_CENTER,
-  AMAP_PROTOTYPE_FACILITIES as FACILITIES,
-  type AmapPrototypeBuilding as Building,
-  type AmapPrototypeFacility as Facility,
-  type AmapPrototypePosition as Position,
-} from "@/lib/campus-map/amap-prototype-catalog";
+  loadCampusMapBrowseProjection,
+  resolveCampusMapProviderTarget,
+} from "@/lib/campus-map/browse-actions";
+import {
+  CAMPUS_MAP_DEFAULT_VIEW_CENTER as CAMPUS_CENTER,
+  EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
+  queryCampusMapBrowse,
+  type CampusMapBrowseBuilding,
+  type CampusMapBrowseMarker,
+  type CampusMapBrowsePlace,
+  type CampusMapBrowseProjection,
+} from "@/lib/campus-map/browse-projection";
+import { CampusMapBrowseProjectionStore } from "@/lib/campus-map/browse-projection-store";
 import {
   CampusMapSceneDriver,
   type CampusMapDriverCameraCommand,
@@ -84,6 +89,9 @@ import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
 import { cn } from "@/lib/utils";
 
 type Amenity = CampusMapAmenity;
+type Building = CampusMapBrowseBuilding;
+type Facility = CampusMapBrowsePlace;
+type Position = readonly [longitude: number, latitude: number];
 
 interface AMapLngLat {
   lng: number;
@@ -107,7 +115,7 @@ interface AMapEvent {
 
 interface AMapMarker {
   on(event: string, handler: () => void): void;
-  getExtData(): { facilityId?: string } | undefined;
+  getExtData(): { markerKey?: string } | undefined;
   setContent(content: string): void;
   setzIndex(zIndex: number): void;
 }
@@ -197,50 +205,93 @@ const CATEGORIES: ReadonlyArray<{
   { id: "toilet", label: "洗手间", icon: ToiletIcon, color: "#1b6f55" },
   { id: "water", label: "饮水机", icon: DropletsIcon, color: "#227a9b" },
   { id: "printer", label: "打印机", icon: PrinterIcon, color: "#675aa7" },
+  {
+    id: "common-space",
+    label: "公共空间",
+    icon: UsersRoundIcon,
+    color: "#9a5b32",
+  },
+  {
+    id: "classroom",
+    label: "课室",
+    icon: SchoolIcon,
+    color: "#a33f52",
+  },
 ];
 
-const LEGACY_CATALOG: CampusMapCatalog = {
-  categories: CATEGORIES.map((category) => category.id),
-  buildings: Object.fromEntries(
-    BUILDINGS.map((building) => [building.id, { floorIds: building.floorIds }]),
-  ),
-  facilities: Object.fromEntries(
-    FACILITIES.map((facility) => [
-      facility.id,
-      {
-        buildingId: facility.buildingId,
-        floorId: facility.floorId,
-        category: facility.category,
-      },
-    ]),
-  ),
-};
+function sceneCatalogFor(
+  projection: CampusMapBrowseProjection,
+): CampusMapSceneCatalog {
+  return {
+    categories: CATEGORIES.map((category) => category.id),
+    buildings: Object.fromEntries(
+      projection.buildings.map((building) => [
+        building.buildingId,
+        { floorIds: building.floors.map((floor) => floor.floorId) },
+      ]),
+    ),
+    facilities: Object.fromEntries(
+      projection.places.flatMap((place) =>
+        place.buildingId && place.floorId
+          ? [
+              [
+                place.placeId,
+                {
+                  buildingId: place.buildingId,
+                  floorId: place.floorId,
+                  category: place.pinType,
+                },
+              ],
+            ]
+          : [],
+      ),
+    ),
+    contents: {},
+  };
+}
 
-const CATALOG: CampusMapSceneCatalog = {
-  categories: CATEGORIES.map((category) => category.id),
-  buildings: Object.fromEntries(
-    BUILDINGS.map((building) => [building.id, { floorIds: building.floorIds }]),
-  ),
-  facilities: Object.fromEntries(
-    FACILITIES.map((facility) => [
-      facility.id,
-      {
-        buildingId: facility.buildingId,
-        floorId: facility.floorId,
-        category: facility.category,
-      },
-    ]),
-  ),
-  contents: {},
-};
+class RefreshableSceneCatalog implements CampusMapSceneCatalog {
+  categories: CampusMapSceneCatalog["categories"];
+  buildings: CampusMapSceneCatalog["buildings"];
+  facilities: CampusMapSceneCatalog["facilities"];
+  contents: CampusMapSceneCatalog["contents"];
 
-function canonicalSessionFromLegacySearch(search: string): CampusMapSession {
+  constructor(initial: CampusMapSceneCatalog) {
+    this.categories = initial.categories;
+    this.buildings = initial.buildings;
+    this.facilities = initial.facilities;
+    this.contents = initial.contents;
+  }
+
+  replace(next: CampusMapSceneCatalog) {
+    this.categories = next.categories;
+    this.buildings = next.buildings;
+    this.facilities = next.facilities;
+    this.contents = next.contents;
+  }
+}
+
+function legacyCatalogFor(catalog: CampusMapSceneCatalog): CampusMapCatalog {
+  return {
+    categories: CATEGORIES.map((category) => category.id),
+    buildings: catalog.buildings,
+    facilities: catalog.facilities,
+  };
+}
+
+function canonicalSessionFromLegacySearch(
+  search: string,
+  catalog: CampusMapSceneCatalog,
+): CampusMapSession {
   const params = new URLSearchParams(search);
   if (params.get("v") === "1") return EMPTY_CAMPUS_MAP_SCENE_SESSION;
-  if (params.get("building") === "building:15") {
+  if (
+    params.get("building") === "building:15" &&
+    catalog.buildings["science-centre"]
+  ) {
     params.set("building", "science-centre");
   }
-  const state = parseCampusMapState(params, LEGACY_CATALOG);
+  const state = parseCampusMapState(params, legacyCatalogFor(catalog));
   const snap = state.sheet.snap === "full" ? "full" : "peek";
   if (state.selection.kind === "facility") {
     return {
@@ -284,15 +335,19 @@ function canonicalSessionFromLegacySearch(search: string): CampusMapSession {
   return EMPTY_CAMPUS_MAP_SCENE_SESSION;
 }
 
-function canonicalInitialSearch(search: string) {
+function canonicalInitialSearch(
+  search: string,
+  catalog: CampusMapSceneCatalog,
+) {
   const params = new URLSearchParams(search);
   if (params.get("v") === "1") return search;
-  return `?${encodeCampusMapUrl(canonicalSessionFromLegacySearch(search), CATALOG)}`;
+  return `?${encodeCampusMapUrl(canonicalSessionFromLegacySearch(search, catalog), catalog)}`;
 }
 
 function projectedState(
   session: CampusMapSession,
   returnTo: CampusMapSession | null,
+  catalog: CampusMapSceneCatalog,
 ): CampusMapState {
   if (session.mode !== "browse") {
     return {
@@ -305,7 +360,7 @@ function projectedState(
   const scene = session.scene;
   const returnScene = returnTo?.mode === "browse" ? returnTo.scene : null;
   const facility =
-    scene.kind === "facility" ? CATALOG.facilities[scene.facilityId] : null;
+    scene.kind === "facility" ? catalog.facilities[scene.facilityId] : null;
   const selection: CampusMapState["selection"] =
     scene.kind === "building"
       ? { kind: "building", buildingId: scene.buildingId }
@@ -397,27 +452,29 @@ function samePlacementPosition(
   );
 }
 
-function normalized(value = "") {
-  return value
-    .normalize("NFKC")
-    .toLocaleLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "");
-}
-
-function buildingFor(selection: CampusMapState["selection"]) {
+function buildingFor(
+  selection: CampusMapState["selection"],
+  buildings: readonly Building[],
+) {
   const buildingId =
     selection.kind === "building" ||
     selection.kind === "facility" ||
     selection.kind === "content"
       ? selection.buildingId
       : null;
-  return BUILDINGS.find((building) => building.id === buildingId) ?? null;
+  return (
+    buildings.find((building) => building.buildingId === buildingId) ?? null
+  );
 }
 
-function facilityFor(selection: CampusMapState["selection"]) {
+function facilityFor(
+  selection: CampusMapState["selection"],
+  facilities: readonly Facility[],
+) {
   return selection.kind === "facility"
-    ? (FACILITIES.find((facility) => facility.id === selection.facilityId) ??
-        null)
+    ? (facilities.find(
+        (facility) => facility.placeId === selection.facilityId,
+      ) ?? null)
     : null;
 }
 
@@ -429,40 +486,137 @@ function knownAmenity(value: string | null) {
   return CATEGORIES.find((item) => item.id === value)?.id ?? null;
 }
 
-function facilityMarkerView(facility: Facility) {
-  const building = BUILDINGS.find((item) => item.id === facility.buildingId)!;
+function accessLabel(facility: Facility) {
+  if (facility.access.temporaryStatus === "temporarily-closed") {
+    return "暂时停用";
+  }
+  if (facility.access.credentialRequirement === "campus-card") {
+    return "需校园卡";
+  }
+  if (facility.access.credentialRequirement === "library-card") {
+    return "需图书证";
+  }
+  if (facility.access.audience === "public") return "公众可达";
+  if (facility.access.audience === "cuhk-member") return "需 CUHK 身份";
+  if (facility.access.audience === "library-member") return "限图书馆成员";
+  return "开放条件未知";
+}
+
+function browseMarkerKey(marker: CampusMapBrowseMarker) {
+  return marker.kind === "place"
+    ? `place:${marker.placeId}`
+    : `building:${marker.buildingId}:${marker.pinType}`;
+}
+
+function browseMarkerView(
+  marker: CampusMapBrowseMarker,
+  projection: CampusMapBrowseProjection,
+) {
+  const style = amenityStyle(marker.pinType);
+  if (marker.kind === "place") {
+    const place = projection.places.find(
+      (candidate) => candidate.placeId === marker.placeId,
+    );
+    if (!place) return null;
+    return {
+      id: browseMarkerKey(marker),
+      name: place.name,
+      buildingName: "校内地点",
+      floorLabel:
+        marker.position.precision === "precise" ? "精确位置" : "约略位置",
+      category: marker.pinType,
+      color: style.color,
+      markerLabel: `${place.name}，${
+        marker.position.precision === "precise" ? "精确" : "约略"
+      } WGS84 地点`,
+    };
+  }
+  const building = projection.buildings.find(
+    (candidate) => candidate.buildingId === marker.buildingId,
+  );
+  if (!building) return null;
+  const markerPlaces = marker.placeIds.flatMap((placeId) => {
+    const place = projection.places.find(
+      (candidate) => candidate.placeId === placeId,
+    );
+    return place ? [place] : [];
+  });
+  if (markerPlaces.length === 0) return null;
+  const locationLabel =
+    markerPlaces.length === 1
+      ? floorLabel(markerPlaces[0]!.floorId, markerPlaces[0]!.floorLabel)
+      : `${markerPlaces.length} 个地点`;
   return {
-    id: facility.id,
-    name: facility.name,
+    id: browseMarkerKey(marker),
+    name:
+      markerPlaces.length === 1
+        ? markerPlaces[0]!.name
+        : `${markerPlaces.length} 个${style.label}地点`,
     buildingName: building.name,
-    floorLabel: floorLabel(facility.floorId),
-    category: facility.category,
-    color: amenityStyle(facility.category).color,
+    floorLabel: locationLabel,
+    category: marker.pinType,
+    color: style.color,
+    markerLabel: `${building.name}有 ${markerPlaces.length} 个${style.label}地点，建筑位置参考`,
   };
 }
 
-function floorLabel(floorId: string) {
+function floorLabel(floorId: string | null, displayLabel?: string | null) {
+  if (displayLabel) return displayLabel;
+  if (!floorId) return "建筑内";
   return floorId.endsWith("/F") ? floorId : `${floorId}/F`;
 }
 
 export function AmapCampusPrototype({
   initialSearch = "",
   factSchema = null,
+  initialBrowseProjection = EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
 }: {
   initialSearch?: string;
   factSchema?: CampusMapFactSchema | null;
+  initialBrowseProjection?: CampusMapBrowseProjection;
 }) {
-  const driverInitialSearch = useMemo(
-    () => canonicalInitialSearch(initialSearch),
-    [initialSearch],
+  const [projectionStore] = useState(
+    () =>
+      new CampusMapBrowseProjectionStore(
+        initialBrowseProjection,
+        loadCampusMapBrowseProjection,
+      ),
+  );
+  const browseSnapshot = useSyncExternalStore(
+    projectionStore.subscribe,
+    projectionStore.getSnapshot,
+    projectionStore.getSnapshot,
+  );
+  const browseProjection = browseSnapshot.projection;
+  const sceneCatalog = useMemo(
+    () => sceneCatalogFor(browseProjection),
+    [browseProjection],
+  );
+  const [driverCatalog] = useState(
+    () => new RefreshableSceneCatalog(sceneCatalogFor(initialBrowseProjection)),
+  );
+  useEffect(() => {
+    driverCatalog.replace(sceneCatalog);
+  }, [driverCatalog, sceneCatalog]);
+  const [driverInitialSearch] = useState(() =>
+    canonicalInitialSearch(initialSearch, driverCatalog),
   );
   const [queryDraft, setQueryDraft] = useState(
     () =>
       projectedState(
-        decodeCampusMapUrl(driverInitialSearch, CATALOG).session,
+        decodeCampusMapUrl(driverInitialSearch, driverCatalog).session,
         null,
+        driverCatalog,
       ).mapFilter.query,
   );
+  const buildings = browseProjection.buildings;
+  const facilities = browseProjection.places;
+  const buildingsRef = useRef(buildings);
+  const facilitiesRef = useRef(facilities);
+  useEffect(() => {
+    buildingsRef.current = buildings;
+    facilitiesRef.current = facilities;
+  }, [buildings, facilities]);
   const startAddRef = useRef<() => void>(() => {});
   const editSessionActiveRef = useRef(false);
   const editSessionPlacingRef = useRef(false);
@@ -496,6 +650,7 @@ export function AmapCampusPrototype({
   const panelRef = useRef<HTMLElement | null>(null);
   const clusterRef = useRef<AMapMarkerCluster | null>(null);
   const clusterCategoryRef = useRef<Amenity | null>(null);
+  const clusterProjectionRef = useRef<CampusMapBrowseProjection | null>(null);
   const facilityMarkersRef = useRef(new Map<string, AMapMarker>());
   const infoWindowRef = useRef<AMapInfoWindow | null>(null);
   const cameraGateRef = useRef(new CameraRequestGate());
@@ -526,10 +681,13 @@ export function AmapCampusPrototype({
   } | null>(null);
   const [placeContextResolverVersion, setPlaceContextResolverVersion] =
     useState(0);
+  const providerSelectionTokenRef = useRef(0);
+  const coordinateProjectionTokenRef = useRef(0);
+  const didSetInitialCenterRef = useRef(false);
 
   const positionFor = useCallback(
     (building: Building) =>
-      amapPositionsRef.current[building.id] ?? building.position,
+      amapPositionsRef.current[`building:${building.buildingId}`] ?? null,
     [],
   );
 
@@ -539,6 +697,7 @@ export function AmapCampusPrototype({
     clusterRef.current?.setMap(null);
     clusterRef.current = null;
     clusterCategoryRef.current = null;
+    clusterProjectionRef.current = null;
     facilityMarkersRef.current.clear();
     const infoWindow = infoWindowRef.current;
     infoWindowRef.current = null;
@@ -557,6 +716,9 @@ export function AmapCampusPrototype({
     mapDraggingRef.current = false;
     userGestureAwaitingMoveEndRef.current = false;
     pendingSelectionTokenRef.current = null;
+    providerSelectionTokenRef.current += 1;
+    coordinateProjectionTokenRef.current += 1;
+    didSetInitialCenterRef.current = false;
     setMapReady(false);
     setMapMoving(false);
     setMapCenterRevision(0);
@@ -804,9 +966,12 @@ export function AmapCampusPrototype({
         );
         return;
       }
-      const building = BUILDINGS.find((item) => item.id === camera.buildingId);
-      if (building) {
-        requestCamera(positionFor(building), camera.reason, context);
+      const building = buildingsRef.current.find(
+        (item) => item.buildingId === camera.buildingId,
+      );
+      const position = building ? positionFor(building) : null;
+      if (position) {
+        requestCamera(position, camera.reason, context);
       }
     },
     [positionFor, requestCamera],
@@ -929,7 +1094,7 @@ export function AmapCampusPrototype({
       },
     };
     const sceneDriver = new CampusMapSceneDriver(
-      CATALOG,
+      driverCatalog,
       ports,
       driverInitialSearch,
     );
@@ -941,9 +1106,9 @@ export function AmapCampusPrototype({
     driver.getSnapshot,
   );
   const session = driverSnapshot.session;
-  const state = projectedState(session, driverSnapshot.returnTo);
-  const selectedBuilding = buildingFor(state.selection);
-  const selectedFacility = facilityFor(state.selection);
+  const state = projectedState(session, driverSnapshot.returnTo, sceneCatalog);
+  const selectedBuilding = buildingFor(state.selection, buildings);
+  const selectedFacility = facilityFor(state.selection, facilities);
   const activeAmenity = knownAmenity(state.mapFilter.category);
   const facilityOrigin =
     driverSnapshot.returnTo?.mode === "browse" &&
@@ -955,6 +1120,13 @@ export function AmapCampusPrototype({
     (intent: CampusMapDriverIntent) => driver.dispatch(intent),
     [driver],
   );
+  const refreshAfterPublish = useCallback(
+    async (receipt: { changes: Array<{ placeId: string }> }) => {
+      const placeId = receipt.changes[0]?.placeId;
+      if (placeId) await projectionStore.refresh({ placeId });
+    },
+    [projectionStore],
+  );
 
   const {
     session: editSession,
@@ -963,7 +1135,11 @@ export function AmapCampusPrototype({
     startEdit: startCanonicalEdit,
     announcement: editAnnouncement,
     restoreNotice: editRestoreNotice,
-  } = useCampusMapEditSessionOwner({ driver, dispatch });
+  } = useCampusMapEditSessionOwner({
+    driver,
+    dispatch,
+    onPublished: refreshAfterPublish,
+  });
   const startAddAtPlacementAnchor = useCallback(() => {
     const map = mapRef.current;
     const mapElement = mapElementRef.current;
@@ -1114,7 +1290,7 @@ export function AmapCampusPrototype({
   ]);
 
   const startEdit = useCallback(
-    (facility: Facility) => void startCanonicalEdit(facility.id),
+    (facility: Facility) => void startCanonicalEdit(facility.placeId),
     [startCanonicalEdit],
   );
 
@@ -1137,7 +1313,7 @@ export function AmapCampusPrototype({
     (building: Building, source: "map" | "search" = "map") => {
       dispatch({
         type: "OPEN_BUILDING",
-        buildingId: building.id,
+        buildingId: building.buildingId,
         source,
       });
     },
@@ -1148,7 +1324,7 @@ export function AmapCampusPrototype({
     (facility: Facility, source: "category" | "building" | "search") => {
       dispatch({
         type: "OPEN_FACILITY",
-        facilityId: facility.id,
+        facilityId: facility.placeId,
         source:
           source === "category"
             ? "map"
@@ -1268,53 +1444,6 @@ export function AmapCampusPrototype({
       setPlaceContext({ status: "permanent-error" });
     }
 
-    const conversionPositions = [
-      [CAMPUS_CENTER[0], CAMPUS_CENTER[1]] as const,
-      ...BUILDINGS.map(
-        (building) => [building.position[0], building.position[1]] as const,
-      ),
-    ];
-    AMap.convertFrom(conversionPositions, "gps", (status, result) => {
-      if (mapRef.current !== map) return;
-      const locations = status === "complete" ? result.locations : undefined;
-      if (!locations || locations.length !== BUILDINGS.length + 1) {
-        setMapLoadError("coordinates");
-        return;
-      }
-      const converted = Object.fromEntries(
-        BUILDINGS.map((building, index) => {
-          const location = locations[index + 1];
-          return [
-            building.id,
-            location
-              ? ([location.lng, location.lat] as Position)
-              : building.position,
-          ];
-        }),
-      );
-      const convertedCenter = locations[0];
-      if (convertedCenter) {
-        converted.__campus = [convertedCenter.lng, convertedCenter.lat];
-        const convertedOffset: Position = [
-          convertedCenter.lng - CAMPUS_CENTER[0],
-          convertedCenter.lat - CAMPUS_CENTER[1],
-        ];
-        amapOffsetRef.current = convertedOffset;
-        setAmapOffset(convertedOffset);
-        setCenterPosition(CAMPUS_CENTER);
-        setProviderCenterPosition([convertedCenter.lng, convertedCenter.lat]);
-      }
-      amapPositionsRef.current = converted;
-      setCoordinateVersion((version) => version + 1);
-      const pendingCamera = pendingDriverCameraRef.current;
-      if (pendingCamera) {
-        executeDriverCamera(pendingCamera.command, pendingCamera.context);
-      } else {
-        const center = locations[0];
-        if (center) map.setZoomAndCenter(17.2, center, true, 0);
-      }
-    });
-
     map.on("hotspotclick", (event) => {
       interactionAdapterRef.current.dispatchProviderTarget(() => {
         if (editSessionPlacingRef.current) {
@@ -1340,28 +1469,66 @@ export function AmapCampusPrototype({
           );
           return;
         }
-        const target = resolveAmapHotspotTarget(
-          event,
-          BUILDINGS.map((building) => ({
-            buildingId: building.id,
-            providerPoiIds: building.amapPoiIds,
-            providerNames: building.amapHotspotNames,
-          })),
-        );
-        if (target.kind === "building") {
-          const building = BUILDINGS.find(
-            (item) => item.id === target.buildingId,
-          );
-          if (!building) return;
-          selectBuilding(building);
+        const providerPoiId =
+          event.id ?? `${event.lnglat.lng},${event.lnglat.lat}`;
+        const openTransient = () =>
+          dispatch({
+            type: "OPEN_PROVIDER_POI",
+            providerPoiId,
+            name: event.name?.trim() || "高德地图地点",
+            position: [event.lnglat.lng, event.lnglat.lat],
+          });
+        if (!event.id) {
+          openTransient();
           return;
         }
-        dispatch({
-          type: "OPEN_PROVIDER_POI",
-          providerPoiId: target.providerId,
-          name: target.name,
-          position: target.position,
-        });
+        const selectionToken = ++providerSelectionTokenRef.current;
+        void resolveCampusMapProviderTarget({
+          provider: "amap",
+          providerObjectId: event.id,
+        }).then(
+          (target) => {
+            if (selectionToken !== providerSelectionTokenRef.current) return;
+            if (target?.kind === "building") {
+              const building = buildingsRef.current.find(
+                (item) => item.buildingId === target.buildingId,
+              );
+              if (building) {
+                selectBuilding(building);
+                return;
+              }
+            } else if (target?.kind === "place") {
+              const facility = facilitiesRef.current.find(
+                (item) => item.placeId === target.placeId,
+              );
+              if (facility?.buildingId && facility.floorId) {
+                selectFacility(facility, "search");
+                return;
+              }
+              if (facility && !facility.buildingId) {
+                setQueryDraft(facility.name);
+                dispatch({ type: "SEARCH", query: facility.name });
+                return;
+              }
+              const building = target.buildingId
+                ? buildingsRef.current.find(
+                    (item) => item.buildingId === target.buildingId,
+                  )
+                : null;
+              if (building) {
+                selectBuilding(building);
+                return;
+              }
+              return;
+            }
+            openTransient();
+          },
+          () => {
+            if (selectionToken === providerSelectionTokenRef.current) {
+              openTransient();
+            }
+          },
+        );
       });
     });
     map.on("click", (event) => {
@@ -1369,6 +1536,7 @@ export function AmapCampusPrototype({
         if (event.originEvent?.target?.closest?.("[data-cupedia-marker]"))
           return;
         if (editSessionActiveRef.current) return;
+        providerSelectionTokenRef.current += 1;
         dispatch({ type: "DISMISS" });
       });
     });
@@ -1468,7 +1636,7 @@ export function AmapCampusPrototype({
       container.removeEventListener("touchstart", cancelForUserZoom);
       interactionAdapterRef.current.reset();
     };
-  }, [dispatch, driver, executeDriverCamera, selectBuilding]);
+  }, [dispatch, driver, selectBuilding, selectFacility]);
 
   useEffect(() => {
     if (config.status !== "ready" || mapRef.current) return;
@@ -1510,6 +1678,105 @@ export function AmapCampusPrototype({
   }, [config, initialiseMap, mapLoadAttempt]);
 
   useEffect(() => {
+    const AMap = window.AMap;
+    const map = mapRef.current;
+    if (!mapReady || !AMap || !map) return;
+    const entries = [
+      ...browseProjection.buildings.flatMap((building) =>
+        building.anchor
+          ? [
+              {
+                key: `building:${building.buildingId}`,
+                position: [
+                  building.anchor.longitude,
+                  building.anchor.latitude,
+                ] as Position,
+              },
+            ]
+          : [],
+      ),
+      ...browseProjection.markers.flatMap((marker) =>
+        marker.kind === "place"
+          ? [
+              {
+                key: `place:${marker.placeId}`,
+                position: [
+                  marker.position.longitude,
+                  marker.position.latitude,
+                ] as Position,
+              },
+            ]
+          : [],
+      ),
+    ];
+    const sourcePositions: Position[] = [
+      [CAMPUS_CENTER[0], CAMPUS_CENTER[1]],
+      ...entries.map(({ position }) => [position[0], position[1]] as Position),
+    ];
+    const token = ++coordinateProjectionTokenRef.current;
+    AMap.convertFrom(sourcePositions, "gps", (status, result) => {
+      if (
+        token !== coordinateProjectionTokenRef.current ||
+        mapRef.current !== map
+      ) {
+        return;
+      }
+      const locations = status === "complete" ? result.locations : undefined;
+      if (!locations || locations.length !== sourcePositions.length) {
+        amapPositionsRef.current = {};
+        setCoordinateVersion(0);
+        setMapLoadError("coordinates");
+        return;
+      }
+      const converted: Record<string, Position> = {};
+      for (const [index, entry] of entries.entries()) {
+        const location = locations[index + 1];
+        if (
+          !location ||
+          !Number.isFinite(location.lng) ||
+          !Number.isFinite(location.lat)
+        ) {
+          amapPositionsRef.current = {};
+          setCoordinateVersion(0);
+          setMapLoadError("coordinates");
+          return;
+        }
+        converted[entry.key] = [location.lng, location.lat];
+      }
+      const convertedCenter = locations[0];
+      if (
+        !convertedCenter ||
+        !Number.isFinite(convertedCenter.lng) ||
+        !Number.isFinite(convertedCenter.lat)
+      ) {
+        amapPositionsRef.current = {};
+        setCoordinateVersion(0);
+        setMapLoadError("coordinates");
+        return;
+      }
+      converted.__campus = [convertedCenter.lng, convertedCenter.lat];
+      const convertedOffset: Position = [
+        convertedCenter.lng - CAMPUS_CENTER[0],
+        convertedCenter.lat - CAMPUS_CENTER[1],
+      ];
+      amapOffsetRef.current = convertedOffset;
+      amapPositionsRef.current = converted;
+      setAmapOffset(convertedOffset);
+      setCenterPosition(CAMPUS_CENTER);
+      setProviderCenterPosition([convertedCenter.lng, convertedCenter.lat]);
+      setCoordinateVersion((version) => version + 1);
+      setMapLoadError(null);
+      const pendingCamera = pendingDriverCameraRef.current;
+      if (pendingCamera) {
+        executeDriverCamera(pendingCamera.command, pendingCamera.context);
+      } else if (!didSetInitialCenterRef.current) {
+        didSetInitialCenterRef.current = true;
+        map.setZoomAndCenter(17.2, convertedCenter, true, 0);
+      }
+    });
+  }, [browseProjection, executeDriverCamera, mapReady]);
+
+  useEffect(() => {
     if (
       !mapReady ||
       clusterStatus !== "ready" ||
@@ -1523,26 +1790,49 @@ export function AmapCampusPrototype({
       clusterRef.current?.setMap(null);
       clusterRef.current = null;
       clusterCategoryRef.current = null;
+      clusterProjectionRef.current = null;
       facilityMarkersRef.current.clear();
       return;
     }
-    const data = FACILITIES.filter(
-      (facility) => facility.category === activeAmenity,
-    ).map((facility) => {
-      const building = BUILDINGS.find(
-        (item) => item.id === facility.buildingId,
-      )!;
-      return {
-        lnglat: positionFor(building),
-        facilityId: facility.id,
-        extData: { facilityId: facility.id },
-      };
+    const projectedMarkers = browseProjection.markers.filter(
+      (marker) => marker.pinType === activeAmenity,
+    );
+    const markerByKey = new Map(
+      projectedMarkers.map((marker) => [browseMarkerKey(marker), marker]),
+    );
+    const data = projectedMarkers.flatMap((marker) => {
+      const position =
+        marker.kind === "place"
+          ? amapPositionsRef.current[`place:${marker.placeId}`]
+          : amapPositionsRef.current[`building:${marker.buildingId}`];
+      const markerKey = browseMarkerKey(marker);
+      const facilityId =
+        marker.kind === "place"
+          ? marker.placeId
+          : marker.placeIds.length === 1
+            ? marker.placeIds[0]
+            : undefined;
+      return position
+        ? [
+            {
+              lnglat: position,
+              markerKey,
+              facilityId,
+              extData: { markerKey, facilityId },
+            },
+          ]
+        : [];
     });
 
-    if (clusterRef.current && clusterCategoryRef.current !== activeAmenity) {
+    if (
+      clusterRef.current &&
+      (clusterCategoryRef.current !== activeAmenity ||
+        clusterProjectionRef.current !== browseProjection)
+    ) {
       clusterRef.current.setMap(null);
       clusterRef.current = null;
       clusterCategoryRef.current = null;
+      clusterProjectionRef.current = null;
       facilityMarkersRef.current.clear();
     }
 
@@ -1554,40 +1844,51 @@ export function AmapCampusPrototype({
           maxZoom: 18,
           averageCenter: true,
           renderMarker: ({ marker }: { marker: AMapMarker }) => {
-            const markerPosition = marker.getExtData()?.facilityId
-              ? null
-              : (
-                  marker as unknown as { getPosition?: () => AMapLngLat }
-                ).getPosition?.();
-            const facility =
-              FACILITIES.find(
-                (item) => item.id === marker.getExtData()?.facilityId,
-              ) ??
-              (markerPosition
-                ? FACILITIES.find((item) => {
-                    if (item.category !== activeAmenity) return false;
-                    const building = BUILDINGS.find(
-                      (candidate) => candidate.id === item.buildingId,
-                    );
-                    if (!building) return false;
-                    const position = positionFor(building);
-                    return (
-                      Math.abs(position[0] - markerPosition.lng) < 0.000001 &&
-                      Math.abs(position[1] - markerPosition.lat) < 0.000001
-                    );
-                  })
-                : undefined);
-            if (!facility) return;
-            facilityMarkersRef.current.set(facility.id, marker);
+            const markerKey = marker.getExtData()?.markerKey;
+            const projectedMarker = markerKey
+              ? markerByKey.get(markerKey)
+              : undefined;
+            if (!markerKey || !projectedMarker) return;
+            const view = browseMarkerView(projectedMarker, browseProjection);
+            if (!view) return;
+            facilityMarkersRef.current.set(markerKey, marker);
             marker.setContent(
               facilityMarkerContent({
-                ...facilityMarkerView(facility),
+                ...view,
                 selected: false,
               }),
             );
             marker.on("click", () => {
               interactionAdapterRef.current.dispatchProviderTarget(() => {
-                selectFacility(facility, "category");
+                if (projectedMarker.kind === "building-presence") {
+                  const building = buildingsRef.current.find(
+                    (candidate) =>
+                      candidate.buildingId === projectedMarker.buildingId,
+                  );
+                  const onlyPlace =
+                    projectedMarker.placeIds.length === 1
+                      ? facilitiesRef.current.find(
+                          (candidate) =>
+                            candidate.placeId === projectedMarker.placeIds[0],
+                        )
+                      : null;
+                  if (onlyPlace?.buildingId && onlyPlace.floorId) {
+                    selectFacility(onlyPlace, "category");
+                  } else if (building) {
+                    selectBuilding(building);
+                  }
+                  return;
+                }
+                const place = facilitiesRef.current.find(
+                  (candidate) => candidate.placeId === projectedMarker.placeId,
+                );
+                if (!place) return;
+                if (place.buildingId && place.floorId) {
+                  selectFacility(place, "category");
+                } else {
+                  setQueryDraft(place.name);
+                  dispatch({ type: "SEARCH", query: place.name });
+                }
               });
             });
           },
@@ -1599,7 +1900,7 @@ export function AmapCampusPrototype({
             marker: AMapMarker;
           }) => {
             marker.setContent(
-              `<button type="button" data-cupedia-marker="true" aria-label="${count} 项${style.label}建筑记录" style="display:grid;min-width:46px;height:46px;place-items:center;border:3px solid white;border-radius:999px;background:${style.color};color:white;font:700 14px system-ui;box-shadow:0 3px 12px rgba(0,0,0,.22);padding:0 12px">${count}</button>`,
+              `<button type="button" data-cupedia-marker="true" aria-label="${count} 个${style.label}地图目标" style="display:grid;min-width:46px;height:46px;place-items:center;border:3px solid white;border-radius:999px;background:${style.color};color:white;font:700 14px system-ui;box-shadow:0 3px 12px rgba(0,0,0,.22);padding:0 12px">${count}</button>`,
             );
           },
         });
@@ -1615,22 +1916,26 @@ export function AmapCampusPrototype({
         });
         clusterRef.current = cluster;
         clusterCategoryRef.current = activeAmenity;
+        clusterProjectionRef.current = browseProjection;
       } else {
         clusterRef.current.setData(data);
       }
     } catch {
       clusterRef.current = null;
       clusterCategoryRef.current = null;
+      clusterProjectionRef.current = null;
       facilityMarkersRef.current.clear();
       queueMicrotask(() => setClusterStatus("error"));
     }
   }, [
     activeAmenity,
+    browseProjection,
+    buildings,
     clusterStatus,
     coordinateVersion,
     dispatch,
     mapReady,
-    positionFor,
+    selectBuilding,
     selectFacility,
   ]);
 
@@ -1641,7 +1946,16 @@ export function AmapCampusPrototype({
         .forEach((element) => {
           element.setAttribute(
             "aria-pressed",
-            String(element.dataset.facilityId === selectedFacility?.id),
+            String(
+              browseProjection.markers.some(
+                (marker) =>
+                  browseMarkerKey(marker) === element.dataset.facilityId &&
+                  selectedFacility !== null &&
+                  (marker.kind === "place"
+                    ? marker.placeId === selectedFacility.placeId
+                    : marker.placeIds.includes(selectedFacility.placeId)),
+              ),
+            ),
           );
         });
     };
@@ -1653,20 +1967,28 @@ export function AmapCampusPrototype({
         subtree: true,
       });
     }
-    for (const facility of FACILITIES) {
-      const marker = facilityMarkersRef.current.get(facility.id);
+    for (const projectedMarker of browseProjection.markers) {
+      const markerKey = browseMarkerKey(projectedMarker);
+      const marker = facilityMarkersRef.current.get(markerKey);
       if (!marker) continue;
-      const selected = selectedFacility?.id === facility.id;
+      const selected = Boolean(
+        selectedFacility &&
+        (projectedMarker.kind === "place"
+          ? projectedMarker.placeId === selectedFacility.placeId
+          : projectedMarker.placeIds.includes(selectedFacility.placeId)),
+      );
+      const view = browseMarkerView(projectedMarker, browseProjection);
+      if (!view) continue;
       marker.setzIndex(selected ? 220 : 160);
       marker.setContent(
         facilityMarkerContent({
-          ...facilityMarkerView(facility),
+          ...view,
           selected,
         }),
       );
     }
     return () => observer.disconnect();
-  }, [selectedFacility]);
+  }, [browseProjection, selectedFacility]);
 
   useEffect(() => {
     const mapElement = mapElementRef.current;
@@ -1685,6 +2007,11 @@ export function AmapCampusPrototype({
       pointerGestureCleanupRef.current?.();
       pointerGestureCleanupRef.current = null;
       clusterRef.current?.setMap(null);
+      clusterRef.current = null;
+      clusterCategoryRef.current = null;
+      clusterProjectionRef.current = null;
+      providerSelectionTokenRef.current += 1;
+      coordinateProjectionTokenRef.current += 1;
       const infoWindow = infoWindowRef.current;
       infoWindowRef.current = null;
       infoWindow?.close();
@@ -1695,67 +2022,51 @@ export function AmapCampusPrototype({
   );
 
   const searchResults = useMemo(() => {
-    const query = normalized(state.mapFilter.query);
-    if (!query) return [];
+    if (!state.mapFilter.query.trim()) return [];
+    const results = queryCampusMapBrowse(browseProjection, {
+      query: state.mapFilter.query,
+    });
     const queryParts = state.mapFilter.query
+      .normalize("NFKC")
+      .toLocaleLowerCase()
       .trim()
       .split(/\s+/u)
-      .map(normalized)
       .filter(Boolean);
-    const buildings = BUILDINGS.filter((building) =>
-      [
-        building.name,
-        building.englishName,
-        building.code,
-        ...building.aliases,
-      ].some((value) => normalized(value).includes(query)),
-    ).map((building) => ({ kind: "building" as const, building }));
-    const facilities = FACILITIES.flatMap((facility) => {
-      const building = BUILDINGS.find(
-        (item) => item.id === facility.buildingId,
-      );
-      if (!building) return [];
-      const searchable = [
-        building.name,
-        building.englishName,
-        ...building.aliases,
-        facility.name,
-        floorLabel(facility.floorId),
-      ].map(normalized);
-      const facilityTerms = [
-        facility.name,
-        amenityStyle(facility.category).label,
-        floorLabel(facility.floorId),
-      ].map(normalized);
-      const hasFacilityTerm = queryParts.some((part) =>
-        facilityTerms.some((value) => value.includes(part)),
-      );
-      return hasFacilityTerm &&
-        queryParts.every((part) =>
-          searchable.some((value) => value.includes(part)),
-        )
-        ? [{ kind: "facility" as const, facility, building }]
-        : [];
+    const placesWithExplicitNameMatch = results.places.filter((place) => {
+      const placeName = place.name.normalize("NFKC").toLocaleLowerCase();
+      return queryParts.some((part) => placeName.includes(part));
     });
-    return [...buildings, ...facilities];
-  }, [state.mapFilter.query]);
+    return [
+      ...results.buildings.map((building) => ({
+        kind: "building" as const,
+        building,
+      })),
+      ...placesWithExplicitNameMatch.map((facility) => ({
+        kind: "facility" as const,
+        facility,
+        building:
+          buildings.find(
+            (building) => building.buildingId === facility.buildingId,
+          ) ?? null,
+      })),
+    ];
+  }, [browseProjection, buildings, state.mapFilter.query]);
 
   const buildingFacilities = selectedBuilding
-    ? FACILITIES.filter(
+    ? facilities.filter(
         (facility) =>
-          facility.buildingId === selectedBuilding.id &&
+          facility.buildingId === selectedBuilding.buildingId &&
           (!state.buildingContext.floorId ||
             facility.floorId === state.buildingContext.floorId) &&
           (!state.buildingContext.amenity ||
-            facility.category === state.buildingContext.amenity),
+            facility.pinType === state.buildingContext.amenity),
       )
     : [];
-  const categoryFacilities = activeAmenity
-    ? FACILITIES.filter((facility) => facility.category === activeAmenity)
-    : [];
-  const categoryBuildingCount = new Set(
-    categoryFacilities.map((facility) => facility.buildingId),
-  ).size;
+  const categoryResults = activeAmenity
+    ? queryCampusMapBrowse(browseProjection, { pinType: activeAmenity })
+    : null;
+  const categoryFacilities = categoryResults?.places ?? [];
+  const categoryBuildingCount = categoryResults?.counts.buildings ?? 0;
   const activeCategoryStyle = activeAmenity
     ? amenityStyle(activeAmenity)
     : null;
@@ -1881,48 +2192,67 @@ export function AmapCampusPrototype({
           {state.mapFilter.query && state.selection.kind === "none" ? (
             <div className="mt-2 overflow-hidden rounded-xl bg-white py-1 shadow-[0_8px_28px_rgba(23,33,28,.22)]">
               {searchResults.length ? (
-                searchResults.map((result) => (
-                  <button
-                    key={
-                      result.kind === "building"
-                        ? result.building.id
-                        : result.facility.id
-                    }
-                    data-search-result={
-                      result.kind === "building"
-                        ? result.building.id
-                        : result.facility.id
-                    }
-                    type="button"
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 focus-visible:bg-neutral-50 focus-visible:outline-none"
-                    onClick={() => {
-                      if (result.kind === "building") {
-                        selectBuilding(result.building, "search");
-                      } else {
-                        selectFacility(result.facility, "search");
-                      }
-                    }}
-                  >
-                    <span className="grid size-9 place-items-center rounded-lg bg-[#e4f1eb] text-xs font-bold text-[#176346]">
-                      {result.building.code}
-                    </span>
-                    <span className="min-w-0">
-                      <strong className="block truncate text-sm">
+                searchResults.map((result) => {
+                  const id =
+                    result.kind === "building"
+                      ? result.building.buildingId
+                      : result.facility.placeId;
+                  const content = (
+                    <>
+                      <span className="grid size-9 place-items-center rounded-lg bg-[#e4f1eb] text-xs font-bold text-[#176346]">
                         {result.kind === "building"
-                          ? result.building.name
-                          : `${result.building.name} · ${result.facility.name}`}
-                      </strong>
-                      <span className="block truncate text-xs text-neutral-500">
-                        {result.kind === "building"
-                          ? result.building.englishName
-                          : `${floorLabel(result.facility.floorId)} · ${result.facility.access}`}
+                          ? (result.building.code ?? "校舍")
+                          : (result.building?.code ?? "地点")}
                       </span>
-                    </span>
-                  </button>
-                ))
+                      <span className="min-w-0">
+                        <strong className="block truncate text-sm">
+                          {result.kind === "building"
+                            ? result.building.name
+                            : `${result.building?.name ?? "校内独立地点"} · ${result.facility.name}`}
+                        </strong>
+                        <span className="block truncate text-xs text-neutral-500">
+                          {result.kind === "building"
+                            ? (result.building.englishName ?? "正式校舍资料")
+                            : `${floorLabel(result.facility.floorId, result.facility.floorLabel)} · ${accessLabel(result.facility)}`}
+                        </span>
+                      </span>
+                    </>
+                  );
+                  if (
+                    result.kind === "facility" &&
+                    (!result.facility.buildingId || !result.facility.floorId)
+                  ) {
+                    return (
+                      <div
+                        key={id}
+                        data-search-result={id}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                      >
+                        {content}
+                      </div>
+                    );
+                  }
+                  return (
+                    <button
+                      key={id}
+                      data-search-result={id}
+                      type="button"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 focus-visible:bg-neutral-50 focus-visible:outline-none"
+                      onClick={() => {
+                        if (result.kind === "building") {
+                          selectBuilding(result.building, "search");
+                        } else {
+                          selectFacility(result.facility, "search");
+                        }
+                      }}
+                    >
+                      {content}
+                    </button>
+                  );
+                })
               ) : (
                 <p className="px-4 py-4 text-sm text-neutral-600">
-                  没有匹配的建筑
+                  没有匹配的正式建筑或设施
                 </p>
               )}
             </div>
@@ -2114,13 +2444,14 @@ export function AmapCampusPrototype({
                 <activeCategoryStyle.icon className="size-5" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-xs text-neutral-500">建筑内设施</p>
+                <p className="text-xs text-neutral-500">公开 Current facts</p>
                 <h2
                   id="campus-map-panel-title"
                   ref={panelTitleRef}
                   className="text-xl font-semibold"
                 >
-                  {categoryBuildingCount} 栋建筑有{activeCategoryStyle.label}
+                  {categoryBuildingCount} 栋建筑 · {categoryFacilities.length}{" "}
+                  个{activeCategoryStyle.label}地点
                 </h2>
               </div>
               <button
@@ -2152,17 +2483,11 @@ export function AmapCampusPrototype({
                 ? categoryFacilities
                 : categoryFacilities.slice(0, 3)
               ).map((facility) => {
-                const building = BUILDINGS.find(
-                  (item) => item.id === facility.buildingId,
+                const building = buildings.find(
+                  (item) => item.buildingId === facility.buildingId,
                 );
-                return (
-                  <button
-                    key={facility.id}
-                    data-return-result={facility.id}
-                    type="button"
-                    className="flex min-h-16 w-full items-center gap-3 border-b border-black/8 py-3 text-left"
-                    onClick={() => selectFacility(facility, "category")}
-                  >
+                const content = (
+                  <>
                     <span
                       className="grid size-9 shrink-0 place-items-center rounded-full text-white"
                       style={{ background: activeCategoryStyle.color }}
@@ -2171,13 +2496,33 @@ export function AmapCampusPrototype({
                     </span>
                     <span className="min-w-0 flex-1">
                       <strong className="block text-sm">
-                        {building?.name} · {floorLabel(facility.floorId)}
+                        {building?.name ?? "校内独立地点"} ·{" "}
+                        {floorLabel(facility.floorId, facility.floorLabel)}
                       </strong>
                       <span className="mt-0.5 block text-xs text-neutral-500">
-                        {facility.name} · {facility.access}
+                        {facility.name} · {accessLabel(facility)}
                       </span>
                     </span>
+                  </>
+                );
+                return facility.buildingId && facility.floorId ? (
+                  <button
+                    key={facility.placeId}
+                    data-return-result={facility.placeId}
+                    type="button"
+                    className="flex min-h-16 w-full items-center gap-3 border-b border-black/8 py-3 text-left"
+                    onClick={() => selectFacility(facility, "category")}
+                  >
+                    {content}
                   </button>
+                ) : (
+                  <div
+                    key={facility.placeId}
+                    data-return-result={facility.placeId}
+                    className="flex min-h-16 w-full items-center gap-3 border-b border-black/8 py-3 text-left"
+                  >
+                    {content}
+                  </div>
                 );
               })}
               {categoryFacilities.length > 3 ? (
@@ -2221,7 +2566,7 @@ export function AmapCampusPrototype({
                   type="button"
                   aria-label={
                     facilityOrigin === "category"
-                      ? `返回${amenityStyle(selectedFacility.category).label}列表`
+                      ? `返回${amenityStyle(selectedFacility.pinType).label}列表`
                       : "返回建筑"
                   }
                   className="grid size-11 shrink-0 place-items-center rounded-full hover:bg-neutral-100"
@@ -2231,7 +2576,7 @@ export function AmapCampusPrototype({
                 </button>
               ) : (
                 <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#174b38] text-sm font-bold text-white">
-                  {selectedBuilding.code}
+                  {selectedBuilding.code ?? "校舍"}
                 </span>
               )}
               <div className="min-w-0 flex-1">
@@ -2245,8 +2590,8 @@ export function AmapCampusPrototype({
                 </h2>
                 <p className="mt-1 truncate text-sm text-neutral-500">
                   {selectedFacility
-                    ? `${selectedBuilding.name} · ${floorLabel(selectedFacility.floorId)}`
-                    : selectedBuilding.englishName}
+                    ? `${selectedBuilding.name} · ${floorLabel(selectedFacility.floorId, selectedFacility.floorLabel)}`
+                    : (selectedBuilding.englishName ?? "正式校舍资料")}
                 </p>
               </div>
               <button
@@ -2263,13 +2608,16 @@ export function AmapCampusPrototype({
               <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
                 <div className="flex flex-wrap gap-2 pt-4">
                   <span className="rounded-lg bg-[#e7f1ec] px-2.5 py-1.5 text-sm font-medium text-[#174b38]">
-                    {floorLabel(selectedFacility.floorId)}
+                    {floorLabel(
+                      selectedFacility.floorId,
+                      selectedFacility.floorLabel,
+                    )}
                   </span>
                   <span className="rounded-lg bg-neutral-100 px-2.5 py-1.5 text-sm text-neutral-700">
-                    {selectedFacility.access}
+                    {accessLabel(selectedFacility)}
                   </span>
                 </div>
-                {selectedFacility.locationPrecision === "building" ? (
+                {selectedFacility.location.kind !== "outdoor-point" ? (
                   <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
                     建筑内位置 · 尚无室内精确坐标
                   </p>
@@ -2293,9 +2641,12 @@ export function AmapCampusPrototype({
                 {state.sheet.snap === "full" ? (
                   <dl className="mt-5 grid gap-3 border-t border-black/8 pt-4 text-sm">
                     <div>
-                      <dt className="text-neutral-500">资料来源</dt>
+                      <dt className="text-neutral-500">正式资料</dt>
                       <dd className="mt-1 font-medium">
-                        {selectedFacility.source}
+                        Current fact ·{" "}
+                        {new Intl.DateTimeFormat("zh-HK", {
+                          dateStyle: "medium",
+                        }).format(new Date(selectedFacility.publishedAt))}
                       </dd>
                     </div>
                   </dl>
@@ -2326,25 +2677,27 @@ export function AmapCampusPrototype({
                   >
                     全部楼层
                   </button>
-                  {selectedBuilding.floorIds.map((floorId) => (
+                  {selectedBuilding.floors.map((floor) => (
                     <button
-                      key={floorId}
+                      key={floor.floorId}
                       type="button"
-                      aria-pressed={state.buildingContext.floorId === floorId}
+                      aria-pressed={
+                        state.buildingContext.floorId === floor.floorId
+                      }
                       className={cn(
                         "min-h-11 shrink-0 rounded-full px-3 text-sm",
-                        state.buildingContext.floorId === floorId
+                        state.buildingContext.floorId === floor.floorId
                           ? "bg-[#174b38] text-white"
                           : "bg-neutral-100",
                       )}
                       onClick={() =>
                         dispatch({
                           type: "SET_BUILDING_FLOOR",
-                          floorId,
+                          floorId: floor.floorId,
                         })
                       }
                     >
-                      {floorLabel(floorId)}
+                      {floor.displayLabel}
                     </button>
                   ))}
                 </div>
@@ -2358,14 +2711,15 @@ export function AmapCampusPrototype({
                   >
                     {buildingFacilities.length ? (
                       buildingFacilities.map((facility) => {
-                        const style = amenityStyle(facility.category);
+                        const style = amenityStyle(facility.pinType);
                         const Icon = style.icon;
                         return (
                           <button
-                            key={facility.id}
-                            data-return-result={facility.id}
+                            key={facility.placeId}
+                            data-return-result={facility.placeId}
                             type="button"
-                            className="flex w-full items-center gap-3 py-3 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
+                            disabled={!facility.floorId}
+                            className="flex w-full items-center gap-3 py-3 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346] disabled:cursor-default"
                             onClick={() => selectFacility(facility, "building")}
                           >
                             <span
@@ -2379,7 +2733,11 @@ export function AmapCampusPrototype({
                                 {facility.name}
                               </strong>
                               <span className="text-xs text-neutral-500">
-                                {facility.access}
+                                {floorLabel(
+                                  facility.floorId,
+                                  facility.floorLabel,
+                                )}{" "}
+                                · {accessLabel(facility)}
                               </span>
                             </span>
                           </button>
