@@ -218,13 +218,21 @@ test("Campus Map editing supports the keyboard placement and dirty-close path", 
   await page.getByRole("button", { name: "添加地点" }).click();
   await page.getByRole("button", { name: "使用此位置" }).click();
 
+  const sheet = page.getByRole("region", { name: "添加校内设施" });
   const name = page.getByRole("textbox", { name: "设施名称或编号" });
+  const source = page.getByRole("button", { name: "填写现场观察" });
   const publish = page.getByRole("button", { name: "发布设施" });
+  const sheetBox = await sheet.boundingBox();
   const nameBox = await name.boundingBox();
+  const sourceBox = await source.boundingBox();
   const publishBox = await publish.boundingBox();
+  expect(sheetBox).not.toBeNull();
   expect(nameBox).not.toBeNull();
+  expect(sourceBox).not.toBeNull();
   expect(publishBox).not.toBeNull();
+  expect(sheetBox!.y).toBeGreaterThanOrEqual(720 * 0.35);
   expect(nameBox!.y + nameBox!.height).toBeLessThanOrEqual(publishBox!.y);
+  expect(sourceBox!.y + sourceBox!.height).toBeLessThanOrEqual(publishBox!.y);
 
   const reposition = page.getByRole("button", { name: "修改位置" });
   await reposition.focus();

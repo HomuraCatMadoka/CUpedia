@@ -161,7 +161,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
     expect(await screen.findByText("新位置")).not.toBeNull();
     expect(screen.getByText(/114\.212000, 22\.422000/)).not.toBeNull();
-    expect(screen.getByText(/高德参考.*香港中文大学新位置/)).not.toBeNull();
+    expect(screen.queryByText(/高德参考.*香港中文大学新位置/)).toBeNull();
     const restored = JSON.parse(
       window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
     );
@@ -227,7 +227,8 @@ describe("AmapCampusPrototype runtime effects", () => {
 
     expect(await screen.findByText("科学馆附近")).not.toBeNull();
     expect(screen.getByText(/114\.208010, 22\.419660/)).not.toBeNull();
-    expect(screen.getByText(/没有独立名称时可保留默认名称/)).not.toBeNull();
+    expect(screen.queryByText(/高德参考/)).toBeNull();
+    expect(screen.getByText("已按类型预填，可修改")).not.toBeNull();
     expect(
       (
         screen.getByRole("textbox", {
@@ -281,7 +282,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
 
     expect(await screen.findByText("邵逸夫堂")).not.toBeNull();
-    expect(screen.getByText("高德地图参考")).not.toBeNull();
+    expect(screen.queryByText("高德地图参考")).toBeNull();
     expect(
       (
         screen.getByRole("textbox", {
@@ -474,7 +475,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     });
 
     expect(await screen.findByText("科学馆")).not.toBeNull();
-    expect(screen.getByText(/高德参考.*香港中文大学科学馆/)).not.toBeNull();
+    expect(screen.queryByText(/高德参考.*香港中文大学科学馆/)).toBeNull();
     expect(
       window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
     ).not.toContain("science-centre");

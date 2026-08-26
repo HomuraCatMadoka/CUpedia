@@ -664,16 +664,6 @@ export function CampusMapEditSheet({
     resolvedContext.label !== "地图中心位置"
       ? resolvedContext.label
       : null;
-  const lockedOutdoorReference =
-    !isPlacing && fact.location?.kind === "outdoor-point"
-      ? resolvedContext
-        ? resolvedContext.distanceMeters === 0 && !resolvedContext.address
-          ? "高德地图参考"
-          : `高德参考 · ${resolvedContext.address ?? "附近地点"}`
-        : placeContext?.status === "loading"
-          ? "正在恢复位置参考…"
-          : null
-      : null;
   const coordinateEntry = isPlacing ? (
     <div
       className={cn(
@@ -1049,11 +1039,11 @@ export function CampusMapEditSheet({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b px-5 py-4">
+      <div className="border-b px-4 py-3 md:px-5 md:py-4">
         <h2
           id="campus-map-panel-title"
           tabIndex={-1}
-          className="rounded-sm pr-10 text-xl font-semibold text-balance focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
+          className="rounded-sm pr-10 text-lg font-semibold text-balance focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 md:text-xl"
         >
           {isPlacing
             ? draft.mode === "add"
@@ -1063,7 +1053,7 @@ export function CampusMapEditSheet({
               ? "添加校内设施"
               : "修改设施"}
         </h2>
-        <p className="mt-1 text-sm text-neutral-600">
+        <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm">
           {isPlacing
             ? draft.mode === "add"
               ? "拖动地图对准设施，或轻点地图名称直接选择；建筑只作位置参考。"
@@ -1074,7 +1064,7 @@ export function CampusMapEditSheet({
         </p>
       </div>
       <div
-        className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-4 pb-28"
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-28 md:space-y-4 md:px-5 md:py-4"
         aria-busy={session.status === "publishing"}
         inert={session.status === "publishing" ? true : undefined}
       >
@@ -1120,15 +1110,12 @@ export function CampusMapEditSheet({
                     ? placementDescription
                     : describeLocation(fact, draft.locationDisplay)}
                 </p>
-                {isPlacing || lockedOutdoorReference ? (
+                {isPlacing ? (
                   <p
-                    className={cn(
-                      "mt-0.5 text-xs text-neutral-500",
-                      !isPlacing && "truncate",
-                    )}
+                    className="mt-0.5 text-xs text-neutral-500"
                     aria-live="polite"
                   >
-                    {isPlacing ? placementReference : lockedOutdoorReference}
+                    {placementReference}
                   </p>
                 ) : null}
               </div>
@@ -1147,19 +1134,19 @@ export function CampusMapEditSheet({
           </div>
         ) : null}
         {coordinateEntry}
-        <div hidden={isPlacing} className="space-y-4">
+        <div hidden={isPlacing} className="space-y-3 md:space-y-4">
           <fieldset
             data-edit-field="pinType"
             tabIndex={-1}
             className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
           >
-            <legend className="mb-2 text-sm font-medium">设施类型</legend>
-            <div className="grid grid-cols-6 gap-2">
+            <legend className="mb-1.5 text-sm font-medium">设施类型</legend>
+            <div className="grid grid-cols-5 gap-1.5 md:gap-2">
               {CAMPUS_MAP_EDIT_SCHEMA.presets.map((item) => (
                 <label
                   key={item.pinType}
                   className={cn(
-                    "col-span-2 flex min-h-11 w-full cursor-pointer touch-manipulation items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold transition-colors nth-[4]:col-span-3 nth-[5]:col-span-3 active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 motion-reduce:transform-none",
+                    "flex min-h-11 w-full cursor-pointer touch-manipulation items-center justify-center rounded-xl border px-1 text-center text-xs font-semibold transition-colors active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 motion-reduce:transform-none sm:text-sm md:px-2",
                     fact.pinType === item.pinType
                       ? "border-[#176346] bg-[#e4f1eb] text-[#174b38]"
                       : "border-black/15 bg-white text-neutral-700 hover:bg-neutral-50",
@@ -1188,7 +1175,20 @@ export function CampusMapEditSheet({
             </div>
           </fieldset>
           <div className="text-sm font-medium">
-            <label htmlFor={`${fieldPrefix}-name`}>设施名称或编号</label>
+            <label
+              className="flex items-center justify-between gap-2"
+              htmlFor={`${fieldPrefix}-name`}
+            >
+              <span>设施名称或编号</span>
+              <span
+                aria-hidden="true"
+                className="text-xs font-normal text-neutral-500"
+              >
+                {draft.mode === "add"
+                  ? "已按类型预填，可修改"
+                  : "保留原名称，可修改"}
+              </span>
+            </label>
             <input
               id={`${fieldPrefix}-name`}
               name="campus-map-place-name"
@@ -1196,63 +1196,61 @@ export function CampusMapEditSheet({
               data-edit-field="name"
               className={fieldClass}
               value={fact.name}
+              aria-label="设施名称或编号"
               aria-describedby={`${fieldPrefix}-name-help`}
               aria-invalid={session.localError === "name"}
               onChange={(event) =>
                 updateFact({ ...fullFact, name: event.target.value })
               }
             />
-            <span
-              id={`${fieldPrefix}-name-help`}
-              className="mt-1 block text-xs leading-5 font-normal text-neutral-600"
-            >
+            <span id={`${fieldPrefix}-name-help`} className="sr-only">
               {fact.pinType === "classroom"
-                ? "请填写课室编号或正式名称，例如 YIA LT6。"
-                : "没有独立名称时可保留默认名称；如有正式名称或编号，请直接修改。"}
+                ? "填写课室编号或正式名称，例如 YIA LT6。"
+                : "可保留默认名称，或填写正式名称/编号。"}
             </span>
           </div>
         </div>
-        <div hidden={isPlacing} className="rounded-xl border p-3">
-          <div className="px-1">
-            <p className="text-sm font-semibold">资料依据</p>
-            <p
-              id={`${fieldPrefix}-source-help`}
-              className="mt-1 text-xs leading-5 text-neutral-600"
+        <div hidden={isPlacing} className="rounded-xl border p-2.5 md:p-3">
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1 px-1">
+              <p className="text-sm font-semibold">资料依据</p>
+              <p
+                id={`${fieldPrefix}-source-help`}
+                className="text-xs leading-5 text-neutral-600"
+              >
+                发布前至少记录一项。
+              </p>
+            </div>
+            <button
+              type="button"
+              data-edit-field="sources"
+              aria-expanded={sourceEntryExpanded}
+              aria-controls={`${fieldPrefix}-source-entry`}
+              aria-describedby={
+                session.localError === "sources"
+                  ? `${fieldPrefix}-source-help ${fieldPrefix}-source-error`
+                  : `${fieldPrefix}-source-help`
+              }
+              aria-label={
+                sourceEntryExpanded
+                  ? "收起现场观察"
+                  : draft.sources.length
+                    ? "修改现场观察"
+                    : "填写现场观察"
+              }
+              className="flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 text-left text-sm font-semibold text-[#176346] hover:bg-[#edf5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+              onClick={() => setShowSourceEntry((current) => !current)}
             >
-              你从哪里确认这项资料？发布前至少提供一项。
-            </p>
+              <span>{draft.sources.length ? "修改观察" : "现场观察"}</span>
+              <ChevronDownIcon
+                aria-hidden="true"
+                className={cn(
+                  "size-4 transition-transform motion-reduce:transition-none",
+                  sourceEntryExpanded && "rotate-180",
+                )}
+              />
+            </button>
           </div>
-          <button
-            type="button"
-            data-edit-field="sources"
-            aria-expanded={sourceEntryExpanded}
-            aria-controls={`${fieldPrefix}-source-entry`}
-            aria-describedby={
-              session.localError === "sources"
-                ? `${fieldPrefix}-source-help ${fieldPrefix}-source-error`
-                : `${fieldPrefix}-source-help`
-            }
-            aria-label={
-              sourceEntryExpanded
-                ? "收起现场观察"
-                : draft.sources.length
-                  ? "修改现场观察"
-                  : "填写现场观察"
-            }
-            className="mt-2 flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-1 text-left text-sm font-semibold text-[#176346] hover:bg-[#edf5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-            onClick={() => setShowSourceEntry((current) => !current)}
-          >
-            <span>
-              {draft.sources.length ? "修改现场观察" : "填写现场观察"}
-            </span>
-            <ChevronDownIcon
-              aria-hidden="true"
-              className={cn(
-                "size-4 transition-transform motion-reduce:transition-none",
-                sourceEntryExpanded && "rotate-180",
-              )}
-            />
-          </button>
           {session.localError === "sources" ? (
             <p
               id={`${fieldPrefix}-source-error`}

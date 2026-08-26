@@ -133,13 +133,13 @@ describe("Campus Map single-page edit Sheet", () => {
       typeGroup.compareDocumentPosition(nameInput) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(screen.getByText(/没有独立名称时可保留默认名称/)).toBeTruthy();
+    expect(screen.getByText("已按类型预填，可修改")).toBeTruthy();
     expect(screen.getByRole("button", { name: "修改位置" })).toBeTruthy();
     const optionalDetails = screen.getByRole("button", {
       name: "开放与使用条件（可选）",
     });
     expect(screen.getByText("资料依据")).toBeTruthy();
-    expect(screen.getByText(/发布前至少提供一项/)).toBeTruthy();
+    expect(screen.getByText(/发布前至少记录一项/)).toBeTruthy();
     const sourceEntry = screen.getByRole("button", { name: "填写现场观察" });
     expect(
       sourceEntry.compareDocumentPosition(optionalDetails) &
@@ -306,14 +306,14 @@ describe("Campus Map single-page edit Sheet", () => {
 
     const typeGroup = screen.getByRole("group", { name: "设施类型" });
     const choices = typeGroup.querySelector("div");
-    expect(choices?.className).toContain("grid-cols-6");
+    expect(choices?.className).toContain("grid-cols-5");
     expect(choices?.className).not.toContain("overflow-x-auto");
     expect(
       screen.getByRole("radio", { name: "饮水点" }).closest("label")?.className,
-    ).toContain("col-span-2");
+    ).not.toContain("col-span");
     expect(
       screen.getByRole("radio", { name: "课室" }).closest("label")?.className,
-    ).toContain("nth-[5]:col-span-3");
+    ).not.toContain("col-span");
     expect(typeGroup.getAttribute("tabindex")).toBe("-1");
     expect(typeGroup.className).toContain("focus-visible:ring-2");
     expect(screen.queryByText(/Changeset 说明/)).toBeNull();
