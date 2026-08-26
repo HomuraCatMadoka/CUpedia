@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import type { MissingContributorSetup } from "@/lib/contributor-account";
 
 type SetupContext = {
-  ensureContributorSetup: () => Promise<boolean>;
+  ensureContributorSetup: (options?: { recheck?: boolean }) => Promise<boolean>;
 };
 
 const ContributorSetupContext = createContext<SetupContext>({
@@ -44,34 +44,38 @@ export function ContributorSetupProvider({
     for (const resolve of pending.current.splice(0)) resolve(complete);
   }, []);
 
-  const ensureContributorSetup = useCallback(async () => {
-    if (knownComplete.current) return true;
-    try {
-      if (!statusCheck.current) {
-        statusCheck.current = (async () => {
-          const response = await fetch("/api/auth/account-setup");
-          if (!response.ok) throw new Error("ACCOUNT_SETUP_STATUS_FAILED");
-          return (await response.json()) as {
-            complete: boolean;
-            needs: MissingContributorSetup;
-          };
-        })().finally(() => {
-          statusCheck.current = null;
-        });
-      }
-      const result = await statusCheck.current;
+  const ensureContributorSetup = useCallback(
+    async (options?: { recheck?: boolean }) => {
+      if (options?.recheck) knownComplete.current = false;
       if (knownComplete.current) return true;
-      if (result.complete) {
-        knownComplete.current = true;
-        return true;
+      try {
+        if (!statusCheck.current) {
+          statusCheck.current = (async () => {
+            const response = await fetch("/api/auth/account-setup");
+            if (!response.ok) throw new Error("ACCOUNT_SETUP_STATUS_FAILED");
+            return (await response.json()) as {
+              complete: boolean;
+              needs: MissingContributorSetup;
+            };
+          })().finally(() => {
+            statusCheck.current = null;
+          });
+        }
+        const result = await statusCheck.current;
+        if (knownComplete.current) return true;
+        if (result.complete) {
+          knownComplete.current = true;
+          return true;
+        }
+        setNeeds(result.needs);
+        setError("");
+        return new Promise<boolean>((resolve) => pending.current.push(resolve));
+      } catch {
+        return false;
       }
-      setNeeds(result.needs);
-      setError("");
-      return new Promise<boolean>((resolve) => pending.current.push(resolve));
-    } catch {
-      return false;
-    }
-  }, []);
+    },
+    [],
+  );
 
   const saveSetup = async () => {
     if (!needs) return;

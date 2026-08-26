@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 
 import {
   loadCampusMapEditablePlace,
@@ -77,6 +78,7 @@ export function useCampusMapEditSessionOwner({
   driver: CampusMapSceneDriver;
   dispatch(intent: CampusMapDriverIntent): void;
 }) {
+  const { ensureContributorSetup } = useContributorSetup();
   const [session, setSession] = useState<CampusMapEditSession | null>(null);
   const sessionRef = useRef<CampusMapEditSession | null>(null);
   const dispatcherRef = useRef<(event: CampusMapEditEvent) => void>(() => {});
@@ -86,7 +88,7 @@ export function useCampusMapEditSessionOwner({
   const [announcement, setAnnouncement] = useState("");
   const [restoreNotice, setRestoreNotice] = useState("");
 
-  const dispatchEvent = useCallback(
+  const applyEvent = useCallback(
     (event: CampusMapEditEvent) => {
       const transition = transitionCampusMapEdit(sessionRef.current, event);
       if (!transition.accepted) return;
@@ -179,6 +181,24 @@ export function useCampusMapEditSessionOwner({
       }
     },
     [dispatch, driver],
+  );
+
+  const dispatchEvent = useCallback(
+    (event: CampusMapEditEvent) => {
+      if (
+        event.type !== "REQUEST_PUBLISH" &&
+        event.type !== "CONTRIBUTOR_SETUP_COMPLETED"
+      ) {
+        applyEvent(event);
+        return;
+      }
+      void ensureContributorSetup({
+        recheck: event.type === "CONTRIBUTOR_SETUP_COMPLETED",
+      }).then((complete) => {
+        if (complete) applyEvent(event);
+      });
+    },
+    [applyEvent, ensureContributorSetup],
   );
 
   useEffect(() => {

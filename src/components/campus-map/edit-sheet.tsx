@@ -721,6 +721,15 @@ export function CampusMapEditSheet({
               : "当前账号没有发布这项修改的权限。"}
           </p>
           <p className="mt-1 text-xs">草稿仍保存在这个浏览器中。</p>
+          {session.forbiddenCode === "profile-incomplete" && (
+            <button
+              type="button"
+              className={cn(primaryClass, "mt-3")}
+              onClick={() => onEvent({ type: "CONTRIBUTOR_SETUP_COMPLETED" })}
+            >
+              完善账户后继续
+            </button>
+          )}
         </div>
       );
     }

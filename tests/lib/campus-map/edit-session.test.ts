@@ -1416,6 +1416,36 @@ describe("Campus Map edit session transition", () => {
     ).toMatchObject({ accepted: false, session: forbidden.session });
   });
 
+  it("resumes the same draft after contributor setup completes", () => {
+    const dirty = transitionCampusMapEdit(editSession(), {
+      type: "CHANGE_FACT",
+      fact: { ...fact, name: "补全账号后发布的名称" },
+    }).session!;
+    const publishing = transitionCampusMapEdit(dirty, {
+      type: "REQUEST_PUBLISH",
+    }).session!;
+    const incomplete = transitionCampusMapEdit(publishing, {
+      type: "PUBLISH_RESULT",
+      idempotencyKey: firstKey,
+      result: { status: "forbidden", code: "profile-incomplete" },
+    }).session!;
+
+    const resumed = transitionCampusMapEdit(incomplete, {
+      type: "CONTRIBUTOR_SETUP_COMPLETED",
+    });
+
+    expect(resumed.session).toMatchObject({
+      status: "publishing",
+      draft: {
+        idempotencyKey: firstKey,
+        fact: { name: "补全账号后发布的名称" },
+      },
+    });
+    expect(resumed.commands).toContainEqual(
+      expect.objectContaining({ kind: "publish" }),
+    );
+  });
+
   it.each(["warning", "rate-limited", "conflict"] as const)(
     "does not bypass the %s recovery action with the primary publish event",
     (status) => {

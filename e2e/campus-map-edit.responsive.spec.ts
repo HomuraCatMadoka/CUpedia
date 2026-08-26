@@ -155,6 +155,7 @@ test.beforeEach(async ({ page }) => {
 
 test("Campus Map and its AMap config require authentication", async ({
   browser,
+  page,
 }) => {
   const anonymous = await browser.newPage();
   const configResponse = await anonymous.request.get("/api/campus-map/config");
@@ -165,6 +166,30 @@ test("Campus Map and its AMap config require authentication", async ({
   const callbackUrl = new URL(anonymous.url()).searchParams.get("callbackUrl");
   expect(callbackUrl).toBe("/prototype/campus-map?v=1&task=create&anchor=map");
   await anonymous.close();
+
+  await page.goto("/prototype/campus-map");
+  await page.getByRole("button", { name: "添加地点" }).click();
+  await page.getByRole("button", { name: "使用此位置" }).click();
+  await page
+    .getByRole("group", { name: "设施类型" })
+    .getByText("洗手间", { exact: true })
+    .click();
+  const draftUrl = page.url();
+
+  await page.context().clearCookies();
+  await page.goto(draftUrl);
+  await expect(page).toHaveURL(/\/login\?/);
+  await page.getByLabel("CUHK 邮箱").fill("user@test.com");
+  await page.getByLabel("密码").fill("password123");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+
+  await expect(page).toHaveURL(draftUrl);
+  await expect(
+    page.getByRole("heading", { name: "添加校内设施" }),
+  ).toBeVisible();
+  await expect(page.getByRole("radio", { name: "洗手间" })).toBeChecked();
+  await expect(page.getByRole("button", { name: "发布设施" })).toBeEnabled();
+  await expect(page.getByText("地点资料已发布")).toHaveCount(0);
 });
 
 test("Campus Map editing keeps its primary action inside a 390px-high viewport", async ({

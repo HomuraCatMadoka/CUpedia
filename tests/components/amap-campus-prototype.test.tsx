@@ -12,8 +12,17 @@ import {
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const { mockEnsureContributorSetup } = vi.hoisted(() => ({
+  mockEnsureContributorSetup: vi.fn(),
+}));
+
 vi.mock("next/script", () => ({
   default: () => null,
+}));
+vi.mock("@/components/auth/contributor-setup-provider", () => ({
+  useContributorSetup: () => ({
+    ensureContributorSetup: mockEnsureContributorSetup,
+  }),
 }));
 vi.mock("@/lib/campus-map/edit-actions", () => ({
   publishCampusMapEdit: vi.fn(),
@@ -62,6 +71,8 @@ import type {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  mockEnsureContributorSetup.mockReset();
+  mockEnsureContributorSetup.mockResolvedValue(true);
   window.sessionStorage.clear();
   window.history.replaceState(null, "", "/prototype/campus-map");
   vi.stubGlobal(
@@ -106,6 +117,24 @@ async function selectScienceCentre() {
 }
 
 describe("AmapCampusPrototype", () => {
+  it("keeps the draft and does not publish when contributor setup is cancelled", async () => {
+    mockEnsureContributorSetup.mockResolvedValueOnce(false);
+    render(<AmapCampusPrototype />);
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
+
+    await waitFor(() => expect(mockEnsureContributorSetup).toHaveBeenCalled());
+    expect(publishCampusMapEdit).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "添加校内设施" })).toBeTruthy();
+    expect(
+      (screen.getByRole("radio", { name: "洗手间" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+  });
+
   it("uses one Add session for natural center-pin placement and dirty close", async () => {
     render(<AmapCampusPrototype />);
 

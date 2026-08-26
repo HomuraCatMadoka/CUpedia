@@ -161,6 +161,7 @@ export type CampusMapEditEvent =
     }
   | { type: "ACKNOWLEDGE_WARNINGS"; idempotencyKey: string }
   | { type: "AUTH_RETURNED" }
+  | { type: "CONTRIBUTOR_SETUP_COMPLETED" }
   | { type: "RETRY_PUBLISH" }
   | { type: "RATE_LIMIT_ELAPSED"; idempotencyKey: string }
   | {
@@ -917,6 +918,16 @@ export function transitionCampusMapEdit(
   if (event.type === "AUTH_RETURNED") {
     if (session.status !== "authentication-required") return rejected(session);
     return persisted({ status: "editing", draft: session.draft });
+  }
+
+  if (event.type === "CONTRIBUTOR_SETUP_COMPLETED") {
+    if (
+      session.status !== "forbidden" ||
+      session.forbiddenCode !== "profile-incomplete"
+    ) {
+      return rejected(session);
+    }
+    return publishTransition({ status: "editing", draft: session.draft });
   }
 
   if (event.type === "RETRY_PUBLISH") {
