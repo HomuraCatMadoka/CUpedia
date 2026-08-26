@@ -2,10 +2,12 @@ name: Production canteen menu sync
 
 on:
   schedule:
-    # GitHub schedules are UTC. Half-hour ticks let the database scheduler act
-    # on provider publication boundaries; a tick with no due source performs
-    # no provider request. 00:17–15:47 UTC = 08:17–23:47 HKT.
-    - cron: "17,47 0-15 * * *"
+    # GitHub schedules are UTC. Supabase owns the primary 00:17–00:32,
+    # 03:17–03:32, and 09:17–09:32 drains. GitHub waits until :37 in those
+    # hours so a fallback completion is attributable, while the existing :47
+    # and non-primary publication-refresh wakeups remain unchanged.
+    - cron: "37,47 0,3,9 * * *"
+    - cron: "17,47 1-2,4-8,10-15 * * *"
   workflow_dispatch:
 
 permissions:

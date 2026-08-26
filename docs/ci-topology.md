@@ -1,7 +1,7 @@
 # Tiered, bounded CI topology
 
 Status: Current
-Last verified: 2026-08-25 against `.github/workflows/ci.yml` and `scripts/ci-classifier.mjs`
+Last verified: 2026-08-26 against `.github/workflows/ci.yml` and `scripts/ci-classifier.mjs`
 
 Issue #669 keeps the full regression suite while bounding fixed runner cost.
 Issue #670 adds fail-closed risk tiers without changing those full-regression
@@ -40,10 +40,14 @@ into one of them. Real PostgreSQL remains the browser boundary. MinIO starts
 only when the selected plan includes upload coverage. WebKit runs only for the
 two known mobile risk specs or the full plan.
 
-The `quality` job no longer declares unconditional service containers. Its two
-real PostgreSQL instances start in a conditional step only when the plan asks
-for integration coverage. Typecheck remains an independent blocking quality
-step, so the one reusable Next build may keep `NEXT_BUILD_SKIP_TYPECHECK=1`.
+The `quality` job no longer declares unconditional service containers. Its
+three real PostgreSQL instances start in a conditional step only when the plan
+asks for integration coverage. PostgreSQL 16 owns legacy migration
+compatibility, zhparser PostgreSQL 17 owns menu persistence, and the pinned
+Supabase PostgreSQL 17 image owns the full scheduler replay, real `pg_net` HTTP
+double, and database advisors. Typecheck remains an independent blocking
+quality step, so the one reusable Next build may keep
+`NEXT_BUILD_SKIP_TYPECHECK=1`.
 
 ## Aggregate gate and required-check migration
 
@@ -151,16 +155,17 @@ No test behavior is deleted or moved to a fake database. The first topology
 pass preserved all 288 Playwright tests. The test-layer pass then moved pure
 rules and client state to unit/component coverage, leaving 252 browser tests.
 
-| Before                                         | After                                                 | Preserved behavior / boundary                                                                                                                                                                                                            |
-| ---------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lint-and-test`, `typecheck`                   | `quality` (`lint-and-test` check context)             | The same `pnpm lint`, full `pnpm test`, and `pnpm typecheck` commands form one gate while preserving the required main-branch check name.                                                                                                |
-| `migration-compatibility`                      | `quality` on real PostgreSQL 16                       | Legacy menu-source migration and identity preflight tests retain their original environment flags and database version.                                                                                                                  |
-| `menu-sync-integration`                        | The same `quality` job on real zhparser PostgreSQL 17 | `init-zhparser.sql`, all migrations, menu sync persistence, and source sync persistence remain intact. The two database services start concurrently while checkout and dependency installation happen once.                              |
-| `chromium-general` + `campus-bus`              | `chromium-general`                                    | Non-Wiki journeys remain Chromium. Campus Bus joins general after measured CI showed that moving its 14.2-second test body off the third runner improves the critical-path balance without another service.                              |
-| `chromium-wiki` + `chromium-wiki-editor`       | Three measured Chromium groups                        | All Wiki read/edit/auth/query/persistence/concurrency journeys remain production Next + real PostgreSQL. `sidebar`, `wiki-create`, `wiki-edit.shell`, and `wiki-edit.toolbar` use the third runner.                                      |
-| Mobile editor previously in `chromium-general` | `chromium-wiki-media`                                 | Mobile browser/history, upload, focus, autosave, and command boundaries remain Chromium full-stack E2E. Pure toolbar rendering and catalog state moved to component coverage. This file includes image upload, so its runner owns MinIO. |
-| `wiki-upload` in `chromium-wiki`               | `chromium-wiki-media`                                 | Anonymous/editor authorization, content validation, serving, upload, save, and reload continue through production Next and MinIO.                                                                                                        |
-| `webkit-mobile`                                | `browser-third` in the official Playwright container  | Only `header.mobile-webkit.spec.ts` and `wiki-edit.mobile-webkit.spec.ts`, the known safe-area/focus/touch risks, run in WebKit. The same runner executes the balanced Chromium shard against one server.                                |
+| Before                                         | After                                                 | Preserved behavior / boundary                                                                                                                                                                                                                             |
+| ---------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lint-and-test`, `typecheck`                   | `quality` (`lint-and-test` check context)             | The same `pnpm lint`, full `pnpm test`, and `pnpm typecheck` commands form one gate while preserving the required main-branch check name.                                                                                                                 |
+| `migration-compatibility`                      | `quality` on real PostgreSQL 16                       | Legacy menu-source migration and identity preflight tests retain their original environment flags and database version.                                                                                                                                   |
+| `menu-sync-integration`                        | The same `quality` job on real zhparser PostgreSQL 17 | `init-zhparser.sql`, all migrations, menu sync persistence, source sync persistence, snapshots, and business-health tests remain intact. All three database services start concurrently while checkout and dependency installation happen once.           |
+| Supabase menu scheduler                        | The same `quality` job on Supabase PostgreSQL 17      | A clean full migration replay installs an inactive exact cron job, then focused tests exercise replay, privileges, Vault, real asynchronous HTTP results, and four-layer health without production network access; database advisors reject new warnings. |
+| `chromium-general` + `campus-bus`              | `chromium-general`                                    | Non-Wiki journeys remain Chromium. Campus Bus joins general after measured CI showed that moving its 14.2-second test body off the third runner improves the critical-path balance without another service.                                               |
+| `chromium-wiki` + `chromium-wiki-editor`       | Three measured Chromium groups                        | All Wiki read/edit/auth/query/persistence/concurrency journeys remain production Next + real PostgreSQL. `sidebar`, `wiki-create`, `wiki-edit.shell`, and `wiki-edit.toolbar` use the third runner.                                                       |
+| Mobile editor previously in `chromium-general` | `chromium-wiki-media`                                 | Mobile browser/history, upload, focus, autosave, and command boundaries remain Chromium full-stack E2E. Pure toolbar rendering and catalog state moved to component coverage. This file includes image upload, so its runner owns MinIO.                  |
+| `wiki-upload` in `chromium-wiki`               | `chromium-wiki-media`                                 | Anonymous/editor authorization, content validation, serving, upload, save, and reload continue through production Next and MinIO.                                                                                                                         |
+| `webkit-mobile`                                | `browser-third` in the official Playwright container  | Only `header.mobile-webkit.spec.ts` and `wiki-edit.mobile-webkit.spec.ts`, the known safe-area/focus/touch risks, run in WebKit. The same runner executes the balanced Chromium shard against one server.                                                 |
 
 The current CI list contains 118 `chromium-general`, 73
 `chromium-wiki-media`, 61 `chromium-balanced`, and 4 `webkit-mobile` tests.

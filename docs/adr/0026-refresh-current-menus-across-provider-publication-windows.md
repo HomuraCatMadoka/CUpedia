@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded in part by [ADR 0028](0028-use-supabase-cron-as-primary-menu-sync-clock.md)
 
 ## Context
 

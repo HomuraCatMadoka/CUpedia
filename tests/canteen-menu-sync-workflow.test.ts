@@ -30,11 +30,14 @@ const vercel = JSON.parse(
   readFileSync(resolve(process.cwd(), "vercel.json"), "utf8"),
 );
 
-describe("production canteen menu sync workflow (#635, #743, #746)", () => {
-  it("wakes every half hour across all claimable meal windows", () => {
-    expect(workflow.on.schedule).toEqual([{ cron: "17,47 0-15 * * *" }]);
-    expect(workflowText).toContain("00:17–15:47 UTC = 08:17–23:47 HKT");
-    expect(workflowText).toContain("no provider request");
+describe("production canteen menu sync workflow (#635, #743, #746, #757)", () => {
+  it("staggers the three fallback drains without losing publication refreshes", () => {
+    expect(workflow.on.schedule).toEqual([
+      { cron: "37,47 0,3,9 * * *" },
+      { cron: "17,47 1-2,4-8,10-15 * * *" },
+    ]);
+    expect(workflowText).toContain("Supabase owns the primary");
+    expect(workflowText).toContain("fallback completion is attributable");
   });
 
   it("keeps manual recovery input-free and production drains non-overlapping", () => {

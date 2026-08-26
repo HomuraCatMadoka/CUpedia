@@ -50,6 +50,11 @@ jobs:
           node-version: 20
           cache: pnpm
 
+      - uses: supabase/setup-cli@v2
+        if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
+        with:
+          version: 2.115.0
+
       - run: pnpm install --frozen-lockfile
         if: ${{ fromJSON(steps.plan.outputs.plan).install }}
 
@@ -78,7 +83,12 @@ jobs:
             -e POSTGRES_PASSWORD=postgres \
             -e POSTGRES_DB=cuclaw_menu_sync_test \
             -p 5434:5432 abcfy2/zhparser:17-alpine
-          for port in 5432 5434; do
+          docker run -d --name scheduler-postgres \
+            --add-host=host.docker.internal:host-gateway \
+            -e POSTGRES_PASSWORD=postgres \
+            -e POSTGRES_DB=postgres \
+            -p 5435:5432 supabase/postgres:17.6.1.136
+          for port in 5432 5434 5435; do
             for attempt in {1..30}; do
               pg_isready -h localhost -p "$port" -U postgres && break
               if [ "$attempt" = 30 ]; then exit 1; fi
@@ -118,6 +128,28 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
         run: pnpm drizzle-kit migrate
 
+      - name: Apply Supabase scheduler migrations
+        if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5435/postgres
+        run: |
+          psql "$DATABASE_URL" \
+            -v ON_ERROR_STOP=1 \
+            -f tests/db/fixtures/supabase-scheduler-bootstrap.sql
+          pnpm drizzle-kit migrate
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $assert_no_scheduler_outbound$
+          BEGIN
+            IF EXISTS (SELECT 1 FROM net.http_request_queue)
+              OR EXISTS (
+                SELECT 1 FROM canteen_menu_scheduler.delivery_audit
+              ) THEN
+              RAISE EXCEPTION 'SCHEDULER_MIGRATION_CREATED_OUTBOUND_WORK';
+            END IF;
+          END
+          $assert_no_scheduler_outbound$;
+          SQL
+
       - name: Test public Data API security
         if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
         env:
@@ -136,6 +168,37 @@ jobs:
           tests/db/canteen-menu-source-sync.test.ts
           tests/db/canteen-menu-sync-scheduler.test.ts
           tests/db/canteen-menu-sync-snapshots.test.ts
+          tests/db/canteen-menu-sync-health.test.ts
+
+      - name: Test Supabase menu scheduler
+        if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5435/postgres
+          SUPABASE_SCHEDULER_TEST: "1"
+          SCHEDULER_HTTP_DOUBLE_HOST: host.docker.internal
+        run: >-
+          pnpm exec vitest run
+          tests/db/canteen-menu-sync-cron.test.ts
+
+      - name: Check Supabase scheduler database advisors
+        if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5435/postgres
+          PGSSLMODE: disable
+        run: |
+          set -o pipefail
+          supabase db advisors \
+            --db-url "$DATABASE_URL" \
+            --type all \
+            --level warn \
+            --fail-on none \
+            --output-format json \
+            | tee "$RUNNER_TEMP/supabase-scheduler-advisors.json"
+          jq -e 'all(.[];
+            (.name == "function_search_path_mutable" and
+             .metadata.name == "prevent_campus_bus_arrival_observation_mutation") or
+            (.name == "extension_in_public" and .metadata.name == "pg_trgm")
+          )' "$RUNNER_TEMP/supabase-scheduler-advisors.json"
 
   build:
     name: build

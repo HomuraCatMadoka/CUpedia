@@ -120,6 +120,11 @@ describe("tiered CI topology (#670)", () => {
     );
     expect(postgres.run).toContain("postgres:16");
     expect(postgres.run).toContain("abcfy2/zhparser:17-alpine");
+    expect(postgres.run).toContain("supabase/postgres:17.6.1.136");
+    expect(postgres.run).toContain(
+      "--add-host=host.docker.internal:host-gateway",
+    );
+    expect(postgres.run).toContain("for port in 5432 5434 5435");
     expect(namedStep("quality", "Apply migrations").run).toBe(
       "pnpm drizzle-kit migrate",
     );
@@ -139,6 +144,60 @@ describe("tiered CI topology (#670)", () => {
         },
       },
     );
+
+    expect(namedStep("quality", "Test menu sync persistence").run).toContain(
+      "tests/db/canteen-menu-sync-health.test.ts",
+    );
+  });
+
+  it("replays and tests the scheduler on the pinned Supabase PostgreSQL 17 image", () => {
+    const setupCli = steps("quality").find(
+      (step) => step.uses === "supabase/setup-cli@v2",
+    );
+    expect(setupCli).toMatchObject({
+      if: "${{ fromJSON(steps.plan.outputs.plan).postgres }}",
+      with: { version: "2.115.0" },
+    });
+
+    expect(
+      namedStep("quality", "Apply Supabase scheduler migrations"),
+    ).toMatchObject({
+      env: {
+        DATABASE_URL: "postgresql://postgres:postgres@localhost:5435/postgres",
+      },
+      run: expect.stringContaining(
+        "tests/db/fixtures/supabase-scheduler-bootstrap.sql",
+      ),
+    });
+    expect(
+      namedStep("quality", "Apply Supabase scheduler migrations").run,
+    ).toContain("pnpm drizzle-kit migrate");
+    expect(
+      namedStep("quality", "Apply Supabase scheduler migrations").run,
+    ).toContain("SCHEDULER_MIGRATION_CREATED_OUTBOUND_WORK");
+
+    expect(namedStep("quality", "Test Supabase menu scheduler")).toMatchObject({
+      env: {
+        DATABASE_URL: "postgresql://postgres:postgres@localhost:5435/postgres",
+        SUPABASE_SCHEDULER_TEST: "1",
+        SCHEDULER_HTTP_DOUBLE_HOST: "host.docker.internal",
+      },
+      run: expect.stringContaining("tests/db/canteen-menu-sync-cron.test.ts"),
+    });
+
+    const advisors = namedStep(
+      "quality",
+      "Check Supabase scheduler database advisors",
+    );
+    expect(advisors.env).toMatchObject({
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5435/postgres",
+      PGSSLMODE: "disable",
+    });
+    expect(advisors.run).toContain("supabase db advisors");
+    expect(advisors.run).toContain("--type all");
+    expect(advisors.run).toContain("--level warn");
+    expect(advisors.run).toContain("function_search_path_mutable");
+    expect(advisors.run).toContain("extension_in_public");
   });
 
   it("builds Next once and every selected browser reuses the artifact", () => {
