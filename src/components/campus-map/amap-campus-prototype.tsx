@@ -1820,11 +1820,21 @@ export function AmapCampusPrototype({
           maxZoom: 18,
           averageCenter: true,
           renderMarker: ({ marker }: { marker: AMapMarker }) => {
-            const markerKey = marker.getExtData()?.markerKey;
+            const markerData = marker.getExtData();
+            const markerKey = markerData?.markerKey;
             const projectedMarker = markerKey
               ? markerByKey.get(markerKey)
               : undefined;
             if (!markerKey || !projectedMarker) return;
+            if (
+              projectedMarker.kind === "building-presence" &&
+              markerData?.facilityId !== projectedMarker.placeIds[0]
+            ) {
+              marker.setContent(
+                '<span aria-hidden="true" style="display:none"></span>',
+              );
+              return;
+            }
             const view = browseMarkerView(projectedMarker, browseProjection);
             if (!view) return;
             facilityMarkersRef.current.set(markerKey, marker);

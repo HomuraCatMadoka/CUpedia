@@ -1318,6 +1318,61 @@ describe("AmapCampusPrototype runtime effects", () => {
     ).not.toBeNull();
   });
 
+  it("renders one interactive Building presence for co-located Places", async () => {
+    const scienceWater = originalFacilityFixtures.find(
+      (facility) =>
+        facility.buildingId === "science-centre" &&
+        facility.category === "water",
+    )!;
+    const secondPlaceId = "71000000-0000-4000-8000-000000000006";
+    mutableFacilityFixtures.push({
+      ...scienceWater,
+      id: secondPlaceId,
+      name: "东翼饮水机",
+    });
+
+    const { runtime } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    await screen.findByRole("heading", {
+      name: "2 栋建筑 · 3 个饮水点",
+    });
+
+    const scienceMarkers = await waitFor(() => {
+      const matches = runtime.markers.filter((marker) =>
+        [scienceWater.id, secondPlaceId].includes(
+          marker.getExtData()?.facilityId ?? "",
+        ),
+      );
+      expect(matches).toHaveLength(2);
+      return matches;
+    });
+    const primaryMarker = scienceMarkers.find(
+      (marker) => marker.getExtData()?.facilityId === scienceWater.id,
+    )!;
+    const countOnlyMarker = scienceMarkers.find(
+      (marker) => marker.getExtData()?.facilityId === secondPlaceId,
+    )!;
+
+    expect(primaryMarker.content).toContain('data-cupedia-marker="true"');
+    expect(primaryMarker.content).toContain(
+      'aria-label="科学馆有 2 个饮水点，建筑位置参考"',
+    );
+    expect(primaryMarker.handlers.get("click")).toHaveLength(1);
+    expect(countOnlyMarker.content).toContain('aria-hidden="true"');
+    expect(countOnlyMarker.content).not.toContain("data-cupedia-marker");
+    expect(countOnlyMarker.handlers.get("click") ?? []).toHaveLength(0);
+
+    await act(async () => {
+      primaryMarker.emit("click");
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "科学馆" }),
+    ).not.toBeNull();
+    expect(screen.getByText(scienceWater.name)).not.toBeNull();
+    expect(screen.getByText("东翼饮水机")).not.toBeNull();
+  });
+
   it("projects the University Library water fixture at the library building anchor", async () => {
     const { runtime } = await renderWithRuntime({
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
