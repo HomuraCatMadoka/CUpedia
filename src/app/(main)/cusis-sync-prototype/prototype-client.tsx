@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { CusisImportSnapshot } from "@/lib/cusis-import";
 
 type SessionStatus = {
   phase: "idle" | "waiting-for-login" | "authenticated";
@@ -16,6 +17,7 @@ type PrototypeResult = {
   dataset: Dataset;
   sourceComponent: string;
   courses: Array<{ courseCode: string }>;
+  snapshot: CusisImportSnapshot;
   diagnostics: {
     frameCount: number;
     inspectedFrameUrls: string[];

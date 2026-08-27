@@ -8,6 +8,11 @@ import type {
   Request as PlaywrightRequest,
   Response as PlaywrightResponse,
 } from "@playwright/test";
+import {
+  parseCusisImportSnapshot,
+  type CusisImportDataset,
+  type CusisImportSnapshot,
+} from "@/lib/cusis-import";
 
 const CUSIS_LANDING_URL =
   "https://cusis.cuhk.edu.hk/psc/CSPRD/EMPLOYEE/HRMS/c/NUI_FRAMEWORK.PT_LANDINGPAGE.GBL?";
@@ -28,7 +33,7 @@ export const cusisPrototypeDatasets = [
   "requirements",
 ] as const;
 
-export type CusisPrototypeDataset = (typeof cusisPrototypeDatasets)[number];
+export type CusisPrototypeDataset = CusisImportDataset;
 
 type PrototypeSession = {
   browser: Browser;
@@ -56,6 +61,7 @@ export type CusisCurrentCoursesPrototype = {
     | "SSR_SHOP_CART_FL"
     | "SAA_SS_DPR_ADB";
   courses: Array<{ courseCode: string }>;
+  snapshot: CusisImportSnapshot;
   diagnostics: {
     frameCount: number;
     inspectedFrameUrls: string[];
@@ -312,7 +318,6 @@ export async function readCusisCoursesPrototype(
     session.page.off("response", onResponse);
 
     const inspectedFrameUrls: string[] = [];
-    const courseCodes = new Set<string>();
     const visibleTexts: string[] = [];
     let visibleTextCharacters = 0;
     let formCount = 0;
@@ -328,9 +333,6 @@ export async function readCusisCoursesPrototype(
       visibleTextCharacters += text.length;
       formCount += await frame.locator("form").count();
       tableCount += await frame.locator("table").count();
-      for (const match of text.matchAll(/\b[A-Z]{4}\s?[0-9]{4}[A-Z]?\b/g)) {
-        courseCodes.add(match[0].replace(/\s+/g, " "));
-      }
     }
 
     const combinedText = visibleTexts.join("\n");
@@ -345,12 +347,24 @@ export async function readCusisCoursesPrototype(
             ? "component-loaded"
             : "thin-page";
 
+    const capturedAt = new Date().toISOString();
+    const snapshot = parseCusisImportSnapshot({
+      capturedAt,
+      pages: { [dataset]: await session.page.content() },
+    });
+    const courseCodes = new Set([
+      ...snapshot.personalCourseRecords.map(({ courseCode }) => courseCode),
+      ...snapshot.requirementSnapshot.items.flatMap(
+        ({ candidateCourseCodes }) => candidateCourseCodes,
+      ),
+    ]);
     const result: CusisCurrentCoursesPrototype = {
       schemaVersion: "cusis-course-codes-prototype.v0",
-      capturedAt: new Date().toISOString(),
+      capturedAt,
       dataset,
       sourceComponent: target.component,
       courses: [...courseCodes].sort().map((courseCode) => ({ courseCode })),
+      snapshot,
       diagnostics: {
         frameCount: session.page.frames().length,
         inspectedFrameUrls,
