@@ -8,8 +8,8 @@ import {
 import {
   listCampusMapBrowseBuildings,
   listCampusMapCurrentPlaces,
-  resolveCampusMapProviderSelection,
 } from "./fact-store";
+import { resolveCampusMapProviderSelection } from "./provider-mapping-registry";
 
 /** Public Current-facts projection used by map, search, and Building cards. */
 export async function loadCampusMapBrowseProjection() {

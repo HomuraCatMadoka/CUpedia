@@ -36,10 +36,28 @@ appends Changeset/change/revision/provenance/visibility, and advances Current
 revision and Current fact atomically. It does not authenticate a caller or
 expose a second application publish path.
 
+`src/lib/campus-map/provider-mapping-registry.ts` is the sole owner of active
+provider mappings and their private governance history. Its exact public query
+returns only a canonical Building/Place selection target or `null`. Its
+bind/unlink/rebind command locks one provider identity, rechecks the actor's
+current admin status, validates the public canonical target, updates the active
+projection, and appends an actor/reason/time/provenance decision in one
+transaction. `provider-mapping-registry-actions.ts` supplies authenticated
+server context; React, provider adapters, and seed/import code cannot write
+mapping rows. Name, distance, and coordinate evidence stays in the pure
+`provider-mapping-candidate.ts` module until an admin sends an explicit command.
+
 ## Persistence invariants
 
 - Building, Floor, and Place use UUID primary keys. Provider mappings have a
-  separate `(provider, provider_object_id)` identity.
+  separate `(provider, provider_object_id)` identity with one active row at
+  most. The unique index and identity-scoped advisory lock make conflicting
+  concurrent commands fail closed.
+- Provider mapping decisions and actor-scoped idempotency results are private,
+  append-only ledgers. The active mapping is a replaceable projection; unlink
+  removes only that projection, while the previous target remains in the
+  decision ledger. RLS is enabled on all three provider-mapping tables, and
+  Supabase `anon`/`authenticated` grants are revoked when those roles exist.
 - Changesets, Place changes, Fact revisions, and revision provenance are
   append-only in PostgreSQL: ordinary `UPDATE`, `DELETE`, and `TRUNCATE`
   statements fail. Provenance source metadata cannot be updated, and referenced
@@ -131,18 +149,20 @@ publishing, so the bounded rollout cost is intentional.
 
 ## Hot query catalogue
 
-| Query                    | Shape                                            | Supporting index or key                         |
-| ------------------------ | ------------------------------------------------ | ----------------------------------------------- |
-| Place detail             | Current fact by `place_id`                       | Current fact primary key                        |
-| Building directory       | `building_id`, optional `pin_type`               | `campus_map_current_facts_building_type_idx`    |
-| Floor directory          | `building_id`, `floor_id`, optional `pin_type`   | `campus_map_current_facts_floor_type_idx`       |
-| Outdoor viewport         | longitude/latitude range                         | partial `campus_map_current_facts_geo_idx`      |
-| Building-anchor viewport | anchor longitude/latitude range                  | partial `campus_map_buildings_anchor_geo_idx`   |
-| Place history            | `place_id`, descending `created_at`, `id` cursor | `campus_map_fact_revisions_place_created_idx`   |
-| Changeset feed           | descending `published_at`, `id` cursor           | `campus_map_changesets_feed_idx`                |
-| Review feed              | review flag plus feed cursor                     | partial `campus_map_changesets_review_feed_idx` |
-| Provider lookup          | provider and provider object ID                  | `campus_map_provider_mappings_identity_uq`      |
-| Publish retry            | actor snapshot and idempotency key               | `campus_map_publish_requests_actor_key_uq`      |
+| Query                    | Shape                                            | Supporting index or key                             |
+| ------------------------ | ------------------------------------------------ | --------------------------------------------------- |
+| Place detail             | Current fact by `place_id`                       | Current fact primary key                            |
+| Building directory       | `building_id`, optional `pin_type`               | `campus_map_current_facts_building_type_idx`        |
+| Floor directory          | `building_id`, `floor_id`, optional `pin_type`   | `campus_map_current_facts_floor_type_idx`           |
+| Outdoor viewport         | longitude/latitude range                         | partial `campus_map_current_facts_geo_idx`          |
+| Building-anchor viewport | anchor longitude/latitude range                  | partial `campus_map_buildings_anchor_geo_idx`       |
+| Place history            | `place_id`, descending `created_at`, `id` cursor | `campus_map_fact_revisions_place_created_idx`       |
+| Changeset feed           | descending `published_at`, `id` cursor           | `campus_map_changesets_feed_idx`                    |
+| Review feed              | review flag plus feed cursor                     | partial `campus_map_changesets_review_feed_idx`     |
+| Provider lookup          | provider and provider object ID                  | `campus_map_provider_mappings_identity_uq`          |
+| Provider audit           | identity, ascending decision time and ID         | `campus_map_provider_mapping_events_identity_idx`   |
+| Mapping retry            | actor snapshot and idempotency key               | `campus_map_provider_mapping_requests_actor_key_uq` |
+| Publish retry            | actor snapshot and idempotency key               | `campus_map_publish_requests_actor_key_uq`          |
 
 Current Place list reads use one projection query and one batched provenance
 query per page; they do not issue per-Place queries. History and feed cursors
