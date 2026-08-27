@@ -12,6 +12,7 @@ import { pinmePublicationCompatibilityKey } from "./canteen-pinme-publication";
 import { resolveMenuSectionKey } from "./canteen-svg-keys";
 import {
   normalizeMealPeriods,
+  sortMenuProviderOccurrences,
   type MenuSnapshotScopeEvidence,
   type ProviderMenuObservation,
   type MenuItemPriceOptionInput,
@@ -310,6 +311,7 @@ export function buildPinmeMenuSyncPayload(
     Omit<ProviderMenuObservation["items"][number], "sortOrder">
   >();
   const serviceWindows = new Map<string, PinmeServiceWindow>();
+  let providerOccurrenceOrder = 0;
   for (const group of topology.groups) {
     assertValidPinmeProducts(group);
     const window = serviceWindow(group);
@@ -342,29 +344,82 @@ export function buildPinmeMenuSyncPayload(
       ) {
         continue;
       }
+      const categoryKey = resolveMenuSectionKey({
+        categoryName,
+        dishName: name,
+      });
+      const occurrencePriceOptions = priceOptions(product);
+      const itemSortOrder = providerOccurrenceOrder++;
       const occurrence = {
         externalProductId,
         name,
-        priceOptions: priceOptions(product),
+        priceOptions: [...occurrencePriceOptions],
         mealPeriods,
-        svgKey: resolveMenuSectionKey({ categoryName, dishName: name }),
+        svgKey: categoryKey,
+        occurrences: mealPeriods.map((mealPeriod) => ({
+          mealPeriod,
+          categoryKey,
+          sortOrder: itemSortOrder,
+          priceOptions: occurrencePriceOptions,
+        })),
       };
       const repeatedInGroup = occurrencesInGroup.get(externalProductId);
       if (repeatedInGroup) {
-        assertProviderMenuIdentityItems("pinme", [repeatedInGroup, occurrence]);
+        assertProviderMenuIdentityItems("pinme", [
+          {
+            externalProductId: repeatedInGroup.externalProductId,
+            name: repeatedInGroup.name,
+            priceOptions: repeatedInGroup.priceOptions,
+            mealPeriods: repeatedInGroup.mealPeriods,
+            svgKey: repeatedInGroup.svgKey,
+          },
+          {
+            externalProductId: occurrence.externalProductId,
+            name: occurrence.name,
+            priceOptions: occurrence.priceOptions,
+            mealPeriods: occurrence.mealPeriods,
+            svgKey: occurrence.svgKey,
+          },
+        ]);
       }
       occurrencesInGroup.set(externalProductId, occurrence);
 
       const existing = byProductId.get(externalProductId);
       if (existing) {
-        if (
-          existing.name !== occurrence.name ||
-          !samePriceOptions(existing.priceOptions, occurrence.priceOptions)
-        ) {
+        if (existing.name !== occurrence.name) {
           assertProviderMenuIdentityItems("pinme", [existing, occurrence]);
         }
-        if (occurrence.svgKey < existing.svgKey) {
-          existing.svgKey = occurrence.svgKey;
+        for (const nextOccurrence of occurrence.occurrences) {
+          const sameContext = existing.occurrences?.find(
+            (candidate) =>
+              candidate.mealPeriod === nextOccurrence.mealPeriod &&
+              candidate.categoryKey === nextOccurrence.categoryKey,
+          );
+          if (
+            sameContext &&
+            !samePriceOptions(
+              sameContext.priceOptions,
+              nextOccurrence.priceOptions,
+            )
+          ) {
+            assertProviderMenuIdentityItems("pinme", [existing, occurrence]);
+          }
+          if (!sameContext) existing.occurrences?.push(nextOccurrence);
+        }
+        for (const option of occurrence.priceOptions) {
+          if (
+            !existing.priceOptions.some(
+              (candidate) =>
+                candidate.amountMinor === option.amountMinor &&
+                candidate.currency === option.currency &&
+                candidate.label === option.label,
+            )
+          ) {
+            existing.priceOptions.push(option);
+          }
+        }
+        if (compareProviderText(categoryKey, existing.svgKey) < 0) {
+          existing.svgKey = categoryKey;
         }
         const mergedMealPeriods = normalizeMealPeriods([
           ...existing.mealPeriods,
@@ -379,6 +434,14 @@ export function buildPinmeMenuSyncPayload(
   }
   const items = [...byProductId.values()].map((item) => ({
     ...item,
+    priceOptions: item.priceOptions
+      .toSorted(
+        (left, right) =>
+          compareProviderText(left.label ?? "", right.label ?? "") ||
+          left.amountMinor - right.amountMinor ||
+          left.currency.localeCompare(right.currency),
+      )
+      .map((option, sortOrder) => ({ ...option, sortOrder })),
     sortOrder: 0,
   }));
   const normalizedServiceWindows = [...serviceWindows.entries()]
@@ -418,10 +481,19 @@ export function buildPinmeMenuSyncPayload(
       publicationKey: topology.publicationKey,
     };
   }
-  if (items.length > 0) assertProviderMenuIdentityItems("pinme", items);
+  const sortedItems = assignMealPeriodSortOrder(
+    items,
+    (item) => item.mealPeriods,
+  );
+  for (const item of sortedItems) {
+    item.occurrences = sortMenuProviderOccurrences(item.occurrences ?? []);
+  }
+  if (sortedItems.length > 0) {
+    assertProviderMenuIdentityItems("pinme", sortedItems);
+  }
   return {
     snapshotCompleteness: expectedMenuSnapshotCompleteness("pinme"),
-    items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),
+    items: sortedItems,
     scopeEvidence: {
       provider: "pinme",
       menuGroupCount: topology.menuGroupCount,

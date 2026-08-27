@@ -34,6 +34,7 @@ Architectural decision records (ADRs) explain why CUpedia accepted a durable bou
 - [0028: Use Supabase Cron as the primary menu-sync clock](0028-use-supabase-cron-as-primary-menu-sync-clock.md)
 - [0029: Bound Supabase pg_net transport evidence](0029-bound-supabase-pg-net-transport-evidence.md)
 - [0030: Stop scoped observations at bounded refresh horizons](0030-stop-scoped-observations-at-refresh-horizons.md)
+- [0031: Separate canonical dishes from provider offerings](0031-separate-canonical-dishes-from-provider-offerings.md)
 
 ## Maintain the index
 

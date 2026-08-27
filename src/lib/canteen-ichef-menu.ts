@@ -12,7 +12,10 @@ import type {
   MenuItemPriceOptionInput,
   ProviderMenuObservation,
 } from "@/lib/canteen-types";
-import { normalizeMealPeriods } from "@/lib/canteen-types";
+import {
+  normalizeMealPeriods,
+  sortMenuProviderOccurrences,
+} from "@/lib/canteen-types";
 
 const ICHEF_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -96,6 +99,7 @@ export function buildIchefMenuSyncPayload(
     string,
     Omit<ProviderMenuObservation["items"][number], "sortOrder">
   >();
+  let providerOccurrenceOrder = 0;
   for (const category of categories) {
     if (!category.uuid || !category.name) continue;
     const categoryPeriods = [...(periodsByCategory.get(category.uuid) ?? [])];
@@ -108,30 +112,65 @@ export function buildIchefMenuSyncPayload(
       ]);
       if (!ichefUuid || !name) continue;
       assertIchefProductUuid(ichefUuid);
+      const itemSortOrder = providerOccurrenceOrder++;
+      const categoryKey = resolveMenuSectionKey({
+        categoryName: category.name,
+        dishName: name,
+      });
+      const occurrencePriceOptions = [
+        {
+          label: null,
+          amountMinor: parseAmountMinor(item.price),
+          currency: "HKD",
+          sortOrder: 0,
+        },
+      ];
       const occurrence = {
         externalProductId: ichefUuid,
         name,
-        priceOptions: [
-          {
-            label: null,
-            amountMinor: parseAmountMinor(item.price),
-            currency: "HKD",
-            sortOrder: 0,
-          },
-        ],
+        priceOptions: [...occurrencePriceOptions],
         mealPeriods: categoryPeriods,
-        svgKey: resolveMenuSectionKey({
-          categoryName: category.name,
-          dishName: name,
-        }),
+        svgKey: categoryKey,
+        occurrences: categoryPeriods.map((mealPeriod) => ({
+          mealPeriod,
+          categoryKey,
+          sortOrder: itemSortOrder,
+          priceOptions: occurrencePriceOptions,
+        })),
       } satisfies Omit<ProviderMenuObservation["items"][number], "sortOrder">;
       const existing = byIchefUuid.get(ichefUuid);
       if (existing) {
-        if (
-          existing.name !== occurrence.name ||
-          !samePriceOptions(existing.priceOptions, occurrence.priceOptions)
-        ) {
+        if (existing.name !== occurrence.name) {
           assertProviderMenuIdentityItems("ichef", [existing, occurrence]);
+        }
+        for (const nextOccurrence of occurrence.occurrences) {
+          const sameContext = existing.occurrences?.find(
+            (candidate) =>
+              candidate.mealPeriod === nextOccurrence.mealPeriod &&
+              candidate.categoryKey === nextOccurrence.categoryKey,
+          );
+          if (
+            sameContext &&
+            !samePriceOptions(
+              sameContext.priceOptions,
+              nextOccurrence.priceOptions,
+            )
+          ) {
+            assertProviderMenuIdentityItems("ichef", [existing, occurrence]);
+          }
+          if (!sameContext) existing.occurrences?.push(nextOccurrence);
+        }
+        for (const option of occurrence.priceOptions) {
+          if (
+            !existing.priceOptions.some(
+              (candidate) =>
+                candidate.amountMinor === option.amountMinor &&
+                candidate.currency === option.currency &&
+                candidate.label === option.label,
+            )
+          ) {
+            existing.priceOptions.push(option);
+          }
         }
         if (compareProviderText(occurrence.svgKey, existing.svgKey) < 0) {
           existing.svgKey = occurrence.svgKey;
@@ -151,10 +190,21 @@ export function buildIchefMenuSyncPayload(
   const items = assignMealPeriodSortOrder(
     [...byIchefUuid.values()].map((item) => ({
       ...item,
+      priceOptions: item.priceOptions
+        .toSorted(
+          (left, right) =>
+            left.amountMinor - right.amountMinor ||
+            left.currency.localeCompare(right.currency) ||
+            (left.label ?? "").localeCompare(right.label ?? ""),
+        )
+        .map((option, sortOrder) => ({ ...option, sortOrder })),
       sortOrder: 0,
     })),
     (item) => item.mealPeriods,
   );
+  for (const item of items) {
+    item.occurrences = sortMenuProviderOccurrences(item.occurrences ?? []);
+  }
   if (items.length === 0) throw new Error("EMPTY_ICHEF_MENU");
   assertProviderMenuIdentityItems("ichef", items);
   return {

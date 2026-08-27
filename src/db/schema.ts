@@ -1896,6 +1896,13 @@ export type CanteenMenuSyncSnapshotPriceOption = {
   sortOrder: number;
 };
 
+export type CanteenMenuSyncSnapshotOccurrence = {
+  mealPeriod: MealPeriodAssignment;
+  categoryKey: string;
+  sortOrder: number;
+  priceOptions: CanteenMenuSyncSnapshotPriceOption[];
+};
+
 /** Immutable normalized provider evidence captured for one successful run. */
 export const canteenMenuSyncSnapshots = pgTable(
   "canteen_menu_sync_snapshots",
@@ -1995,6 +2002,10 @@ export const canteenMenuSyncSnapshotItems = pgTable(
       .notNull(),
     sortOrder: integer("sort_order").notNull(),
     svgKey: text("svg_key").notNull(),
+    occurrences: jsonb("occurrences")
+      .$type<CanteenMenuSyncSnapshotOccurrence[]>()
+      .notNull()
+      .default([]),
   },
   (table) => [
     primaryKey({ columns: [table.runId, table.externalProductId] }),
@@ -2025,6 +2036,8 @@ export const canteenMenuItems = pgTable(
       .notNull()
       .references(() => canteens.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    /** Width/whitespace/ASCII-case key for the user-recognizable dish. */
+    normalizedName: text("normalized_name"),
     price: integer("price"),
     mealPeriods: text("meal_periods")
       .array()
@@ -2047,6 +2060,7 @@ export const canteenMenuItems = pgTable(
   (table) => [
     index("canteen_menu_items_canteen_id_idx").on(table.canteenId),
     index("canteen_menu_items_menu_source_id_idx").on(table.menuSourceId),
+    unique("canteen_menu_items_id_canteen_uq").on(table.id, table.canteenId),
     uniqueIndex("canteen_menu_items_source_product_uidx")
       .on(table.menuSourceId, table.externalProductId)
       .where(
@@ -2174,6 +2188,92 @@ export const canteenMenuItemPricesRelations = relations(
     }),
   }),
 );
+
+/** One upstream product/setting ID mapped to one canonical CUpedia dish UUID. */
+export const canteenMenuProviderOfferings = pgTable(
+  "canteen_menu_provider_offerings",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    canteenId: uuid("canteen_id").notNull(),
+    menuSourceId: uuid("menu_source_id").notNull(),
+    menuItemId: uuid("menu_item_id").notNull(),
+    externalProductId: text("external_product_id").notNull(),
+    providerName: text("provider_name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    isAvailable: boolean("is_available").notNull().default(true),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("canteen_menu_provider_offerings_source_product_uq").on(
+      table.menuSourceId,
+      table.externalProductId,
+    ),
+    index("canteen_menu_provider_offerings_item_idx").on(table.menuItemId),
+    index("canteen_menu_provider_offerings_source_name_idx").on(
+      table.menuSourceId,
+      table.normalizedName,
+    ),
+    foreignKey({
+      columns: [table.menuSourceId, table.canteenId],
+      foreignColumns: [canteenMenuSources.id, canteenMenuSources.canteenId],
+      name: "canteen_menu_provider_offerings_source_canteen_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.menuItemId, table.canteenId],
+      foreignColumns: [canteenMenuItems.id, canteenMenuItems.canteenId],
+      name: "canteen_menu_provider_offerings_item_canteen_fk",
+    }).onDelete("cascade"),
+    check(
+      "canteen_menu_provider_offerings_external_id_chk",
+      sql`length(trim(${table.externalProductId})) between 1 and 200`,
+    ),
+    check(
+      "canteen_menu_provider_offerings_name_chk",
+      sql`length(trim(${table.providerName})) between 1 and 200 and length(trim(${table.normalizedName})) between 1 and 200`,
+    ),
+  ],
+).enableRLS();
+
+/** Current provider facts for one offering in one meal-period occurrence. */
+export const canteenMenuOfferingOccurrences = pgTable(
+  "canteen_menu_offering_occurrences",
+  {
+    offeringId: uuid("offering_id")
+      .notNull()
+      .references(() => canteenMenuProviderOfferings.id, {
+        onDelete: "cascade",
+      }),
+    mealPeriod: text("meal_period").$type<MealPeriodAssignment>().notNull(),
+    categoryKey: text("category_key").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    priceOptions: jsonb("price_options")
+      .$type<CanteenMenuSyncSnapshotPriceOption[]>()
+      .notNull()
+      .default([]),
+    observedAt: timestamp("observed_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.offeringId, table.mealPeriod, table.categoryKey],
+    }),
+    index("canteen_menu_offering_occurrences_period_idx").on(
+      table.mealPeriod,
+      table.offeringId,
+    ),
+    check(
+      "canteen_menu_offering_occurrences_period_chk",
+      sql`${table.mealPeriod} in ('breakfast', 'lunch', 'dinner', 'allday')`,
+    ),
+    check(
+      "canteen_menu_offering_occurrences_category_chk",
+      sql`length(trim(${table.categoryKey})) between 1 and 200`,
+    ),
+  ],
+).enableRLS();
 
 export const VOTE_VALUES = ["like", "dislike"] as const;
 export type VoteValue = (typeof VOTE_VALUES)[number];

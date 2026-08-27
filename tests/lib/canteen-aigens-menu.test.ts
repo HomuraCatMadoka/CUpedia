@@ -103,6 +103,10 @@ describe("Aigens menu adapter", () => {
       svgKey: "飯類",
       priceOptions: [{ amountMinor: 3800 }],
     });
+    expect(payload.items[0].occurrences).toEqual([
+      expect.objectContaining({ mealPeriod: "lunch", categoryKey: "飯類" }),
+      expect.objectContaining({ mealPeriod: "dinner", categoryKey: "飯類" }),
+    ]);
   });
 
   it("collapses a 102830-shaped 102 occurrences into 76 backend products", () => {
@@ -239,7 +243,7 @@ describe("Aigens menu adapter", () => {
     );
   });
 
-  it("materializes coalesced categories independently of provider order", () => {
+  it("retains provider category order as occurrence sort evidence", () => {
     const categories = [
       { name: "Z 套餐", periods: ["L"], groupIds: ["regular"] },
       { name: "A 茶餐", periods: ["T"], groupIds: ["tea"] },
@@ -259,7 +263,17 @@ describe("Aigens menu adapter", () => {
         data: { menu: { categories: orderedCategories, groups } },
       });
 
-    expect(build(categories.toReversed())).toEqual(build(categories));
+    const forward = build(categories).items[0];
+    const reversed = build(categories.toReversed()).items[0];
+    expect(forward.priceOptions).toEqual(reversed.priceOptions);
+    expect(forward.occurrences?.map((item) => item.categoryKey)).toEqual([
+      "Z 套餐",
+      "A 茶餐",
+    ]);
+    expect(reversed.occurrences?.map((item) => item.categoryKey)).toEqual([
+      "A 茶餐",
+      "Z 套餐",
+    ]);
   });
 
   it("fails closed when one category context publishes two prices", () => {

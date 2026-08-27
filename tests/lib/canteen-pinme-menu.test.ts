@@ -361,7 +361,19 @@ describe("PINME menu adapter", () => {
       mealPeriods: fixture.expectedPeriods,
       svgKey: [fixture.firstCategory, fixture.secondCategory].sort()[0],
     });
-    expect(reversed).toEqual(result);
+    expect(reversed.items[0]).toMatchObject({
+      externalProductId: fixture.productId,
+      name: fixture.name,
+      priceOptions: result.items[0].priceOptions,
+      mealPeriods: fixture.expectedPeriods,
+      svgKey: result.items[0].svgKey,
+    });
+    expect(result.items[0].occurrences?.[0].categoryKey).toBe(
+      fixture.firstCategory,
+    );
+    expect(reversed.items[0].occurrences?.[0].categoryKey).toBe(
+      fixture.secondCategory,
+    );
   });
 
   it("coalesces semantically equal price options in either provider order", () => {
@@ -605,21 +617,32 @@ describe("PINME menu adapter", () => {
     );
   });
 
-  it("fails closed when repeated product categories disagree on price", () => {
-    expect(() =>
-      buildPinmeMenuSyncPayload(
-        pinmePayload([
-          {
-            local_name: "A",
-            products: [{ product_id: "42", local_name: "菜品 A", price: 10 }],
-          },
-          {
-            local_name: "B",
-            products: [{ product_id: "42", local_name: "菜品 A", price: 20 }],
-          },
-        ]),
-      ),
-    ).toThrowError(expect.objectContaining({ code: "COLLIDING_IDENTITY" }));
+  it("retains category-specific prices for one product identity", () => {
+    const result = buildPinmeMenuSyncPayload(
+      pinmePayload([
+        {
+          local_name: "A",
+          products: [{ product_id: "42", local_name: "菜品 A", price: 10 }],
+        },
+        {
+          local_name: "B",
+          products: [{ product_id: "42", local_name: "菜品 A", price: 20 }],
+        },
+      ]),
+    );
+
+    expect(result.items[0].occurrences).toEqual([
+      expect.objectContaining({
+        mealPeriod: "allday",
+        categoryKey: "A",
+        priceOptions: [expect.objectContaining({ amountMinor: 1000 })],
+      }),
+      expect.objectContaining({
+        mealPeriod: "allday",
+        categoryKey: "B",
+        priceOptions: [expect.objectContaining({ amountMinor: 2000 })],
+      }),
+    ]);
   });
   it("creates deterministic signed anonymous token params", () => {
     expect(Object.fromEntries(createPinmeSignedParams("5500", 123))).toEqual({

@@ -12,10 +12,11 @@ import {
   menuObservationCanProjectActivity,
   menuSyncWindowAt,
 } from "./canteen-menu-sync-window";
-import type {
-  MenuObservationContext,
-  MenuSyncItemInput,
-  ProviderMenuObservation,
+import {
+  menuProviderOccurrences,
+  type MenuObservationContext,
+  type MenuSyncItemInput,
+  type ProviderMenuObservation,
 } from "./canteen-types";
 
 const HKT_OFFSET_MS = 8 * 60 * 60 * 1_000;
@@ -27,7 +28,8 @@ export type MenuSyncSnapshotChangedField =
   | "priceOptions"
   | "mealPeriods"
   | "sortOrder"
-  | "svgKey";
+  | "svgKey"
+  | "occurrences";
 
 export type MenuSyncSnapshotComparison = {
   sourceId: string;
@@ -99,6 +101,7 @@ export async function insertMenuSyncSnapshot(
       mealPeriods: item.mealPeriods,
       sortOrder: item.sortOrder,
       svgKey: item.svgKey,
+      occurrences: menuProviderOccurrences(item),
     })),
   );
 }
@@ -195,6 +198,16 @@ export async function readLatestAcceptedMenuPeriodItems(
           mealPeriods: [mealPeriod as MealPeriod],
           sortOrder: row.sortOrder,
           svgKey: row.svgKey,
+          occurrences: row.occurrences
+            .filter(
+              (occurrence) =>
+                occurrence.mealPeriod === "allday" ||
+                occurrence.mealPeriod === mealPeriod,
+            )
+            .map((occurrence) => ({
+              ...structuredClone(occurrence),
+              mealPeriod: mealPeriod as MealPeriod,
+            })),
         })),
     ]),
   );
@@ -272,6 +285,9 @@ function changedFields(
   }
   if (before.sortOrder !== after.sortOrder) fields.push("sortOrder");
   if (before.svgKey !== after.svgKey) fields.push("svgKey");
+  if (!sameJson(before.occurrences, after.occurrences)) {
+    fields.push("occurrences");
+  }
   return fields;
 }
 

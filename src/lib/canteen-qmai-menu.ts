@@ -12,6 +12,7 @@ import type {
   MenuItemPriceOptionInput,
   ProviderMenuObservation,
 } from "@/lib/canteen-types";
+import { sortMenuProviderOccurrences } from "@/lib/canteen-types";
 
 type JsonObject = Record<string, unknown>;
 
@@ -161,6 +162,7 @@ export function buildQmaiMenuSyncPayload(
     string,
     ProviderMenuObservation["items"][number]
   >();
+  let providerOccurrenceOrder = 0;
   for (const categoryValue of data.categoryItems) {
     const category = object(categoryValue);
     if (!category || Number(category.available ?? 1) === 0) continue;
@@ -178,17 +180,64 @@ export function buildQmaiMenuSyncPayload(
       if (!externalProductId || !name) continue;
       const options = priceOptions(item);
       if (options.length === 0) continue;
+      const itemSortOrder = providerOccurrenceOrder++;
       const periods = mealPeriods(item, observedMealPeriod);
+      const categoryKey = resolveMenuSectionKey({
+        categoryName,
+        dishName: name,
+      });
+      const occurrenceFacts = periods.map((mealPeriod) => ({
+        mealPeriod,
+        categoryKey,
+        sortOrder: itemSortOrder,
+        priceOptions: options,
+      }));
       const existing = candidates.get(externalProductId);
       if (existing) {
-        const svgKey = resolveMenuSectionKey({ categoryName, dishName: name });
-        assertCompatibleProviderIdentityOccurrence("qmai", existing, {
-          externalProductId,
-          name,
-          priceOptions: options,
-          mealPeriods: periods,
-          svgKey,
-        });
+        const sameCategoryOccurrences = existing.occurrences?.filter(
+          (occurrence) => occurrence.categoryKey === categoryKey,
+        );
+        if (sameCategoryOccurrences?.length) {
+          assertCompatibleProviderIdentityOccurrence(
+            "qmai",
+            {
+              ...existing,
+              priceOptions: sameCategoryOccurrences[0].priceOptions,
+              mealPeriods: sameCategoryOccurrences.map(
+                (occurrence) => occurrence.mealPeriod,
+              ),
+            },
+            {
+              externalProductId,
+              name,
+              priceOptions: options,
+              mealPeriods: periods,
+              svgKey: categoryKey,
+            },
+          );
+        }
+        if (existing.name !== name) {
+          assertProviderMenuIdentityItems("qmai", [
+            existing,
+            { externalProductId, name },
+          ]);
+        }
+        existing.occurrences?.push(...occurrenceFacts);
+        for (const option of options) {
+          if (
+            !existing.priceOptions.some(
+              (candidate) =>
+                candidate.label === option.label &&
+                candidate.amountMinor === option.amountMinor &&
+                candidate.currency === option.currency,
+            )
+          ) {
+            existing.priceOptions.push(option);
+          }
+        }
+        if (categoryKey.localeCompare(existing.svgKey) < 0) {
+          existing.svgKey = categoryKey;
+        }
         existing.mealPeriods = [
           ...new Set([...existing.mealPeriods, ...periods]),
         ];
@@ -200,16 +249,24 @@ export function buildQmaiMenuSyncPayload(
         priceOptions: options,
         mealPeriods: periods,
         sortOrder: 0,
-        svgKey: resolveMenuSectionKey({ categoryName, dishName: name }),
+        svgKey: categoryKey,
+        occurrences: occurrenceFacts,
       });
     }
   }
   const items = [...candidates.values()];
   if (items.length === 0) throw new Error("EMPTY_QMAI_MENU");
   assertProviderMenuIdentityItems("qmai", items);
+  const sortedItems = assignMealPeriodSortOrder(
+    items,
+    (item) => item.mealPeriods,
+  );
+  for (const item of sortedItems) {
+    item.occurrences = sortMenuProviderOccurrences(item.occurrences ?? []);
+  }
   return {
     snapshotCompleteness: expectedMenuSnapshotCompleteness("qmai"),
     observationScope: { kind: "meal-period", mealPeriod: observedMealPeriod },
-    items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),
+    items: sortedItems,
   };
 }

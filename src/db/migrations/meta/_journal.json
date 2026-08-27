@@ -680,6 +680,13 @@
       "when": 1787810000000,
       "tag": "0096_confirm-empty-menu-health",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1787814309979,
+      "tag": "0097_canteen-canonical-provider-offerings",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import {
 } from "@/lib/canteen-aigens-parse";
 import { assertProviderMenuIdentityItems } from "./canteen-provider-menu-identity";
 import { expectedMenuSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
+import { sortMenuProviderOccurrences } from "./canteen-types";
 import type {
   MenuSnapshotScopeEvidence,
   MenuSyncInput,
@@ -28,9 +29,14 @@ export function buildAigensMenuSyncPayload(
       mealPeriods: product.periods,
       sortOrder: 0,
       svgKey: product.svgKey,
+      occurrences: product.occurrences,
     })),
     (item) => item.mealPeriods,
   );
+
+  for (const item of items) {
+    item.occurrences = sortMenuProviderOccurrences(item.occurrences);
+  }
 
   assertProviderMenuIdentityItems("aigens", items);
 

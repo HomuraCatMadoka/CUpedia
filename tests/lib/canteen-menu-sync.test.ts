@@ -113,6 +113,138 @@ describe("menu sync planner", () => {
     ]);
   });
 
+  it("creates one canonical dish for same-name provider offerings", () => {
+    const twoOfferings = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
+      items: [
+        {
+          externalProductId: "product-breakfast",
+          name: "芝士奶蓋可可",
+          mealPeriods: ["breakfast"],
+          price: 26,
+        },
+        {
+          externalProductId: "product-dinner",
+          name: "芝士奶蓋可可",
+          mealPeriods: ["dinner"],
+          price: 28,
+        },
+      ],
+    });
+
+    const plan = planMenuSync(
+      SOURCE_ID,
+      projectSingleMenuObservation(twoOfferings),
+      [],
+    );
+
+    expect(plan.actions).toHaveLength(1);
+    expect(plan.actions[0]).toMatchObject({
+      action: "create",
+      name: "芝士奶蓋可可",
+      externalProductIds: ["product-breakfast", "product-dinner"],
+    });
+    expect(plan.canonicalItems).toHaveLength(1);
+    expect(plan.canonicalItems[0].mealPeriods).toEqual(["breakfast", "dinner"]);
+  });
+
+  it("attaches a new same-name offering to the existing canonical UUID", () => {
+    const sameDish = parseMenuSyncJson({
+      snapshotCompleteness: "partial",
+      items: [
+        { externalProductId: "old-id", name: "阿拉丁之茶" },
+        { externalProductId: "new-id", name: "阿拉丁之茶", price: 31 },
+      ],
+    });
+    const plan = planMenuSync(
+      SOURCE_ID,
+      projectSingleMenuObservation(sameDish),
+      [
+        existing({
+          name: "阿拉丁之茶",
+          menuSourceId: SOURCE_ID,
+          externalProductId: "old-id",
+          externalProductIds: ["old-id"],
+        }),
+      ],
+    );
+
+    expect(plan.actions).toEqual([
+      expect.objectContaining({
+        action: "update",
+        itemId: "item-1",
+        externalProductIds: ["old-id", "new-id"],
+      }),
+    ]);
+  });
+
+  it("blocks when same-name offerings already point at different UUIDs", () => {
+    const sameDish = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
+      items: [
+        { externalProductId: "old-a", name: "重複菜" },
+        { externalProductId: "old-b", name: "重複菜" },
+      ],
+    });
+    const plan = planMenuSync(
+      SOURCE_ID,
+      projectSingleMenuObservation(sameDish),
+      [
+        existing({
+          id: "item-a",
+          name: "重複菜",
+          menuSourceId: SOURCE_ID,
+          externalProductId: "old-a",
+          externalProductIds: ["old-a"],
+        }),
+        existing({
+          id: "item-b",
+          name: "重複菜",
+          menuSourceId: SOURCE_ID,
+          externalProductId: "old-b",
+          externalProductIds: ["old-b"],
+        }),
+      ],
+    );
+
+    expect(plan.actions).toEqual([]);
+    expect(plan.conflicts).toEqual([
+      expect.objectContaining({
+        reason: "MULTIPLE_CANONICAL_DISHES",
+        candidateIds: ["item-a", "item-b"],
+      }),
+    ]);
+  });
+
+  it("blocks when one canonical UUID is simultaneously published under different names", () => {
+    const divergent = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
+      items: [
+        { externalProductId: "id-a", name: "原名稱" },
+        { externalProductId: "id-b", name: "新名稱" },
+      ],
+    });
+    const plan = planMenuSync(
+      SOURCE_ID,
+      projectSingleMenuObservation(divergent),
+      [
+        existing({
+          name: "原名稱",
+          menuSourceId: SOURCE_ID,
+          externalProductId: "id-a",
+          externalProductIds: ["id-a", "id-b"],
+        }),
+      ],
+    );
+
+    expect(plan.conflicts).toEqual([
+      expect.objectContaining({
+        reason: "CANONICAL_DISH_NAME_DIVERGENCE",
+        candidateIds: ["item-1"],
+      }),
+    ]);
+  });
+
   it("deactivates missing managed rows but leaves manual rows alone", () => {
     const plan = planMenuSync(
       SOURCE_ID,
