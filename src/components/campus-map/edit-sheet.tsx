@@ -494,7 +494,98 @@ export function CampusMapEditSheet({
     );
   }
 
+  if (
+    session.status === "publish-unknown" ||
+    session.status === "publish-identity" ||
+    session.status === "publish-recovery-unavailable" ||
+    session.status === "authentication-required"
+  ) {
+    const identityMismatch =
+      session.status === "publish-identity" &&
+      session.publishFeedbackReason === "identity-mismatch";
+    const identityUnavailable =
+      session.status === "publish-identity" &&
+      session.publishFeedbackReason === "identity-unavailable";
+    const lockUnavailable =
+      session.status === "publish-recovery-unavailable" &&
+      session.publishFeedbackReason === "receipt-lock-unavailable";
+    const callbackUrl =
+      typeof window === "undefined"
+        ? "/prototype/campus-map"
+        : `${window.location.pathname}${window.location.search}`;
+    const title =
+      session.status === "publish-unknown"
+        ? "正在确认发布结果"
+        : session.status === "authentication-required"
+          ? "请先登录"
+          : identityMismatch
+            ? "无法恢复这次编辑"
+            : identityUnavailable
+              ? "正在等待身份确认"
+              : "当前无法恢复发布";
+    const description =
+      session.status === "publish-unknown"
+        ? "你的修改已经保留。我们会先确认刚才的发布结果，不会重复添加地点。"
+        : session.status === "authentication-required"
+          ? "登录后会回到这份草稿，但不会自动发布。"
+          : identityMismatch
+            ? "当前账号与原发布账号不同。为保护隐私，这里不会显示原草稿。"
+            : identityUnavailable
+              ? "暂时无法确认当前登录状态。为保护隐私，这里不会显示草稿。"
+              : lockUnavailable
+                ? "当前浏览器无法安全恢复这次发布。你的修改已经保留，你可以继续编辑。"
+                : "当前浏览器无法保存恢复状态。你的修改已经保留，请稍后再回来。";
+    return (
+      <div
+        className="grid gap-3 p-5"
+        role="status"
+        data-edit-field="publish-feedback"
+        tabIndex={-1}
+      >
+        <h2 id="campus-map-panel-title" className="text-xl font-semibold">
+          {title}
+        </h2>
+        <p className="text-sm leading-6 text-neutral-600">{description}</p>
+        {session.status === "authentication-required" ? (
+          <Link
+            className={cn(
+              primaryClass,
+              "inline-flex items-center justify-center",
+            )}
+            href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+          >
+            前往登录
+          </Link>
+        ) : session.status === "publish-unknown" || identityUnavailable ? (
+          <button
+            type="button"
+            className={primaryClass}
+            onClick={() => onEvent({ type: "CHECK_PUBLISH_RESULT" })}
+          >
+            {identityUnavailable ? "检查登录状态" : "检查发布结果"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={primaryClass}
+            onClick={() =>
+              onEvent({
+                type: identityMismatch ? "RETURN_LATER" : "CONTINUE_EDITING",
+              })
+            }
+          >
+            {identityMismatch ? "返回地图" : "继续编辑"}
+          </button>
+        )}
+      </div>
+    );
+  }
+
   const isPlacing = session.status === "placing";
+  const showFixedFooter =
+    isPlacing ||
+    session.status === "editing" ||
+    session.status === "publishing";
   const placementPosition =
     draft.placementCandidate ??
     ({
@@ -689,29 +780,6 @@ export function CampusMapEditSheet({
         </div>
       );
     }
-    if (session.status === "authentication-required") {
-      const callbackUrl =
-        typeof window === "undefined"
-          ? "/prototype/campus-map"
-          : `${window.location.pathname}${window.location.search}`;
-      return (
-        <div
-          className="rounded-xl border bg-neutral-50 p-3 text-sm"
-          role="status"
-        >
-          <p>登录后会回到这份草稿，但不会自动发布。</p>
-          <Link
-            className={cn(
-              primaryClass,
-              "mt-3 inline-flex items-center justify-center",
-            )}
-            href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-          >
-            前往登录
-          </Link>
-        </div>
-      );
-    }
     if (session.status === "forbidden") {
       const messages = {
         "actor-banned": "账号已被封禁，暂时不能发布地点资料。",
@@ -725,6 +793,8 @@ export function CampusMapEditSheet({
         <div
           className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-950"
           role="alert"
+          data-edit-field="publish-feedback"
+          tabIndex={-1}
         >
           <p className="font-semibold">无法发布</p>
           <p className="mt-1">
@@ -742,6 +812,15 @@ export function CampusMapEditSheet({
               完善账户后继续
             </button>
           )}
+          {session.forbiddenCode !== "profile-incomplete" && (
+            <button
+              type="button"
+              className={cn(primaryClass, "mt-3")}
+              onClick={() => onEvent({ type: "CONTINUE_EDITING" })}
+            >
+              继续编辑
+            </button>
+          )}
         </div>
       );
     }
@@ -750,6 +829,8 @@ export function CampusMapEditSheet({
         <div
           className="rounded-xl border bg-neutral-50 p-3 text-sm"
           role="status"
+          data-edit-field="publish-feedback"
+          tabIndex={-1}
         >
           发布太频繁，请在 {Math.ceil(session.retryAfter ?? 0)} 秒后重试。
           <button
@@ -768,14 +849,17 @@ export function CampusMapEditSheet({
         <div
           className="rounded-xl border bg-neutral-50 p-3 text-sm"
           role="status"
+          data-edit-field="publish-feedback"
+          tabIndex={-1}
         >
-          服务暂时不可用。重试会沿用同一个发布识别码，不会复制地点。
+          <p className="font-semibold">暂时无法发布</p>
+          <p className="mt-1">你的修改已保存在这个浏览器中，可以稍后重试。</p>
           <button
             type="button"
             className={cn(primaryClass, "mt-3")}
             onClick={() => onEvent({ type: "RETRY_PUBLISH" })}
           >
-            安全重试
+            重试发布
           </button>
         </div>
       );
@@ -958,7 +1042,10 @@ export function CampusMapEditSheet({
         </p>
       </div>
       <div
-        className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-28 md:space-y-4 md:px-5 md:py-4"
+        className={cn(
+          "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 md:space-y-4 md:px-5 md:py-4",
+          showFixedFooter ? "pb-28" : "pb-5",
+        )}
         aria-busy={session.status === "publishing"}
         inert={session.status === "publishing" ? true : undefined}
       >
@@ -1068,40 +1155,42 @@ export function CampusMapEditSheet({
           </fieldset>
         </div>
       </div>
-      <div className="absolute inset-x-0 bottom-0 border-t bg-white px-4 pt-4 pb-[max(16px,env(safe-area-inset-bottom))] md:rounded-b-2xl md:pb-4">
-        <button
-          type="button"
-          className={primaryClass}
-          disabled={
-            isPlacing
-              ? placementPending
-              : session.status !== "editing" || !isCampusMapEditDirty(session)
-          }
-          onClick={() =>
-            onEvent(
+      {showFixedFooter ? (
+        <div className="absolute inset-x-0 bottom-0 border-t bg-white px-4 pt-4 pb-[max(16px,env(safe-area-inset-bottom))] md:rounded-b-2xl md:pb-4">
+          <button
+            type="button"
+            className={primaryClass}
+            disabled={
               isPlacing
-                ? { type: "CONFIRM_POSITION", position: placementPosition }
-                : {
-                    type: "REQUEST_PUBLISH",
-                    accessedOn: today(),
-                    ...(serverRequiredFields
-                      ? { requiredFields: serverRequiredFields }
-                      : {}),
-                  },
-            )
-          }
-        >
-          {isPlacing
-            ? placementPending
-              ? "正在确定位置…"
-              : "使用此位置"
-            : session.status === "publishing"
-              ? "正在发布…"
-              : draft.mode === "add"
-                ? "发布设施"
-                : "发布修改"}
-        </button>
-      </div>
+                ? placementPending
+                : session.status !== "editing" || !isCampusMapEditDirty(session)
+            }
+            onClick={() =>
+              onEvent(
+                isPlacing
+                  ? { type: "CONFIRM_POSITION", position: placementPosition }
+                  : {
+                      type: "REQUEST_PUBLISH",
+                      accessedOn: today(),
+                      ...(serverRequiredFields
+                        ? { requiredFields: serverRequiredFields }
+                        : {}),
+                    },
+              )
+            }
+          >
+            {isPlacing
+              ? placementPending
+                ? "正在确定位置…"
+                : "使用此位置"
+              : session.status === "publishing"
+                ? "正在发布…"
+                : draft.mode === "add"
+                  ? "发布设施"
+                  : "发布修改"}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

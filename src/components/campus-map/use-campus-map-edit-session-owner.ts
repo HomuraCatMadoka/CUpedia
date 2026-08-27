@@ -9,9 +9,10 @@ import {
 } from "@/lib/campus-map/edit-actions";
 import {
   decodeCampusMapEditSnapshot,
+  deriveCampusMapPublishCommand,
   encodeCampusMapEditSnapshot,
   isCampusMapEditDirty,
-  deriveCampusMapPublishCommand,
+  isCampusMapPublishOutcomePending,
   transitionCampusMapEdit,
   type CampusMapEditDraft,
   type CampusMapEditEvent,
@@ -30,6 +31,18 @@ import type {
 
 const SNAPSHOT_KEY = "cupedia:campus-map:edit-session:v1";
 const CONFLICT_DISPLAY_TIMEOUT_MS = 1_500;
+
+function removeSnapshotForPublish(idempotencyKey: string) {
+  const encoded = window.sessionStorage.getItem(SNAPSHOT_KEY);
+  if (!encoded) return;
+  const snapshot = decodeCampusMapEditSnapshot(encoded);
+  if (
+    snapshot.status === "restored" &&
+    snapshot.session.draft.idempotencyKey === idempotencyKey
+  ) {
+    window.sessionStorage.removeItem(SNAPSHOT_KEY);
+  }
+}
 
 function conflictDisplayTarget(
   result: CampusMapPublishResult,
@@ -99,9 +112,60 @@ export function useCampusMapEditSessionOwner({
   const mountedRef = useRef(false);
   const [announcement, setAnnouncement] = useState("");
   const [restoreNotice, setRestoreNotice] = useState("");
+  const clearStalePublishingAnnouncement = useCallback(
+    (idempotencyKey: string) => {
+      const intentToken = driver.getIntentToken();
+      const clear = (current: string) =>
+        current === "正在发布地点资料" ? "" : current;
+      setAnnouncement(clear);
+      window.requestAnimationFrame(() => {
+        const current = sessionRef.current;
+        if (
+          driver.getIntentToken() !== intentToken ||
+          (current && current.draft.idempotencyKey !== idempotencyKey)
+        ) {
+          return;
+        }
+        setAnnouncement(clear);
+      });
+    },
+    [driver],
+  );
+  const releaseSupersededPublish = useCallback(
+    (idempotencyKey: string) => {
+      const current = sessionRef.current;
+      if (current && current.draft.idempotencyKey !== idempotencyKey) {
+        return;
+      }
+      if (current) {
+        sessionRef.current = null;
+        setSession(null);
+      }
+      removeSnapshotForPublish(idempotencyKey);
+      clearStalePublishingAnnouncement(idempotencyKey);
+    },
+    [clearStalePublishingAnnouncement],
+  );
 
   const applyPublishOutcome = useCallback(
-    async (idempotencyKey: string, outcome: CampusMapPublishReceiptOutcome) => {
+    async (
+      idempotencyKey: string,
+      intentToken: number,
+      outcome: CampusMapPublishReceiptOutcome,
+    ) => {
+      if (sessionRef.current?.draft.idempotencyKey !== idempotencyKey) {
+        return;
+      }
+      if (
+        (outcome.status === "recoverable" &&
+          (outcome.reason === "superseded" ||
+            outcome.reason === "projection-superseded")) ||
+        (outcome.status !== "applied" &&
+          driver.getIntentToken() !== intentToken)
+      ) {
+        releaseSupersededPublish(idempotencyKey);
+        return;
+      }
       if (
         outcome.status === "applied" ||
         outcome.status === "already-consumed"
@@ -118,19 +182,27 @@ export function useCampusMapEditSessionOwner({
         });
         return;
       }
-      const result =
-        outcome.status === "publish-result"
-          ? outcome.result
-          : {
-              status: "temporarily-unavailable" as const,
-              code: "publish-unavailable" as const,
-              retryable: true as const,
-            };
+      if (outcome.status === "recoverable") {
+        dispatcherRef.current({
+          type: "PUBLISH_RECOVERY_RESULT",
+          idempotencyKey,
+          reason: outcome.reason,
+        });
+        return;
+      }
+      const result = outcome.result;
       const draft = sessionRef.current?.draft;
       const target = draft ? conflictDisplayTarget(result, draft) : null;
       const conflictLocationDisplay = target
         ? await loadConflictLocationDisplay(target)
         : null;
+      if (
+        sessionRef.current?.draft.idempotencyKey !== idempotencyKey ||
+        driver.getIntentToken() !== intentToken
+      ) {
+        releaseSupersededPublish(idempotencyKey);
+        return;
+      }
       dispatcherRef.current({
         type: "PUBLISH_RESULT",
         idempotencyKey,
@@ -138,7 +210,7 @@ export function useCampusMapEditSessionOwner({
         conflictLocationDisplay,
       });
     },
-    [dispatch, driver],
+    [dispatch, driver, releaseSupersededPublish],
   );
 
   const applyEvent = useCallback(
@@ -171,25 +243,48 @@ export function useCampusMapEditSessionOwner({
         } else if (command.kind === "camera") {
           driver.recenterEditPosition(command.position, "reposition");
         } else if (command.kind === "focus") {
-          if (command.target === "form-heading") {
-            driver.focusContributionForm();
-          } else {
-            driver.focusEditField(command.target);
-          }
+          const intentToken = driver.getIntentToken();
+          window.setTimeout(() => {
+            if (
+              sessionRef.current !== transition.session ||
+              driver.getIntentToken() !== intentToken
+            ) {
+              return;
+            }
+            if (command.target === "form-heading") {
+              driver.focusContributionForm();
+            } else {
+              driver.focusEditField(command.target);
+            }
+          }, 0);
         } else if (command.kind === "announce") {
+          const intentToken = driver.getIntentToken();
           setAnnouncement("");
-          window.requestAnimationFrame(() => setAnnouncement(command.message));
+          window.requestAnimationFrame(() => {
+            if (
+              sessionRef.current !== transition.session ||
+              driver.getIntentToken() !== intentToken
+            ) {
+              return;
+            }
+            setAnnouncement(command.message);
+          });
         } else if (command.kind === "publish") {
           const idempotencyKey = command.command.idempotencyKey;
+          const intentToken = driver.getIntentToken();
           const transport =
-            previousSession?.status === "temporarily-unavailable"
+            previousSession?.status === "temporarily-unavailable" ||
+            previousSession?.status === "publish-unknown" ||
+            previousSession?.status === "publish-identity" ||
+            previousSession?.status === "publish-recovery-unavailable"
               ? undefined
               : (actorId: string) =>
                   publishCampusMapEdit(command.command, actorId);
           void recoverPublish(command.command, transport).then(
-            (outcome) => applyPublishOutcome(idempotencyKey, outcome),
+            (outcome) =>
+              applyPublishOutcome(idempotencyKey, intentToken, outcome),
             () =>
-              applyPublishOutcome(idempotencyKey, {
+              applyPublishOutcome(idempotencyKey, intentToken, {
                 status: "recoverable",
                 reason: "reconciliation-unavailable",
               }),
@@ -337,10 +432,12 @@ export function useCampusMapEditSessionOwner({
         ? restored.session.draft.mode === "add"
         : restored.session.draft.mode === "edit" &&
           restored.session.draft.placeId === urlSession.task.placeId);
-    const matchesUrlTask =
-      restored.session.status === "publishing"
-        ? matchesExactUrlTask
-        : urlSession.mode !== "task" || matchesExactUrlTask;
+    const isRecoveringPublish = isCampusMapPublishOutcomePending(
+      restored.session.status,
+    );
+    const matchesUrlTask = isRecoveringPublish
+      ? matchesExactUrlTask
+      : urlSession.mode !== "task" || matchesExactUrlTask;
     if (!matchesUrlTask) {
       window.sessionStorage.removeItem(SNAPSHOT_KEY);
       dispatch({ type: "CANCEL_TASK" });
@@ -364,9 +461,29 @@ export function useCampusMapEditSessionOwner({
           encodeCampusMapEditSnapshot(next!),
         );
       }
+      if (next && driver.getSnapshot().session.mode !== "task") {
+        dispatch(
+          next.draft.mode === "add"
+            ? { type: "START_CREATE" }
+            : { type: "START_EDIT", placeId: next.draft.placeId! },
+        );
+      }
+      const intentToken = driver.getIntentToken();
       queueMicrotask(() => {
+        if (
+          sessionRef.current !== next ||
+          driver.getIntentToken() !== intentToken
+        ) {
+          return;
+        }
         setSession(next);
         window.requestAnimationFrame(() => {
+          if (
+            sessionRef.current !== next ||
+            driver.getIntentToken() !== intentToken
+          ) {
+            return;
+          }
           driver.focusContributionForm();
           const restoredPosition =
             next?.draft.placementCandidate ??
@@ -384,13 +501,6 @@ export function useCampusMapEditSessionOwner({
           }
         });
       });
-      if (next && driver.getSnapshot().session.mode !== "task") {
-        dispatch(
-          next.draft.mode === "add"
-            ? { type: "START_CREATE" }
-            : { type: "START_EDIT", placeId: next.draft.placeId! },
-        );
-      }
       if (next?.status === "rate-limited" && (next.retryAfter ?? 0) > 0) {
         rateLimitTimerRef.current = window.setTimeout(
           () =>
@@ -401,42 +511,51 @@ export function useCampusMapEditSessionOwner({
           Math.min(next.retryAfter ?? 0, 86_400) * 1000,
         );
       }
-      queueMicrotask(() => setAnnouncement("已恢复未发布的地图编辑草稿"));
-    };
-    if (next?.status === "publishing") {
-      const command = deriveCampusMapPublishCommand(next.draft);
-      let identityVerified = false;
-      const discardRestoredSession = () => {
-        sessionRef.current = null;
-        setSession(null);
-        window.sessionStorage.removeItem(SNAPSHOT_KEY);
-        dispatch({ type: "CANCEL_TASK" });
-        queueMicrotask(() =>
-          setRestoreNotice(
-            "草稿与当前编辑目标不一致，已为安全起见丢弃这份草稿。",
-          ),
-        );
-      };
-      void recoverPublish(command, undefined, () => {
-        identityVerified = true;
-        revealRestoredSession();
-      }).then((outcome) => {
+      queueMicrotask(() => {
         if (
-          outcome.status === "recoverable" &&
-          outcome.reason === "identity-mismatch"
+          sessionRef.current === next &&
+          driver.getIntentToken() === intentToken
         ) {
-          discardRestoredSession();
+          setAnnouncement("已恢复未发布的地图编辑草稿");
+        }
+      });
+    };
+    if (next && isCampusMapPublishOutcomePending(next.status)) {
+      const command = deriveCampusMapPublishCommand(next.draft);
+      const intentToken = driver.getIntentToken();
+      void recoverPublish(command).then((outcome) => {
+        if (
+          (outcome.status === "recoverable" &&
+            (outcome.reason === "superseded" ||
+              outcome.reason === "projection-superseded")) ||
+          (outcome.status !== "applied" &&
+            driver.getIntentToken() !== intentToken)
+        ) {
+          releaseSupersededPublish(command.idempotencyKey);
           return;
         }
-        if (!identityVerified) {
+        if (
+          sessionRef.current &&
+          sessionRef.current.draft.idempotencyKey !== command.idempotencyKey
+        ) {
           return;
         }
-        void applyPublishOutcome(command.idempotencyKey, outcome);
+        sessionRef.current = next;
+        setSession(next);
+        void applyPublishOutcome(command.idempotencyKey, intentToken, outcome);
       });
     } else {
       revealRestoredSession();
     }
-  }, [applyPublishOutcome, dispatch, driver, recoverPublish, startEdit]);
+  }, [
+    applyPublishOutcome,
+    clearStalePublishingAnnouncement,
+    dispatch,
+    driver,
+    recoverPublish,
+    releaseSupersededPublish,
+    startEdit,
+  ]);
 
   useEffect(() => {
     if (!isCampusMapEditDirty(session)) return;
