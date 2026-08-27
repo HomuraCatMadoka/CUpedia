@@ -12,6 +12,7 @@ const browseIds = {
   revision: "00000000-0000-4000-8000-000000006486",
   actor: "00000000-0000-4000-8000-000000006487",
 } as const;
+const eligibleEmail = "1155000648@link.cuhk.edu.hk";
 
 async function withBrowseFixture(action: "apply" | "cleanup") {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
@@ -49,7 +50,15 @@ async function withBrowseFixture(action: "apply" | "cleanup") {
       await client.query(
         "delete from campus_map_fact_schemas where version = 648",
       );
+      await client.query(
+        "update users set email = 'user@test.com' where email = $1",
+        [eligibleEmail],
+      );
     } else {
+      await client.query(
+        "update users set email = $1 where email = 'user@test.com'",
+        [eligibleEmail],
+      );
       await client.query(
         `insert into campus_map_fact_schemas (version, status, definition, display_metadata)
          values (648, 'draft', '{"fields":{},"pinTypes":{}}', '{}')
@@ -285,7 +294,7 @@ test.beforeEach(async ({ page }) => {
     });
   });
 
-  await loginWithPassword(page, "user@test.com", "password123");
+  await loginWithPassword(page, eligibleEmail, "password123");
 });
 
 test("Campus Map and its AMap config require authentication", async ({
@@ -318,7 +327,7 @@ test("Campus Map and its AMap config require authentication", async ({
   ).toBeVisible();
   await page.getByRole("link", { name: "前往登录" }).click();
   await expect(page).toHaveURL(/\/login\?/);
-  await page.getByLabel("CUHK 邮箱").fill("user@test.com");
+  await page.getByLabel("CUHK 邮箱").fill(eligibleEmail);
   await page.getByLabel("密码").fill("password123");
   await page.getByRole("button", { name: "登录", exact: true }).click();
 
@@ -365,6 +374,51 @@ test("formal Campus Map keeps canonical Place identity through Back, Forward, an
   await expect(
     page.getByRole("link", { name: "查看编辑记录" }),
   ).toHaveAttribute("href", `/campus-map/places/${browseIds.place}/history`);
+});
+
+test("publish handoff opens one searchable Place and Back never restores the completed form", async ({
+  page,
+}) => {
+  const publishedName = "打印站";
+  await page.goto("/campus-map");
+  await page.getByRole("button", { name: "添加地点" }).click();
+  await page.getByRole("button", { name: "使用此位置" }).click();
+  await page
+    .getByRole("group", { name: "设施类型" })
+    .getByText("打印服务", { exact: true })
+    .click();
+  await page.getByRole("button", { name: "发布设施" }).click();
+
+  await expect(page).toHaveURL(/scene=facility&id=[0-9a-f-]+&snap=peek$/);
+  const publishedUrl = new URL(page.url());
+  const placeId = publishedUrl.searchParams.get("id");
+  expect(placeId).toMatch(/^[0-9a-f-]{36}$/);
+  await expect(
+    page.getByRole("heading", { name: publishedName }),
+  ).toBeVisible();
+
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "添加校内设施" })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("heading", { name: "选择设施位置" })).toHaveCount(
+    0,
+  );
+
+  await page.goForward();
+  await expect(page).toHaveURL(publishedUrl.toString());
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: publishedName }),
+  ).toBeVisible();
+
+  await page.getByPlaceholder("搜索建筑").fill(publishedName);
+  const publishedResult = page.locator(`[data-search-result="${placeId}"]`);
+  await expect(publishedResult).toBeVisible();
+  await publishedResult.click();
+  await expect(page).toHaveURL(
+    new RegExp(`/campus-map\\?v=1&scene=facility&id=${placeId}&snap=peek$`),
+  );
 });
 
 test("Campus Map editing keeps its primary action inside a 390px-high viewport", async ({

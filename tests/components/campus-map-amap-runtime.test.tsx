@@ -1252,6 +1252,115 @@ describe("Campus Map AMap runtime effects", () => {
     expect(runtime.infoWindows).toHaveLength(0);
   });
 
+  it("refreshes a stale projection before opening a newly mapped canonical Place", async () => {
+    const latest = createCampusMapBrowseFixture();
+    const place = latest.places[0]!;
+    const initial = {
+      ...latest,
+      places: latest.places.filter(
+        (candidate) => candidate.placeId !== place.placeId,
+      ),
+    };
+    mockLoadBrowseProjection.mockResolvedValueOnce(latest);
+    mockLoadProviderPoiCard.mockResolvedValueOnce({
+      kind: "linked",
+      title: place.name,
+      selectionTarget: place.selectionTarget,
+    });
+    const { runtime, map } = await renderWithRuntime({ projection: initial });
+
+    await act(async () => {
+      map.emit("hotspotclick", {
+        id: "newly-mapped-place",
+        name: place.name,
+        lnglat: { lng: 114.2049, lat: 22.4195 },
+      });
+    });
+
+    expect(mockLoadBrowseProjection).toHaveBeenCalledOnce();
+    expect(
+      await screen.findByRole("heading", { name: place.name }),
+    ).not.toBeNull();
+    expect(window.location.search).toContain(
+      `scene=facility&id=${place.placeId}`,
+    );
+    expect(window.location.search).not.toContain("scene=building");
+    expect(runtime.infoWindows).toHaveLength(0);
+  });
+
+  it("refreshes a stale projection before opening a newly mapped canonical Building", async () => {
+    const latest = createCampusMapBrowseFixture();
+    const building = latest.buildings[0]!;
+    const initial = {
+      ...latest,
+      buildings: latest.buildings.filter(
+        (candidate) => candidate.buildingId !== building.buildingId,
+      ),
+    };
+    mockLoadBrowseProjection.mockResolvedValueOnce(latest);
+    mockLoadProviderPoiCard.mockResolvedValueOnce({
+      kind: "linked",
+      title: building.name,
+      selectionTarget: {
+        kind: "building",
+        buildingId: building.buildingId,
+      },
+    });
+    const { map } = await renderWithRuntime({ projection: initial });
+
+    await act(async () => {
+      map.emit("hotspotclick", {
+        id: "newly-mapped-building",
+        name: building.name,
+        lnglat: { lng: 114.2049, lat: 22.4195 },
+      });
+    });
+
+    expect(mockLoadBrowseProjection).toHaveBeenCalledOnce();
+    expect(
+      await screen.findByRole("heading", { name: building.name }),
+    ).not.toBeNull();
+    expect(window.location.search).toContain(
+      `scene=building&id=${building.buildingId}`,
+    );
+  });
+
+  it("shows an explicit error card when a mapped target cannot refresh", async () => {
+    const latest = createCampusMapBrowseFixture();
+    const place = latest.places[0]!;
+    const initial = {
+      ...latest,
+      places: latest.places.filter(
+        (candidate) => candidate.placeId !== place.placeId,
+      ),
+    };
+    mockLoadBrowseProjection.mockRejectedValueOnce(
+      new Error("PROJECTION_UNAVAILABLE"),
+    );
+    mockLoadProviderPoiCard.mockResolvedValueOnce({
+      kind: "linked",
+      title: place.name,
+      selectionTarget: place.selectionTarget,
+    });
+    const { map } = await renderWithRuntime({ projection: initial });
+
+    await act(async () => {
+      map.emit("hotspotclick", {
+        id: "mapped-target-with-failed-refresh",
+        name: place.name,
+        lnglat: { lng: 114.2049, lat: 22.4195 },
+      });
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "地点资料暂时无法载入",
+      }),
+    ).not.toBeNull();
+    expect(screen.getByText(place.name)).not.toBeNull();
+    expect(window.location.search).toBe("?v=1");
+  });
+
   it.each([
     ["search", "林荫饮水点", "outdoor-water"],
     ["category", "大堂饮水点", "building-only-water"],

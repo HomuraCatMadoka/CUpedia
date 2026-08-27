@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { CampusMapRuntime } from "@/components/campus-map/campus-map-runtime";
 import { requireAuth } from "@/lib/auth-guard";
 import { loadCampusMapBrowseProjection } from "@/lib/campus-map/browse-actions";
-import { EMPTY_CAMPUS_MAP_BROWSE_PROJECTION } from "@/lib/campus-map/browse-projection";
 import { getCampusMapFactSchema } from "@/lib/campus-map/fact-store";
 
 export const metadata: Metadata = {
@@ -30,10 +29,8 @@ export default async function CampusMapPage({ searchParams }: PageProps) {
   const callbackUrl = `/campus-map${params.size ? `?${params.toString()}` : ""}`;
   await requireAuth(callbackUrl);
   const [factSchema, browseProjection] = await Promise.all([
-    getCampusMapFactSchema().catch(() => null),
-    loadCampusMapBrowseProjection().catch(
-      () => EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
-    ),
+    getCampusMapFactSchema(),
+    loadCampusMapBrowseProjection(),
   ]);
   return (
     <CampusMapRuntime

@@ -49,6 +49,26 @@ describe("formal Campus Map route", () => {
     );
   });
 
+  it("does not disguise an initial projection failure as an empty map", async () => {
+    mocks.loadProjection.mockRejectedValueOnce(
+      new Error("CAMPUS_MAP_PROJECTION_UNAVAILABLE"),
+    );
+
+    await expect(
+      CampusMapPage({ searchParams: Promise.resolve({ v: "1" }) }),
+    ).rejects.toThrow("CAMPUS_MAP_PROJECTION_UNAVAILABLE");
+  });
+
+  it("does not disguise an initial fact-schema failure as an absent schema", async () => {
+    mocks.getFactSchema.mockRejectedValueOnce(
+      new Error("CAMPUS_MAP_SCHEMA_UNAVAILABLE"),
+    );
+
+    await expect(
+      CampusMapPage({ searchParams: Promise.resolve({ v: "1" }) }),
+    ).rejects.toThrow("CAMPUS_MAP_SCHEMA_UNAVAILABLE");
+  });
+
   it("redirects the old product URL to the canonical runtime without owning state", async () => {
     await CampusMapPrototypePage({
       searchParams: Promise.resolve({ v: "1", scene: "building", id: "b-1" }),

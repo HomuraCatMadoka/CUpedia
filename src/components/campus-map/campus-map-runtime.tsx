@@ -605,6 +605,9 @@ export function CampusMapRuntime({
   const [mapLoadError, setMapLoadError] = useState<
     "sdk" | "coordinates" | null
   >(null);
+  const [providerTargetError, setProviderTargetError] = useState<{
+    title: string;
+  } | null>(null);
   const [mapLoadAttempt, setMapLoadAttempt] = useState(0);
   const [mapReady, setMapReady] = useState(false);
   const [mapMoving, setMapMoving] = useState(false);
@@ -652,6 +655,7 @@ export function CampusMapRuntime({
   const providerPoiCardResolverRef = useRef(
     new CampusMapAmapPoiCardResolver(loadCampusMapAmapPoiCard),
   );
+  const providerTargetIntentRef = useRef(0);
   const coordinateProjectorRef = useRef(new CampusMapAmapCoordinateProjector());
   const didSetInitialCenterRef = useRef(false);
 
@@ -686,6 +690,7 @@ export function CampusMapRuntime({
     mapDraggingRef.current = false;
     userGestureAwaitingMoveEndRef.current = false;
     pendingSelectionTokenRef.current = null;
+    providerTargetIntentRef.current += 1;
     providerPoiCardResolverRef.current.invalidate();
     coordinateProjectorRef.current.invalidate();
     didSetInitialCenterRef.current = false;
@@ -694,6 +699,7 @@ export function CampusMapRuntime({
     setMapCenterRevision(0);
     setProviderCenterPosition(null);
     setPlaceContext(null);
+    setProviderTargetError(null);
     setAmapOffset([0, 0]);
     setCoordinateVersion(0);
     setClusterStatus("loading");
@@ -1098,7 +1104,10 @@ export function CampusMapRuntime({
       : "map";
 
   const dispatch = useCallback(
-    (intent: CampusMapDriverIntent) => driver.dispatch(intent),
+    (intent: CampusMapDriverIntent) => {
+      setProviderTargetError(null);
+      return driver.dispatch(intent);
+    },
     [driver],
   );
   const publishReceiptConsumer = useMemo(
@@ -1504,14 +1513,19 @@ export function CampusMapRuntime({
           name: event.name?.trim() || "高德地图地点",
           position: [event.lnglat.lng, event.lnglat.lat] as const,
         };
+        const providerIntent = ++providerTargetIntentRef.current;
+        setProviderTargetError(null);
         const driverToken = driver.getSnapshot().transitionToken;
         void providerPoiCardResolverRef.current
           .resolveLatest(input)
-          .then((result) => {
+          .then(async (result) => {
+            const stillOwnsIntent = () =>
+              providerTargetIntentRef.current === providerIntent &&
+              driver.getSnapshot().transitionToken === driverToken;
             if (
               result.status === "superseded" ||
               !result.card ||
-              driver.getSnapshot().transitionToken !== driverToken
+              !stillOwnsIntent()
             )
               return;
             if (result.card.kind === "transient") {
@@ -1525,30 +1539,58 @@ export function CampusMapRuntime({
             }
             const target = result.card.selectionTarget;
             if (target.kind === "building") {
-              const building = buildingsRef.current.find(
+              let building = buildingsRef.current.find(
                 (item) => item.buildingId === target.buildingId,
               );
-              if (building) {
-                selectBuilding(building);
+              if (!building) {
+                const refresh = await projectionStore.refresh();
+                if (!stillOwnsIntent()) return;
+                if (refresh.status === "applied") {
+                  const projection = projectionStore.getSnapshot().projection;
+                  driverCatalog.replace(
+                    createCampusMapSceneCatalog(
+                      projection,
+                      CATEGORIES.map((category) => category.id),
+                    ),
+                  );
+                  building = projection.buildings.find(
+                    (item) => item.buildingId === target.buildingId,
+                  );
+                }
+              }
+              if (!building) {
+                setProviderTargetError({ title: result.card.title });
                 return;
               }
+              selectBuilding(building);
+              return;
             } else {
-              const facility = facilitiesRef.current.find(
+              let facility = facilitiesRef.current.find(
                 (item) => item.placeId === target.placeId,
               );
-              if (facility) {
-                selectFacility(facility, "search");
+              if (!facility) {
+                const refresh = await projectionStore.refresh({
+                  placeId: target.placeId,
+                });
+                if (!stillOwnsIntent()) return;
+                if (refresh.status === "applied") {
+                  const projection = projectionStore.getSnapshot().projection;
+                  driverCatalog.replace(
+                    createCampusMapSceneCatalog(
+                      projection,
+                      CATEGORIES.map((category) => category.id),
+                    ),
+                  );
+                  facility = projection.places.find(
+                    (item) => item.placeId === target.placeId,
+                  );
+                }
+              }
+              if (!facility) {
+                setProviderTargetError({ title: result.card.title });
                 return;
               }
-              const building = target.buildingId
-                ? buildingsRef.current.find(
-                    (item) => item.buildingId === target.buildingId,
-                  )
-                : null;
-              if (building) {
-                selectBuilding(building);
-                return;
-              }
+              selectFacility(facility, "search");
               return;
             }
           });
@@ -1658,7 +1700,14 @@ export function CampusMapRuntime({
       container.removeEventListener("touchstart", cancelForUserZoom);
       interactionAdapterRef.current.reset();
     };
-  }, [dispatch, driver, selectBuilding, selectFacility]);
+  }, [
+    dispatch,
+    driver,
+    driverCatalog,
+    projectionStore,
+    selectBuilding,
+    selectFacility,
+  ]);
 
   useEffect(() => {
     if (config.status !== "ready" || mapRef.current) return;
@@ -2339,6 +2388,7 @@ export function CampusMapRuntime({
         ref={panelRef}
         hidden={
           !editSession &&
+          !providerTargetError &&
           (state.selection.kind === "external" ||
             (state.selection.kind === "none" &&
               !state.mapFilter.category &&
@@ -2386,7 +2436,27 @@ export function CampusMapRuntime({
             <XIcon aria-hidden="true" className="size-5" />
           </button>
         )}
-        {editSession ? (
+        {providerTargetError ? (
+          <div
+            id="campus-map-panel-content"
+            role="alert"
+            className="flex h-[calc(100%-44px)] flex-col justify-center px-5 pb-5"
+          >
+            <h2 id="campus-map-panel-title" className="text-xl font-semibold">
+              地点资料暂时无法载入
+            </h2>
+            <p className="mt-2 text-sm text-neutral-600">
+              {providerTargetError.title} 已有正式映射，但最新地点资料未能载入。
+            </p>
+            <button
+              type="button"
+              className="mt-4 min-h-11 rounded-xl border border-black/15 px-4 text-sm font-semibold"
+              onClick={() => setProviderTargetError(null)}
+            >
+              关闭
+            </button>
+          </div>
+        ) : editSession ? (
           <CampusMapEditSheet
             session={editSession}
             returnContext={
