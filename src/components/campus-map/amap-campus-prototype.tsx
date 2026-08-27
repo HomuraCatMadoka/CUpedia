@@ -299,11 +299,19 @@ function canonicalInitialSearch(
   return `?${encodeCampusMapUrl(canonicalSessionFromLegacySearch(search, catalog), catalog)}`;
 }
 
+type ProjectedCampusMapSelection =
+  | Exclude<CampusMapState["selection"], { kind: "facility" }>
+  | { kind: "facility"; buildingId: string | null; facilityId: string };
+
+type ProjectedCampusMapState = Omit<CampusMapState, "selection"> & {
+  selection: ProjectedCampusMapSelection;
+};
+
 function projectedState(
   session: CampusMapSession,
   returnTo: CampusMapSession | null,
   catalog: CampusMapSceneCatalog,
-): CampusMapState {
+): ProjectedCampusMapState {
   if (session.mode !== "browse") {
     return {
       selection: { kind: "none" },
@@ -316,10 +324,10 @@ function projectedState(
   const returnScene = returnTo?.mode === "browse" ? returnTo.scene : null;
   const facility =
     scene.kind === "facility" ? catalog.facilities[scene.facilityId] : null;
-  const selection: CampusMapState["selection"] =
+  const selection: ProjectedCampusMapSelection =
     scene.kind === "building"
       ? { kind: "building", buildingId: scene.buildingId }
-      : scene.kind === "facility" && facility?.buildingId
+      : scene.kind === "facility" && facility
         ? {
             kind: "facility",
             facilityId: scene.facilityId,
@@ -408,7 +416,7 @@ function samePlacementPosition(
 }
 
 function buildingFor(
-  selection: CampusMapState["selection"],
+  selection: ProjectedCampusMapSelection,
   buildings: readonly Building[],
 ) {
   const buildingId =
@@ -423,7 +431,7 @@ function buildingFor(
 }
 
 function facilityFor(
-  selection: CampusMapState["selection"],
+  selection: ProjectedCampusMapSelection,
   facilities: readonly Facility[],
 ) {
   return selection.kind === "facility"
@@ -1114,14 +1122,7 @@ export function AmapCampusPrototype({
   );
   const session = driverSnapshot.session;
   const state = projectedState(session, driverSnapshot.returnTo, sceneCatalog);
-  const selectedFacilityId =
-    session.mode === "browse" && session.scene.kind === "facility"
-      ? session.scene.facilityId
-      : null;
-  const selectedFacility = selectedFacilityId
-    ? (facilities.find((facility) => facility.placeId === selectedFacilityId) ??
-      null)
-    : facilityFor(state.selection, facilities);
+  const selectedFacility = facilityFor(state.selection, facilities);
   const selectedBuilding = selectedFacility?.buildingId
     ? (buildings.find(
         (building) => building.buildingId === selectedFacility.buildingId,
@@ -2660,7 +2661,6 @@ export function AmapCampusPrototype({
                             key={facility.placeId}
                             data-return-result={facility.placeId}
                             type="button"
-                            disabled={!facility.floorId}
                             className="flex w-full items-center gap-3 py-3 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346] disabled:cursor-default"
                             onClick={() => selectFacility(facility, "building")}
                           >

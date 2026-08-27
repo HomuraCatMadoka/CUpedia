@@ -5,6 +5,8 @@ import type {
   CampusMapSceneCatalog,
   CampusMapSession,
 } from "./scene-kernel";
+import type { CameraReason } from "./camera-policy";
+import type { CampusMapCameraCommand } from "./map-session";
 
 export type PersistableCampusMapSession =
   | {
@@ -41,6 +43,16 @@ export type CampusMapSceneCameraTarget =
   | { kind: "building"; buildingId: string }
   | { kind: "place"; placeId: string }
   | null;
+
+export function projectCampusMapSceneCameraCommand(
+  target: CampusMapSceneCameraTarget,
+  reason: CameraReason,
+): Exclude<CampusMapCameraCommand, { kind: "cancel" }> | null {
+  if (!target) return null;
+  return target.kind === "building"
+    ? { kind: "focus", buildingId: target.buildingId, reason }
+    : { kind: "focus-place", placeId: target.placeId, reason };
+}
 
 function persistentBrowse(
   scene: Exclude<CampusMapBrowseScene, { kind: "provider-poi" }>,

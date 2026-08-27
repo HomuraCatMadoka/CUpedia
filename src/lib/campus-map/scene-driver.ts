@@ -14,7 +14,10 @@ import {
   type CampusMapSceneCommands,
   type CampusMapSession,
 } from "./scene-kernel";
-import { resolveCampusMapSessionSemantics } from "./scene-semantics";
+import {
+  projectCampusMapSceneCameraCommand,
+  resolveCampusMapSessionSemantics,
+} from "./scene-semantics";
 import type {
   CampusMapCameraCommand,
   CampusMapOverlayCommand,
@@ -376,21 +379,12 @@ export class CampusMapSceneDriver {
       this.catalog,
     );
     this.bumpToken();
-    if (resolved.status === "valid" && resolved.cameraTarget) {
-      this.ports.camera(
-        resolved.cameraTarget.kind === "building"
-          ? {
-              kind: "focus",
-              buildingId: resolved.cameraTarget.buildingId,
-              reason,
-            }
-          : {
-              kind: "focus-place",
-              placeId: resolved.cameraTarget.placeId,
-              reason,
-            },
-        this.effectContext(),
+    if (resolved.status === "valid") {
+      const command = projectCampusMapSceneCameraCommand(
+        resolved.cameraTarget,
+        reason,
       );
+      if (command) this.ports.camera(command, this.effectContext());
     }
     return this.snapshot;
   }

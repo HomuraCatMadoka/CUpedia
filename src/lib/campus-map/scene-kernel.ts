@@ -4,10 +4,9 @@ import type {
   CampusMapSessionTransition,
 } from "./map-session";
 import type { CampusMapSheetSnap } from "./map-state";
-import type { CameraReason } from "./camera-policy";
 import {
+  projectCampusMapSceneCameraCommand,
   resolveCampusMapSessionSemantics,
-  type CampusMapSceneCameraTarget,
 } from "./scene-semantics";
 
 /**
@@ -205,16 +204,6 @@ function acceptNoop(session: CampusMapSession): CampusMapTransition {
   };
 }
 
-function cameraCommandFor(
-  target: CampusMapSceneCameraTarget,
-  reason: CameraReason,
-): CampusMapCameraCommand {
-  if (!target) return { kind: "cancel" };
-  return target.kind === "building"
-    ? { kind: "focus", buildingId: target.buildingId, reason }
-    : { kind: "focus-place", placeId: target.placeId, reason };
-}
-
 export type CampusMapResolvedScene =
   | {
       status: "valid";
@@ -256,7 +245,10 @@ export function transitionCampusMapSession(
       commands: {
         history: historyCommandFor("restore"),
         camera: restored
-          ? cameraCommandFor(restored.cameraTarget, "deep-link")
+          ? (projectCampusMapSceneCameraCommand(
+              restored.cameraTarget,
+              "deep-link",
+            ) ?? { kind: "cancel" })
           : { kind: "cancel" },
         focus: restored?.focus ?? { kind: "map" },
         overlay: { kind: "close-external" },
@@ -492,12 +484,12 @@ export function transitionCampusMapSession(
         camera:
           event.source === "building"
             ? { kind: "cancel" }
-            : cameraCommandFor(
+            : (projectCampusMapSceneCameraCommand(
                 resolved.cameraTarget,
                 event.source === "search"
                   ? "search-selection"
                   : "facility-selection",
-              ),
+              ) ?? { kind: "cancel" }),
         focus: { kind: "heading" },
         overlay: { kind: "close-external" },
       },

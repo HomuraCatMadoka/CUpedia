@@ -48,7 +48,9 @@ function AmapCampusPrototype(
 function createNullablePlaceFixture(): CampusMapBrowseProjection {
   const base = createAmapPrototypeBrowseFixture();
   const template = base.places[0]!;
-  const building = base.buildings[0]!;
+  const building = base.buildings.find(
+    (candidate) => candidate.buildingId === template.buildingId,
+  )!;
   const buildingOnly = {
     ...template,
     placeId: "building-only-water",
@@ -111,7 +113,16 @@ function createNullablePlaceFixture(): CampusMapBrowseProjection {
     ),
     places: [buildingOnly, outdoor, ...base.places],
     markers: [
-      ...base.markers,
+      ...base.markers.map((marker) =>
+        marker.kind === "building-presence" &&
+        marker.buildingId === building.buildingId &&
+        marker.pinType === buildingOnly.pinType
+          ? {
+              ...marker,
+              placeIds: [...marker.placeIds, buildingOnly.placeId],
+            }
+          : marker,
+      ),
       {
         kind: "place",
         placeId: outdoor.placeId,
@@ -1265,8 +1276,50 @@ describe("AmapCampusPrototype runtime effects", () => {
       expect(window.location.search).toBe(
         `?v=1&scene=facility&id=${placeId}&snap=peek`,
       );
+      if (entry === "search") {
+        expect(
+          document.querySelector(`[data-search-result="${placeId}"]`),
+        ).toBeNull();
+      }
     },
   );
+
+  it("opens a building-only Place from a multi-Place Building marker directory", async () => {
+    const projection = createNullablePlaceFixture();
+    const buildingOnly = projection.places.find(
+      (place) => place.placeId === "building-only-water",
+    )!;
+    const { runtime } = await renderWithRuntime({ projection });
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    const buildingPlaceIds = projection.places
+      .filter((place) => place.buildingId === buildingOnly.buildingId)
+      .map((place) => place.placeId);
+
+    const buildingPresence = await waitFor(() => {
+      const match = runtime.markers.findLast(
+        (marker) =>
+          buildingPlaceIds.includes(marker.getExtData()?.facilityId ?? "") &&
+          marker.content.includes("建筑位置参考") &&
+          (marker.handlers.get("click") ?? []).length > 0,
+      );
+      expect(match).toBeDefined();
+      return match!;
+    });
+    await act(async () => buildingPresence.emit("click"));
+
+    const buildingOnlyButton = await screen.findByRole("button", {
+      name: /大堂饮水点/,
+    });
+    expect((buildingOnlyButton as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(buildingOnlyButton);
+
+    expect(
+      await screen.findByRole("heading", { name: "大堂饮水点" }),
+    ).not.toBeNull();
+    expect(window.location.search).toBe(
+      "?v=1&scene=facility&id=building-only-water&snap=peek",
+    );
+  });
 
   it("opens an outdoor Place marker and focuses its projected public point", async () => {
     const projection = createNullablePlaceFixture();
