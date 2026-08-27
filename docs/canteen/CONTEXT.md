@@ -56,6 +56,9 @@ _Avoid_: 把整份菜单标记为完整来获得身份迁移权限；常驻白�
 **身份归并（Identity merge）**: 多个 UUID 被确认代表同一道菜时，将外部身份与历史归并到一个 survivor UUID，其余重复身份不再独立活跃。身份归并解决重复身份，不表达菜品当前是否供应。
 _Avoid_: 把暂时不活跃的菜品当成重复身份；让被归并的 UUID 日后独立恢复。
 
+**菜品身份演化（Canonical identity evolution）**: 同一 offering 单独改名时保留 UUID；同一 UUID 下的 aliases 名称分叉时，从观察时点把变化的 offering 拆到新 UUID，过去评论和投票仍留在原 UUID；多个 UUID 收敛为同一规范化名称时，以最早创建的 UUID 为 survivor。评论移到 survivor，同一用户或匿名会话的多条票只保留 `updated_at` 最新者。旧 UUID 不删除，改为不可用，并以 rename/split/merge 审计记录指向结果。普通同步只在生产 rollout 设置明确启用后自动执行；启用前继续 fail closed，先生成只读 dry-run。
+_Avoid_: 用当前排序决定 survivor；把 alias 拆分前的历史搬到新 UUID；遇到冲突票直接中止；部署代码即自动改写未经审核的生产历史。
+
 **菜单来源（Menu source）**: 周期性读取某个供应商门店菜单的配置、托管菜品所有权与同步状态。一个菜单来源只归属一个食堂，托管菜品通过数据库约束同时引用来源与同一食堂；同步入口只接受来源 ID，再由来源决定食堂。它标识 provider、外部门店身份、非敏感读取参数，以及按香港时间解释的已知停业星期与允许同步餐段；调度器在停业日或不适用餐段跳过来源，不创建 run 或空快照。其职责止于产生规范化菜单快照。供应商响应先经过单次同步期间的临时 provider schema，数据库只保存公开展示和稳定关联所需的字段。
 _Avoid_: 把上游完整 JSON、匿名 token、会员身份、购物车、优惠码或支付状态写入菜单来源；在页面或 cron 中直接拼供应商请求。
 
@@ -122,3 +125,4 @@ _Avoid_: 与菜品赞踩表混用；把日榜做成 upsert/可取消。
 - [0029：约束 Supabase pg_net 传输证据边界](../adr/0029-bound-supabase-pg-net-transport-evidence.md)
 - [0030：在有界刷新截止停止餐段观察](../adr/0030-stop-scoped-observations-at-refresh-horizons.md)
 - [0031：分离 canonical 菜品与供应商 offering](../adr/0031-separate-canonical-dishes-from-provider-offerings.md)
+- [0032：审计 canonical 菜品身份演化](../adr/0032-audit-canonical-dish-identity-evolution.md)

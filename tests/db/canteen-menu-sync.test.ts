@@ -1090,23 +1090,6 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       },
     } as const;
 
-    await expect(
-      applyApprovedMenuIdentityTransition(sourceId, input, artifact),
-    ).rejects.toThrow("MENU_IDENTITY_TRANSITION_VOTE_CONFLICT");
-    const [unmerged] = await db
-      .select({
-        menuSourceId: canteenMenuItems.menuSourceId,
-        externalProductId: canteenMenuItems.externalProductId,
-        isAvailable: canteenMenuItems.isAvailable,
-      })
-      .from(canteenMenuItems)
-      .where(eq(canteenMenuItems.id, mergedItemId));
-    expect(unmerged).toEqual({
-      menuSourceId: sourceId,
-      externalProductId: previousProductIds[1],
-      isAvailable: true,
-    });
-
     await db
       .update(canteenDishVotes)
       .set({ vote: "like" })

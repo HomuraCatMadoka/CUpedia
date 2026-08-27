@@ -9,6 +9,7 @@
     "start": "next start",
     "bootstrap": "tsx scripts/setup.ts",
     "db:migrate:deploy": "node --import tsx scripts/run-db-migrations.ts",
+    "canteen:identity-dry-run": "node --import tsx scripts/canteen-menu-identity-dry-run.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",

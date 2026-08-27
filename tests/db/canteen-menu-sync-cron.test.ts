@@ -74,12 +74,13 @@ describe("Supabase canteen menu scheduler migration #757", () => {
       "BEFORE INSERT OR UPDATE OF active",
     );
     expect(
-      migrationJournal.entries.slice(-4).map(({ idx, tag }) => ({ idx, tag })),
+      migrationJournal.entries.slice(-5).map(({ idx, tag }) => ({ idx, tag })),
     ).toEqual([
       { idx: 94, tag: "0094_supabase-canteen-menu-sync-cron" },
       { idx: 95, tag: "0095_harden-supabase-canteen-menu-sync-cron" },
       { idx: 96, tag: "0096_confirm-empty-menu-health" },
       { idx: 97, tag: "0097_canteen-canonical-provider-offerings" },
+      { idx: 98, tag: "0098_canteen-menu-identity-evolution" },
     ]);
     expect(hardeningSnapshot.prevId).toBe(schedulerSnapshot.id);
     expect(confirmedEmptyHealthSnapshot.prevId).toBe(hardeningSnapshot.id);

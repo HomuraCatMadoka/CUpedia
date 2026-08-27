@@ -1,17 +1,19 @@
 import { createHash, randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { Client } from "pg";
 import { db } from "@/db";
 import {
   canteenDishComments,
   canteenDishVotes,
   canteenMenuItemPrices,
+  canteenMenuIdentityTransitions,
   canteenMenuItems,
   canteenMenuProviderOfferings,
   canteenMenuSources,
   canteenMenuSyncRuns,
   canteens,
+  siteSettings,
   users,
 } from "@/db/schema";
 import pinmeCurrent from "../lib/fixtures/canteen-providers/pinme-current.json";
@@ -29,6 +31,7 @@ vi.mock("@/lib/canteen-menu-source-adapters", () => ({
 
 import { syncCanteenMenuSource } from "@/lib/canteen-menu-source-sync";
 import { previewMenuSync } from "@/lib/canteen-menu-sync-store";
+import { getCanteenMenuItems } from "@/lib/canteen-actions";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -71,6 +74,9 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
   afterEach(async () => {
     await db.delete(canteens).where(eq(canteens.id, canteenId));
     await db.delete(users).where(eq(users.id, userId));
+    await db
+      .delete(siteSettings)
+      .where(eq(siteSettings.key, "canteen_menu_identity_evolution"));
   });
 
   it("persists a sanitized provider fixture and records a successful run", async () => {
@@ -1101,5 +1107,433 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
         .where(eq(canteenDishComments.menuItemId, itemId)),
     ]);
     expect(history.map(([row]) => row.value)).toEqual([1, 1]);
+  });
+
+  it("gates then transactionally merges converged UUIDs with latest-vote history", async () => {
+    const earliestItemId = randomUUID();
+    const laterItemId = randomUUID();
+    const anonymousSessionId = randomUUID();
+    const createdEarly = new Date("2025-01-01T00:00:00Z");
+    const createdLater = new Date("2026-01-01T00:00:00Z");
+    await db.insert(canteenMenuItems).values([
+      {
+        id: earliestItemId,
+        canteenId,
+        name: "紙包飲品",
+        normalizedName: "紙包飲品",
+        menuSourceId: sourceId,
+        externalProductId: "old-drink",
+        isAvailable: false,
+        createdAt: createdEarly,
+      },
+      {
+        id: laterItemId,
+        canteenId,
+        name: "紙包飲品",
+        normalizedName: "紙包飲品",
+        menuSourceId: sourceId,
+        externalProductId: "current-drink",
+        isAvailable: true,
+        createdAt: createdLater,
+      },
+    ]);
+    await db.insert(canteenMenuProviderOfferings).values([
+      {
+        canteenId,
+        menuSourceId: sourceId,
+        menuItemId: earliestItemId,
+        externalProductId: "old-drink",
+        providerName: "紙包飲品",
+        normalizedName: "紙包飲品",
+        isAvailable: false,
+        createdAt: createdEarly,
+      },
+      {
+        canteenId,
+        menuSourceId: sourceId,
+        menuItemId: laterItemId,
+        externalProductId: "current-drink",
+        providerName: "紙包飲品",
+        normalizedName: "紙包飲品",
+        isAvailable: true,
+        createdAt: createdLater,
+      },
+    ]);
+    await db.insert(canteenDishComments).values([
+      { menuItemId: earliestItemId, userId, content: "较早 UUID 评论" },
+      { menuItemId: laterItemId, userId, content: "较晚 UUID 评论" },
+    ]);
+    await db.insert(canteenDishVotes).values([
+      {
+        menuItemId: earliestItemId,
+        userId,
+        vote: "like",
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        updatedAt: new Date("2026-01-01T00:00:00Z"),
+      },
+      {
+        menuItemId: laterItemId,
+        userId,
+        vote: "dislike",
+        createdAt: new Date("2026-02-01T00:00:00Z"),
+        updatedAt: new Date("2026-02-02T00:00:00Z"),
+      },
+      {
+        menuItemId: laterItemId,
+        anonymousSessionId,
+        vote: "like",
+        createdAt: new Date("2026-03-01T00:00:00Z"),
+        updatedAt: new Date("2026-03-01T00:00:00Z"),
+      },
+    ]);
+    const current = structuredClone(pinmeCurrent);
+    current.data.group[0].products[0].product_id = "current-drink";
+    current.data.group[0].products[0].local_name = "紙包飲品";
+
+    stubPinmeFetch(current);
+    await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
+      status: "blocked",
+      code: "MENU_SYNC_CONFLICT",
+    });
+    expect(
+      await db
+        .select()
+        .from(canteenMenuIdentityTransitions)
+        .where(eq(canteenMenuIdentityTransitions.canteenId, canteenId)),
+    ).toEqual([]);
+
+    await db.insert(siteSettings).values({
+      key: "canteen_menu_identity_evolution",
+      value: "enabled",
+    });
+    stubPinmeFetch(current);
+    await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
+      status: "applied",
+    });
+
+    const items = await db
+      .select({
+        id: canteenMenuItems.id,
+        menuSourceId: canteenMenuItems.menuSourceId,
+        isAvailable: canteenMenuItems.isAvailable,
+      })
+      .from(canteenMenuItems)
+      .where(inArray(canteenMenuItems.id, [earliestItemId, laterItemId]));
+    expect(items).toEqual(
+      expect.arrayContaining([
+        {
+          id: earliestItemId,
+          menuSourceId: sourceId,
+          isAvailable: true,
+        },
+        { id: laterItemId, menuSourceId: null, isAvailable: false },
+      ]),
+    );
+    const offerings = await db
+      .select({
+        externalProductId: canteenMenuProviderOfferings.externalProductId,
+        menuItemId: canteenMenuProviderOfferings.menuItemId,
+      })
+      .from(canteenMenuProviderOfferings)
+      .where(eq(canteenMenuProviderOfferings.menuSourceId, sourceId));
+    expect(offerings).toEqual(
+      expect.arrayContaining([
+        { externalProductId: "old-drink", menuItemId: earliestItemId },
+        { externalProductId: "current-drink", menuItemId: earliestItemId },
+      ]),
+    );
+    const comments = await db
+      .select({ menuItemId: canteenDishComments.menuItemId })
+      .from(canteenDishComments)
+      .where(eq(canteenDishComments.userId, userId));
+    expect(comments).toEqual([
+      { menuItemId: earliestItemId },
+      { menuItemId: earliestItemId },
+    ]);
+    const votes = await db
+      .select({
+        menuItemId: canteenDishVotes.menuItemId,
+        vote: canteenDishVotes.vote,
+        updatedAt: canteenDishVotes.updatedAt,
+      })
+      .from(canteenDishVotes)
+      .where(eq(canteenDishVotes.userId, userId));
+    expect(votes).toEqual([
+      {
+        menuItemId: earliestItemId,
+        vote: "dislike",
+        updatedAt: new Date("2026-02-02T00:00:00Z"),
+      },
+    ]);
+    await expect(
+      db
+        .select({
+          menuItemId: canteenDishVotes.menuItemId,
+          vote: canteenDishVotes.vote,
+        })
+        .from(canteenDishVotes)
+        .where(eq(canteenDishVotes.anonymousSessionId, anonymousSessionId)),
+    ).resolves.toEqual([{ menuItemId: earliestItemId, vote: "like" }]);
+    const transitions = await db
+      .select({
+        kind: canteenMenuIdentityTransitions.kind,
+        fromMenuItemId: canteenMenuIdentityTransitions.fromMenuItemId,
+        toMenuItemId: canteenMenuIdentityTransitions.toMenuItemId,
+        externalProductIds: canteenMenuIdentityTransitions.externalProductIds,
+      })
+      .from(canteenMenuIdentityTransitions)
+      .where(eq(canteenMenuIdentityTransitions.canteenId, canteenId));
+    expect(transitions).toEqual([
+      {
+        kind: "merge",
+        fromMenuItemId: laterItemId,
+        toMenuItemId: earliestItemId,
+        externalProductIds: ["current-drink"],
+      },
+    ]);
+    const publicItems = await getCanteenMenuItems(canteenId);
+    expect(publicItems.some((item) => item.id === earliestItemId)).toBe(true);
+    expect(publicItems.some((item) => item.id === laterItemId)).toBe(false);
+
+    stubPinmeFetch(current);
+    await syncCanteenMenuSource(sourceId);
+    const [transitionCount] = await db
+      .select({ value: count() })
+      .from(canteenMenuIdentityTransitions)
+      .where(eq(canteenMenuIdentityTransitions.canteenId, canteenId));
+    expect(transitionCount.value).toBe(1);
+  });
+
+  it("splits a renamed alias from now on without moving old UUID history", async () => {
+    const originalItemId = randomUUID();
+    await db.insert(siteSettings).values({
+      key: "canteen_menu_identity_evolution",
+      value: "enabled",
+    });
+    await db.insert(canteenMenuItems).values({
+      id: originalItemId,
+      canteenId,
+      name: "凍檸茶",
+      normalizedName: "凍檸茶",
+      menuSourceId: sourceId,
+      externalProductId: "a",
+      isAvailable: true,
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+    });
+    await db.insert(canteenMenuProviderOfferings).values([
+      {
+        canteenId,
+        menuSourceId: sourceId,
+        menuItemId: originalItemId,
+        externalProductId: "a",
+        providerName: "凍檸茶",
+        normalizedName: "凍檸茶",
+        isAvailable: true,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      },
+      {
+        canteenId,
+        menuSourceId: sourceId,
+        menuItemId: originalItemId,
+        externalProductId: "b",
+        providerName: "凍檸茶",
+        normalizedName: "凍檸茶",
+        isAvailable: true,
+        createdAt: new Date("2026-01-02T00:00:00Z"),
+      },
+      {
+        canteenId,
+        menuSourceId: sourceId,
+        menuItemId: originalItemId,
+        externalProductId: "c",
+        providerName: "凍檸茶",
+        normalizedName: "凍檸茶",
+        isAvailable: true,
+        createdAt: new Date("2026-01-03T00:00:00Z"),
+      },
+    ]);
+    await db.insert(canteenDishComments).values({
+      menuItemId: originalItemId,
+      userId,
+      content: "拆分前历史仍属于原菜品",
+    });
+    await db.insert(canteenDishVotes).values({
+      menuItemId: originalItemId,
+      userId,
+      vote: "like",
+    });
+    const renamedAlias = structuredClone(pinmeCurrent);
+    const template = renamedAlias.data.group[0].products[0];
+    renamedAlias.data.group[0].products = [
+      { ...structuredClone(template), product_id: "a", local_name: "熱檸茶" },
+      { ...structuredClone(template), product_id: "b", local_name: "凍檸茶" },
+      { ...structuredClone(template), product_id: "c", local_name: "凍檸茶" },
+    ];
+    stubPinmeFetch(renamedAlias);
+
+    await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
+      status: "applied",
+    });
+    const items = await db
+      .select({ id: canteenMenuItems.id, name: canteenMenuItems.name })
+      .from(canteenMenuItems)
+      .where(
+        and(
+          eq(canteenMenuItems.menuSourceId, sourceId),
+          eq(canteenMenuItems.isAvailable, true),
+        ),
+      );
+    expect(items).toHaveLength(2);
+    expect(items).toEqual(
+      expect.arrayContaining([
+        { id: originalItemId, name: "凍檸茶" },
+        { id: expect.not.stringMatching(originalItemId), name: "熱檸茶" },
+      ]),
+    );
+    const splitItemId = items.find((item) => item.name === "熱檸茶")!.id;
+    const [splitAudit] = await db
+      .select({
+        kind: canteenMenuIdentityTransitions.kind,
+        fromMenuItemId: canteenMenuIdentityTransitions.fromMenuItemId,
+        toMenuItemId: canteenMenuIdentityTransitions.toMenuItemId,
+        externalProductIds: canteenMenuIdentityTransitions.externalProductIds,
+      })
+      .from(canteenMenuIdentityTransitions)
+      .where(eq(canteenMenuIdentityTransitions.kind, "split"));
+    expect(splitAudit).toEqual({
+      kind: "split",
+      fromMenuItemId: originalItemId,
+      toMenuItemId: splitItemId,
+      externalProductIds: ["a"],
+    });
+    const history = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(canteenDishComments)
+        .where(eq(canteenDishComments.menuItemId, originalItemId)),
+      db
+        .select({ value: count() })
+        .from(canteenDishVotes)
+        .where(eq(canteenDishVotes.menuItemId, originalItemId)),
+      db
+        .select({ value: count() })
+        .from(canteenDishComments)
+        .where(eq(canteenDishComments.menuItemId, splitItemId)),
+    ]);
+    expect(history.map(([row]) => row.value)).toEqual([1, 1, 0]);
+
+    stubPinmeFetch(renamedAlias);
+    await syncCanteenMenuSource(sourceId);
+    const [[activeCount], [auditCount]] = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(canteenMenuItems)
+        .where(
+          and(
+            eq(canteenMenuItems.menuSourceId, sourceId),
+            eq(canteenMenuItems.isAvailable, true),
+          ),
+        ),
+      db
+        .select({ value: count() })
+        .from(canteenMenuIdentityTransitions)
+        .where(eq(canteenMenuIdentityTransitions.canteenId, canteenId)),
+    ]);
+    expect(activeCount.value).toBe(2);
+    expect(auditCount.value).toBe(1);
+
+    const secondSplit = structuredClone(renamedAlias);
+    secondSplit.data.group[0].products[2].local_name = "熱檸茶";
+    stubPinmeFetch(secondSplit);
+    await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
+      status: "unchanged",
+    });
+    const splitAudits = await db
+      .select({
+        externalProductIds: canteenMenuIdentityTransitions.externalProductIds,
+        eventKey: canteenMenuIdentityTransitions.eventKey,
+      })
+      .from(canteenMenuIdentityTransitions)
+      .where(eq(canteenMenuIdentityTransitions.kind, "split"));
+    expect(splitAudits).toEqual(
+      expect.arrayContaining([
+        {
+          externalProductIds: ["a"],
+          eventKey: expect.stringMatching(/^[0-9a-f]{64}$/),
+        },
+        {
+          externalProductIds: ["c"],
+          eventKey: expect.stringMatching(/^[0-9a-f]{64}$/),
+        },
+      ]),
+    );
+    expect(splitAudits).toHaveLength(2);
+    expect(new Set(splitAudits.map((audit) => audit.eventKey)).size).toBe(2);
+  });
+
+  it("renames a single-offering dish in place and audits the stable UUID", async () => {
+    const stableItemId = randomUUID();
+    await db.insert(siteSettings).values({
+      key: "canteen_menu_identity_evolution",
+      value: "enabled",
+    });
+    await db.insert(canteenMenuItems).values({
+      id: stableItemId,
+      canteenId,
+      name: "舊菜名",
+      normalizedName: "舊菜名",
+      menuSourceId: sourceId,
+      externalProductId: "stable-product",
+      isAvailable: true,
+    });
+    await db.insert(canteenMenuProviderOfferings).values({
+      canteenId,
+      menuSourceId: sourceId,
+      menuItemId: stableItemId,
+      externalProductId: "stable-product",
+      providerName: "舊菜名",
+      normalizedName: "舊菜名",
+      isAvailable: true,
+    });
+    await db.insert(canteenDishComments).values({
+      menuItemId: stableItemId,
+      userId,
+      content: "改名前历史",
+    });
+    const renamed = structuredClone(pinmeCurrent);
+    renamed.data.group[0].products[0].product_id = "stable-product";
+    renamed.data.group[0].products[0].local_name = "新菜名";
+    stubPinmeFetch(renamed);
+
+    await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
+      status: "applied",
+    });
+    const [item] = await db
+      .select({ id: canteenMenuItems.id, name: canteenMenuItems.name })
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.canteenId, canteenId));
+    expect(item).toEqual({ id: stableItemId, name: "新菜名" });
+    const [comment] = await db
+      .select({ menuItemId: canteenDishComments.menuItemId })
+      .from(canteenDishComments)
+      .where(eq(canteenDishComments.userId, userId));
+    expect(comment.menuItemId).toBe(stableItemId);
+    const [audit] = await db
+      .select({
+        kind: canteenMenuIdentityTransitions.kind,
+        fromMenuItemId: canteenMenuIdentityTransitions.fromMenuItemId,
+        toMenuItemId: canteenMenuIdentityTransitions.toMenuItemId,
+        fromNormalizedName: canteenMenuIdentityTransitions.fromNormalizedName,
+        toNormalizedName: canteenMenuIdentityTransitions.toNormalizedName,
+      })
+      .from(canteenMenuIdentityTransitions)
+      .where(eq(canteenMenuIdentityTransitions.canteenId, canteenId));
+    expect(audit).toEqual({
+      kind: "rename",
+      fromMenuItemId: stableItemId,
+      toMenuItemId: stableItemId,
+      fromNormalizedName: "舊菜名",
+      toNormalizedName: "新菜名",
+    });
   });
 });
