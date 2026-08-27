@@ -32,8 +32,27 @@ const receipt: CampusMapPublishedReceipt = {
 
 function harness(overrides: Record<string, unknown> = {}) {
   const consumed = new Map<string, typeof receipt>();
+  const actorBindings = new Map<string, string>();
+  actorBindings.set(
+    command.idempotencyKey,
+    "50000000-0000-4000-8000-000000000001",
+  );
   let canonicalPlaceId: string | null = null;
   const dependencies = {
+    identifyActor: vi.fn(
+      async () =>
+        ({
+          status: "authenticated",
+          actorId: "50000000-0000-4000-8000-000000000001",
+        }) as const,
+    ),
+    readActorBinding: vi.fn(
+      (identity: string) => actorBindings.get(identity) ?? null,
+    ),
+    bindActor: vi.fn((identity: string, actorId: string) => {
+      actorBindings.set(identity, actorId);
+      return true;
+    }),
     reconcile: vi.fn(async () => ({ status: "committed", receipt }) as const),
     retry: vi.fn(async () => receipt),
     refresh: vi.fn(async () => ({ status: "applied" }) as const),
@@ -47,6 +66,7 @@ function harness(overrides: Record<string, unknown> = {}) {
     readConsumed: vi.fn((identity: string) => consumed.get(identity) ?? null),
     markConsumed: vi.fn((identity: string, value: typeof receipt) => {
       consumed.set(identity, value);
+      return true;
     }),
     withLock: async <T>(_identity: string, work: () => Promise<T>) => work(),
     timeoutMs: 10,
@@ -90,6 +110,7 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
     ).resolves.toMatchObject({ status: "applied", receipt });
     expect(dependencies.reconcile).toHaveBeenCalledWith({
       idempotencyKey: command.idempotencyKey,
+      actorId: "50000000-0000-4000-8000-000000000001",
     });
     expect(dependencies.retry).not.toHaveBeenCalled();
   });
@@ -103,7 +124,109 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
       consumer.consume({ command, intentToken: 3 }),
     ).resolves.toMatchObject({ status: "applied", receipt });
     expect(dependencies.retry).toHaveBeenCalledOnce();
-    expect(dependencies.retry).toHaveBeenCalledWith(command);
+    expect(dependencies.retry).toHaveBeenCalledWith(
+      command,
+      "50000000-0000-4000-8000-000000000001",
+    );
+  });
+
+  it("fails closed before reconciliation when the current actor differs from the bound publisher", async () => {
+    const { consumer, dependencies } = harness({
+      identifyActor: vi.fn(
+        async () =>
+          ({
+            status: "authenticated",
+            actorId: "50000000-0000-4000-8000-000000000002",
+          }) as const,
+      ),
+      readActorBinding: vi.fn(() => "50000000-0000-4000-8000-000000000001"),
+    });
+
+    await expect(
+      consumer.consume({ command, intentToken: 3 }),
+    ).resolves.toEqual({
+      status: "recoverable",
+      reason: "identity-mismatch",
+    });
+    expect(dependencies.reconcile).not.toHaveBeenCalled();
+    expect(dependencies.retry).not.toHaveBeenCalled();
+    expect(dependencies.refresh).not.toHaveBeenCalled();
+  });
+
+  it("binds the current actor before starting the initial publish transport", async () => {
+    let boundActor: string | null = null;
+    const transport = vi.fn(async (actorId: string) => {
+      expect(actorId).toBe("50000000-0000-4000-8000-000000000001");
+      expect(boundActor).toBe("50000000-0000-4000-8000-000000000001");
+      return receipt;
+    });
+    const { consumer } = harness({
+      readActorBinding: vi.fn(() => null),
+      bindActor: vi.fn((_identity: string, actorId: string) => {
+        boundActor = actorId;
+        return true;
+      }),
+    });
+
+    await expect(
+      consumer.consume({ command, intentToken: 3, transport }),
+    ).resolves.toMatchObject({ status: "applied", receipt });
+    expect(transport).toHaveBeenCalledOnce();
+  });
+
+  it("performs the first actor binding inside the cross-tab receipt lock", async () => {
+    let insideLock = false;
+    const { consumer } = harness({
+      readActorBinding: vi.fn(() => {
+        expect(insideLock).toBe(true);
+        return null;
+      }),
+      bindActor: vi.fn(() => {
+        expect(insideLock).toBe(true);
+        return true;
+      }),
+      withLock: async <T>(_identity: string, work: () => Promise<T>) => {
+        insideLock = true;
+        try {
+          return await work();
+        } finally {
+          insideLock = false;
+        }
+      },
+    });
+
+    await expect(
+      consumer.consume({ command, intentToken: 3, receipt }),
+    ).resolves.toMatchObject({ status: "applied", receipt });
+  });
+
+  it("does not reconcile or retry a remount whose actor binding is missing", async () => {
+    const { consumer, dependencies } = harness({
+      readActorBinding: vi.fn(() => null),
+    });
+
+    await expect(
+      consumer.consume({ command, intentToken: 3 }),
+    ).resolves.toEqual({
+      status: "recoverable",
+      reason: "identity-unavailable",
+    });
+    expect(dependencies.reconcile).not.toHaveBeenCalled();
+    expect(dependencies.retry).not.toHaveBeenCalled();
+  });
+
+  it("fails closed if the server detects an actor switch during reconciliation", async () => {
+    const { consumer, dependencies } = harness({
+      reconcile: vi.fn(async () => ({ status: "identity-mismatch" }) as const),
+    });
+
+    await expect(
+      consumer.consume({ command, intentToken: 3 }),
+    ).resolves.toEqual({
+      status: "recoverable",
+      reason: "identity-mismatch",
+    });
+    expect(dependencies.retry).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -141,7 +264,7 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
     const { consumer } = harness({ reconcile: vi.fn(() => never) });
 
     await expect(
-      consumer.consume({ command, intentToken: 1, transport: never }),
+      consumer.consume({ command, intentToken: 1, transport: () => never }),
     ).resolves.toEqual({
       status: "recoverable",
       reason: "reconciliation-unavailable",
@@ -155,7 +278,7 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
       consumer.consume({
         command,
         intentToken: 1,
-        transport: Promise.reject(new Error("response lost")),
+        transport: () => Promise.reject(new Error("response lost")),
       }),
     ).resolves.toMatchObject({ status: "applied", receipt });
     expect(dependencies.reconcile).toHaveBeenCalledOnce();
@@ -171,6 +294,15 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
       return { status: "applied" as const };
     });
     const dependencies = {
+      identifyActor: vi.fn(
+        async () =>
+          ({
+            status: "authenticated",
+            actorId: "50000000-0000-4000-8000-000000000001",
+          }) as const,
+      ),
+      readActorBinding: () => "50000000-0000-4000-8000-000000000001",
+      bindActor: vi.fn(() => true),
       reconcile: vi.fn(async () => ({ status: "committed", receipt }) as const),
       retry: vi.fn(async () => receipt),
       refresh: vi.fn(async () => ({ status: "applied" }) as const),
@@ -179,6 +311,7 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
       readConsumed: (identity: string) => consumed.get(identity) ?? null,
       markConsumed: (identity: string, value: CampusMapPublishedReceipt) => {
         consumed.set(identity, value);
+        return true;
       },
       withLock: async <T>(_identity: string, work: () => Promise<T>) => {
         const previous = queue;
@@ -213,7 +346,7 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
   it("does not let an A refresh handoff replace a later B navigation", async () => {
     let resolveRefresh!: () => void;
     let currentIntentToken = 4;
-    const markConsumed = vi.fn();
+    const markConsumed = vi.fn(() => true);
     const { consumer } = harness({
       refresh: vi.fn(
         () =>
@@ -230,6 +363,7 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
       markConsumed,
     });
     const pending = consumer.consume({ command, intentToken: 4, receipt });
+    await vi.waitFor(() => expect(resolveRefresh).toBeTypeOf("function"));
     currentIntentToken = 5;
     resolveRefresh();
 
@@ -238,7 +372,23 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
       reason: "superseded",
       receipt,
     });
-    expect(markConsumed).not.toHaveBeenCalled();
+    expect(markConsumed).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed before handoff when the consumed receipt cannot be persisted", async () => {
+    const { consumer, dependencies } = harness({
+      markConsumed: vi.fn(() => false),
+    });
+
+    await expect(
+      consumer.consume({ command, intentToken: 1, receipt }),
+    ).resolves.toEqual({
+      status: "recoverable",
+      reason: "receipt-state-unavailable",
+      receipt,
+    });
+    expect(dependencies.refresh).not.toHaveBeenCalled();
+    expect(dependencies.applyProjectionAndOpen).not.toHaveBeenCalled();
   });
 
   it("fails closed when the browser cannot provide a cross-tab lock", async () => {
@@ -253,7 +403,6 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
     ).resolves.toEqual({
       status: "recoverable",
       reason: "receipt-lock-unavailable",
-      receipt,
     });
   });
 });

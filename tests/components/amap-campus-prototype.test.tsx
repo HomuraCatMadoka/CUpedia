@@ -32,6 +32,10 @@ vi.mock("@/components/auth/contributor-setup-provider", () => ({
   }),
 }));
 vi.mock("@/lib/campus-map/edit-actions", () => ({
+  identifyCampusMapEditPublisher: vi.fn(async () => ({
+    status: "authenticated",
+    actorId: "60000000-0000-4000-8000-000000000001",
+  })),
   publishCampusMapEdit: vi.fn(),
   reconcileCampusMapEditPublish: vi.fn(async () => ({
     status: "not-committed",
@@ -71,10 +75,12 @@ vi.mock("@/lib/campus-map/browse-actions", () => ({
 
 import { AmapCampusPrototype as AmapCampusPrototypeView } from "@/components/campus-map/amap-campus-prototype";
 import {
+  identifyCampusMapEditPublisher,
   loadCampusMapEditablePlace,
   publishCampusMapEdit,
   reconcileCampusMapEditPublish,
 } from "@/lib/campus-map/edit-actions";
+import { bindBrowserCampusMapPublishActor } from "@/lib/campus-map/publish-receipt-consumer";
 import {
   encodeCampusMapEditSnapshot,
   transitionCampusMapEdit,
@@ -99,7 +105,28 @@ function AmapCampusPrototype(
 }
 
 beforeEach(() => {
+  const localStorageValues = new Map<string, string>();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      get length() {
+        return localStorageValues.size;
+      },
+      clear: () => localStorageValues.clear(),
+      getItem: (key: string) => localStorageValues.get(key) ?? null,
+      key: (index: number) => [...localStorageValues.keys()][index] ?? null,
+      removeItem: (key: string) => localStorageValues.delete(key),
+      setItem: (key: string, value: string) => {
+        localStorageValues.set(key, value);
+      },
+    } satisfies Storage,
+  });
   vi.restoreAllMocks();
+  vi.mocked(identifyCampusMapEditPublisher).mockReset();
+  vi.mocked(identifyCampusMapEditPublisher).mockResolvedValue({
+    status: "authenticated",
+    actorId: "60000000-0000-4000-8000-000000000001",
+  });
   vi.mocked(publishCampusMapEdit).mockReset();
   vi.mocked(reconcileCampusMapEditPublish).mockReset();
   vi.mocked(reconcileCampusMapEditPublish).mockResolvedValue({
@@ -412,6 +439,10 @@ describe("AmapCampusPrototype", () => {
       "cupedia:campus-map:edit-session:v1",
       encodeCampusMapEditSnapshot(publishing),
     );
+    bindBrowserCampusMapPublishActor(
+      idempotencyKey,
+      "60000000-0000-4000-8000-000000000001",
+    );
     window.history.replaceState(
       null,
       "",
@@ -434,9 +465,235 @@ describe("AmapCampusPrototype", () => {
     expect(
       window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
     ).toBeNull();
-    expect(reconcileCampusMapEditPublish).toHaveBeenCalledWith(idempotencyKey);
+    expect(reconcileCampusMapEditPublish).toHaveBeenCalledWith(
+      idempotencyKey,
+      "60000000-0000-4000-8000-000000000001",
+    );
     expect(publishCampusMapEdit).not.toHaveBeenCalled();
   });
+
+  it("discards a publishing snapshot instead of reclaiming selection after remounting on B", async () => {
+    const idempotencyKey = "10000000-0000-4000-8000-000000000022";
+    const selectedPlaceId = "30000000-0000-4000-8000-000000000022";
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey,
+    }).session!;
+    const positioned = transitionCampusMapEdit(started, {
+      type: "CONFIRM_POSITION",
+      position: {
+        longitude: 114.208,
+        latitude: 22.42,
+        crs: "wgs84",
+        precision: "approximate",
+        method: "keyboard",
+      },
+    }).session!;
+    const publishing = transitionCampusMapEdit(positioned, {
+      type: "REQUEST_PUBLISH",
+      accessedOn: "2026-08-27",
+    }).session!;
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(publishing),
+    );
+    bindBrowserCampusMapPublishActor(
+      publishing.draft.idempotencyKey,
+      "60000000-0000-4000-8000-000000000001",
+    );
+    window.history.replaceState(
+      null,
+      "",
+      `/prototype/campus-map?v=1&scene=facility&id=${selectedPlaceId}&snap=peek`,
+    );
+
+    render(
+      <AmapCampusPrototype
+        initialSearch={window.location.search}
+        initialBrowseProjection={publishedOutdoorProjection(selectedPlaceId)}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(
+        window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
+      ).toBeNull(),
+    );
+    expect(window.location.search).toContain(
+      `scene=facility&id=${selectedPlaceId}`,
+    );
+    expect(reconcileCampusMapEditPublish).not.toHaveBeenCalled();
+    expect(publishCampusMapEdit).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "添加校内设施" })).toBeNull();
+  });
+
+  it("does not reveal an exact-task publishing draft after the account changes", async () => {
+    const idempotencyKey = "10000000-0000-4000-8000-000000000023";
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey,
+    }).session!;
+    const positioned = transitionCampusMapEdit(started, {
+      type: "CONFIRM_POSITION",
+      position: {
+        longitude: 114.208,
+        latitude: 22.42,
+        crs: "wgs84",
+        precision: "approximate",
+        method: "keyboard",
+      },
+    }).session!;
+    const publishing = transitionCampusMapEdit(positioned, {
+      type: "REQUEST_PUBLISH",
+      accessedOn: "2026-08-27",
+    }).session!;
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(publishing),
+    );
+    bindBrowserCampusMapPublishActor(
+      idempotencyKey,
+      "60000000-0000-4000-8000-000000000001",
+    );
+    window.history.replaceState(
+      null,
+      "",
+      "/prototype/campus-map?v=1&task=create&anchor=map",
+    );
+    vi.mocked(identifyCampusMapEditPublisher).mockResolvedValueOnce({
+      status: "authenticated",
+      actorId: "60000000-0000-4000-8000-000000000002",
+    });
+
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    await waitFor(() =>
+      expect(
+        window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
+      ).toBeNull(),
+    );
+    expect(window.location.search).not.toContain("task=create");
+    expect(document.body.textContent).not.toContain("正在发布地点资料");
+    expect(screen.queryByRole("heading", { name: "添加校内设施" })).toBeNull();
+    expect(reconcileCampusMapEditPublish).not.toHaveBeenCalled();
+    expect(publishCampusMapEdit).not.toHaveBeenCalled();
+  });
+
+  it("revokes a restored publishing draft when the server detects a later account change", async () => {
+    const idempotencyKey = "10000000-0000-4000-8000-000000000024";
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey,
+    }).session!;
+    const positioned = transitionCampusMapEdit(started, {
+      type: "CONFIRM_POSITION",
+      position: {
+        longitude: 114.208,
+        latitude: 22.42,
+        crs: "wgs84",
+        precision: "approximate",
+        method: "keyboard",
+      },
+    }).session!;
+    const publishing = transitionCampusMapEdit(positioned, {
+      type: "REQUEST_PUBLISH",
+      accessedOn: "2026-08-27",
+    }).session!;
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(publishing),
+    );
+    bindBrowserCampusMapPublishActor(
+      idempotencyKey,
+      "60000000-0000-4000-8000-000000000001",
+    );
+    window.history.replaceState(
+      null,
+      "",
+      "/prototype/campus-map?v=1&task=create&anchor=map",
+    );
+    vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
+      status: "identity-mismatch",
+    });
+
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    await waitFor(() =>
+      expect(
+        window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
+      ).toBeNull(),
+    );
+    expect(window.location.search).not.toContain("task=create");
+    expect(document.body.textContent).not.toContain("正在发布地点资料");
+    expect(screen.queryByRole("heading", { name: "添加校内设施" })).toBeNull();
+    expect(reconcileCampusMapEditPublish).toHaveBeenCalledWith(
+      idempotencyKey,
+      "60000000-0000-4000-8000-000000000001",
+    );
+    expect(publishCampusMapEdit).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      identity: { status: "unavailable" as const },
+      notice: "暂时无法确认草稿所属账号，请刷新后重试。",
+    },
+    {
+      identity: { status: "authentication-required" as const },
+      notice: "登录后可继续恢复这份地图编辑草稿。",
+    },
+  ])(
+    "retains an unverified publishing snapshot with a recoverable notice for $identity.status",
+    async ({ identity, notice }) => {
+      const idempotencyKey = "10000000-0000-4000-8000-000000000025";
+      const started = transitionCampusMapEdit(null, {
+        type: "START_ADD",
+        idempotencyKey,
+      }).session!;
+      const positioned = transitionCampusMapEdit(started, {
+        type: "CONFIRM_POSITION",
+        position: {
+          longitude: 114.208,
+          latitude: 22.42,
+          crs: "wgs84",
+          precision: "approximate",
+          method: "keyboard",
+        },
+      }).session!;
+      const publishing = transitionCampusMapEdit(positioned, {
+        type: "REQUEST_PUBLISH",
+        accessedOn: "2026-08-27",
+      }).session!;
+      const encoded = encodeCampusMapEditSnapshot(publishing);
+      window.sessionStorage.setItem(
+        "cupedia:campus-map:edit-session:v1",
+        encoded,
+      );
+      bindBrowserCampusMapPublishActor(
+        idempotencyKey,
+        "60000000-0000-4000-8000-000000000001",
+      );
+      window.history.replaceState(
+        null,
+        "",
+        "/prototype/campus-map?v=1&task=create&anchor=map",
+      );
+      vi.mocked(identifyCampusMapEditPublisher).mockResolvedValueOnce(identity);
+
+      render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+      expect(await screen.findByText(notice)).toBeTruthy();
+      expect(
+        window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
+      ).toBe(encoded);
+      expect(document.body.textContent).not.toContain("正在发布地点资料");
+      expect(
+        screen.queryByRole("heading", { name: "添加校内设施" }),
+      ).toBeNull();
+      expect(reconcileCampusMapEditPublish).not.toHaveBeenCalled();
+      expect(publishCampusMapEdit).not.toHaveBeenCalled();
+    },
+  );
 
   it("restores standalone Current Place search results from formal data after refresh", async () => {
     const placeId = "30000000-0000-4000-8000-000000000020";
@@ -769,6 +1026,10 @@ describe("AmapCampusPrototype", () => {
     window.sessionStorage.setItem(
       "cupedia:campus-map:edit-session:v1",
       encodeCampusMapEditSnapshot(publishing),
+    );
+    bindBrowserCampusMapPublishActor(
+      publishing.draft.idempotencyKey,
+      "60000000-0000-4000-8000-000000000001",
     );
     window.history.replaceState(
       null,

@@ -8,12 +8,15 @@ import {
   publishCampusMapChangeset,
   reconcileCampusMapPublishReceipt,
 } from "./publish";
-import type { CampusMapPublishReconciliation } from "./publish-receipt-consumer";
+import type {
+  CampusMapPublishActorIdentity,
+  CampusMapPublishReconciliation,
+  CampusMapPublishTransportResult,
+} from "./publish-receipt-consumer";
 import type { CampusMapIndoorLocationDisplay } from "./edit-session";
 import type {
-  CampusMapPublishFactInput,
   CampusMapPublishCommand,
-  CampusMapPublishResult,
+  CampusMapPublishFactInput,
 } from "./publish-contract";
 
 export interface CampusMapEditablePlace {
@@ -88,13 +91,21 @@ function requestClientIp(requestHeaders: Headers): string {
 /** Thin trusted-context adapter; #718 remains the only publish implementation. */
 export async function publishCampusMapEdit(
   command: CampusMapPublishCommand,
-): Promise<CampusMapPublishResult> {
+  expectedActorId: string,
+): Promise<CampusMapPublishTransportResult> {
   const [user, requestHeaders] = await Promise.all([
     getOptionalUser(),
     headers(),
   ]);
+  if (!user) {
+    return {
+      status: "authentication-required",
+      code: "authentication-required",
+    };
+  }
+  if (user.id !== expectedActorId) return { status: "identity-mismatch" };
   return publishCampusMapChangeset(command, {
-    actorId: user?.id ?? null,
+    actorId: user.id,
     clientIp: requestClientIp(requestHeaders),
   });
 }
@@ -102,13 +113,25 @@ export async function publishCampusMapEdit(
 /** Reconciles the original command identity without creating another request. */
 export async function reconcileCampusMapEditPublish(
   idempotencyKey: string,
+  expectedActorId: string,
 ): Promise<CampusMapPublishReconciliation> {
   const user = await getOptionalUser();
+  if (!user) return { status: "authentication-required" };
+  if (user.id !== expectedActorId) return { status: "identity-mismatch" };
   try {
-    return await reconcileCampusMapPublishReceipt(
-      idempotencyKey,
-      user?.id ?? null,
-    );
+    return await reconcileCampusMapPublishReceipt(idempotencyKey, user.id);
+  } catch {
+    return { status: "unavailable" };
+  }
+}
+
+/** Returns only the current actor's own stable identity for recovery binding. */
+export async function identifyCampusMapEditPublisher(): Promise<CampusMapPublishActorIdentity> {
+  try {
+    const user = await getOptionalUser();
+    return user
+      ? { status: "authenticated", actorId: user.id }
+      : { status: "authentication-required" };
   } catch {
     return { status: "unavailable" };
   }

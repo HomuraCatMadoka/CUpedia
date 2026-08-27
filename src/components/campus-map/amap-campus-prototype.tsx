@@ -83,13 +83,16 @@ import {
   RefreshableCampusMapSceneCatalog,
 } from "@/lib/campus-map/browse-scene-catalog";
 import {
+  identifyCampusMapEditPublisher,
   publishCampusMapEdit,
   reconcileCampusMapEditPublish,
 } from "@/lib/campus-map/edit-actions";
 import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
 import {
   CampusMapPublishReceiptConsumer,
+  bindBrowserCampusMapPublishActor,
   markBrowserConsumedCampusMapReceipt,
+  readBrowserCampusMapPublishActor,
   readBrowserConsumedCampusMapReceipt,
   withBrowserCampusMapReceiptLock,
 } from "@/lib/campus-map/publish-receipt-consumer";
@@ -1159,8 +1162,11 @@ export function AmapCampusPrototype({
   const [publishReceiptConsumer] = useState(
     () =>
       new CampusMapPublishReceiptConsumer({
-        reconcile: ({ idempotencyKey }) =>
-          reconcileCampusMapEditPublish(idempotencyKey),
+        identifyActor: identifyCampusMapEditPublisher,
+        readActorBinding: readBrowserCampusMapPublishActor,
+        bindActor: bindBrowserCampusMapPublishActor,
+        reconcile: ({ idempotencyKey, actorId }) =>
+          reconcileCampusMapEditPublish(idempotencyKey, actorId),
         retry: publishCampusMapEdit,
         refresh: async ({ placeId }) => {
           const result = await projectionStore.refresh({ placeId });
@@ -1197,12 +1203,14 @@ export function AmapCampusPrototype({
   const recoverPublish = useCallback(
     (
       command: CampusMapPublishCommand,
-      transport?: ReturnType<typeof publishCampusMapEdit>,
+      transport?: (actorId: string) => ReturnType<typeof publishCampusMapEdit>,
+      onIdentityVerified?: () => void,
     ) =>
       publishReceiptConsumer.consume({
         command,
         intentToken: driver.getIntentToken(),
         transport,
+        onIdentityVerified,
       }),
     [driver, publishReceiptConsumer],
   );

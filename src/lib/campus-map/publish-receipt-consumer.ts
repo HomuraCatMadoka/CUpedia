@@ -11,8 +11,18 @@ export type CampusMapPublishedReceipt = Extract<
 export type CampusMapPublishReconciliation =
   | { status: "committed"; receipt: CampusMapPublishedReceipt }
   | { status: "not-committed" }
+  | { status: "identity-mismatch" }
   | { status: "authentication-required" }
   | { status: "unavailable" };
+
+export type CampusMapPublishActorIdentity =
+  | { status: "authenticated"; actorId: string }
+  | { status: "authentication-required" }
+  | { status: "unavailable" };
+
+export type CampusMapPublishTransportResult =
+  | CampusMapPublishResult
+  | { status: "identity-mismatch" };
 
 export type CampusMapPublishReceiptOutcome =
   | { status: "applied"; receipt: CampusMapPublishedReceipt }
@@ -26,15 +36,25 @@ export type CampusMapPublishReceiptOutcome =
         | "projection-superseded"
         | "missing-target"
         | "superseded"
-        | "receipt-lock-unavailable";
+        | "receipt-lock-unavailable"
+        | "identity-mismatch"
+        | "identity-unavailable"
+        | "receipt-state-unavailable";
       receipt?: CampusMapPublishedReceipt;
     };
 
 interface CampusMapPublishReceiptConsumerDependencies {
+  identifyActor(): Promise<CampusMapPublishActorIdentity>;
+  readActorBinding(identity: string): string | null;
+  bindActor(identity: string, actorId: string): boolean;
   reconcile(identity: {
     idempotencyKey: string;
+    actorId: string;
   }): Promise<CampusMapPublishReconciliation>;
-  retry(command: CampusMapPublishCommand): Promise<CampusMapPublishResult>;
+  retry(
+    command: CampusMapPublishCommand,
+    actorId: string,
+  ): Promise<CampusMapPublishTransportResult>;
   refresh(receipt: {
     placeId: string;
   }): Promise<{ status: "applied" | "failed" | "superseded" }>;
@@ -43,13 +63,37 @@ interface CampusMapPublishReceiptConsumerDependencies {
   };
   isCanonicalPlaceOpen(placeId: string): boolean;
   readConsumed(identity: string): CampusMapPublishedReceipt | null;
-  markConsumed(identity: string, receipt: CampusMapPublishedReceipt): void;
+  markConsumed(identity: string, receipt: CampusMapPublishedReceipt): boolean;
   withLock<T>(identity: string, work: () => Promise<T>): Promise<T>;
   timeoutMs: number;
 }
 
 const fallbackConsumedReceipts = new Map<string, CampusMapPublishedReceipt>();
 const CONSUMED_PREFIX = "cupedia:campus-map:publish-receipt:v1:";
+const ACTOR_PREFIX = "cupedia:campus-map:publish-actor:v1:";
+
+export function readBrowserCampusMapPublishActor(
+  identity: string,
+): string | null {
+  try {
+    const actorId = window.localStorage.getItem(`${ACTOR_PREFIX}${identity}`);
+    return actorId && actorId === actorId.trim() ? actorId : null;
+  } catch {
+    return null;
+  }
+}
+
+export function bindBrowserCampusMapPublishActor(
+  identity: string,
+  actorId: string,
+): boolean {
+  try {
+    window.localStorage.setItem(`${ACTOR_PREFIX}${identity}`, actorId);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function readBrowserConsumedCampusMapReceipt(
   identity: string,
@@ -80,13 +124,16 @@ export function markBrowserConsumedCampusMapReceipt(
   identity: string,
   receipt: CampusMapPublishedReceipt,
 ) {
-  fallbackConsumedReceipts.set(identity, receipt);
   try {
     window.localStorage.setItem(
       `${CONSUMED_PREFIX}${identity}`,
       JSON.stringify(receipt),
     );
-  } catch {}
+    fallbackConsumedReceipts.set(identity, receipt);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function withBrowserCampusMapReceiptLock<T>(
@@ -122,12 +169,43 @@ export class CampusMapPublishReceiptConsumer {
     command: CampusMapPublishCommand;
     intentToken: number;
     receipt?: CampusMapPublishedReceipt;
-    transport?: Promise<CampusMapPublishResult>;
+    transport?: (actorId: string) => Promise<CampusMapPublishTransportResult>;
+    onIdentityVerified?: () => void;
   }): Promise<CampusMapPublishReceiptOutcome> {
+    const actorIdentity = await this.bounded(this.dependencies.identifyActor());
+    if (
+      actorIdentity.status === "unavailable" ||
+      actorIdentity.value.status === "unavailable"
+    ) {
+      return { status: "recoverable", reason: "identity-unavailable" };
+    }
+    if (actorIdentity.value.status === "authentication-required") {
+      return {
+        status: "publish-result",
+        result: {
+          status: "authentication-required",
+          code: "authentication-required",
+        },
+      };
+    }
+    const identity = input.command.idempotencyKey;
+    const actorBinding = await this.ensureActorBinding(
+      identity,
+      actorIdentity.value.actorId,
+      Boolean(input.transport || input.receipt),
+    );
+    if (actorBinding) return actorBinding;
+    input.onIdentityVerified?.();
+
     let receipt = input.receipt;
     if (!receipt && input.transport) {
-      const transport = await this.bounded(input.transport);
+      const transport = await this.bounded(
+        input.transport(actorIdentity.value.actorId),
+      );
       if (transport.status === "settled") {
+        if (transport.value.status === "identity-mismatch") {
+          return { status: "recoverable", reason: "identity-mismatch" };
+        }
         if (transport.value.status !== "published") {
           return { status: "publish-result", result: transport.value };
         }
@@ -139,6 +217,7 @@ export class CampusMapPublishReceiptConsumer {
       const reconciliation = await this.bounded(
         this.dependencies.reconcile({
           idempotencyKey: input.command.idempotencyKey,
+          actorId: actorIdentity.value.actorId,
         }),
       );
       if (
@@ -156,17 +235,23 @@ export class CampusMapPublishReceiptConsumer {
           },
         };
       }
+      if (reconciliation.value.status === "identity-mismatch") {
+        return { status: "recoverable", reason: "identity-mismatch" };
+      }
       if (reconciliation.value.status === "committed") {
         receipt = reconciliation.value.receipt;
       } else {
         const retry = await this.bounded(
-          this.dependencies.retry(input.command),
+          this.dependencies.retry(input.command, actorIdentity.value.actorId),
         );
         if (retry.status === "unavailable") {
           return {
             status: "recoverable",
             reason: "reconciliation-unavailable",
           };
+        }
+        if (retry.value.status === "identity-mismatch") {
+          return { status: "recoverable", reason: "identity-mismatch" };
         }
         if (retry.value.status !== "published") {
           return { status: "publish-result", result: retry.value };
@@ -180,6 +265,36 @@ export class CampusMapPublishReceiptConsumer {
       input.intentToken,
       receipt,
     );
+  }
+
+  private async ensureActorBinding(
+    identity: string,
+    actorId: string,
+    canCreate: boolean,
+  ): Promise<Extract<
+    CampusMapPublishReceiptOutcome,
+    { status: "recoverable" }
+  > | null> {
+    try {
+      return await this.dependencies.withLock(identity, async () => {
+        const boundActor = this.dependencies.readActorBinding(identity);
+        if (boundActor && boundActor !== actorId) {
+          return { status: "recoverable", reason: "identity-mismatch" };
+        }
+        if (boundActor) return null;
+        if (!canCreate) {
+          return { status: "recoverable", reason: "identity-unavailable" };
+        }
+        return this.dependencies.bindActor(identity, actorId)
+          ? null
+          : {
+              status: "recoverable",
+              reason: "receipt-state-unavailable",
+            };
+      });
+    } catch {
+      return { status: "recoverable", reason: "receipt-lock-unavailable" };
+    }
   }
 
   private async consumeReceipt(
@@ -216,13 +331,19 @@ export class CampusMapPublishReceiptConsumer {
         if (!placeId) {
           return { status: "recoverable", reason: "missing-target", receipt };
         }
+        if (!this.dependencies.markConsumed(identity, receipt)) {
+          return {
+            status: "recoverable",
+            reason: "receipt-state-unavailable",
+            receipt,
+          };
+        }
         const applied = await this.refreshAndOpen(
           receipt,
           placeId,
           intentToken,
         );
         if (applied.status !== "applied") return applied;
-        this.dependencies.markConsumed(identity, receipt);
         return { status: "applied", receipt };
       });
     } catch {

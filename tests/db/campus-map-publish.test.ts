@@ -3088,6 +3088,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
 
   it("reconciles a committed receipt and distinguishes an uncommitted key", async () => {
     const actorId = await createActor();
+    const otherActorId = await createActor();
     const command = createCommand();
     const published = await publishCampusMapChangeset(command, {
       actorId,
@@ -3100,6 +3101,9 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     ).resolves.toEqual({ status: "committed", receipt: published });
     await expect(
       reconcileCampusMapPublishReceipt(randomUUID(), actorId),
+    ).resolves.toEqual({ status: "not-committed" });
+    await expect(
+      reconcileCampusMapPublishReceipt(command.idempotencyKey, otherActorId),
     ).resolves.toEqual({ status: "not-committed" });
     await expect(
       reconcileCampusMapPublishReceipt(command.idempotencyKey, null),
