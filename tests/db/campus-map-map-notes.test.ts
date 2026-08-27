@@ -121,6 +121,8 @@ describe.skipIf(!hasDb)("Campus Map Notes service (#722)", () => {
       await client.query("delete from campus_map_note_outbox");
       await client.query("delete from campus_map_note_subscriptions");
       await client.query("delete from campus_map_note_requests");
+      await client.query("delete from campus_map_note_event_visibility");
+      await client.query("delete from campus_map_note_visibility");
       await client.query("delete from campus_map_note_events");
       await client.query("delete from campus_map_notes");
       await client.query("delete from campus_map_note_rate_limits");
@@ -791,7 +793,9 @@ describe.skipIf(!hasDb)("Campus Map Notes service (#722)", () => {
     try {
       await client.query("begin");
       await expect(
-        client.query("truncate campus_map_note_outbox, campus_map_note_events"),
+        client.query(
+          "truncate campus_map_note_outbox, campus_map_note_event_visibility, campus_map_note_events",
+        ),
       ).rejects.toMatchObject({
         message: expect.stringContaining("append-only"),
       });

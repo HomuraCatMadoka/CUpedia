@@ -56,6 +56,7 @@ import type {
   CampusMapPublishWarning,
 } from "@/lib/campus-map/publish-contract";
 import { consumePublishRate } from "@/lib/campus-map/publish-rate-policy";
+import { findActiveCampusMapContributorBlock } from "@/lib/campus-map/moderation-governance";
 import { isAllowedEmail } from "@/lib/email";
 
 export type {
@@ -574,6 +575,16 @@ async function publishCampusMapChangesetInternal(
       }
       if (actor.banned) {
         return { status: "forbidden", code: "actor-banned" } as const;
+      }
+      if (
+        await findActiveCampusMapContributorBlock(
+          transaction,
+          actor.id,
+          "publish",
+          new Date(),
+        )
+      ) {
+        return { status: "forbidden", code: "contributor-blocked" } as const;
       }
       if (actor.role !== "user" && actor.role !== "admin") {
         return { status: "forbidden", code: "role-not-eligible" } as const;

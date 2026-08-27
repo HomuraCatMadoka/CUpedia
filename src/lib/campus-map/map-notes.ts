@@ -10,15 +10,18 @@ import {
   or,
   sql,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import {
   accounts,
   campusMapChangesets,
   campusMapNoteEvents,
+  campusMapNoteEventVisibility,
   campusMapNoteOutbox,
   campusMapNoteRequests,
   campusMapNotes,
+  campusMapNoteVisibility,
   campusMapNoteSubscriptions,
   campusMapPlaces,
   notifications,
@@ -27,6 +30,11 @@ import {
 import { isAllowedEmail } from "@/lib/email";
 import { isCanonicalCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
 import { consumeMapNoteRate } from "@/lib/campus-map/map-note-rate-policy";
+import {
+  findActiveCampusMapContributorBlock,
+  initializeCampusMapNoteEventModerationProjection,
+  initializeCampusMapNoteModerationProjection,
+} from "@/lib/campus-map/moderation-governance";
 import {
   CAMPUS_MAP_NOTE_RESOLUTION_REASONS,
   normalizeCampusMapNoteCommand,
@@ -50,6 +58,14 @@ const MAX_SEARCH_DOCUMENT_CHARACTERS = 65_536;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 const OUTBOX_DELIVERY_LEASE_MS = 5 * 60_000;
+const openingNoteEvents = alias(
+  campusMapNoteEvents,
+  "campus_map_public_opening_note_events",
+);
+const openingNoteEventVisibility = alias(
+  campusMapNoteEventVisibility,
+  "campus_map_public_opening_note_event_visibility",
+);
 const HIDDEN_NOTE_ACTOR = {
   id: "00000000-0000-4000-8000-000000000000",
   nickname: "内容已隐藏",
@@ -68,6 +84,7 @@ interface LockedNote {
   status: CampusMapNoteStatus;
   revision: number;
   searchDocument: string;
+  visibility: "public" | "hidden";
 }
 
 export async function commandCampusMapNote(
@@ -105,6 +122,17 @@ export async function commandCampusMapNote(
     return await db.transaction(async (transaction) => {
       const actorResult = await readEligibleActor(transaction, actorId);
       if ("status" in actorResult) return actorResult;
+
+      if (
+        await findActiveCampusMapContributorBlock(
+          transaction,
+          actorResult.id,
+          "map-notes",
+          now,
+        )
+      ) {
+        return { status: "forbidden", code: "contributor-blocked" };
+      }
 
       const rateLimit = await consumeMapNoteRate(
         transaction,
@@ -187,10 +215,15 @@ export async function getCampusMapNote(
       revision: campusMapNotes.revision,
       authorId: campusMapNotes.authorIdSnapshot,
       authorNickname: campusMapNotes.authorNicknameSnapshot,
+      visibility: campusMapNoteVisibility.visibility,
       createdAt: campusMapNotes.createdAt,
       updatedAt: campusMapNotes.updatedAt,
     })
     .from(campusMapNotes)
+    .innerJoin(
+      campusMapNoteVisibility,
+      eq(campusMapNoteVisibility.noteId, campusMapNotes.id),
+    )
     .where(eq(campusMapNotes.id, canonicalNoteId))
     .limit(1);
   if (!note) return null;
@@ -205,9 +238,14 @@ export async function getCampusMapNote(
         comment: campusMapNoteEvents.comment,
         resolutionReason: campusMapNoteEvents.resolutionReason,
         resolvedByChangesetId: campusMapNoteEvents.resolvedByChangesetId,
+        visibility: campusMapNoteEventVisibility.visibility,
         createdAt: campusMapNoteEvents.createdAt,
       })
       .from(campusMapNoteEvents)
+      .innerJoin(
+        campusMapNoteEventVisibility,
+        eq(campusMapNoteEventVisibility.eventId, campusMapNoteEvents.id),
+      )
       .where(eq(campusMapNoteEvents.noteId, canonicalNoteId))
       .orderBy(campusMapNoteEvents.revision),
     viewerId && isCanonicalCampusMapUuid(viewerId.toLowerCase())
@@ -223,7 +261,14 @@ export async function getCampusMapNote(
           .limit(1)
       : Promise.resolve([]),
   ]);
-  const hidden = note.status === "moderator-hidden";
+  const hidden =
+    note.status === "moderator-hidden" || note.visibility === "hidden";
+  const authorHidden =
+    hidden ||
+    events.some(
+      (event) =>
+        event.kind === "opening-comment" && event.visibility === "hidden",
+    );
   return {
     id: note.id,
     placeId: note.placeId,
@@ -231,33 +276,34 @@ export async function getCampusMapNote(
       note.longitude === null || note.latitude === null
         ? null
         : { longitude: note.longitude, latitude: note.latitude, crs: "wgs84" },
-    status: note.status,
+    status: hidden ? "moderator-hidden" : note.status,
     revision: note.revision,
-    author: hidden
+    author: authorHidden
       ? HIDDEN_NOTE_ACTOR
       : { id: note.authorId, nickname: note.authorNickname },
     createdAt: note.createdAt.toISOString(),
     updatedAt: note.updatedAt.toISOString(),
     subscribed: subscription[0]?.subscribed ?? false,
-    events: events.map(
-      (event): CampusMapNoteEventView => ({
+    events: events.map((event): CampusMapNoteEventView => {
+      const eventHidden = hidden || event.visibility === "hidden";
+      return {
         id: event.id,
         revision: event.revision,
         kind: event.kind,
-        actor: hidden
+        actor: eventHidden
           ? HIDDEN_NOTE_ACTOR
           : { id: event.actorId, nickname: event.actorNickname },
-        comment: hidden ? null : event.comment,
+        comment: eventHidden ? null : event.comment,
         resolution:
-          hidden || event.resolutionReason === null
+          eventHidden || event.resolutionReason === null
             ? null
             : {
                 reason: event.resolutionReason,
                 resolvedByChangesetId: event.resolvedByChangesetId,
               },
         createdAt: event.createdAt.toISOString(),
-      }),
-    ),
+      };
+    }),
   };
 }
 
@@ -273,7 +319,10 @@ export async function listCampusMapNotes(
   const cursor = query.cursor ? decodeCursor(query.cursor) : null;
   if (query.cursor && !cursor) return { items: [], nextCursor: null };
 
-  const predicates = [ne(campusMapNotes.status, "moderator-hidden")];
+  const predicates = [
+    ne(campusMapNotes.status, "moderator-hidden"),
+    eq(campusMapNoteVisibility.visibility, "public"),
+  ];
   if (query.status) predicates.push(eq(campusMapNotes.status, query.status));
   if (cursor) {
     predicates.push(
@@ -289,7 +338,10 @@ export async function listCampusMapNotes(
   if (query.scope.kind === "place") {
     predicates.push(eq(campusMapNotes.placeId, query.scope.placeId));
   } else if (query.scope.kind === "author") {
-    predicates.push(eq(campusMapNotes.authorIdSnapshot, query.scope.actorId));
+    predicates.push(
+      eq(campusMapNotes.authorIdSnapshot, query.scope.actorId),
+      eq(openingNoteEventVisibility.visibility, "public"),
+    );
   } else if (query.scope.kind === "bbox") {
     predicates.push(
       isNotNull(campusMapNotes.longitude),
@@ -316,9 +368,25 @@ export async function listCampusMapNotes(
       authorId: campusMapNotes.authorIdSnapshot,
       authorNickname: campusMapNotes.authorNicknameSnapshot,
       excerpt: campusMapNotes.searchDocument,
+      openingVisibility: openingNoteEventVisibility.visibility,
       updatedAt: campusMapNotes.updatedAt,
     })
     .from(campusMapNotes)
+    .innerJoin(
+      campusMapNoteVisibility,
+      eq(campusMapNoteVisibility.noteId, campusMapNotes.id),
+    )
+    .innerJoin(
+      openingNoteEvents,
+      and(
+        eq(openingNoteEvents.noteId, campusMapNotes.id),
+        eq(openingNoteEvents.kind, "opening-comment"),
+      ),
+    )
+    .innerJoin(
+      openingNoteEventVisibility,
+      eq(openingNoteEventVisibility.eventId, openingNoteEvents.id),
+    )
     .where(and(...predicates))
     .orderBy(desc(campusMapNotes.updatedAt), desc(campusMapNotes.id))
     .limit(limit + 1);
@@ -334,7 +402,10 @@ export async function listCampusMapNotes(
           : { longitude: row.longitude, latitude: row.latitude, crs: "wgs84" },
       status: row.status,
       revision: row.revision,
-      author: { id: row.authorId, nickname: row.authorNickname },
+      author:
+        row.openingVisibility === "hidden"
+          ? HIDDEN_NOTE_ACTOR
+          : { id: row.authorId, nickname: row.authorNickname },
       excerpt: safeExcerpt(row.excerpt),
       updatedAt: row.updatedAt.toISOString(),
     })),
@@ -374,12 +445,20 @@ export async function setCampusMapNoteSubscription(
     const actor = await readEligibleActor(transaction, canonicalActorId);
     if ("status" in actor) return actor;
     const [note] = await transaction
-      .select({ id: campusMapNotes.id, status: campusMapNotes.status })
+      .select({
+        id: campusMapNotes.id,
+        status: campusMapNotes.status,
+        visibility: campusMapNoteVisibility.visibility,
+      })
       .from(campusMapNotes)
+      .innerJoin(
+        campusMapNoteVisibility,
+        eq(campusMapNoteVisibility.noteId, campusMapNotes.id),
+      )
       .where(eq(campusMapNotes.id, canonicalNoteId))
       .limit(1);
     if (!note) return { status: "not-found", code: "note-not-found" } as const;
-    if (note.status === "moderator-hidden") {
+    if (note.status === "moderator-hidden" || note.visibility === "hidden") {
       return { status: "forbidden", code: "note-hidden" } as const;
     }
     await upsertSubscription(
@@ -398,7 +477,6 @@ export interface CampusMapNoteOutboxMessage {
   noteId: string;
   eventId: string;
   recipientUserId: string;
-  actorUserId: string | null;
 }
 
 export async function dispatchCampusMapNoteOutbox(
@@ -414,13 +492,8 @@ export async function dispatchCampusMapNoteOutbox(
         noteId: campusMapNoteOutbox.noteId,
         eventId: campusMapNoteOutbox.eventId,
         recipientUserId: campusMapNoteOutbox.recipientUserId,
-        actorUserId: campusMapNoteEvents.actorUserId,
       })
       .from(campusMapNoteOutbox)
-      .innerJoin(
-        campusMapNoteEvents,
-        eq(campusMapNoteOutbox.eventId, campusMapNoteEvents.id),
-      )
       .where(
         and(
           inArray(campusMapNoteOutbox.status, [
@@ -485,16 +558,44 @@ export async function dispatchCampusMapNoteOutbox(
 
 export async function deliverCampusMapNoteNotifications(limit = 25) {
   return dispatchCampusMapNoteOutbox(async (message) => {
-    await db
-      .insert(notifications)
-      .values({
-        id: message.id,
-        recipientId: message.recipientUserId,
-        actorId: message.actorUserId,
-        kind: "campus_map_note_event",
-        metadata: { noteId: message.noteId, eventId: message.eventId },
-      })
-      .onConflictDoNothing({ target: notifications.id });
+    await db.transaction(async (transaction) => {
+      const [noteVisibility] = await transaction
+        .select({ visibility: campusMapNoteVisibility.visibility })
+        .from(campusMapNoteVisibility)
+        .where(eq(campusMapNoteVisibility.noteId, message.noteId))
+        .for("share")
+        .limit(1);
+      const [event] = await transaction
+        .select({
+          actorUserId: campusMapNoteEvents.actorUserId,
+          visibility: campusMapNoteEventVisibility.visibility,
+        })
+        .from(campusMapNoteEvents)
+        .innerJoin(
+          campusMapNoteEventVisibility,
+          eq(campusMapNoteEventVisibility.eventId, campusMapNoteEvents.id),
+        )
+        .where(eq(campusMapNoteEvents.id, message.eventId))
+        .for("share")
+        .limit(1);
+      if (!noteVisibility || !event) {
+        throw new Error("Campus Map Note notification target is missing");
+      }
+      const actorId =
+        noteVisibility.visibility === "public" && event.visibility === "public"
+          ? event.actorUserId
+          : null;
+      await transaction
+        .insert(notifications)
+        .values({
+          id: message.id,
+          recipientId: message.recipientUserId,
+          actorId,
+          kind: "campus_map_note_event",
+          metadata: { noteId: message.noteId, eventId: message.eventId },
+        })
+        .onConflictDoNothing({ target: notifications.id });
+    });
   }, limit);
 }
 
@@ -542,6 +643,11 @@ async function executeCommand(
         createdAt: now,
       })
       .returning({ id: campusMapNoteEvents.id });
+    await initializeCampusMapNoteModerationProjection(
+      transaction,
+      { noteId: note.id, eventId: event.id },
+      now,
+    );
     await upsertSubscription(transaction, note.id, actor.id, true, now);
     return {
       status: "created",
@@ -553,7 +659,7 @@ async function executeCommand(
 
   const note = await lockNote(transaction, command.noteId);
   if (!note) return { status: "not-found", code: "note-not-found" };
-  if (note.status === "moderator-hidden") {
+  if (note.status === "moderator-hidden" || note.visibility === "hidden") {
     return { status: "forbidden", code: "note-hidden" };
   }
   if (
@@ -656,6 +762,11 @@ async function executeCommand(
       createdAt: now,
     })
     .returning({ id: campusMapNoteEvents.id });
+  await initializeCampusMapNoteEventModerationProjection(
+    transaction,
+    event.id,
+    now,
+  );
   if (command.kind === "comment") {
     await upsertSubscription(transaction, note.id, actor.id, true, now);
   }
@@ -696,6 +807,7 @@ async function readEligibleActor(
     })
     .from(users)
     .where(eq(users.id, actorId))
+    .for("update")
     .limit(1);
   if (!actor || !actor.emailVerified || !isAllowedEmail(actor.email)) {
     return { status: "forbidden", code: "actor-not-eligible" };
@@ -731,10 +843,15 @@ async function lockNote(
       status: campusMapNotes.status,
       revision: campusMapNotes.revision,
       searchDocument: campusMapNotes.searchDocument,
+      visibility: campusMapNoteVisibility.visibility,
     })
     .from(campusMapNotes)
+    .innerJoin(
+      campusMapNoteVisibility,
+      eq(campusMapNoteVisibility.noteId, campusMapNotes.id),
+    )
     .where(eq(campusMapNotes.id, noteId))
-    .for("update")
+    .for("update", { of: campusMapNotes })
     .limit(1);
   return note ?? null;
 }
