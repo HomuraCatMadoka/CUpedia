@@ -10,6 +10,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import {
@@ -57,6 +58,14 @@ const MAX_SEARCH_DOCUMENT_CHARACTERS = 65_536;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 const OUTBOX_DELIVERY_LEASE_MS = 5 * 60_000;
+const openingNoteEvents = alias(
+  campusMapNoteEvents,
+  "campus_map_public_opening_note_events",
+);
+const openingNoteEventVisibility = alias(
+  campusMapNoteEventVisibility,
+  "campus_map_public_opening_note_event_visibility",
+);
 const HIDDEN_NOTE_ACTOR = {
   id: "00000000-0000-4000-8000-000000000000",
   nickname: "内容已隐藏",
@@ -254,6 +263,12 @@ export async function getCampusMapNote(
   ]);
   const hidden =
     note.status === "moderator-hidden" || note.visibility === "hidden";
+  const authorHidden =
+    hidden ||
+    events.some(
+      (event) =>
+        event.kind === "opening-comment" && event.visibility === "hidden",
+    );
   return {
     id: note.id,
     placeId: note.placeId,
@@ -263,7 +278,7 @@ export async function getCampusMapNote(
         : { longitude: note.longitude, latitude: note.latitude, crs: "wgs84" },
     status: hidden ? "moderator-hidden" : note.status,
     revision: note.revision,
-    author: hidden
+    author: authorHidden
       ? HIDDEN_NOTE_ACTOR
       : { id: note.authorId, nickname: note.authorNickname },
     createdAt: note.createdAt.toISOString(),
@@ -323,7 +338,10 @@ export async function listCampusMapNotes(
   if (query.scope.kind === "place") {
     predicates.push(eq(campusMapNotes.placeId, query.scope.placeId));
   } else if (query.scope.kind === "author") {
-    predicates.push(eq(campusMapNotes.authorIdSnapshot, query.scope.actorId));
+    predicates.push(
+      eq(campusMapNotes.authorIdSnapshot, query.scope.actorId),
+      eq(openingNoteEventVisibility.visibility, "public"),
+    );
   } else if (query.scope.kind === "bbox") {
     predicates.push(
       isNotNull(campusMapNotes.longitude),
@@ -350,12 +368,24 @@ export async function listCampusMapNotes(
       authorId: campusMapNotes.authorIdSnapshot,
       authorNickname: campusMapNotes.authorNicknameSnapshot,
       excerpt: campusMapNotes.searchDocument,
+      openingVisibility: openingNoteEventVisibility.visibility,
       updatedAt: campusMapNotes.updatedAt,
     })
     .from(campusMapNotes)
     .innerJoin(
       campusMapNoteVisibility,
       eq(campusMapNoteVisibility.noteId, campusMapNotes.id),
+    )
+    .innerJoin(
+      openingNoteEvents,
+      and(
+        eq(openingNoteEvents.noteId, campusMapNotes.id),
+        eq(openingNoteEvents.kind, "opening-comment"),
+      ),
+    )
+    .innerJoin(
+      openingNoteEventVisibility,
+      eq(openingNoteEventVisibility.eventId, openingNoteEvents.id),
     )
     .where(and(...predicates))
     .orderBy(desc(campusMapNotes.updatedAt), desc(campusMapNotes.id))
@@ -372,7 +402,10 @@ export async function listCampusMapNotes(
           : { longitude: row.longitude, latitude: row.latitude, crs: "wgs84" },
       status: row.status,
       revision: row.revision,
-      author: { id: row.authorId, nickname: row.authorNickname },
+      author:
+        row.openingVisibility === "hidden"
+          ? HIDDEN_NOTE_ACTOR
+          : { id: row.authorId, nickname: row.authorNickname },
       excerpt: safeExcerpt(row.excerpt),
       updatedAt: row.updatedAt.toISOString(),
     })),

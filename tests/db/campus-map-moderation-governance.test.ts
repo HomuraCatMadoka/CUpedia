@@ -476,7 +476,7 @@ describe.skipIf(!hasDb)("Campus Map moderation governance (#723)", () => {
 
     await expect(getCampusMapNote(created.noteId)).resolves.toMatchObject({
       id: created.noteId,
-      author: { id: author },
+      author: { nickname: "内容已隐藏" },
       events: [
         {
           id: created.eventId,
@@ -485,6 +485,19 @@ describe.skipIf(!hasDb)("Campus Map moderation governance (#723)", () => {
         },
       ],
     });
+    await expect(
+      listCampusMapNotes({ scope: { kind: "recent" } }),
+    ).resolves.toMatchObject({
+      items: [
+        {
+          id: created.noteId,
+          author: { nickname: "内容已隐藏" },
+        },
+      ],
+    });
+    await expect(
+      listCampusMapNotes({ scope: { kind: "author", actorId: author } }),
+    ).resolves.toEqual({ items: [], nextCursor: null });
     await expect(
       listCampusMapNotes({ scope: { kind: "search", text: "private" } }),
     ).resolves.toEqual({ items: [], nextCursor: null });
@@ -600,6 +613,56 @@ describe.skipIf(!hasDb)("Campus Map moderation governance (#723)", () => {
         "update campus_map_moderation_decisions set reason = 'rewritten'",
       ),
     ).rejects.toMatchObject({ code: "23514" });
+  });
+
+  it("keeps the Note author public when only a later comment is hidden", async () => {
+    const [author, commenter, admin] = await Promise.all([
+      createActor(),
+      createActor(),
+      createActor("admin"),
+    ]);
+    const created = await createNote(author, "公开的 opening comment");
+    const commented = await commandCampusMapNote(
+      {
+        kind: "comment",
+        idempotencyKey: randomUUID(),
+        noteId: created.noteId,
+        comment: "需要隐藏的后续评论",
+      },
+      { actorId: commenter, clientIp: "203.0.113.20" },
+    );
+    if (commented.status !== "commented") throw new Error("comment failed");
+
+    await expect(
+      commandCampusMapModeration(
+        {
+          kind: "hide-map-note-event",
+          idempotencyKey: randomUUID(),
+          eventId: commented.eventId,
+          expectedVisibility: "public",
+          reason: "隐藏后续评论中的个人资料",
+          caseId: null,
+        },
+        { actorId: admin, clientIp: "203.0.113.21" },
+      ),
+    ).resolves.toMatchObject({ status: "decided" });
+
+    await expect(getCampusMapNote(created.noteId)).resolves.toMatchObject({
+      author: { id: author },
+      events: [
+        { id: created.eventId, actor: { id: author } },
+        {
+          id: commented.eventId,
+          actor: { nickname: "内容已隐藏" },
+          comment: null,
+        },
+      ],
+    });
+    await expect(
+      listCampusMapNotes({ scope: { kind: "author", actorId: author } }),
+    ).resolves.toMatchObject({
+      items: [{ id: created.noteId, author: { id: author } }],
+    });
   });
 
   it("enforces scoped contributor blocks at the Map Notes transaction boundary", async () => {
