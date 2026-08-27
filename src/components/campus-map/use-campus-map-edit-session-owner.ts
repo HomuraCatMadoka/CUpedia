@@ -106,6 +106,12 @@ export function useCampusMapEditSessionOwner({
         outcome.status === "applied" ||
         outcome.status === "already-consumed"
       ) {
+        if (
+          outcome.status === "already-consumed" &&
+          driver.getSnapshot().session.mode === "task"
+        ) {
+          dispatch({ type: "CANCEL_TASK" });
+        }
         dispatcherRef.current({
           type: "PUBLISH_HANDOFF_COMPLETED",
           idempotencyKey,
@@ -132,7 +138,7 @@ export function useCampusMapEditSessionOwner({
         conflictLocationDisplay,
       });
     },
-    [],
+    [dispatch, driver],
   );
 
   const applyEvent = useCallback(
@@ -419,14 +425,6 @@ export function useCampusMapEditSessionOwner({
           return;
         }
         if (!identityVerified) {
-          queueMicrotask(() =>
-            setRestoreNotice(
-              outcome.status === "publish-result" &&
-                outcome.result.status === "authentication-required"
-                ? "登录后可继续恢复这份地图编辑草稿。"
-                : "暂时无法确认草稿所属账号，请刷新后重试。",
-            ),
-          );
           return;
         }
         void applyPublishOutcome(command.idempotencyKey, outcome);

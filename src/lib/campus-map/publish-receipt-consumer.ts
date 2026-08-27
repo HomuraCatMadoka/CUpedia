@@ -2,6 +2,7 @@ import type {
   CampusMapPublishCommand,
   CampusMapPublishResult,
 } from "./publish-contract";
+import { isCanonicalCampusMapId } from "./scene-semantics";
 
 export type CampusMapPublishedReceipt = Extract<
   CampusMapPublishResult,
@@ -24,6 +25,11 @@ export type CampusMapPublishTransportResult =
   | CampusMapPublishResult
   | { status: "identity-mismatch" };
 
+export type CampusMapPublishReceiptState = {
+  phase: "pending" | "handoff-started" | "completed";
+  receipt: CampusMapPublishedReceipt;
+};
+
 export type CampusMapPublishReceiptOutcome =
   | { status: "applied"; receipt: CampusMapPublishedReceipt }
   | { status: "already-consumed"; receipt: CampusMapPublishedReceipt }
@@ -39,6 +45,7 @@ export type CampusMapPublishReceiptOutcome =
         | "receipt-lock-unavailable"
         | "identity-mismatch"
         | "identity-unavailable"
+        | "handoff-failed"
         | "receipt-state-unavailable";
       receipt?: CampusMapPublishedReceipt;
     };
@@ -62,13 +69,16 @@ interface CampusMapPublishReceiptConsumerDependencies {
     status: "applied" | "missing-target" | "superseded";
   };
   isCanonicalPlaceOpen(placeId: string): boolean;
-  readConsumed(identity: string): CampusMapPublishedReceipt | null;
-  markConsumed(identity: string, receipt: CampusMapPublishedReceipt): boolean;
+  readReceiptState(identity: string): CampusMapPublishReceiptState | null;
+  writeReceiptState(
+    identity: string,
+    state: CampusMapPublishReceiptState,
+  ): boolean;
   withLock<T>(identity: string, work: () => Promise<T>): Promise<T>;
   timeoutMs: number;
 }
 
-const fallbackConsumedReceipts = new Map<string, CampusMapPublishedReceipt>();
+const fallbackReceiptStates = new Map<string, CampusMapPublishReceiptState>();
 const CONSUMED_PREFIX = "cupedia:campus-map:publish-receipt:v1:";
 const ACTOR_PREFIX = "cupedia:campus-map:publish-actor:v1:";
 
@@ -95,41 +105,86 @@ export function bindBrowserCampusMapPublishActor(
   }
 }
 
-export function readBrowserConsumedCampusMapReceipt(
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isPublishIssue(value: unknown, warning: boolean): boolean {
+  if (!isRecord(value) || !isCanonicalCampusMapId(value.code)) return false;
+  if (!isRecord(value.anchor)) return false;
+  const { changeIndex, placeId, field } = value.anchor;
+  if (
+    changeIndex !== undefined &&
+    (!Number.isInteger(changeIndex) || Number(changeIndex) < 0)
+  ) {
+    return false;
+  }
+  if (placeId !== undefined && !isCanonicalCampusMapId(placeId)) return false;
+  if (field !== undefined && !isCanonicalCampusMapId(field)) return false;
+  return !warning || isCanonicalCampusMapId(value.fingerprint);
+}
+
+function isPublishedReceipt(
+  value: unknown,
+): value is CampusMapPublishedReceipt {
+  return Boolean(
+    isRecord(value) &&
+    value.status === "published" &&
+    isCanonicalCampusMapId(value.changesetId) &&
+    Array.isArray(value.changes) &&
+    value.changes.length > 0 &&
+    value.changes.every(
+      (change) =>
+        isRecord(change) &&
+        isCanonicalCampusMapId(change.placeId) &&
+        isCanonicalCampusMapId(change.revisionId),
+    ) &&
+    Array.isArray(value.warnings) &&
+    value.warnings.every((warning) => isPublishIssue(warning, true)) &&
+    Array.isArray(value.suggestions) &&
+    value.suggestions.every((suggestion) => isPublishIssue(suggestion, false)),
+  );
+}
+
+export function readBrowserCampusMapPublishReceiptState(
   identity: string,
-): CampusMapPublishedReceipt | null {
+): CampusMapPublishReceiptState | null {
   try {
     const parsed = JSON.parse(
       window.localStorage.getItem(`${CONSUMED_PREFIX}${identity}`) ?? "null",
     ) as unknown;
     if (
-      !parsed ||
-      typeof parsed !== "object" ||
-      !("status" in parsed) ||
-      parsed.status !== "published" ||
-      !("changesetId" in parsed) ||
-      typeof parsed.changesetId !== "string" ||
-      !("changes" in parsed) ||
-      !Array.isArray(parsed.changes)
+      parsed &&
+      typeof parsed === "object" &&
+      "phase" in parsed &&
+      (parsed.phase === "pending" ||
+        parsed.phase === "handoff-started" ||
+        parsed.phase === "completed") &&
+      "receipt" in parsed &&
+      isPublishedReceipt(parsed.receipt)
     ) {
-      return fallbackConsumedReceipts.get(identity) ?? null;
+      return parsed as CampusMapPublishReceiptState;
     }
-    return parsed as CampusMapPublishedReceipt;
+    // Records written by the pre-phase implementation were claimed before
+    // projection handoff, so they can only be recovered as pending.
+    if (isPublishedReceipt(parsed))
+      return { phase: "pending", receipt: parsed };
+    return fallbackReceiptStates.get(identity) ?? null;
   } catch {
-    return fallbackConsumedReceipts.get(identity) ?? null;
+    return fallbackReceiptStates.get(identity) ?? null;
   }
 }
 
-export function markBrowserConsumedCampusMapReceipt(
+export function writeBrowserCampusMapPublishReceiptState(
   identity: string,
-  receipt: CampusMapPublishedReceipt,
+  state: CampusMapPublishReceiptState,
 ) {
   try {
     window.localStorage.setItem(
       `${CONSUMED_PREFIX}${identity}`,
-      JSON.stringify(receipt),
+      JSON.stringify(state),
     );
-    fallbackConsumedReceipts.set(identity, receipt);
+    fallbackReceiptStates.set(identity, state);
     return true;
   } catch {
     return false;
@@ -304,47 +359,109 @@ export class CampusMapPublishReceiptConsumer {
   ): Promise<CampusMapPublishReceiptOutcome> {
     try {
       return await this.dependencies.withLock(identity, async () => {
-        const consumed = this.dependencies.readConsumed(identity);
-        if (consumed) {
-          const consumedPlaceId = consumed.changes[0]?.placeId;
-          if (!consumedPlaceId) {
-            return {
-              status: "recoverable",
-              reason: "missing-target",
-              receipt: consumed,
-            };
-          }
-          if (this.dependencies.isCanonicalPlaceOpen(consumedPlaceId)) {
-            return { status: "already-consumed", receipt: consumed };
-          }
-          const synchronized = await this.refreshAndOpen(
-            consumed,
-            consumedPlaceId,
-            intentToken,
-          );
-          return synchronized.status === "applied"
-            ? { status: "already-consumed", receipt: consumed }
-            : synchronized;
+        const stored = this.dependencies.readReceiptState(identity);
+        if (stored?.phase === "completed") {
+          return { status: "already-consumed", receipt: stored.receipt };
         }
-
-        const placeId = receipt.changes[0]?.placeId;
+        const activeReceipt = stored?.receipt ?? receipt;
+        const placeId = activeReceipt.changes[0]?.placeId;
         if (!placeId) {
-          return { status: "recoverable", reason: "missing-target", receipt };
+          return {
+            status: "recoverable",
+            reason: "missing-target",
+            receipt: activeReceipt,
+          };
         }
-        if (!this.dependencies.markConsumed(identity, receipt)) {
+        if (
+          !stored &&
+          !this.dependencies.writeReceiptState(identity, {
+            phase: "pending",
+            receipt: activeReceipt,
+          })
+        ) {
           return {
             status: "recoverable",
             reason: "receipt-state-unavailable",
-            receipt,
+            receipt: activeReceipt,
           };
         }
-        const applied = await this.refreshAndOpen(
-          receipt,
-          placeId,
-          intentToken,
-        );
-        if (applied.status !== "applied") return applied;
-        return { status: "applied", receipt };
+        if (this.dependencies.isCanonicalPlaceOpen(placeId)) {
+          return this.dependencies.writeReceiptState(identity, {
+            phase: "completed",
+            receipt: activeReceipt,
+          })
+            ? { status: "already-consumed", receipt: activeReceipt }
+            : {
+                status: "recoverable",
+                reason: "receipt-state-unavailable",
+                receipt: activeReceipt,
+              };
+        }
+        const refreshed = await this.refresh(activeReceipt, placeId);
+        if (refreshed.status !== "applied") return refreshed;
+        if (
+          !this.dependencies.writeReceiptState(identity, {
+            phase: "handoff-started",
+            receipt: activeReceipt,
+          })
+        ) {
+          return {
+            status: "recoverable",
+            reason: "receipt-state-unavailable",
+            receipt: activeReceipt,
+          };
+        }
+        let handoff: ReturnType<
+          CampusMapPublishReceiptConsumerDependencies["applyProjectionAndOpen"]
+        >;
+        try {
+          handoff = this.dependencies.applyProjectionAndOpen({
+            placeId,
+            intentToken,
+          });
+        } catch {
+          this.dependencies.writeReceiptState(identity, {
+            phase: "pending",
+            receipt: activeReceipt,
+          });
+          return {
+            status: "recoverable",
+            reason: "handoff-failed",
+            receipt: activeReceipt,
+          };
+        }
+        if (handoff.status !== "applied") {
+          if (
+            !this.dependencies.writeReceiptState(identity, {
+              phase: "pending",
+              receipt: activeReceipt,
+            })
+          ) {
+            return {
+              status: "recoverable",
+              reason: "receipt-state-unavailable",
+              receipt: activeReceipt,
+            };
+          }
+          return {
+            status: "recoverable",
+            reason: handoff.status,
+            receipt: activeReceipt,
+          };
+        }
+        if (
+          !this.dependencies.writeReceiptState(identity, {
+            phase: "completed",
+            receipt: activeReceipt,
+          })
+        ) {
+          return {
+            status: "recoverable",
+            reason: "receipt-state-unavailable",
+            receipt: activeReceipt,
+          };
+        }
+        return { status: "applied", receipt: activeReceipt };
       });
     } catch {
       return {
@@ -355,10 +472,9 @@ export class CampusMapPublishReceiptConsumer {
     }
   }
 
-  private async refreshAndOpen(
+  private async refresh(
     receipt: CampusMapPublishedReceipt,
     placeId: string,
-    intentToken: number,
   ): Promise<
     | { status: "applied" }
     | Extract<CampusMapPublishReceiptOutcome, { status: "recoverable" }>
@@ -375,17 +491,6 @@ export class CampusMapPublishReceiptConsumer {
       return {
         status: "recoverable",
         reason: "projection-superseded",
-        receipt,
-      };
-    }
-    const handoff = this.dependencies.applyProjectionAndOpen({
-      placeId,
-      intentToken,
-    });
-    if (handoff.status !== "applied") {
-      return {
-        status: "recoverable",
-        reason: handoff.status,
         receipt,
       };
     }

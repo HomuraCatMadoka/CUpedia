@@ -80,7 +80,11 @@ import {
   publishCampusMapEdit,
   reconcileCampusMapEditPublish,
 } from "@/lib/campus-map/edit-actions";
-import { bindBrowserCampusMapPublishActor } from "@/lib/campus-map/publish-receipt-consumer";
+import {
+  bindBrowserCampusMapPublishActor,
+  readBrowserCampusMapPublishReceiptState,
+  writeBrowserCampusMapPublishReceiptState,
+} from "@/lib/campus-map/publish-receipt-consumer";
 import {
   encodeCampusMapEditSnapshot,
   transitionCampusMapEdit,
@@ -285,6 +289,25 @@ function publishedOutdoorProjection(placeId: string) {
 }
 
 describe("AmapCampusPrototype", () => {
+  it("rejects a malformed persisted publish receipt", () => {
+    const idempotencyKey = "10000000-0000-4000-8000-000000000099";
+    window.localStorage.setItem(
+      `cupedia:campus-map:publish-receipt:v1:${idempotencyKey}`,
+      JSON.stringify({
+        phase: "completed",
+        receipt: {
+          status: "published",
+          changesetId: "50000000-0000-4000-8000-000000000099",
+          changes: [{}],
+          warnings: [],
+          suggestions: [],
+        },
+      }),
+    );
+
+    expect(readBrowserCampusMapPublishReceiptState(idempotencyKey)).toBeNull();
+  });
+
   it("uses the formal edit schema labels for browse categories", () => {
     render(<AmapCampusPrototype />);
 
@@ -316,7 +339,12 @@ describe("AmapCampusPrototype", () => {
 
   it("refetches Current facts after publish so a standalone Place is searchable", async () => {
     const placeId = "30000000-0000-4000-8000-000000000020";
-    const onPublishedProjectionRefreshed = vi.fn();
+    const initialProjectionObserver = vi.fn();
+    const latestProjectionObserver = vi.fn();
+    const initialBrowseProjection = projectCampusMapBrowse({
+      buildings: [],
+      places: [],
+    });
     vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
       status: "published",
       changesetId: "50000000-0000-4000-8000-000000000020",
@@ -332,13 +360,16 @@ describe("AmapCampusPrototype", () => {
     mockLoadBrowseProjection.mockResolvedValueOnce(
       publishedOutdoorProjection(placeId),
     );
-    render(
+    const { rerender } = render(
       <AmapCampusPrototype
-        initialBrowseProjection={projectCampusMapBrowse({
-          buildings: [],
-          places: [],
-        })}
-        onPublishedProjectionRefreshed={onPublishedProjectionRefreshed}
+        initialBrowseProjection={initialBrowseProjection}
+        onPublishedProjectionRefreshed={initialProjectionObserver}
+      />,
+    );
+    rerender(
+      <AmapCampusPrototype
+        initialBrowseProjection={initialBrowseProjection}
+        onPublishedProjectionRefreshed={latestProjectionObserver}
       />,
     );
 
@@ -358,7 +389,7 @@ describe("AmapCampusPrototype", () => {
       await Promise.resolve();
     });
     await waitFor(() =>
-      expect(onPublishedProjectionRefreshed).toHaveBeenCalledWith({
+      expect(latestProjectionObserver).toHaveBeenCalledWith({
         status: "applied",
         selectionTarget: {
           kind: "place",
@@ -368,6 +399,7 @@ describe("AmapCampusPrototype", () => {
         },
       }),
     );
+    expect(initialProjectionObserver).not.toHaveBeenCalled();
     await screen.findByRole("heading", { name: "新发布饮水点" });
     expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
     const search = screen.getByPlaceholderText("搜索建筑");
@@ -470,6 +502,75 @@ describe("AmapCampusPrototype", () => {
       "60000000-0000-4000-8000-000000000001",
     );
     expect(publishCampusMapEdit).not.toHaveBeenCalled();
+  });
+
+  it("ends a stale task without replaying a completed receipt in a duplicate tab", async () => {
+    const placeId = "30000000-0000-4000-8000-000000000026";
+    const idempotencyKey = "10000000-0000-4000-8000-000000000026";
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey,
+    }).session!;
+    const positioned = transitionCampusMapEdit(started, {
+      type: "CONFIRM_POSITION",
+      position: {
+        longitude: 114.208,
+        latitude: 22.42,
+        crs: "wgs84",
+        precision: "approximate",
+        method: "keyboard",
+      },
+    }).session!;
+    const publishing = transitionCampusMapEdit(positioned, {
+      type: "REQUEST_PUBLISH",
+      accessedOn: "2026-08-27",
+    }).session!;
+    const receipt = {
+      status: "published" as const,
+      changesetId: "50000000-0000-4000-8000-000000000026",
+      changes: [
+        {
+          placeId,
+          revisionId: "40000000-0000-4000-8000-000000000026",
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    };
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(publishing),
+    );
+    bindBrowserCampusMapPublishActor(
+      idempotencyKey,
+      "60000000-0000-4000-8000-000000000001",
+    );
+    writeBrowserCampusMapPublishReceiptState(idempotencyKey, {
+      phase: "completed",
+      receipt,
+    });
+    window.history.replaceState(
+      null,
+      "",
+      "/prototype/campus-map?v=1&task=create&anchor=map",
+    );
+    vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
+      status: "committed",
+      receipt,
+    });
+
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    await waitFor(() =>
+      expect(
+        window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
+      ).toBeNull(),
+    );
+    expect(window.location.search).not.toContain("task=create");
+    expect(window.location.search).not.toContain(`id=${placeId}`);
+    expect(mockLoadBrowseProjection).not.toHaveBeenCalled();
+    expect(publishCampusMapEdit).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "添加校内设施" })).toBeNull();
   });
 
   it("discards a publishing snapshot instead of reclaiming selection after remounting on B", async () => {
@@ -636,15 +737,13 @@ describe("AmapCampusPrototype", () => {
   it.each([
     {
       identity: { status: "unavailable" as const },
-      notice: "暂时无法确认草稿所属账号，请刷新后重试。",
     },
     {
       identity: { status: "authentication-required" as const },
-      notice: "登录后可继续恢复这份地图编辑草稿。",
     },
   ])(
-    "retains an unverified publishing snapshot with a recoverable notice for $identity.status",
-    async ({ identity, notice }) => {
+    "retains an unverified publishing snapshot without presenting #758 recovery copy for $identity.status",
+    async ({ identity }) => {
       const idempotencyKey = "10000000-0000-4000-8000-000000000025";
       const started = transitionCampusMapEdit(null, {
         type: "START_ADD",
@@ -682,10 +781,15 @@ describe("AmapCampusPrototype", () => {
 
       render(<AmapCampusPrototype initialSearch={window.location.search} />);
 
-      expect(await screen.findByText(notice)).toBeTruthy();
+      await waitFor(() =>
+        expect(identifyCampusMapEditPublisher).toHaveBeenCalledOnce(),
+      );
       expect(
         window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
       ).toBe(encoded);
+      expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe(
+        "",
+      );
       expect(document.body.textContent).not.toContain("正在发布地点资料");
       expect(
         screen.queryByRole("heading", { name: "添加校内设施" }),

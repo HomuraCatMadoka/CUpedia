@@ -91,10 +91,10 @@ import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
 import {
   CampusMapPublishReceiptConsumer,
   bindBrowserCampusMapPublishActor,
-  markBrowserConsumedCampusMapReceipt,
   readBrowserCampusMapPublishActor,
-  readBrowserConsumedCampusMapReceipt,
+  readBrowserCampusMapPublishReceiptState,
   withBrowserCampusMapReceiptLock,
+  writeBrowserCampusMapPublishReceiptState,
 } from "@/lib/campus-map/publish-receipt-consumer";
 import type { CampusMapPublishCommand } from "@/lib/campus-map/publish-contract";
 import {
@@ -1159,7 +1159,7 @@ export function AmapCampusPrototype({
     (intent: CampusMapDriverIntent) => driver.dispatch(intent),
     [driver],
   );
-  const [publishReceiptConsumer] = useState(
+  const publishReceiptConsumer = useMemo(
     () =>
       new CampusMapPublishReceiptConsumer({
         identifyActor: identifyCampusMapEditPublisher,
@@ -1194,11 +1194,12 @@ export function AmapCampusPrototype({
             current.scene.facilityId === placeId
           );
         },
-        readConsumed: readBrowserConsumedCampusMapReceipt,
-        markConsumed: markBrowserConsumedCampusMapReceipt,
+        readReceiptState: readBrowserCampusMapPublishReceiptState,
+        writeReceiptState: writeBrowserCampusMapPublishReceiptState,
         withLock: withBrowserCampusMapReceiptLock,
         timeoutMs: 1_500,
       }),
+    [driver, driverCatalog, onPublishedProjectionRefreshed, projectionStore],
   );
   const recoverPublish = useCallback(
     (
