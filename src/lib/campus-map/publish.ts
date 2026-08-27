@@ -88,6 +88,51 @@ export async function publishCampusMapChangeset(
   command: CampusMapPublishCommand,
   context: CampusMapPublishContext,
 ): Promise<CampusMapPublishResult> {
+  return publishCampusMapChangesetInternal(command, context, {
+    allowMerge: false,
+    requireAdmin: false,
+    revertsChangesetId: null,
+    noOpUpdatePlaceIds: new Set(),
+    retireFactPlaceIds: new Set(),
+    requestFingerprintContext: null,
+  });
+}
+
+interface CampusMapGovernancePublishOptions {
+  revertsChangesetId: string | null;
+  noOpUpdatePlaceIds?: ReadonlySet<string>;
+  retireFactPlaceIds?: ReadonlySet<string>;
+  requestFingerprintContext: unknown;
+}
+
+/** @internal The fact-governance module is the only authorized caller. */
+export function publishCampusMapGovernanceChangeset(
+  command: CampusMapPublishCommand,
+  context: CampusMapPublishContext,
+  options: CampusMapGovernancePublishOptions,
+): Promise<CampusMapPublishResult> {
+  return publishCampusMapChangesetInternal(command, context, {
+    allowMerge: true,
+    requireAdmin: true,
+    revertsChangesetId: options.revertsChangesetId,
+    noOpUpdatePlaceIds: options.noOpUpdatePlaceIds ?? new Set(),
+    retireFactPlaceIds: options.retireFactPlaceIds ?? new Set(),
+    requestFingerprintContext: options.requestFingerprintContext,
+  });
+}
+
+async function publishCampusMapChangesetInternal(
+  command: CampusMapPublishCommand,
+  context: CampusMapPublishContext,
+  options: {
+    allowMerge: boolean;
+    requireAdmin: boolean;
+    revertsChangesetId: string | null;
+    noOpUpdatePlaceIds: ReadonlySet<string>;
+    retireFactPlaceIds: ReadonlySet<string>;
+    requestFingerprintContext: unknown;
+  },
+): Promise<CampusMapPublishResult> {
   const actorId = context.actorId?.toLowerCase() ?? null;
   if (actorId === null) {
     return {
@@ -101,7 +146,16 @@ export async function publishCampusMapChangeset(
     : command;
   let serializedCommand: string | null = null;
   try {
-    serializedCommand = JSON.stringify(canonicalize(normalizedCommand));
+    serializedCommand = JSON.stringify(
+      canonicalize(
+        options.requestFingerprintContext === null
+          ? normalizedCommand
+          : {
+              command: normalizedCommand,
+              governance: options.requestFingerprintContext,
+            },
+      ),
+    );
     if (typeof serializedCommand !== "string") serializedCommand = null;
   } catch {
     serializedCommand = null;
@@ -190,6 +244,9 @@ export async function publishCampusMapChangeset(
         command.kind === "bulk" &&
         actor.role !== "admin"
       ) {
+        return { status: "forbidden", code: "admin-required" } as const;
+      }
+      if (options.requireAdmin && actor.role !== "admin") {
         return { status: "forbidden", code: "admin-required" } as const;
       }
       const rateLimit = await consumePublishRate(
@@ -281,6 +338,20 @@ export async function publishCampusMapChangeset(
         } as const;
       }
       const identityErrors = validateChangeIdentities(command);
+      if (
+        !options.allowMerge &&
+        command.changes.some((change) => change.operation === "merge")
+      ) {
+        identityErrors.push({
+          code: "invalid-operation",
+          anchor: {
+            changeIndex: command.changes.findIndex(
+              (change) => change.operation === "merge",
+            ),
+            field: "operation",
+          },
+        });
+      }
       if (identityErrors.length > 0) {
         return {
           status: "validation-failed",
@@ -329,9 +400,11 @@ export async function publishCampusMapChangeset(
         } as const;
       }
       const factErrors = command.changes.flatMap((change, changeIndex) =>
-        change.operation === "retire"
+        change.operation === "merge" ||
+        (change.operation === "retire" &&
+          !options.retireFactPlaceIds.has(change.placeId))
           ? []
-          : validateFact(change.fact, changeIndex),
+          : validateFact(change.fact!, changeIndex),
       );
       if (factErrors.length > 0) {
         return {
@@ -365,8 +438,13 @@ export async function publishCampusMapChangeset(
       }
       const referenceErrors: CampusMapPublishValidationIssue[] = [];
       for (const [changeIndex, change] of command.changes.entries()) {
-        if (change.operation === "retire") continue;
-        const { fact } = change;
+        if (
+          change.operation === "merge" ||
+          (change.operation === "retire" &&
+            !options.retireFactPlaceIds.has(change.placeId))
+        )
+          continue;
+        const fact = change.fact!;
         if (fact.buildingId !== null) {
           const [building] = await transaction
             .select({ id: campusMapBuildings.id })
@@ -410,9 +488,11 @@ export async function publishCampusMapChangeset(
       }
       const precisionErrors = command.changes.flatMap((change, changeIndex) => {
         if (
-          change.operation === "retire" ||
-          change.fact.location.kind !== "outdoor-point" ||
-          change.fact.location.precision !== "precise"
+          change.operation === "merge" ||
+          (change.operation === "retire" &&
+            !options.retireFactPlaceIds.has(change.placeId)) ||
+          change.fact!.location.kind !== "outdoor-point" ||
+          change.fact!.location.precision !== "precise"
         ) {
           return [];
         }
@@ -445,7 +525,10 @@ export async function publishCampusMapChangeset(
 
       const suggestions: CampusMapPublishValidationIssue[] =
         command.changes.flatMap((change, changeIndex) =>
-          change.operation !== "retire" && change.fact.observedAt === null
+          change.operation !== "merge" &&
+          (change.operation !== "retire" ||
+            options.retireFactPlaceIds.has(change.placeId)) &&
+          change.fact!.observedAt === null
             ? [
                 {
                   code: "observed-at-recommended",
@@ -544,7 +627,9 @@ export async function publishCampusMapChangeset(
           current !== undefined &&
           ((change.operation === "update" && current.status === "active") ||
             (change.operation === "retire" && current.status === "active") ||
-            (change.operation === "restore" && current.status === "retired"));
+            (change.operation === "restore" && current.status === "retired") ||
+            (change.operation === "merge" &&
+              (current.status === "active" || current.status === "retired")));
         if (allowed) return [];
         return [
           {
@@ -568,6 +653,7 @@ export async function publishCampusMapChangeset(
       const emptyUpdateErrors = command.changes.flatMap(
         (change, changeIndex) => {
           if (change.operation !== "update") return [];
+          if (options.noOpUpdatePlaceIds.has(change.placeId)) return [];
           const current = lockedByPlace.get(change.placeId);
           if (!current) return [];
           const diff = createFieldDiff(current.fact, toAppendFact(change.fact));
@@ -714,9 +800,11 @@ export async function publishCampusMapChangeset(
         });
 
         const fact =
-          change.operation === "retire"
+          change.operation === "merge" ||
+          (change.operation === "retire" &&
+            !options.retireFactPlaceIds.has(change.placeId))
             ? current!.fact
-            : toAppendFact(change.fact);
+            : toAppendFact(change.fact!);
         const placeId =
           change.operation === "create" ? randomUUID() : change.placeId;
         const revisionId = randomUUID();
@@ -730,8 +818,14 @@ export async function publishCampusMapChangeset(
           factSchemaVersion: current?.factSchemaVersion ?? 1,
           fieldMetadata: CAMPUS_MAP_PUBLISH_FIELD_METADATA_V1,
           fieldDiff: createFieldDiff(current?.fact ?? null, fact),
-          status: change.operation === "retire" ? "retired" : "active",
-          mergedIntoPlaceId: null,
+          status:
+            change.operation === "retire"
+              ? "retired"
+              : change.operation === "merge"
+                ? "merged"
+                : "active",
+          mergedIntoPlaceId:
+            change.operation === "merge" ? change.mergedIntoPlaceId : null,
           fact,
           provenanceIds,
           visibility: { visibility: "public" },
@@ -763,7 +857,7 @@ export async function publishCampusMapChangeset(
         reviewRequested: command.reviewRequested,
         client: command.client,
         warningSummary: warningSummary(warnings),
-        revertsChangesetId: null,
+        revertsChangesetId: options.revertsChangesetId,
         publishedAt,
         changes,
       });
@@ -814,7 +908,7 @@ async function normalizeAndLockPublishWarningDomains(
   command: CampusMapPublishCommand,
 ): Promise<ReadonlyMap<number, string>> {
   const proposedDomains = command.changes.flatMap((change, changeIndex) =>
-    change.operation === "retire"
+    change.operation === "retire" || change.operation === "merge"
       ? []
       : [
           {
@@ -872,7 +966,7 @@ async function evaluatePublishWarnings(
     ),
   );
   for (const [changeIndex, change] of command.changes.entries()) {
-    if (change.operation === "retire") continue;
+    if (change.operation === "retire" || change.operation === "merge") continue;
     const normalizedName = normalizedNames.get(changeIndex);
     if (normalizedName === undefined) {
       throw new Error("Campus Map warning name was not normalized");
@@ -926,6 +1020,7 @@ async function evaluatePublishWarnings(
         const candidateNormalizedName = normalizedNames.get(candidateIndex);
         if (
           candidate.operation === "retire" ||
+          candidate.operation === "merge" ||
           candidateNormalizedName === undefined ||
           candidateNormalizedName !== normalizedName ||
           candidate.fact.pinType !== change.fact.pinType ||

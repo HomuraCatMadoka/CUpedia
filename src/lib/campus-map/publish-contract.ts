@@ -125,6 +125,16 @@ export type CampusMapPublishChange =
       placeId: string;
       baseRevisionId: string;
       sources: CampusMapPublishSourceInput[];
+      /** @internal A historical snapshot supplied only for an audited revert. */
+      fact?: CampusMapPublishFactInput;
+    }
+  /** @internal Submitted only by the server-authorized fact governance seam. */
+  | {
+      operation: "merge";
+      placeId: string;
+      baseRevisionId: string;
+      mergedIntoPlaceId: string;
+      sources: CampusMapPublishSourceInput[];
     };
 
 export interface CampusMapPublishCommand {

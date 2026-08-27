@@ -77,6 +77,14 @@ export function normalizePublishCommandIdentifiers(
           baseRevisionId: canonicalUuid(change.baseRevisionId),
         };
       }
+      if (change.operation === "merge") {
+        return {
+          ...change,
+          placeId: canonicalUuid(change.placeId),
+          baseRevisionId: canonicalUuid(change.baseRevisionId),
+          mergedIntoPlaceId: canonicalUuid(change.mergedIntoPlaceId),
+        };
+      }
       if (change.operation === "update" || change.operation === "restore") {
         return {
           ...change,
@@ -135,7 +143,11 @@ export function hasPublishCommandStructure(
   return command.changes.every((change) => {
     if (!isRecord(change) || !Array.isArray(change.sources)) return false;
     if (!change.sources.every(isRecord)) return false;
-    return change.operation === "retire" || isRecord(change.fact);
+    return (
+      change.operation === "retire" ||
+      change.operation === "merge" ||
+      isRecord(change.fact)
+    );
   });
 }
 
@@ -290,7 +302,8 @@ export function validateChangeIdentities(
       change.operation !== "create" &&
       change.operation !== "update" &&
       change.operation !== "retire" &&
-      change.operation !== "restore"
+      change.operation !== "restore" &&
+      change.operation !== "merge"
     ) {
       errors.push({
         code: "invalid-operation",
@@ -323,6 +336,26 @@ export function validateChangeIdentities(
         code: "invalid-base-revision-id",
         anchor: { changeIndex, field: "baseRevisionId" },
       });
+    }
+    if (change.operation === "merge") {
+      if (
+        typeof change.mergedIntoPlaceId !== "string" ||
+        !UUID_PATTERN.test(change.mergedIntoPlaceId)
+      ) {
+        errors.push({
+          code: "invalid-merge-survivor-id",
+          anchor: { changeIndex, field: "mergedIntoPlaceId" },
+        });
+      } else if (change.mergedIntoPlaceId === change.placeId) {
+        errors.push({
+          code: "merge-place-must-differ",
+          anchor: {
+            changeIndex,
+            placeId: change.placeId,
+            field: "mergedIntoPlaceId",
+          },
+        });
+      }
     }
   }
   return errors;
