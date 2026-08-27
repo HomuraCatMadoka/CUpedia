@@ -15,6 +15,9 @@ const CLAIM_START_HOURS = {
   dinner: 17,
 } as const satisfies Record<MealPeriod, number>;
 
+/** Primary :17-:32 drain plus fallback/grace; operational checks start at :50. */
+const INITIAL_DRAIN_DEADLINE_MINUTES_AFTER_CLAIM_START = 50;
+
 export type MenuSyncWindow = {
   key: string;
   period: MealPeriod;
@@ -72,6 +75,14 @@ export function menuSyncWindowAt(databaseNow: Date): MenuSyncWindow {
     ),
     endsAt: localBoundaryUtc(year, month, day, endHour),
   };
+}
+
+export function menuSyncInitialDrainDeadlineAt(databaseNow: Date): Date {
+  const window = menuSyncWindowAt(databaseNow);
+  return new Date(
+    window.claimsStartAt.getTime() +
+      INITIAL_DRAIN_DEADLINE_MINUTES_AFTER_CLAIM_START * 60 * 1_000,
+  );
 }
 
 /** Early clock labels are diagnostic only and cannot claim scheduled work. */

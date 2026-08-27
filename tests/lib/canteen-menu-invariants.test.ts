@@ -269,13 +269,13 @@ describe("canteen production invariants", () => {
     ]);
   });
 
-  it("does not fail future periods, closed days, or valid allday rows", () => {
+  it("does not fail future periods, closed days, or valid three-period allday rows", () => {
     const report = buildMenuInvariantReport({
       evaluatedAt: new Date("2026-08-27T01:00:00Z"),
       sources: [
         {
           ...source,
-          syncMealPeriods: [...source.syncMealPeriods],
+          syncMealPeriods: ["breakfast", "lunch", "dinner"],
           closedWeekdays: [4],
         },
       ],
@@ -329,6 +329,69 @@ describe("canteen production invariants", () => {
       ]),
     );
     expect(report.sources[0].configuredOutActiveItems).toEqual([]);
+  });
+
+  it("waits for the initial drain deadline and rejects scoped allday leakage", () => {
+    const makeReport = (evaluatedAt: Date) =>
+      buildMenuInvariantReport({
+        evaluatedAt,
+        sources: [{ ...source, syncMealPeriods: [...source.syncMealPeriods] }],
+        items: [
+          {
+            id: "allday",
+            canteenId: "canteen-1",
+            menuSourceId: "source-1",
+            name: "全日餐",
+            normalizedName: "全日餐",
+            mealPeriods: ["allday"],
+            isAvailable: true,
+          },
+        ],
+        offerings: [
+          {
+            menuSourceId: "source-1",
+            menuItemId: "allday",
+            externalProductId: "allday-product",
+          },
+        ],
+        observations: [
+          {
+            menuSourceId: "source-1",
+            mealPeriod: "lunch",
+            runId: "yesterday-lunch",
+            observedAt: new Date("2026-08-26T03:20:00Z"),
+            externalProductIds: ["allday-product"],
+          },
+          {
+            menuSourceId: "source-1",
+            mealPeriod: "dinner",
+            runId: "yesterday-dinner",
+            observedAt: new Date("2026-08-26T09:20:00Z"),
+            externalProductIds: ["allday-product"],
+          },
+        ],
+        transitions: [],
+        historyTotals: {
+          menuItems: 1,
+          comments: 0,
+          votes: 0,
+          identityTransitions: 0,
+        },
+      });
+
+    const duringDrain = makeReport(new Date("2026-08-27T03:40:00Z"));
+    expect(duringDrain.sources[0].periods[0]).toMatchObject({
+      mealPeriod: "lunch",
+      freshness: "stale",
+      dueToday: false,
+    });
+    expect(duringDrain.sources[0].problems).not.toContain("stale-period:lunch");
+    expect(duringDrain.sources[0].configuredOutActiveItems).toEqual([
+      { id: "allday", mealPeriods: ["allday"] },
+    ]);
+
+    const afterDeadline = makeReport(new Date("2026-08-27T03:50:00Z"));
+    expect(afterDeadline.sources[0].problems).toContain("stale-period:lunch");
   });
 
   it("verifies that every audited merge keeps its retired UUID inactive", () => {

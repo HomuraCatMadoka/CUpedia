@@ -1,6 +1,9 @@
 import type { HktWeekday, MealPeriod } from "@/db/schema";
 import { normalizeCanonicalDishName } from "./canteen-menu-canonicalization";
-import { menuSyncWindowAt } from "./canteen-menu-sync-window";
+import {
+  menuSyncInitialDrainDeadlineAt,
+  menuSyncWindowAt,
+} from "./canteen-menu-sync-window";
 
 export type MenuInvariantSource = {
   id: string;
@@ -144,7 +147,9 @@ export function buildMenuInvariantReport(input: BuildMenuInvariantReportInput) {
       const configuredOutActiveItems = activeItems
         .filter((item) =>
           item.mealPeriods.some(
-            (period) => period !== "allday" && !configured.has(period),
+            (period) =>
+              (period === "allday" && configured.size !== 3) ||
+              (period !== "allday" && !configured.has(period)),
           ),
         )
         .map((item) => ({ id: item.id, mealPeriods: [...item.mealPeriods] }));
@@ -164,7 +169,8 @@ export function buildMenuInvariantReport(input: BuildMenuInvariantReportInput) {
           !closedToday &&
           (PERIOD_ORDER[mealPeriod] < PERIOD_ORDER[currentWindow.period] ||
             (mealPeriod === currentWindow.period &&
-              input.evaluatedAt >= currentWindow.claimsStartAt));
+              input.evaluatedAt >=
+                menuSyncInitialDrainDeadlineAt(input.evaluatedAt)));
         return {
           mealPeriod,
           runId: observation?.runId ?? null,
