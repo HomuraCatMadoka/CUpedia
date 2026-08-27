@@ -25,7 +25,8 @@ export type CampusMapPublishReceiptOutcome =
         | "projection-failed"
         | "projection-superseded"
         | "missing-target"
-        | "superseded";
+        | "superseded"
+        | "receipt-lock-unavailable";
       receipt?: CampusMapPublishedReceipt;
     };
 
@@ -47,7 +48,6 @@ interface CampusMapPublishReceiptConsumerDependencies {
   timeoutMs: number;
 }
 
-const fallbackLocks = new Map<string, Promise<void>>();
 const fallbackConsumedReceipts = new Map<string, CampusMapPublishedReceipt>();
 const CONSUMED_PREFIX = "cupedia:campus-map:publish-receipt:v1:";
 
@@ -93,22 +93,16 @@ export async function withBrowserCampusMapReceiptLock<T>(
   identity: string,
   work: () => Promise<T>,
 ): Promise<T> {
-  if (navigator.locks) {
-    return navigator.locks.request(`campus-map-publish:${identity}`, work);
+  if (!navigator.locks) {
+    throw new Error("Campus Map cross-tab receipt lock is unavailable");
   }
-  const previous = fallbackLocks.get(identity) ?? Promise.resolve();
-  let release!: () => void;
-  const current = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const queued = previous.then(() => current);
-  fallbackLocks.set(identity, queued);
-  await previous;
   try {
-    return await work();
-  } finally {
-    release();
-    if (fallbackLocks.get(identity) === queued) fallbackLocks.delete(identity);
+    return await navigator.locks.request(
+      `campus-map-publish:${identity}`,
+      work,
+    );
+  } catch {
+    throw new Error("Campus Map cross-tab receipt lock is unavailable");
   }
 }
 
@@ -193,39 +187,51 @@ export class CampusMapPublishReceiptConsumer {
     intentToken: number,
     receipt: CampusMapPublishedReceipt,
   ): Promise<CampusMapPublishReceiptOutcome> {
-    return this.dependencies.withLock(identity, async () => {
-      const consumed = this.dependencies.readConsumed(identity);
-      if (consumed) {
-        const consumedPlaceId = consumed.changes[0]?.placeId;
-        if (!consumedPlaceId) {
-          return {
-            status: "recoverable",
-            reason: "missing-target",
-            receipt: consumed,
-          };
+    try {
+      return await this.dependencies.withLock(identity, async () => {
+        const consumed = this.dependencies.readConsumed(identity);
+        if (consumed) {
+          const consumedPlaceId = consumed.changes[0]?.placeId;
+          if (!consumedPlaceId) {
+            return {
+              status: "recoverable",
+              reason: "missing-target",
+              receipt: consumed,
+            };
+          }
+          if (this.dependencies.isCanonicalPlaceOpen(consumedPlaceId)) {
+            return { status: "already-consumed", receipt: consumed };
+          }
+          const synchronized = await this.refreshAndOpen(
+            consumed,
+            consumedPlaceId,
+            intentToken,
+          );
+          return synchronized.status === "applied"
+            ? { status: "already-consumed", receipt: consumed }
+            : synchronized;
         }
-        if (this.dependencies.isCanonicalPlaceOpen(consumedPlaceId)) {
-          return { status: "already-consumed", receipt: consumed };
+
+        const placeId = receipt.changes[0]?.placeId;
+        if (!placeId) {
+          return { status: "recoverable", reason: "missing-target", receipt };
         }
-        const synchronized = await this.refreshAndOpen(
-          consumed,
-          consumedPlaceId,
+        const applied = await this.refreshAndOpen(
+          receipt,
+          placeId,
           intentToken,
         );
-        return synchronized.status === "applied"
-          ? { status: "already-consumed", receipt: consumed }
-          : synchronized;
-      }
-
-      const placeId = receipt.changes[0]?.placeId;
-      if (!placeId) {
-        return { status: "recoverable", reason: "missing-target", receipt };
-      }
-      const applied = await this.refreshAndOpen(receipt, placeId, intentToken);
-      if (applied.status !== "applied") return applied;
-      this.dependencies.markConsumed(identity, receipt);
-      return { status: "applied", receipt };
-    });
+        if (applied.status !== "applied") return applied;
+        this.dependencies.markConsumed(identity, receipt);
+        return { status: "applied", receipt };
+      });
+    } catch {
+      return {
+        status: "recoverable",
+        reason: "receipt-lock-unavailable",
+        receipt,
+      };
+    }
   }
 
   private async refreshAndOpen(

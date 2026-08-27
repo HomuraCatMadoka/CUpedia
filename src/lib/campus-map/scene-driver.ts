@@ -298,23 +298,22 @@ export class CampusMapSceneDriver {
       mode: "browse",
       scene: { kind: "facility", facilityId: placeId, snap: "peek" },
     };
-    const result = transitionCampusMapSession(
-      this.snapshot.session,
-      { type: "RESTORE", session: target },
-      this.catalog,
-    );
-    if (
-      result.status === "rejected" ||
-      result.session.mode !== "browse" ||
-      result.session.scene.kind !== "facility" ||
-      result.session.scene.facilityId !== placeId
-    ) {
+    const resolved = resolveCampusMapSessionSemantics(target, this.catalog);
+    if (resolved.status !== "valid") {
       return { status: "missing-target" as const };
     }
     this.commitTransition({
-      session: result.session,
+      session: target,
       returnTo: null,
-      commands: { ...result.commands, history: "replace" },
+      commands: {
+        history: "replace",
+        camera: projectCampusMapSceneCameraCommand(
+          resolved.cameraTarget,
+          "facility-selection",
+        ) ?? { kind: "cancel" },
+        focus: resolved.focus,
+        overlay: { kind: "close-external" },
+      },
       syncSheet: true,
     });
     return { status: "applied" as const };

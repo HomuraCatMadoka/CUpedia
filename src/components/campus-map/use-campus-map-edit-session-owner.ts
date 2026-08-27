@@ -133,7 +133,8 @@ export function useCampusMapEditSessionOwner({
 
   const applyEvent = useCallback(
     (event: CampusMapEditEvent) => {
-      const transition = transitionCampusMapEdit(sessionRef.current, event);
+      const previousSession = sessionRef.current;
+      const transition = transitionCampusMapEdit(previousSession, event);
       if (!transition.accepted) return;
       sessionRef.current = transition.session;
       setSession(transition.session);
@@ -170,7 +171,10 @@ export function useCampusMapEditSessionOwner({
           window.requestAnimationFrame(() => setAnnouncement(command.message));
         } else if (command.kind === "publish") {
           const idempotencyKey = command.command.idempotencyKey;
-          const transport = publishCampusMapEdit(command.command);
+          const transport =
+            previousSession?.status === "temporarily-unavailable"
+              ? undefined
+              : publishCampusMapEdit(command.command);
           void recoverPublish(command.command, transport).then(
             (outcome) => applyPublishOutcome(idempotencyKey, outcome),
             () =>

@@ -113,6 +113,12 @@ beforeEach(() => {
   );
   mockLoadProviderPoiCard.mockReset();
   window.sessionStorage.clear();
+  Object.defineProperty(navigator, "locks", {
+    configurable: true,
+    value: {
+      request: async (_name: string, work: () => Promise<unknown>) => work(),
+    },
+  });
   window.history.replaceState(null, "", "/prototype/campus-map");
   vi.stubGlobal(
     "fetch",
@@ -502,6 +508,41 @@ describe("AmapCampusPrototype", () => {
       await screen.findByText("登录后会回到这份草稿，但不会自动发布。"),
     ).toBeTruthy();
     expect(publishCampusMapEdit).toHaveBeenCalledOnce();
+  });
+
+  it("reconciles an unknown result before retrying the original command", async () => {
+    vi.mocked(publishCampusMapEdit).mockRejectedValueOnce(
+      new Error("response lost"),
+    );
+    vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
+      status: "unavailable",
+    });
+    render(<AmapCampusPrototype />);
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
+    const retry = await screen.findByRole("button", { name: "安全重试" });
+
+    vi.mocked(publishCampusMapEdit).mockClear();
+    vi.mocked(reconcileCampusMapEditPublish).mockClear();
+    vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
+      status: "not-committed",
+    });
+    vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
+      status: "authentication-required",
+      code: "authentication-required",
+    });
+    fireEvent.click(retry);
+
+    await waitFor(() => expect(publishCampusMapEdit).toHaveBeenCalledOnce());
+    expect(reconcileCampusMapEditPublish).toHaveBeenCalledOnce();
+    expect(
+      vi.mocked(reconcileCampusMapEditPublish).mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(publishCampusMapEdit).mock.invocationCallOrder[0]!,
+    );
   });
 
   it("does not apply a completed setup check to a replacement edit session", async () => {

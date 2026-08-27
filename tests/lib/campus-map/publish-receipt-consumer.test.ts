@@ -147,4 +147,113 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
       reason: "reconciliation-unavailable",
     });
   });
+
+  it("reconciles a rejected transport instead of immediately retrying it", async () => {
+    const { consumer, dependencies } = harness();
+
+    await expect(
+      consumer.consume({
+        command,
+        intentToken: 1,
+        transport: Promise.reject(new Error("response lost")),
+      }),
+    ).resolves.toMatchObject({ status: "applied", receipt });
+    expect(dependencies.reconcile).toHaveBeenCalledOnce();
+    expect(dependencies.retry).not.toHaveBeenCalled();
+  });
+
+  it("serializes concurrent tab consumers so the receipt handoff runs once", async () => {
+    const consumed = new Map<string, CampusMapPublishedReceipt>();
+    let canonicalPlaceId: string | null = null;
+    let queue = Promise.resolve();
+    const applyProjectionAndOpen = vi.fn(({ placeId }: { placeId: string }) => {
+      canonicalPlaceId = placeId;
+      return { status: "applied" as const };
+    });
+    const dependencies = {
+      reconcile: vi.fn(async () => ({ status: "committed", receipt }) as const),
+      retry: vi.fn(async () => receipt),
+      refresh: vi.fn(async () => ({ status: "applied" }) as const),
+      applyProjectionAndOpen,
+      isCanonicalPlaceOpen: (placeId: string) => canonicalPlaceId === placeId,
+      readConsumed: (identity: string) => consumed.get(identity) ?? null,
+      markConsumed: (identity: string, value: CampusMapPublishedReceipt) => {
+        consumed.set(identity, value);
+      },
+      withLock: async <T>(_identity: string, work: () => Promise<T>) => {
+        const previous = queue;
+        let release!: () => void;
+        queue = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        await previous;
+        try {
+          return await work();
+        } finally {
+          release();
+        }
+      },
+      timeoutMs: 10,
+    };
+    const first = new CampusMapPublishReceiptConsumer(dependencies);
+    const second = new CampusMapPublishReceiptConsumer(dependencies);
+
+    await expect(
+      Promise.all([
+        first.consume({ command, intentToken: 2, receipt }),
+        second.consume({ command, intentToken: 2, receipt }),
+      ]),
+    ).resolves.toEqual([
+      { status: "applied", receipt },
+      { status: "already-consumed", receipt },
+    ]);
+    expect(applyProjectionAndOpen).toHaveBeenCalledOnce();
+  });
+
+  it("does not let an A refresh handoff replace a later B navigation", async () => {
+    let resolveRefresh!: () => void;
+    let currentIntentToken = 4;
+    const markConsumed = vi.fn();
+    const { consumer } = harness({
+      refresh: vi.fn(
+        () =>
+          new Promise<{ status: "applied" }>((resolve) => {
+            resolveRefresh = () => resolve({ status: "applied" });
+          }),
+      ),
+      applyProjectionAndOpen: vi.fn(
+        ({ intentToken }: { intentToken: number }) =>
+          intentToken === currentIntentToken
+            ? ({ status: "applied" } as const)
+            : ({ status: "superseded" } as const),
+      ),
+      markConsumed,
+    });
+    const pending = consumer.consume({ command, intentToken: 4, receipt });
+    currentIntentToken = 5;
+    resolveRefresh();
+
+    await expect(pending).resolves.toEqual({
+      status: "recoverable",
+      reason: "superseded",
+      receipt,
+    });
+    expect(markConsumed).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the browser cannot provide a cross-tab lock", async () => {
+    const { consumer } = harness({
+      withLock: async () => {
+        throw new Error("locks unavailable");
+      },
+    });
+
+    await expect(
+      consumer.consume({ command, intentToken: 1, receipt }),
+    ).resolves.toEqual({
+      status: "recoverable",
+      reason: "receipt-lock-unavailable",
+      receipt,
+    });
+  });
 });
