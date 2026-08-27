@@ -52,6 +52,10 @@ export interface CampusMapLockedRevisionSnapshot {
   visibility: "public" | "redacted";
 }
 
+export interface CampusMapGovernanceRevisionSnapshot extends CampusMapLockedRevisionSnapshot {
+  changesetId: string;
+}
+
 export interface CampusMapAppendFact {
   name: string;
   buildingId: string | null;
@@ -172,9 +176,67 @@ export class CampusMapFactStoreTransaction {
     if (!(await this.lockPlace(placeId))) return null;
     const current = await this.readLockedCurrentRevision(placeId);
     if (!current) return null;
+    const revision = await this.readRevisionSnapshot(
+      placeId,
+      current.revisionId,
+    );
+    if (!revision) {
+      throw new Error("Campus Map Current revision snapshot does not exist");
+    }
+    return {
+      revisionId: revision.revisionId,
+      status: current.status,
+      factSchemaVersion: revision.factSchemaVersion,
+      fact: revision.fact,
+      visibility: revision.visibility,
+    };
+  }
 
+  async lockGovernanceRevisionSnapshots(
+    references: readonly { placeId: string; revisionId: string }[],
+  ): Promise<(CampusMapGovernanceRevisionSnapshot | null)[]> {
+    const placeIds = [
+      ...new Set(references.map((reference) => reference.placeId)),
+    ].sort((left, right) => left.localeCompare(right));
+    for (const placeId of placeIds) {
+      await this.lockCurrentRevisionSnapshot(placeId);
+    }
+
+    const snapshots = new Map<
+      string,
+      CampusMapGovernanceRevisionSnapshot | null
+    >();
+    const orderedReferences = [...references].sort((left, right) =>
+      left.revisionId.localeCompare(right.revisionId),
+    );
+    for (const reference of orderedReferences) {
+      const key = `${reference.placeId}\u0000${reference.revisionId}`;
+      if (!snapshots.has(key)) {
+        snapshots.set(
+          key,
+          await this.readRevisionSnapshot(
+            reference.placeId,
+            reference.revisionId,
+          ),
+        );
+      }
+    }
+    return references.map(
+      (reference) =>
+        snapshots.get(`${reference.placeId}\u0000${reference.revisionId}`) ??
+        null,
+    );
+  }
+
+  private async readRevisionSnapshot(
+    placeId: string,
+    revisionId: string,
+  ): Promise<CampusMapGovernanceRevisionSnapshot | null> {
     const [revision] = await this.transaction
       .select({
+        visibility: campusMapRevisionVisibility.visibility,
+        changesetId: campusMapFactRevisions.changesetId,
+        status: campusMapFactRevisions.status,
         factSchemaVersion: campusMapFactRevisions.factSchemaVersion,
         name: campusMapFactRevisions.name,
         buildingId: campusMapFactRevisions.buildingId,
@@ -197,28 +259,38 @@ export class CampusMapFactStoreTransaction {
         verifiedAt: campusMapFactRevisions.verifiedAt,
         verifiedByActorIdSnapshot:
           campusMapFactRevisions.verifiedByActorIdSnapshot,
-        visibility: campusMapRevisionVisibility.visibility,
       })
       .from(campusMapFactRevisions)
       .innerJoin(
         campusMapRevisionVisibility,
         eq(campusMapFactRevisions.id, campusMapRevisionVisibility.revisionId),
       )
-      .where(eq(campusMapFactRevisions.id, current.revisionId))
+      .where(
+        and(
+          eq(campusMapFactRevisions.placeId, placeId),
+          eq(campusMapFactRevisions.id, revisionId),
+        ),
+      )
       .for("update", { of: campusMapRevisionVisibility })
       .limit(1);
-    if (!revision) {
-      throw new Error("Campus Map Current revision snapshot does not exist");
+    if (!revision) return null;
+    if (
+      revision.status !== "active" &&
+      revision.status !== "retired" &&
+      revision.status !== "merged"
+    ) {
+      throw new Error("Campus Map revision status is invalid");
     }
     if (
       revision.visibility !== "public" &&
       revision.visibility !== "redacted"
     ) {
-      throw new Error("Campus Map Current revision visibility is invalid");
+      throw new Error("Campus Map revision visibility is invalid");
     }
     return {
-      revisionId: current.revisionId,
-      status: current.status,
+      revisionId,
+      changesetId: revision.changesetId,
+      status: revision.status,
       factSchemaVersion: revision.factSchemaVersion,
       fact: {
         name: revision.name,

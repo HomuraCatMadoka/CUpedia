@@ -46,7 +46,7 @@ const POSTGRES_TIMESTAMP_MIN_MILLISECONDS = Date.parse(
   "-004712-01-01T00:00:00.000Z",
 );
 
-function canonicalUuid<T>(value: T): T {
+export function canonicalCampusMapUuid<T>(value: T): T {
   return typeof value === "string" && UUID_PATTERN.test(value)
     ? (value.toLowerCase() as T)
     : value;
@@ -58,34 +58,42 @@ export function normalizePublishCommandIdentifiers(
 ): CampusMapPublishCommand {
   return {
     ...command,
-    idempotencyKey: canonicalUuid(command.idempotencyKey),
+    idempotencyKey: canonicalCampusMapUuid(command.idempotencyKey),
     changes: command.changes.map((change) => {
       if (change.operation === "create") {
         return {
           ...change,
           fact: {
             ...change.fact,
-            buildingId: canonicalUuid(change.fact.buildingId),
-            floorId: canonicalUuid(change.fact.floorId),
+            buildingId: canonicalCampusMapUuid(change.fact.buildingId),
+            floorId: canonicalCampusMapUuid(change.fact.floorId),
           },
         };
       }
       if (change.operation === "retire") {
         return {
           ...change,
-          placeId: canonicalUuid(change.placeId),
-          baseRevisionId: canonicalUuid(change.baseRevisionId),
+          placeId: canonicalCampusMapUuid(change.placeId),
+          baseRevisionId: canonicalCampusMapUuid(change.baseRevisionId),
+        };
+      }
+      if (change.operation === "merge") {
+        return {
+          ...change,
+          placeId: canonicalCampusMapUuid(change.placeId),
+          baseRevisionId: canonicalCampusMapUuid(change.baseRevisionId),
+          mergedIntoPlaceId: canonicalCampusMapUuid(change.mergedIntoPlaceId),
         };
       }
       if (change.operation === "update" || change.operation === "restore") {
         return {
           ...change,
-          placeId: canonicalUuid(change.placeId),
-          baseRevisionId: canonicalUuid(change.baseRevisionId),
+          placeId: canonicalCampusMapUuid(change.placeId),
+          baseRevisionId: canonicalCampusMapUuid(change.baseRevisionId),
           fact: {
             ...change.fact,
-            buildingId: canonicalUuid(change.fact.buildingId),
-            floorId: canonicalUuid(change.fact.floorId),
+            buildingId: canonicalCampusMapUuid(change.fact.buildingId),
+            floorId: canonicalCampusMapUuid(change.fact.floorId),
           },
         };
       }
@@ -135,7 +143,11 @@ export function hasPublishCommandStructure(
   return command.changes.every((change) => {
     if (!isRecord(change) || !Array.isArray(change.sources)) return false;
     if (!change.sources.every(isRecord)) return false;
-    return change.operation === "retire" || isRecord(change.fact);
+    return (
+      change.operation === "retire" ||
+      change.operation === "merge" ||
+      isRecord(change.fact)
+    );
   });
 }
 
@@ -290,7 +302,8 @@ export function validateChangeIdentities(
       change.operation !== "create" &&
       change.operation !== "update" &&
       change.operation !== "retire" &&
-      change.operation !== "restore"
+      change.operation !== "restore" &&
+      change.operation !== "merge"
     ) {
       errors.push({
         code: "invalid-operation",
@@ -323,6 +336,26 @@ export function validateChangeIdentities(
         code: "invalid-base-revision-id",
         anchor: { changeIndex, field: "baseRevisionId" },
       });
+    }
+    if (change.operation === "merge") {
+      if (
+        typeof change.mergedIntoPlaceId !== "string" ||
+        !UUID_PATTERN.test(change.mergedIntoPlaceId)
+      ) {
+        errors.push({
+          code: "invalid-merge-survivor-id",
+          anchor: { changeIndex, field: "mergedIntoPlaceId" },
+        });
+      } else if (change.mergedIntoPlaceId === change.placeId) {
+        errors.push({
+          code: "merge-place-must-differ",
+          anchor: {
+            changeIndex,
+            placeId: change.placeId,
+            field: "mergedIntoPlaceId",
+          },
+        });
+      }
     }
   }
   return errors;
