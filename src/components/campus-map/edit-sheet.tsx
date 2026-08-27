@@ -582,6 +582,10 @@ export function CampusMapEditSheet({
   }
 
   const isPlacing = session.status === "placing";
+  const showFixedFooter =
+    isPlacing ||
+    session.status === "editing" ||
+    session.status === "publishing";
   const placementPosition =
     draft.placementCandidate ??
     ({
@@ -1038,7 +1042,10 @@ export function CampusMapEditSheet({
         </p>
       </div>
       <div
-        className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-28 md:space-y-4 md:px-5 md:py-4"
+        className={cn(
+          "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 md:space-y-4 md:px-5 md:py-4",
+          showFixedFooter ? "pb-28" : "pb-5",
+        )}
         aria-busy={session.status === "publishing"}
         inert={session.status === "publishing" ? true : undefined}
       >
@@ -1148,40 +1155,42 @@ export function CampusMapEditSheet({
           </fieldset>
         </div>
       </div>
-      <div className="absolute inset-x-0 bottom-0 border-t bg-white px-4 pt-4 pb-[max(16px,env(safe-area-inset-bottom))] md:rounded-b-2xl md:pb-4">
-        <button
-          type="button"
-          className={primaryClass}
-          disabled={
-            isPlacing
-              ? placementPending
-              : session.status !== "editing" || !isCampusMapEditDirty(session)
-          }
-          onClick={() =>
-            onEvent(
+      {showFixedFooter ? (
+        <div className="absolute inset-x-0 bottom-0 border-t bg-white px-4 pt-4 pb-[max(16px,env(safe-area-inset-bottom))] md:rounded-b-2xl md:pb-4">
+          <button
+            type="button"
+            className={primaryClass}
+            disabled={
               isPlacing
-                ? { type: "CONFIRM_POSITION", position: placementPosition }
-                : {
-                    type: "REQUEST_PUBLISH",
-                    accessedOn: today(),
-                    ...(serverRequiredFields
-                      ? { requiredFields: serverRequiredFields }
-                      : {}),
-                  },
-            )
-          }
-        >
-          {isPlacing
-            ? placementPending
-              ? "正在确定位置…"
-              : "使用此位置"
-            : session.status === "publishing"
-              ? "正在发布…"
-              : draft.mode === "add"
-                ? "发布设施"
-                : "发布修改"}
-        </button>
-      </div>
+                ? placementPending
+                : session.status !== "editing" || !isCampusMapEditDirty(session)
+            }
+            onClick={() =>
+              onEvent(
+                isPlacing
+                  ? { type: "CONFIRM_POSITION", position: placementPosition }
+                  : {
+                      type: "REQUEST_PUBLISH",
+                      accessedOn: today(),
+                      ...(serverRequiredFields
+                        ? { requiredFields: serverRequiredFields }
+                        : {}),
+                    },
+              )
+            }
+          >
+            {isPlacing
+              ? placementPending
+                ? "正在确定位置…"
+                : "使用此位置"
+              : session.status === "publishing"
+                ? "正在发布…"
+                : draft.mode === "add"
+                  ? "发布设施"
+                  : "发布修改"}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -681,6 +681,138 @@ describe("AmapCampusPrototype", () => {
     expect(screen.queryByLabelText("关闭地图编辑")).toBeNull();
   });
 
+  it("keeps newer B editing when restored A is already consumed", async () => {
+    const publishedPlaceId = "30000000-0000-4000-8000-000000000057";
+    const idempotencyKey = "10000000-0000-4000-8000-000000000057";
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey,
+    }).session!;
+    const positioned = transitionCampusMapEdit(started, {
+      type: "CONFIRM_POSITION",
+      position: {
+        longitude: 114.208,
+        latitude: 22.42,
+        crs: "wgs84",
+        precision: "approximate",
+        method: "keyboard",
+      },
+    }).session!;
+    const publishing = transitionCampusMapEdit(positioned, {
+      type: "REQUEST_PUBLISH",
+      accessedOn: "2026-08-27",
+    }).session!;
+    const receipt = {
+      status: "published" as const,
+      changesetId: "50000000-0000-4000-8000-000000000057",
+      changes: [
+        {
+          placeId: publishedPlaceId,
+          revisionId: "40000000-0000-4000-8000-000000000057",
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    };
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(publishing),
+    );
+    bindBrowserCampusMapPublishActor(
+      idempotencyKey,
+      "60000000-0000-4000-8000-000000000001",
+    );
+    writeBrowserCampusMapPublishReceiptState(idempotencyKey, {
+      phase: "completed",
+      receipt,
+    });
+    vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
+      status: "committed",
+      receipt,
+    });
+    window.history.replaceState(
+      null,
+      "",
+      "/prototype/campus-map?v=1&task=create&anchor=map",
+    );
+    let resolveIdentity!: () => void;
+    vi.mocked(identifyCampusMapEditPublisher).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveIdentity = () =>
+          resolve({
+            status: "authenticated",
+            actorId: "60000000-0000-4000-8000-000000000001",
+          });
+      }),
+    );
+
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    await waitFor(() =>
+      expect(identifyCampusMapEditPublisher).toHaveBeenCalledOnce(),
+    );
+
+    window.history.replaceState(null, "", "/prototype/campus-map");
+    window.dispatchEvent(
+      new PopStateEvent("popstate", { state: window.history.state }),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "添加地点" }));
+    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("radio", { name: "打印服务" }));
+    const replacementSnapshot = window.sessionStorage.getItem(
+      "cupedia:campus-map:edit-session:v1",
+    );
+
+    await act(async () => resolveIdentity());
+
+    await waitFor(() =>
+      expect(window.location.search).toContain("task=create"),
+    );
+    expect(
+      (screen.getByRole("radio", { name: "打印服务" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    expect(
+      window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
+    ).toBe(replacementSnapshot);
+  });
+
+  it("drops queued edit focus and announcements after newer navigation", async () => {
+    render(<AmapCampusPrototype />);
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    const queuedFrames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      queuedFrames.push(callback);
+      return queuedFrames.length;
+    });
+    const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
+    const contributionTitle = document.querySelector<HTMLElement>(
+      "#campus-map-panel-title",
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    window.history.replaceState(null, "", "/prototype/campus-map");
+    window.dispatchEvent(
+      new PopStateEvent("popstate", { state: window.history.state }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+      while (queuedFrames.length > 0) {
+        queuedFrames.shift()!(0);
+        await Promise.resolve();
+      }
+    });
+
+    expect(screen.queryByText("位置已锁定，请填写地点资料")).toBeNull();
+    expect(focusSpy.mock.instances).not.toContain(contributionTitle);
+    focusSpy.mockRestore();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+  });
+
   it("rechecks an unknown publish snapshot after refresh", async () => {
     const idempotencyKey = "10000000-0000-4000-8000-000000000029";
     const started = transitionCampusMapEdit(null, {

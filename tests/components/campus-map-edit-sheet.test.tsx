@@ -560,6 +560,47 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.queryByRole("button", { name: /重试|检查/ })).toBeNull();
   });
 
+  it.each([
+    [
+      "retryable",
+      { status: "temporarily-unavailable", draft: draft() },
+      "重试发布",
+    ],
+    [
+      "non-retryable",
+      {
+        status: "forbidden",
+        forbiddenCode: "actor-banned",
+        draft: draft(),
+      },
+      "继续编辑",
+    ],
+    [
+      "rate-limited",
+      {
+        status: "rate-limited",
+        retryAfter: 30,
+        rateScope: "actor",
+        draft: draft(),
+      },
+      "再次发布",
+    ],
+  ] as const)(
+    "hides the fixed publish footer for %s feedback",
+    (_, session, action) => {
+      render(
+        <CampusMapEditSheet
+          session={session}
+          centerPosition={[114.2, 22.4]}
+          onEvent={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByRole("button", { name: action })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "发布设施" })).toBeNull();
+    },
+  );
+
   it("shows only #719 Place, Changeset, and History links on the receipt", () => {
     const session: CampusMapEditSession = {
       status: "published",
@@ -816,13 +857,7 @@ describe("Campus Map single-page edit Sheet", () => {
 
     expect(screen.getByRole("alert").textContent).toContain("账号已被封禁");
     expect(screen.queryByText(/服务器未接受这项资料/)).toBeNull();
-    expect(
-      (
-        screen.getByRole("button", {
-          name: "发布设施",
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
+    expect(screen.queryByRole("button", { name: "发布设施" })).toBeNull();
   });
 
   it("labels a canonical precise outdoor location honestly", () => {
@@ -1238,8 +1273,6 @@ describe("Campus Map single-page edit Sheet", () => {
     );
     expect(screen.queryByRole("button", { name: "采用最新资料" })).toBeNull();
     expect(screen.queryByRole("button", { name: "按以上选择继续" })).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "发布修改" }).hasAttribute("disabled"),
-    ).toBe(true);
+    expect(screen.queryByRole("button", { name: "发布修改" })).toBeNull();
   });
 });
