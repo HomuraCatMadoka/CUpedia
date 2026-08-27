@@ -677,6 +677,7 @@ describe("AmapCampusPrototype", () => {
       screen.getByRole("heading", { name: "较新的导航地点" }),
     ).toBeTruthy();
     expect(screen.queryByText("正在确认发布结果")).toBeNull();
+    expect(screen.queryByText("正在发布地点资料")).toBeNull();
     expect(screen.queryByLabelText("关闭地图编辑")).toBeNull();
   });
 

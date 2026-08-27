@@ -31,6 +31,18 @@ import type {
 const SNAPSHOT_KEY = "cupedia:campus-map:edit-session:v1";
 const CONFLICT_DISPLAY_TIMEOUT_MS = 1_500;
 
+function removeSnapshotForPublish(idempotencyKey: string) {
+  const encoded = window.sessionStorage.getItem(SNAPSHOT_KEY);
+  if (!encoded) return;
+  const snapshot = decodeCampusMapEditSnapshot(encoded);
+  if (
+    snapshot.status === "restored" &&
+    snapshot.session.draft.idempotencyKey === idempotencyKey
+  ) {
+    window.sessionStorage.removeItem(SNAPSHOT_KEY);
+  }
+}
+
 function conflictDisplayTarget(
   result: CampusMapPublishResult,
   draft: CampusMapEditDraft,
@@ -99,6 +111,12 @@ export function useCampusMapEditSessionOwner({
   const mountedRef = useRef(false);
   const [announcement, setAnnouncement] = useState("");
   const [restoreNotice, setRestoreNotice] = useState("");
+  const clearStalePublishingAnnouncement = useCallback(() => {
+    const clear = (current: string) =>
+      current === "正在发布地点资料" ? "" : current;
+    setAnnouncement(clear);
+    window.requestAnimationFrame(() => setAnnouncement(clear));
+  }, []);
 
   const applyPublishOutcome = useCallback(
     async (idempotencyKey: string, outcome: CampusMapPublishReceiptOutcome) => {
@@ -107,9 +125,13 @@ export function useCampusMapEditSessionOwner({
         (outcome.reason === "superseded" ||
           outcome.reason === "projection-superseded")
       ) {
+        if (sessionRef.current?.draft.idempotencyKey !== idempotencyKey) {
+          return;
+        }
         sessionRef.current = null;
         setSession(null);
-        window.sessionStorage.removeItem(SNAPSHOT_KEY);
+        removeSnapshotForPublish(idempotencyKey);
+        clearStalePublishingAnnouncement();
         return;
       }
       if (
@@ -149,7 +171,7 @@ export function useCampusMapEditSessionOwner({
         conflictLocationDisplay,
       });
     },
-    [dispatch, driver],
+    [clearStalePublishingAnnouncement, dispatch, driver],
   );
 
   const applyEvent = useCallback(
@@ -182,11 +204,14 @@ export function useCampusMapEditSessionOwner({
         } else if (command.kind === "camera") {
           driver.recenterEditPosition(command.position, "reposition");
         } else if (command.kind === "focus") {
-          if (command.target === "form-heading") {
-            driver.focusContributionForm();
-          } else {
-            driver.focusEditField(command.target);
-          }
+          window.setTimeout(() => {
+            if (sessionRef.current !== transition.session) return;
+            if (command.target === "form-heading") {
+              driver.focusContributionForm();
+            } else {
+              driver.focusEditField(command.target);
+            }
+          }, 0);
         } else if (command.kind === "announce") {
           setAnnouncement("");
           window.requestAnimationFrame(() => setAnnouncement(command.message));
@@ -438,7 +463,14 @@ export function useCampusMapEditSessionOwner({
           (outcome.reason === "superseded" ||
             outcome.reason === "projection-superseded")
         ) {
-          window.sessionStorage.removeItem(SNAPSHOT_KEY);
+          if (
+            sessionRef.current &&
+            sessionRef.current.draft.idempotencyKey !== command.idempotencyKey
+          ) {
+            return;
+          }
+          removeSnapshotForPublish(command.idempotencyKey);
+          clearStalePublishingAnnouncement();
           return;
         }
         sessionRef.current = next;
@@ -448,7 +480,14 @@ export function useCampusMapEditSessionOwner({
     } else {
       revealRestoredSession();
     }
-  }, [applyPublishOutcome, dispatch, driver, recoverPublish, startEdit]);
+  }, [
+    applyPublishOutcome,
+    clearStalePublishingAnnouncement,
+    dispatch,
+    driver,
+    recoverPublish,
+    startEdit,
+  ]);
 
   useEffect(() => {
     if (!isCampusMapEditDirty(session)) return;

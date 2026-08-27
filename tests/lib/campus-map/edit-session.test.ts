@@ -611,12 +611,16 @@ describe("Campus Map edit session transition", () => {
     ).toBe(false);
     expect(
       transitionCampusMapEdit(blocked.session, {
-        type: "RETURN_LATER",
+        type: "CONTINUE_EDITING",
       }),
-    ).toEqual({
+    ).toMatchObject({
       accepted: true,
-      session: null,
-      commands: [{ kind: "scene", intent: "cancel-task" }],
+      session: { status: "editing", draft: blocked.session?.draft },
+      commands: [
+        { kind: "persist-snapshot" },
+        { kind: "scene", intent: "start-edit" },
+        { kind: "focus", target: "form-heading" },
+      ],
     });
   });
 

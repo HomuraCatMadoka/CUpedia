@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { MapPinIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -432,23 +432,6 @@ export function CampusMapEditSheet({
     key: string;
     fields: ConflictChoiceKey[];
   }>({ key: "", fields: [] });
-  const publishFeedbackRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (
-      ![
-        "authentication-required",
-        "forbidden",
-        "rate-limited",
-        "temporarily-unavailable",
-        "publish-unknown",
-        "publish-identity",
-        "publish-recovery-unavailable",
-      ].includes(session.status)
-    ) {
-      return;
-    }
-    publishFeedbackRef.current?.focus({ preventScroll: true });
-  }, [session.publishFeedbackReason, session.status]);
   const draft = session.draft;
   const fact = draft.fact;
   const serverRequiredFields =
@@ -550,11 +533,10 @@ export function CampusMapEditSheet({
             : identityUnavailable
               ? "暂时无法确认当前登录状态。为保护隐私，这里不会显示草稿。"
               : lockUnavailable
-                ? "当前浏览器无法安全恢复这次发布。你的修改已经保留，请稍后再回来。"
+                ? "当前浏览器无法安全恢复这次发布。你的修改已经保留，你可以继续编辑。"
                 : "当前浏览器无法保存恢复状态。你的修改已经保留，请稍后再回来。";
     return (
       <div
-        ref={publishFeedbackRef}
         className="grid gap-3 p-5"
         role="status"
         data-edit-field="publish-feedback"
@@ -586,9 +568,13 @@ export function CampusMapEditSheet({
           <button
             type="button"
             className={primaryClass}
-            onClick={() => onEvent({ type: "RETURN_LATER" })}
+            onClick={() =>
+              onEvent({
+                type: identityMismatch ? "RETURN_LATER" : "CONTINUE_EDITING",
+              })
+            }
           >
-            {identityMismatch ? "返回地图" : "稍后返回"}
+            {identityMismatch ? "返回地图" : "继续编辑"}
           </button>
         )}
       </div>
@@ -801,7 +787,6 @@ export function CampusMapEditSheet({
       } as const;
       return (
         <div
-          ref={publishFeedbackRef}
           className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-950"
           role="alert"
           data-edit-field="publish-feedback"
@@ -827,9 +812,9 @@ export function CampusMapEditSheet({
             <button
               type="button"
               className={cn(primaryClass, "mt-3")}
-              onClick={() => onEvent({ type: "RETURN_LATER" })}
+              onClick={() => onEvent({ type: "CONTINUE_EDITING" })}
             >
-              稍后返回
+              继续编辑
             </button>
           )}
         </div>
@@ -838,7 +823,6 @@ export function CampusMapEditSheet({
     if (session.status === "rate-limited") {
       return (
         <div
-          ref={publishFeedbackRef}
           className="rounded-xl border bg-neutral-50 p-3 text-sm"
           role="status"
           data-edit-field="publish-feedback"
@@ -859,7 +843,6 @@ export function CampusMapEditSheet({
     if (session.status === "temporarily-unavailable") {
       return (
         <div
-          ref={publishFeedbackRef}
           className="rounded-xl border bg-neutral-50 p-3 text-sm"
           role="status"
           data-edit-field="publish-feedback"

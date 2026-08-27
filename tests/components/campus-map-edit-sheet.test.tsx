@@ -479,10 +479,10 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    expect(screen.getAllByRole("button", { name: "稍后返回" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "继续编辑" })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: /重试/ })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "稍后返回" }));
-    expect(onEvent).toHaveBeenCalledWith({ type: "RETURN_LATER" });
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(onEvent).toHaveBeenCalledWith({ type: "CONTINUE_EDITING" });
   });
 
   it("presents an unknown result with one plain-language primary action", () => {
@@ -556,7 +556,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.getByRole("status").textContent).toContain(
       "当前浏览器无法安全恢复这次发布",
     );
-    expect(screen.getAllByRole("button", { name: "稍后返回" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "继续编辑" })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: /重试|检查/ })).toBeNull();
   });
 

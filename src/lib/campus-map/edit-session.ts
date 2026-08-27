@@ -734,6 +734,28 @@ export function transitionCampusMapEdit(
     };
   }
   if (event.type === "CONTINUE_EDITING") {
+    if (
+      session.status === "publish-recovery-unavailable" ||
+      (session.status === "forbidden" &&
+        session.forbiddenCode !== "profile-incomplete")
+    ) {
+      const next: CampusMapEditSession = {
+        status: "editing",
+        draft: session.draft,
+      };
+      return {
+        accepted: true,
+        session: next,
+        commands: [
+          { kind: "persist-snapshot" },
+          {
+            kind: "scene",
+            intent: next.draft.mode === "add" ? "start-create" : "start-edit",
+          },
+          { kind: "focus", target: "form-heading" },
+        ],
+      };
+    }
     if (session.status !== "confirm-discard") return rejected(session);
     const returnStatus = session.returnStatus ?? "editing";
     const next: CampusMapEditSession = {
@@ -1083,8 +1105,6 @@ export function transitionCampusMapEdit(
 
   if (event.type === "RETURN_LATER") {
     if (
-      session.status !== "publish-recovery-unavailable" &&
-      session.status !== "forbidden" &&
       !(
         session.status === "publish-identity" &&
         session.publishFeedbackReason === "identity-mismatch"
