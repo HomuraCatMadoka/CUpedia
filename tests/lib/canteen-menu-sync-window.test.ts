@@ -3,6 +3,7 @@ import type { HktWeekday } from "@/db/schema";
 import {
   menuObservationCanProjectActivity,
   menuObservationContextAt,
+  menuSyncInitialDrainDeadlineAt,
   menuSyncWindowAt,
 } from "@/lib/canteen-menu-sync-window";
 
@@ -39,5 +40,15 @@ describe("canteen menu sync windows", () => {
         menuObservationContextAt(new Date("2026-08-25T00:00:00.000Z")),
       ),
     ).toBe(true);
+  });
+
+  it.each([
+    ["2026-08-25T00:20:00.000Z", "2026-08-25T00:50:00.000Z"],
+    ["2026-08-25T03:20:00.000Z", "2026-08-25T03:50:00.000Z"],
+    ["2026-08-25T09:20:00.000Z", "2026-08-25T09:50:00.000Z"],
+  ])("allows the scheduled drain to finish after %s", (now, deadline) => {
+    expect(menuSyncInitialDrainDeadlineAt(new Date(now)).toISOString()).toBe(
+      deadline,
+    );
   });
 });
