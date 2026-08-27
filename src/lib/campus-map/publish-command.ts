@@ -22,6 +22,10 @@ import type {
   CampusMapPublishSourceInput,
   CampusMapPublishValidationIssue,
 } from "@/lib/campus-map/publish-contract";
+import {
+  canonicalizeCampusMapUuid,
+  isCampusMapUuid,
+} from "@/lib/campus-map/canonical-uuid";
 
 const MAX_COMMENT_BYTES = 2_000;
 const MAX_SOURCE_SUMMARY_BYTES = 2_000;
@@ -38,19 +42,11 @@ const MAX_SOURCE_OWNER_BYTES = 240;
 const MAX_SOURCE_VERSION_BYTES = 160;
 const MAX_SOURCE_HASH_BYTES = 256;
 const MAX_SOURCE_TEXT_BYTES = 2_000;
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 // PostgreSQL timestamps start at 4713 BC (astronomical year -4712). The
 // JavaScript Date upper bound is already below PostgreSQL's upper bound.
 const POSTGRES_TIMESTAMP_MIN_MILLISECONDS = Date.parse(
   "-004712-01-01T00:00:00.000Z",
 );
-
-export function canonicalCampusMapUuid<T>(value: T): T {
-  return typeof value === "string" && UUID_PATTERN.test(value)
-    ? (value.toLowerCase() as T)
-    : value;
-}
 
 /** Normalizes UUID identity once before fingerprinting or domain comparisons. */
 export function normalizePublishCommandIdentifiers(
@@ -58,42 +54,44 @@ export function normalizePublishCommandIdentifiers(
 ): CampusMapPublishCommand {
   return {
     ...command,
-    idempotencyKey: canonicalCampusMapUuid(command.idempotencyKey),
+    idempotencyKey: canonicalizeCampusMapUuid(command.idempotencyKey),
     changes: command.changes.map((change) => {
       if (change.operation === "create") {
         return {
           ...change,
           fact: {
             ...change.fact,
-            buildingId: canonicalCampusMapUuid(change.fact.buildingId),
-            floorId: canonicalCampusMapUuid(change.fact.floorId),
+            buildingId: canonicalizeCampusMapUuid(change.fact.buildingId),
+            floorId: canonicalizeCampusMapUuid(change.fact.floorId),
           },
         };
       }
       if (change.operation === "retire") {
         return {
           ...change,
-          placeId: canonicalCampusMapUuid(change.placeId),
-          baseRevisionId: canonicalCampusMapUuid(change.baseRevisionId),
+          placeId: canonicalizeCampusMapUuid(change.placeId),
+          baseRevisionId: canonicalizeCampusMapUuid(change.baseRevisionId),
         };
       }
       if (change.operation === "merge") {
         return {
           ...change,
-          placeId: canonicalCampusMapUuid(change.placeId),
-          baseRevisionId: canonicalCampusMapUuid(change.baseRevisionId),
-          mergedIntoPlaceId: canonicalCampusMapUuid(change.mergedIntoPlaceId),
+          placeId: canonicalizeCampusMapUuid(change.placeId),
+          baseRevisionId: canonicalizeCampusMapUuid(change.baseRevisionId),
+          mergedIntoPlaceId: canonicalizeCampusMapUuid(
+            change.mergedIntoPlaceId,
+          ),
         };
       }
       if (change.operation === "update" || change.operation === "restore") {
         return {
           ...change,
-          placeId: canonicalCampusMapUuid(change.placeId),
-          baseRevisionId: canonicalCampusMapUuid(change.baseRevisionId),
+          placeId: canonicalizeCampusMapUuid(change.placeId),
+          baseRevisionId: canonicalizeCampusMapUuid(change.baseRevisionId),
           fact: {
             ...change.fact,
-            buildingId: canonicalCampusMapUuid(change.fact.buildingId),
-            floorId: canonicalCampusMapUuid(change.fact.floorId),
+            buildingId: canonicalizeCampusMapUuid(change.fact.buildingId),
+            floorId: canonicalizeCampusMapUuid(change.fact.floorId),
           },
         };
       }
@@ -173,7 +171,7 @@ export function isPublishCommandTooLarge(
 }
 
 export function isValidPublishIdempotencyKey(value: unknown): value is string {
-  return typeof value === "string" && UUID_PATTERN.test(value);
+  return isCampusMapUuid(value);
 }
 
 export function validateComment(
@@ -314,7 +312,7 @@ export function validateChangeIdentities(
     if (change.operation === "create") continue;
     if (
       typeof change.placeId !== "string" ||
-      !UUID_PATTERN.test(change.placeId)
+      !isCampusMapUuid(change.placeId)
     ) {
       errors.push({
         code: "invalid-place-id",
@@ -330,7 +328,7 @@ export function validateChangeIdentities(
     }
     if (
       typeof change.baseRevisionId !== "string" ||
-      !UUID_PATTERN.test(change.baseRevisionId)
+      !isCampusMapUuid(change.baseRevisionId)
     ) {
       errors.push({
         code: "invalid-base-revision-id",
@@ -340,7 +338,7 @@ export function validateChangeIdentities(
     if (change.operation === "merge") {
       if (
         typeof change.mergedIntoPlaceId !== "string" ||
-        !UUID_PATTERN.test(change.mergedIntoPlaceId)
+        !isCampusMapUuid(change.mergedIntoPlaceId)
       ) {
         errors.push({
           code: "invalid-merge-survivor-id",
@@ -520,16 +518,16 @@ function validLocation(fact: CampusMapPublishFactInput): boolean {
   if (location.kind === "building") {
     return (
       typeof fact.buildingId === "string" &&
-      UUID_PATTERN.test(fact.buildingId) &&
+      isCampusMapUuid(fact.buildingId) &&
       fact.floorId === null
     );
   }
   if (location.kind === "floor") {
     return (
       typeof fact.buildingId === "string" &&
-      UUID_PATTERN.test(fact.buildingId) &&
+      isCampusMapUuid(fact.buildingId) &&
       typeof fact.floorId === "string" &&
-      UUID_PATTERN.test(fact.floorId)
+      isCampusMapUuid(fact.floorId)
     );
   }
   return (

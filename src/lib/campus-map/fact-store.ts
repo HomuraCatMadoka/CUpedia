@@ -49,6 +49,7 @@ import {
   type CampusMapTemporaryStatus,
   type CampusMapWheelchairAccess,
 } from "@/db/schema";
+import { isCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
 
 export type CampusMapCurrentPlaceLocation =
   | {
@@ -440,11 +441,8 @@ function invariant(condition: unknown, message: string): asserts condition {
     throw new Error(`Campus Map fact invariant failed: ${message}`);
 }
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 function isPublicId(value: string) {
-  return UUID_PATTERN.test(value);
+  return isCampusMapUuid(value);
 }
 
 function buildingSummary(row: {
@@ -1184,7 +1182,7 @@ function decodePlaceHistoryCursor(value: string): CampusMapPlaceHistoryCursor {
       decoded[0] !== 1 ||
       typeof decoded[1] !== "string" ||
       typeof decoded[2] !== "string" ||
-      !UUID_PATTERN.test(decoded[2])
+      !isCampusMapUuid(decoded[2])
     ) {
       throw new Error("invalid shape");
     }
@@ -1633,9 +1631,7 @@ function decodeChangesetCursor(value: string): CampusMapChangesetFeedCursor {
       decoded[0] !== 1 ||
       typeof decoded[1] !== "string" ||
       typeof decoded[2] !== "string" ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        decoded[2],
-      )
+      !isCampusMapUuid(decoded[2])
     ) {
       throw new Error("invalid shape");
     }

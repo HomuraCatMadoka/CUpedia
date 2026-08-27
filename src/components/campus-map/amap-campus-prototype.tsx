@@ -2388,6 +2388,11 @@ export function AmapCampusPrototype({
         {editSession ? (
           <CampusMapEditSheet
             session={editSession}
+            returnContext={
+              session.mode === "task" && session.task.kind === "edit"
+                ? session.task.returnContext
+                : undefined
+            }
             centerPosition={centerPosition}
             placementPending={placementPending}
             placeContext={

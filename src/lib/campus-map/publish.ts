@@ -29,7 +29,6 @@ import type {
 } from "@/lib/campus-map/fact-governance-contract";
 import {
   analyzeSourceIdentities,
-  canonicalCampusMapUuid,
   hasPublishCommandStructure,
   invalidCommandResult,
   isPublishCommandTooLarge,
@@ -45,6 +44,7 @@ import {
   validateFact,
   validateSource,
 } from "@/lib/campus-map/publish-command";
+import { canonicalizeCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
 import type {
   CampusMapPublishChange,
   CampusMapPublishCommand,
@@ -311,25 +311,27 @@ function normalizeGovernanceCommandIdentifiers(
   if (command.kind === "revert") {
     return {
       ...command,
-      idempotencyKey: canonicalCampusMapUuid(command.idempotencyKey),
-      placeId: canonicalCampusMapUuid(command.placeId),
-      baseRevisionId: canonicalCampusMapUuid(command.baseRevisionId),
-      targetRevisionId: canonicalCampusMapUuid(command.targetRevisionId),
+      idempotencyKey: canonicalizeCampusMapUuid(command.idempotencyKey),
+      placeId: canonicalizeCampusMapUuid(command.placeId),
+      baseRevisionId: canonicalizeCampusMapUuid(command.baseRevisionId),
+      targetRevisionId: canonicalizeCampusMapUuid(command.targetRevisionId),
     };
   }
   return {
     ...command,
-    idempotencyKey: canonicalCampusMapUuid(command.idempotencyKey),
+    idempotencyKey: canonicalizeCampusMapUuid(command.idempotencyKey),
     survivor: {
       ...command.survivor,
-      placeId: canonicalCampusMapUuid(command.survivor.placeId),
-      baseRevisionId: canonicalCampusMapUuid(command.survivor.baseRevisionId),
+      placeId: canonicalizeCampusMapUuid(command.survivor.placeId),
+      baseRevisionId: canonicalizeCampusMapUuid(
+        command.survivor.baseRevisionId,
+      ),
       fact: normalizeGovernanceFactIdentifiers(command.survivor.fact),
     },
     loser: {
       ...command.loser,
-      placeId: canonicalCampusMapUuid(command.loser.placeId),
-      baseRevisionId: canonicalCampusMapUuid(command.loser.baseRevisionId),
+      placeId: canonicalizeCampusMapUuid(command.loser.placeId),
+      baseRevisionId: canonicalizeCampusMapUuid(command.loser.baseRevisionId),
     },
   };
 }
@@ -339,8 +341,8 @@ function normalizeGovernanceFactIdentifiers(
 ): CampusMapPublishFactInput {
   return {
     ...fact,
-    buildingId: canonicalCampusMapUuid(fact.buildingId),
-    floorId: canonicalCampusMapUuid(fact.floorId),
+    buildingId: canonicalizeCampusMapUuid(fact.buildingId),
+    floorId: canonicalizeCampusMapUuid(fact.floorId),
   };
 }
 
