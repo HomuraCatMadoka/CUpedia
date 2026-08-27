@@ -6,6 +6,7 @@ import type {
   CampusMapPublishValidationIssue,
   CampusMapPublishWarning,
 } from "./publish-contract";
+import type { CampusMapPublishReceiptOutcome } from "./publish-receipt-consumer";
 import { CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES } from "./publish-contract";
 import { isCampusMapUuid } from "./canonical-uuid";
 import {
@@ -14,7 +15,12 @@ import {
   type CampusMapEditFieldKey,
 } from "./edit-schema";
 
-export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 3 as const;
+export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 4 as const;
+
+export type CampusMapPublishFeedbackReason = Extract<
+  CampusMapPublishReceiptOutcome,
+  { status: "recoverable" }
+>["reason"];
 
 type OutdoorPoint = Extract<
   CampusMapPublishFactInput["location"],
@@ -60,6 +66,9 @@ export type CampusMapEditStatus =
   | "forbidden"
   | "rate-limited"
   | "temporarily-unavailable"
+  | "publish-unknown"
+  | "publish-identity"
+  | "publish-recovery-unavailable"
   | "conflict"
   | "published";
 
@@ -94,6 +103,7 @@ export interface CampusMapEditSession {
     CampusMapPublishResult,
     { status: "forbidden" }
   >["code"];
+  publishFeedbackReason?: CampusMapPublishFeedbackReason;
   conflict?: CampusMapEditConflict;
   receipt?: CampusMapEditReceipt;
 }
@@ -160,11 +170,18 @@ export type CampusMapEditEvent =
       result: CampusMapPublishResult;
       conflictLocationDisplay?: CampusMapIndoorLocationDisplay | null;
     }
+  | {
+      type: "PUBLISH_RECOVERY_RESULT";
+      idempotencyKey: string;
+      reason: CampusMapPublishFeedbackReason;
+    }
   | { type: "PUBLISH_HANDOFF_COMPLETED"; idempotencyKey: string }
   | { type: "ACKNOWLEDGE_WARNINGS"; idempotencyKey: string }
   | { type: "AUTH_RETURNED" }
   | { type: "CONTRIBUTOR_SETUP_COMPLETED" }
   | { type: "RETRY_PUBLISH" }
+  | { type: "CHECK_PUBLISH_RESULT" }
+  | { type: "RETURN_LATER" }
   | { type: "RATE_LIMIT_ELAPSED"; idempotencyKey: string }
   | {
       type: "CONTINUE_FROM_CONFLICT";
@@ -326,6 +343,21 @@ function rejected(
 
 function persisted(session: CampusMapEditSession): CampusMapEditTransition {
   return { accepted: true, session, commands: [{ kind: "persist-snapshot" }] };
+}
+
+function presentedPublishState(
+  session: CampusMapEditSession,
+  message: string,
+): CampusMapEditTransition {
+  return {
+    accepted: true,
+    session,
+    commands: [
+      { kind: "persist-snapshot" },
+      { kind: "focus", target: "publish-feedback" },
+      { kind: "announce", message },
+    ],
+  };
 }
 
 function editable(session: CampusMapEditSession): CampusMapEditSession {
@@ -518,6 +550,7 @@ export function transitionCampusMapEdit(
   if (
     session.status === "publishing" &&
     event.type !== "PUBLISH_RESULT" &&
+    event.type !== "PUBLISH_RECOVERY_RESULT" &&
     event.type !== "PUBLISH_HANDOFF_COMPLETED"
   ) {
     return rejected(session);
@@ -771,17 +804,20 @@ export function transitionCampusMapEdit(
       };
     }
     if (result.status === "authentication-required") {
-      return persisted({
-        status: "authentication-required",
-        draft: session.draft,
-      });
+      return presentedPublishState(
+        { status: "authentication-required", draft: session.draft },
+        "需要登录，草稿已保留",
+      );
     }
     if (result.status === "forbidden") {
-      return persisted({
-        status: "forbidden",
-        draft: session.draft,
-        forbiddenCode: result.code,
-      });
+      return presentedPublishState(
+        {
+          status: "forbidden",
+          draft: session.draft,
+          forbiddenCode: result.code,
+        },
+        "当前账号无法发布，草稿已保留",
+      );
     }
     if (result.status === "rate-limited") {
       const next: CampusMapEditSession = {
@@ -795,6 +831,8 @@ export function transitionCampusMapEdit(
         session: next,
         commands: [
           { kind: "persist-snapshot" },
+          { kind: "focus", target: "publish-feedback" },
+          { kind: "announce", message: "发布太频繁，草稿已保留" },
           {
             kind: "schedule-rate-retry",
             afterSeconds: next.retryAfter ?? 0,
@@ -804,10 +842,10 @@ export function transitionCampusMapEdit(
       };
     }
     if (result.status === "temporarily-unavailable") {
-      return persisted({
-        status: "temporarily-unavailable",
-        draft: session.draft,
-      });
+      return presentedPublishState(
+        { status: "temporarily-unavailable", draft: session.draft },
+        "暂时无法发布，你的修改已保存在这个浏览器中",
+      );
     }
     if (result.status === "conflict") {
       const conflict = result.conflicts.find(
@@ -906,6 +944,73 @@ export function transitionCampusMapEdit(
     };
   }
 
+  if (event.type === "PUBLISH_RECOVERY_RESULT") {
+    if (
+      session.status !== "publishing" ||
+      event.idempotencyKey !== session.draft.idempotencyKey ||
+      event.reason === "superseded" ||
+      event.reason === "projection-superseded"
+    ) {
+      return rejected(session);
+    }
+    const focusAndAnnounce = (message: string): CampusMapEditCommand[] => [
+      { kind: "focus", target: "publish-feedback" },
+      { kind: "announce", message },
+    ];
+    if (
+      event.reason === "identity-mismatch" ||
+      event.reason === "identity-unavailable"
+    ) {
+      const next: CampusMapEditSession = {
+        status: "publish-identity",
+        draft: session.draft,
+        publishFeedbackReason: event.reason,
+      };
+      return {
+        accepted: true,
+        session: next,
+        commands: [
+          event.reason === "identity-mismatch"
+            ? { kind: "clear-snapshot" }
+            : { kind: "persist-snapshot" },
+          ...focusAndAnnounce(
+            event.reason === "identity-mismatch"
+              ? "当前账号与原发布账号不同，未显示原草稿"
+              : "暂时无法确认当前登录状态，未显示草稿",
+          ),
+        ],
+      };
+    }
+    if (event.reason === "receipt-lock-unavailable") {
+      return {
+        accepted: true,
+        session: {
+          status: "publish-recovery-unavailable",
+          draft: session.draft,
+          publishFeedbackReason: event.reason,
+        },
+        commands: [
+          { kind: "persist-snapshot" },
+          ...focusAndAnnounce(
+            "当前浏览器无法安全恢复这次发布，你的修改已经保留",
+          ),
+        ],
+      };
+    }
+    return {
+      accepted: true,
+      session: {
+        status: "publish-unknown",
+        draft: session.draft,
+        publishFeedbackReason: event.reason,
+      },
+      commands: [
+        { kind: "persist-snapshot" },
+        ...focusAndAnnounce("正在确认发布结果，你的修改已经保留"),
+      ],
+    };
+  }
+
   if (event.type === "PUBLISH_HANDOFF_COMPLETED") {
     if (
       session.status !== "publishing" ||
@@ -961,6 +1066,37 @@ export function transitionCampusMapEdit(
       return rejected(session);
     }
     return publishTransition({ status: "editing", draft: session.draft });
+  }
+
+  if (event.type === "CHECK_PUBLISH_RESULT") {
+    if (
+      session.status !== "publish-unknown" &&
+      !(
+        session.status === "publish-identity" &&
+        session.publishFeedbackReason === "identity-unavailable"
+      )
+    ) {
+      return rejected(session);
+    }
+    return publishTransition({ status: "editing", draft: session.draft });
+  }
+
+  if (event.type === "RETURN_LATER") {
+    if (
+      session.status !== "publish-recovery-unavailable" &&
+      session.status !== "forbidden" &&
+      !(
+        session.status === "publish-identity" &&
+        session.publishFeedbackReason === "identity-mismatch"
+      )
+    ) {
+      return rejected(session);
+    }
+    return {
+      accepted: true,
+      session: null,
+      commands: [{ kind: "scene", intent: "cancel-task" }],
+    };
   }
 
   if (event.type === "RATE_LIMIT_ELAPSED") {
@@ -1360,6 +1496,9 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
     "forbidden",
     "rate-limited",
     "temporarily-unavailable",
+    "publish-unknown",
+    "publish-identity",
+    "publish-recovery-unavailable",
     "conflict",
     "published",
   ];
@@ -1372,6 +1511,9 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
     "forbidden",
     "rate-limited",
     "temporarily-unavailable",
+    "publish-unknown",
+    "publish-identity",
+    "publish-recovery-unavailable",
     "conflict",
   ] as const;
   const returnStatusValid =
@@ -1390,6 +1532,7 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
   const forbiddenCodes = [
     "actor-not-eligible",
     "actor-banned",
+    "contributor-blocked",
     "profile-incomplete",
     "role-not-eligible",
     "admin-required",
@@ -1405,12 +1548,32 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
     (value.rateScope === undefined ||
       value.rateScope === "actor" ||
       value.rateScope === "ip");
+  const publishFeedbackReason =
+    value.publishFeedbackReason as CampusMapPublishFeedbackReason;
+  const unknownFeedbackReasons: CampusMapPublishFeedbackReason[] = [
+    "reconciliation-unavailable",
+    "projection-failed",
+    "missing-target",
+    "handoff-failed",
+    "receipt-state-unavailable",
+  ];
+  const publishFeedbackValid =
+    effectiveStatus === "publish-unknown"
+      ? unknownFeedbackReasons.includes(publishFeedbackReason)
+      : effectiveStatus === "publish-identity"
+        ? ["identity-mismatch", "identity-unavailable"].includes(
+            publishFeedbackReason,
+          )
+        : effectiveStatus === "publish-recovery-unavailable"
+          ? publishFeedbackReason === "receipt-lock-unavailable"
+          : value.publishFeedbackReason === undefined;
   const statusStateValid =
     returnStatusValid &&
     warningsValid &&
     conflictValid &&
     forbiddenCodeValid &&
     rateStateValid &&
+    publishFeedbackValid &&
     (value.localError === undefined || typeof value.localError === "string") &&
     (value.serverErrors === undefined ||
       (Array.isArray(value.serverErrors) &&
@@ -1519,7 +1682,10 @@ export function decodeCampusMapEditSnapshot(
           }
         : {}),
     };
-  } else if (value.version !== CAMPUS_MAP_EDIT_SNAPSHOT_VERSION) {
+  } else if (
+    value.version !== 3 &&
+    value.version !== CAMPUS_MAP_EDIT_SNAPSHOT_VERSION
+  ) {
     return { status: "discarded", reason: "unsupported-version" };
   }
   if (!looksLikeSession(sessionValue) || sessionValue.status === "published") {

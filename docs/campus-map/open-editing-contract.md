@@ -243,6 +243,14 @@ Browse
   手势与认证回跳不能覆盖已锁定 placement 或别的 Place draft。
 - 发布成功清除 draft；receipt 只进入 #719 的 Place、此次 Changeset 与 Place History。Back 不得
   恢复可重复发布表单。
+- publish receipt consumer 的 typed outcome 只在 edit session 投影为用户可理解的反馈：
+  `reconciliation-unavailable`、`handoff-failed`、`projection-failed`、`missing-target` 和
+  `receipt-state-unavailable` 表示原发布结果尚未确认，只允许调用同一个 consumer 检查原命令；
+  明确可重试的 publish failure 才显示“重试发布”。身份不一致或暂时无法确认身份时隐藏草稿内容，
+  不盲目重试；浏览器无法取得恢复锁时只保留草稿供稍后返回，不绕过锁。
+- `superseded` 与 `projection-superseded` 是静默结果：旧发布任务不得覆盖较新的 scene、Sheet、焦点
+  或读屏播报。所有其他可见反馈只提供一个主要操作，并在离开 `publishing` 后更新 polite live
+  region。产品文案不得显示 receipt、幂等键、“发布识别码”或“安全重试”等内部恢复协议术语。
 
 ## 9. 必测场景
 

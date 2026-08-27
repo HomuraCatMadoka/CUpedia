@@ -103,6 +103,16 @@ export function useCampusMapEditSessionOwner({
   const applyPublishOutcome = useCallback(
     async (idempotencyKey: string, outcome: CampusMapPublishReceiptOutcome) => {
       if (
+        outcome.status === "recoverable" &&
+        (outcome.reason === "superseded" ||
+          outcome.reason === "projection-superseded")
+      ) {
+        sessionRef.current = null;
+        setSession(null);
+        window.sessionStorage.removeItem(SNAPSHOT_KEY);
+        return;
+      }
+      if (
         outcome.status === "applied" ||
         outcome.status === "already-consumed"
       ) {
@@ -118,14 +128,15 @@ export function useCampusMapEditSessionOwner({
         });
         return;
       }
-      const result =
-        outcome.status === "publish-result"
-          ? outcome.result
-          : {
-              status: "temporarily-unavailable" as const,
-              code: "publish-unavailable" as const,
-              retryable: true as const,
-            };
+      if (outcome.status === "recoverable") {
+        dispatcherRef.current({
+          type: "PUBLISH_RECOVERY_RESULT",
+          idempotencyKey,
+          reason: outcome.reason,
+        });
+        return;
+      }
+      const result = outcome.result;
       const draft = sessionRef.current?.draft;
       const target = draft ? conflictDisplayTarget(result, draft) : null;
       const conflictLocationDisplay = target
@@ -182,7 +193,10 @@ export function useCampusMapEditSessionOwner({
         } else if (command.kind === "publish") {
           const idempotencyKey = command.command.idempotencyKey;
           const transport =
-            previousSession?.status === "temporarily-unavailable"
+            previousSession?.status === "temporarily-unavailable" ||
+            previousSession?.status === "publish-unknown" ||
+            previousSession?.status === "publish-identity" ||
+            previousSession?.status === "publish-recovery-unavailable"
               ? undefined
               : (actorId: string) =>
                   publishCampusMapEdit(command.command, actorId);
@@ -337,10 +351,15 @@ export function useCampusMapEditSessionOwner({
         ? restored.session.draft.mode === "add"
         : restored.session.draft.mode === "edit" &&
           restored.session.draft.placeId === urlSession.task.placeId);
-    const matchesUrlTask =
-      restored.session.status === "publishing"
-        ? matchesExactUrlTask
-        : urlSession.mode !== "task" || matchesExactUrlTask;
+    const isRecoveringPublish = [
+      "publishing",
+      "publish-unknown",
+      "publish-identity",
+      "publish-recovery-unavailable",
+    ].includes(restored.session.status);
+    const matchesUrlTask = isRecoveringPublish
+      ? matchesExactUrlTask
+      : urlSession.mode !== "task" || matchesExactUrlTask;
     if (!matchesUrlTask) {
       window.sessionStorage.removeItem(SNAPSHOT_KEY);
       dispatch({ type: "CANCEL_TASK" });
@@ -403,34 +422,27 @@ export function useCampusMapEditSessionOwner({
       }
       queueMicrotask(() => setAnnouncement("已恢复未发布的地图编辑草稿"));
     };
-    if (next?.status === "publishing") {
+    if (
+      next &&
+      [
+        "publishing",
+        "publish-unknown",
+        "publish-identity",
+        "publish-recovery-unavailable",
+      ].includes(next.status)
+    ) {
       const command = deriveCampusMapPublishCommand(next.draft);
-      let identityVerified = false;
-      const discardRestoredSession = () => {
-        sessionRef.current = null;
-        setSession(null);
-        window.sessionStorage.removeItem(SNAPSHOT_KEY);
-        dispatch({ type: "CANCEL_TASK" });
-        queueMicrotask(() =>
-          setRestoreNotice(
-            "草稿与当前编辑目标不一致，已为安全起见丢弃这份草稿。",
-          ),
-        );
-      };
-      void recoverPublish(command, undefined, () => {
-        identityVerified = true;
-        revealRestoredSession();
-      }).then((outcome) => {
+      void recoverPublish(command).then((outcome) => {
         if (
           outcome.status === "recoverable" &&
-          outcome.reason === "identity-mismatch"
+          (outcome.reason === "superseded" ||
+            outcome.reason === "projection-superseded")
         ) {
-          discardRestoredSession();
+          window.sessionStorage.removeItem(SNAPSHOT_KEY);
           return;
         }
-        if (!identityVerified) {
-          return;
-        }
+        sessionRef.current = next;
+        setSession(next);
         void applyPublishOutcome(command.idempotencyKey, outcome);
       });
     } else {

@@ -444,6 +444,122 @@ describe("Campus Map single-page edit Sheet", () => {
     );
   });
 
+  it("shows a retryable failure without internal recovery language", () => {
+    const onEvent = vi.fn();
+    render(
+      <CampusMapEditSheet
+        session={{ status: "temporarily-unavailable", draft: draft() }}
+        centerPosition={[114.2, 22.4]}
+        onEvent={onEvent}
+      />,
+    );
+
+    expect(screen.getByRole("status").textContent).toContain(
+      "你的修改已保存在这个浏览器中，可以稍后重试。",
+    );
+    expect(document.body.textContent).not.toMatch(
+      /receipt|idempotency|发布识别码|安全重试/i,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "重试发布" }));
+    expect(onEvent).toHaveBeenCalledOnce();
+    expect(onEvent).toHaveBeenCalledWith({ type: "RETRY_PUBLISH" });
+  });
+
+  it("gives a non-retryable permission failure one next step", () => {
+    const onEvent = vi.fn();
+    render(
+      <CampusMapEditSheet
+        session={{
+          status: "forbidden",
+          forbiddenCode: "actor-banned",
+          draft: draft(),
+        }}
+        centerPosition={[114.2, 22.4]}
+        onEvent={onEvent}
+      />,
+    );
+
+    expect(screen.getAllByRole("button", { name: "稍后返回" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /重试/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "稍后返回" }));
+    expect(onEvent).toHaveBeenCalledWith({ type: "RETURN_LATER" });
+  });
+
+  it("presents an unknown result with one plain-language primary action", () => {
+    const onEvent = vi.fn();
+    render(
+      <CampusMapEditSheet
+        session={{
+          status: "publish-unknown",
+          publishFeedbackReason: "reconciliation-unavailable",
+          draft: draft(),
+        }}
+        centerPosition={[114.2, 22.4]}
+        onEvent={onEvent}
+      />,
+    );
+
+    const panel = screen.getByRole("status");
+    expect(panel.textContent).toContain("正在确认发布结果");
+    expect(panel.textContent).toContain("你的修改已经保留");
+    expect(
+      screen.getAllByRole("button", { name: "检查发布结果" }),
+    ).toHaveLength(1);
+    expect(document.body.textContent).not.toMatch(
+      /receipt|idempotency|发布识别码|安全重试/i,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "检查发布结果" }));
+    expect(onEvent).toHaveBeenCalledOnce();
+    expect(onEvent).toHaveBeenCalledWith({ type: "CHECK_PUBLISH_RESULT" });
+  });
+
+  it.each([
+    ["identity-mismatch", "当前账号与原发布账号不同"],
+    ["identity-unavailable", "暂时无法确认当前登录状态"],
+  ] as const)("hides draft details for %s", (reason, message) => {
+    render(
+      <CampusMapEditSheet
+        session={{
+          status: "publish-identity",
+          publishFeedbackReason: reason,
+          draft: {
+            ...draft(),
+            fact: { ...draft().fact, name: "绝不能显示的私有草稿" },
+          },
+        }}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("status").textContent).toContain(message);
+    expect(document.body.textContent).not.toContain("绝不能显示的私有草稿");
+    expect(screen.queryByRole("radio", { name: "饮水点" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /重试发布/ })).toBeNull();
+  });
+
+  it("does not offer a recovery bypass when locking is unavailable", () => {
+    const reason = "receipt-lock-unavailable" as const;
+    render(
+      <CampusMapEditSheet
+        session={{
+          status: "publish-recovery-unavailable",
+          publishFeedbackReason: reason,
+          draft: draft(),
+        }}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("status").textContent).toContain(
+      "当前浏览器无法安全恢复这次发布",
+    );
+    expect(screen.getAllByRole("button", { name: "稍后返回" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /重试|检查/ })).toBeNull();
+  });
+
   it("shows only #719 Place, Changeset, and History links on the receipt", () => {
     const session: CampusMapEditSession = {
       status: "published",
