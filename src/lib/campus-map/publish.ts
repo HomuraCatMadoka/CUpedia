@@ -163,15 +163,9 @@ async function prepareCampusMapRevert(
   command: Extract<CampusMapFactGovernanceCommand, { kind: "revert" }>,
   store: CampusMapFactStoreTransaction,
 ): Promise<PreparedCampusMapGovernancePublish | CampusMapPublishResult> {
-  const [target, base] = await Promise.all([
-    store.readGovernanceRevisionSnapshot(
-      command.placeId,
-      command.targetRevisionId,
-    ),
-    store.readGovernanceRevisionSnapshot(
-      command.placeId,
-      command.baseRevisionId,
-    ),
+  const [target, base] = await store.lockGovernanceRevisionSnapshots([
+    { placeId: command.placeId, revisionId: command.targetRevisionId },
+    { placeId: command.placeId, revisionId: command.baseRevisionId },
   ]);
   if (!target || !base) {
     return governanceValidationFailure("revision-not-found");
@@ -230,16 +224,18 @@ async function prepareCampusMapMerge(
   if (!hasCompleteFieldResolution(command.fieldResolutions)) {
     return governanceValidationFailure("merge-field-resolution-required");
   }
-  const [survivorBase, loserBase] = await Promise.all([
-    store.readGovernanceRevisionSnapshot(
-      command.survivor.placeId,
-      command.survivor.baseRevisionId,
-    ),
-    store.readGovernanceRevisionSnapshot(
-      command.loser.placeId,
-      command.loser.baseRevisionId,
-    ),
-  ]);
+  const [survivorBase, loserBase] = await store.lockGovernanceRevisionSnapshots(
+    [
+      {
+        placeId: command.survivor.placeId,
+        revisionId: command.survivor.baseRevisionId,
+      },
+      {
+        placeId: command.loser.placeId,
+        revisionId: command.loser.baseRevisionId,
+      },
+    ],
+  );
   if (!survivorBase || !loserBase) {
     return governanceValidationFailure("merge-base-revision-not-found");
   }

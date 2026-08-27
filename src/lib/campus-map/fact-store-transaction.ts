@@ -176,86 +176,65 @@ export class CampusMapFactStoreTransaction {
     if (!(await this.lockPlace(placeId))) return null;
     const current = await this.readLockedCurrentRevision(placeId);
     if (!current) return null;
-
-    const [revision] = await this.transaction
-      .select({
-        factSchemaVersion: campusMapFactRevisions.factSchemaVersion,
-        name: campusMapFactRevisions.name,
-        buildingId: campusMapFactRevisions.buildingId,
-        floorId: campusMapFactRevisions.floorId,
-        pinType: campusMapFactRevisions.pinType,
-        capabilities: campusMapFactRevisions.capabilities,
-        gender: campusMapFactRevisions.gender,
-        wheelchairAccess: campusMapFactRevisions.wheelchairAccess,
-        audience: campusMapFactRevisions.audience,
-        credentialRequirement: campusMapFactRevisions.credentialRequirement,
-        accessSchedule: campusMapFactRevisions.accessSchedule,
-        reservationRequirement: campusMapFactRevisions.reservationRequirement,
-        temporaryStatus: campusMapFactRevisions.temporaryStatus,
-        locationKind: campusMapFactRevisions.locationKind,
-        pointPrecision: campusMapFactRevisions.pointPrecision,
-        longitude: campusMapFactRevisions.longitude,
-        latitude: campusMapFactRevisions.latitude,
-        coordinateCrs: campusMapFactRevisions.coordinateCrs,
-        observedAt: campusMapFactRevisions.observedAt,
-        verifiedAt: campusMapFactRevisions.verifiedAt,
-        verifiedByActorIdSnapshot:
-          campusMapFactRevisions.verifiedByActorIdSnapshot,
-        visibility: campusMapRevisionVisibility.visibility,
-      })
-      .from(campusMapFactRevisions)
-      .innerJoin(
-        campusMapRevisionVisibility,
-        eq(campusMapFactRevisions.id, campusMapRevisionVisibility.revisionId),
-      )
-      .where(eq(campusMapFactRevisions.id, current.revisionId))
-      .for("update", { of: campusMapRevisionVisibility })
-      .limit(1);
+    const revision = await this.readRevisionSnapshot(
+      placeId,
+      current.revisionId,
+    );
     if (!revision) {
       throw new Error("Campus Map Current revision snapshot does not exist");
     }
-    if (
-      revision.visibility !== "public" &&
-      revision.visibility !== "redacted"
-    ) {
-      throw new Error("Campus Map Current revision visibility is invalid");
-    }
     return {
-      revisionId: current.revisionId,
+      revisionId: revision.revisionId,
       status: current.status,
       factSchemaVersion: revision.factSchemaVersion,
-      fact: {
-        name: revision.name,
-        buildingId: revision.buildingId,
-        floorId: revision.floorId,
-        pinType: revision.pinType,
-        capabilities: revision.capabilities,
-        gender: revision.gender,
-        wheelchairAccess: revision.wheelchairAccess,
-        audience: revision.audience,
-        credentialRequirement: revision.credentialRequirement,
-        accessSchedule: revision.accessSchedule,
-        reservationRequirement: revision.reservationRequirement,
-        temporaryStatus: revision.temporaryStatus,
-        locationKind: revision.locationKind,
-        pointPrecision: revision.pointPrecision,
-        longitude: revision.longitude,
-        latitude: revision.latitude,
-        coordinateCrs: revision.coordinateCrs,
-        observedAt: revision.observedAt,
-        verifiedAt: revision.verifiedAt,
-        verifiedByActorIdSnapshot: revision.verifiedByActorIdSnapshot,
-      },
+      fact: revision.fact,
       visibility: revision.visibility,
     };
   }
 
-  async readGovernanceRevisionSnapshot(
+  async lockGovernanceRevisionSnapshots(
+    references: readonly { placeId: string; revisionId: string }[],
+  ): Promise<(CampusMapGovernanceRevisionSnapshot | null)[]> {
+    const placeIds = [
+      ...new Set(references.map((reference) => reference.placeId)),
+    ].sort((left, right) => left.localeCompare(right));
+    for (const placeId of placeIds) {
+      await this.lockCurrentRevisionSnapshot(placeId);
+    }
+
+    const snapshots = new Map<
+      string,
+      CampusMapGovernanceRevisionSnapshot | null
+    >();
+    const orderedReferences = [...references].sort((left, right) =>
+      left.revisionId.localeCompare(right.revisionId),
+    );
+    for (const reference of orderedReferences) {
+      const key = `${reference.placeId}\u0000${reference.revisionId}`;
+      if (!snapshots.has(key)) {
+        snapshots.set(
+          key,
+          await this.readRevisionSnapshot(
+            reference.placeId,
+            reference.revisionId,
+          ),
+        );
+      }
+    }
+    return references.map(
+      (reference) =>
+        snapshots.get(`${reference.placeId}\u0000${reference.revisionId}`) ??
+        null,
+    );
+  }
+
+  private async readRevisionSnapshot(
     placeId: string,
     revisionId: string,
   ): Promise<CampusMapGovernanceRevisionSnapshot | null> {
     const [revision] = await this.transaction
       .select({
+        visibility: campusMapRevisionVisibility.visibility,
         changesetId: campusMapFactRevisions.changesetId,
         status: campusMapFactRevisions.status,
         factSchemaVersion: campusMapFactRevisions.factSchemaVersion,
@@ -280,7 +259,6 @@ export class CampusMapFactStoreTransaction {
         verifiedAt: campusMapFactRevisions.verifiedAt,
         verifiedByActorIdSnapshot:
           campusMapFactRevisions.verifiedByActorIdSnapshot,
-        visibility: campusMapRevisionVisibility.visibility,
       })
       .from(campusMapFactRevisions)
       .innerJoin(
@@ -293,6 +271,7 @@ export class CampusMapFactStoreTransaction {
           eq(campusMapFactRevisions.id, revisionId),
         ),
       )
+      .for("update", { of: campusMapRevisionVisibility })
       .limit(1);
     if (!revision) return null;
     if (

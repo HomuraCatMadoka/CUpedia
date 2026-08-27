@@ -471,6 +471,63 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
     });
   });
 
+  it("serializes concurrent redaction before copying a historical revert value", async () => {
+    const adminId = await createActor();
+    const created = await createPlace(adminId, "redaction race target");
+    const update = createCommand("unused");
+    update.changes = [
+      {
+        operation: "update",
+        placeId: created.placeId,
+        baseRevisionId: created.revisionId,
+        fact: fact("redaction race current"),
+        sources: [source()],
+      },
+    ];
+    const current = await publishCampusMapChangeset(update, {
+      actorId: adminId,
+      clientIp: "203.0.113.123",
+    });
+    if (current.status !== "published") throw new Error("update failed");
+    const command = revertCommand({
+      placeId: created.placeId,
+      baseRevisionId: current.changes[0].revisionId,
+      targetRevisionId: created.revisionId,
+    });
+    const redactor = await pool.connect();
+    await redactor.query("begin");
+    let governancePromise: ReturnType<typeof governCampusMapFacts> | undefined;
+    try {
+      await redactor.query(
+        "update campus_map_revision_visibility set visibility = 'redacted', redaction_ref = 'test:#720-race' where revision_id = $1",
+        [created.revisionId],
+      );
+      governancePromise = governCampusMapFacts(command, {
+        actorId: adminId,
+        clientIp: "203.0.113.123",
+      });
+      await waitForBlockedQuery(pool, "campus_map_revision_visibility", 1);
+      await redactor.query("commit");
+
+      await expect(governancePromise).resolves.toMatchObject({
+        status: "validation-failed",
+        errors: [{ code: "redacted-revision-not-revertible" }],
+      });
+      await expect(
+        getCampusMapPlaceHistory(created.placeId),
+      ).resolves.toMatchObject({
+        items: [
+          { id: current.changes[0].revisionId },
+          { id: created.revisionId },
+        ],
+      });
+    } finally {
+      await redactor.query("rollback").catch(() => undefined);
+      redactor.release();
+      if (governancePromise) await governancePromise.catch(() => undefined);
+    }
+  }, 15_000);
+
   it("reverts to a historical retirement without reviving or moving old pointers", async () => {
     const adminId = await createActor();
     const created = await createPlace(adminId, "retirement snapshot");
@@ -856,6 +913,14 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
 });
 
 async function waitForBlockedPlaceQueries(pool: Pool, minimum: number) {
+  return waitForBlockedQuery(pool, "campus_map_places", minimum);
+}
+
+async function waitForBlockedQuery(
+  pool: Pool,
+  relation: string | null,
+  minimum: number,
+) {
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
     const result = await pool.query<{ count: string }>(
@@ -864,10 +929,13 @@ async function waitForBlockedPlaceQueries(pool: Pool, minimum: number) {
         where datname = current_database()
           and pid <> pg_backend_pid()
           and wait_event_type = 'Lock'
-          and query like '%campus_map_places%'`,
+          and ($1::text is null or query like ('%' || $1 || '%'))`,
+      [relation],
     );
     if (Number(result.rows[0]?.count ?? 0) >= minimum) return;
     await new Promise<void>((resolve) => setImmediate(resolve));
   }
-  throw new Error(`Timed out waiting for ${minimum} blocked Place queries`);
+  throw new Error(
+    `Timed out waiting for ${minimum} blocked queries${relation ? ` on ${relation}` : ""}`,
+  );
 }
