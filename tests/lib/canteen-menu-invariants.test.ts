@@ -8,6 +8,7 @@ const source = {
   provider: "pinme",
   externalStoreId: "123",
   syncMealPeriods: ["lunch", "dinner"] as const,
+  closedWeekdays: [],
   lastErrorCode: null,
   hasLiveClaim: false,
 };
@@ -79,6 +80,7 @@ describe("canteen production invariants", () => {
           externalProductIds: ["d-a"],
         },
       ],
+      transitions: [],
       historyTotals: {
         menuItems: 3,
         comments: 4,
@@ -163,6 +165,7 @@ describe("canteen production invariants", () => {
           externalProductIds: ["duplicate", "inactive", "missing"],
         },
       ],
+      transitions: [],
       historyTotals: {
         menuItems: 3,
         comments: 0,
@@ -242,6 +245,7 @@ describe("canteen production invariants", () => {
           externalProductIds: [],
         },
       ],
+      transitions: [],
       historyTotals: {
         menuItems: 2,
         comments: 0,
@@ -263,5 +267,135 @@ describe("canteen production invariants", () => {
     expect(report.sources[0].configuredOutActiveItems).toEqual([
       { id: "legacy-manual", mealPeriods: ["breakfast"] },
     ]);
+  });
+
+  it("does not fail future periods, closed days, or valid allday rows", () => {
+    const report = buildMenuInvariantReport({
+      evaluatedAt: new Date("2026-08-27T01:00:00Z"),
+      sources: [
+        {
+          ...source,
+          syncMealPeriods: [...source.syncMealPeriods],
+          closedWeekdays: [4],
+        },
+      ],
+      items: [
+        {
+          id: "allday",
+          canteenId: "canteen-1",
+          menuSourceId: "source-1",
+          name: "全日餐",
+          normalizedName: "全日餐",
+          mealPeriods: ["allday"],
+          isAvailable: true,
+        },
+      ],
+      offerings: [
+        {
+          menuSourceId: "source-1",
+          menuItemId: "allday",
+          externalProductId: "allday-product",
+        },
+      ],
+      observations: [
+        {
+          menuSourceId: "source-1",
+          mealPeriod: "lunch",
+          runId: "yesterday-lunch",
+          observedAt: new Date("2026-08-26T03:20:00Z"),
+          externalProductIds: ["allday-product"],
+        },
+        {
+          menuSourceId: "source-1",
+          mealPeriod: "dinner",
+          runId: "yesterday-dinner",
+          observedAt: new Date("2026-08-26T09:20:00Z"),
+          externalProductIds: ["allday-product"],
+        },
+      ],
+      transitions: [],
+      historyTotals: {
+        menuItems: 1,
+        comments: 0,
+        votes: 0,
+        identityTransitions: 0,
+      },
+    });
+
+    expect(report.ok).toBe(true);
+    expect(report.sources[0].periods).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ freshness: "stale", dueToday: false }),
+      ]),
+    );
+    expect(report.sources[0].configuredOutActiveItems).toEqual([]);
+  });
+
+  it("verifies that every audited merge keeps its retired UUID inactive", () => {
+    const report = buildMenuInvariantReport({
+      evaluatedAt: new Date("2026-08-27T10:00:00Z"),
+      sources: [{ ...source, syncMealPeriods: [...source.syncMealPeriods] }],
+      items: [
+        {
+          id: "survivor",
+          canteenId: "canteen-1",
+          menuSourceId: "source-1",
+          name: "A",
+          normalizedName: "a",
+          mealPeriods: ["lunch", "dinner"],
+          isAvailable: true,
+        },
+        {
+          id: "retired",
+          canteenId: "canteen-1",
+          menuSourceId: null,
+          name: "A",
+          normalizedName: "a",
+          mealPeriods: [],
+          isAvailable: true,
+        },
+      ],
+      offerings: [
+        {
+          menuSourceId: "source-1",
+          menuItemId: "survivor",
+          externalProductId: "product",
+        },
+      ],
+      observations: [
+        {
+          menuSourceId: "source-1",
+          mealPeriod: "lunch",
+          runId: "lunch",
+          observedAt: new Date("2026-08-27T03:20:00Z"),
+          externalProductIds: ["product"],
+        },
+        {
+          menuSourceId: "source-1",
+          mealPeriod: "dinner",
+          runId: "dinner",
+          observedAt: new Date("2026-08-27T09:20:00Z"),
+          externalProductIds: ["product"],
+        },
+      ],
+      transitions: [
+        {
+          menuSourceId: "source-1",
+          kind: "merge",
+          fromMenuItemId: "retired",
+          toMenuItemId: "survivor",
+        },
+      ],
+      historyTotals: {
+        menuItems: 2,
+        comments: 0,
+        votes: 0,
+        identityTransitions: 1,
+      },
+    });
+
+    expect(report.sources[0].problems).toContain("invalid-retired-identity");
+    expect(report.sources[0].retiredIdentityCount).toBe(1);
+    expect(report.sources[0].invalidRetiredTransitions).toHaveLength(1);
   });
 });

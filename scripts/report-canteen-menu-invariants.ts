@@ -30,6 +30,7 @@ async function main(): Promise<void> {
         provider: canteenMenuSources.provider,
         externalStoreId: canteenMenuSources.externalStoreId,
         syncMealPeriods: canteenMenuSources.syncMealPeriods,
+        closedWeekdays: canteenMenuSources.closedWeekdays,
         lastErrorCode: canteenMenuSources.lastErrorCode,
         hasLiveClaim: sql<boolean>`${canteenMenuSources.syncClaimToken} is not null and ${canteenMenuSources.syncClaimExpiresAt} > now()`,
       })
@@ -66,6 +67,14 @@ async function main(): Promise<void> {
     const transitionTotal = await tx
       .select({ value: count() })
       .from(canteenMenuIdentityTransitions);
+    const transitions = await tx
+      .select({
+        menuSourceId: canteenMenuIdentityTransitions.menuSourceId,
+        kind: canteenMenuIdentityTransitions.kind,
+        fromMenuItemId: canteenMenuIdentityTransitions.fromMenuItemId,
+        toMenuItemId: canteenMenuIdentityTransitions.toMenuItemId,
+      })
+      .from(canteenMenuIdentityTransitions);
     const observations: MenuInvariantPeriodObservation[] = [];
     for (const source of sources) {
       const byPeriod = await readLatestAcceptedMenuPeriodItems(
@@ -98,6 +107,7 @@ async function main(): Promise<void> {
       items,
       offerings,
       observations,
+      transitions,
       historyTotals: {
         menuItems: itemTotal[0]?.value ?? 0,
         comments: commentTotal[0]?.value ?? 0,

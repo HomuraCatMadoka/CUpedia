@@ -1,5 +1,6 @@
-import type { MealPeriod } from "@/db/schema";
+import type { HktWeekday, MealPeriod } from "@/db/schema";
 import { normalizeCanonicalDishName } from "./canteen-menu-canonicalization";
+import { menuSyncWindowAt } from "./canteen-menu-sync-window";
 
 export type MenuInvariantSource = {
   id: string;
@@ -8,6 +9,7 @@ export type MenuInvariantSource = {
   provider: string;
   externalStoreId: string;
   syncMealPeriods: MealPeriod[];
+  closedWeekdays: HktWeekday[];
   lastErrorCode: string | null;
   hasLiveClaim: boolean;
 };
@@ -36,6 +38,13 @@ export type MenuInvariantPeriodObservation = {
   externalProductIds: string[];
 };
 
+export type MenuInvariantTransition = {
+  menuSourceId: string;
+  kind: "rename" | "split" | "merge";
+  fromMenuItemId: string;
+  toMenuItemId: string;
+};
+
 export type MenuInvariantHistoryTotals = {
   menuItems: number;
   comments: number;
@@ -49,6 +58,7 @@ export type BuildMenuInvariantReportInput = {
   items: readonly MenuInvariantItem[];
   offerings: readonly MenuInvariantOffering[];
   observations: readonly MenuInvariantPeriodObservation[];
+  transitions: readonly MenuInvariantTransition[];
   historyTotals: MenuInvariantHistoryTotals;
 };
 
@@ -59,6 +69,12 @@ function hktDay(value: Date): number {
 function sorted(values: Iterable<string>): string[] {
   return [...new Set(values)].sort();
 }
+
+const PERIOD_ORDER = {
+  breakfast: 0,
+  lunch: 1,
+  dinner: 2,
+} as const satisfies Record<MealPeriod, number>;
 
 export function buildMenuInvariantReport(input: BuildMenuInvariantReportInput) {
   const sourceReports = input.sources
@@ -128,7 +144,7 @@ export function buildMenuInvariantReport(input: BuildMenuInvariantReportInput) {
       const configuredOutActiveItems = activeItems
         .filter((item) =>
           item.mealPeriods.some(
-            (period) => period === "allday" || !configured.has(period),
+            (period) => period !== "allday" && !configured.has(period),
           ),
         )
         .map((item) => ({ id: item.id, mealPeriods: [...item.mealPeriods] }));
@@ -138,8 +154,17 @@ export function buildMenuInvariantReport(input: BuildMenuInvariantReportInput) {
       const unexpectedActiveItemIds = activeItemIds.filter(
         (id) => !expected.has(id),
       );
+      const currentWindow = menuSyncWindowAt(input.evaluatedAt);
+      const closedToday = source.closedWeekdays.includes(
+        currentWindow.hktWeekday,
+      );
       const periods = source.syncMealPeriods.map((mealPeriod, index) => {
         const observation = latestObservations[index];
+        const dueToday =
+          !closedToday &&
+          (PERIOD_ORDER[mealPeriod] < PERIOD_ORDER[currentWindow.period] ||
+            (mealPeriod === currentWindow.period &&
+              input.evaluatedAt >= currentWindow.claimsStartAt));
         return {
           mealPeriod,
           runId: observation?.runId ?? null,
@@ -150,13 +175,31 @@ export function buildMenuInvariantReport(input: BuildMenuInvariantReportInput) {
               : ("current" as const)
             : ("missing" as const),
           externalProductIdCount: observation?.externalProductIds.length ?? 0,
+          dueToday,
         };
       });
+      const itemById = new Map(canteenItems.map((item) => [item.id, item]));
+      const invalidRetiredTransitions = input.transitions
+        .filter(
+          (transition) =>
+            transition.menuSourceId === source.id &&
+            transition.kind === "merge",
+        )
+        .flatMap((transition) => {
+          const retired = itemById.get(transition.fromMenuItemId);
+          const survivor = itemById.get(transition.toMenuItemId);
+          return retired &&
+            !retired.isAvailable &&
+            retired.menuSourceId === null &&
+            survivor
+            ? []
+            : [transition];
+        });
       const problems = [
         ...(source.lastErrorCode ? [`last-error:${source.lastErrorCode}`] : []),
         ...(source.hasLiveClaim ? ["live-claim"] : []),
         ...periods
-          .filter((period) => period.freshness !== "current")
+          .filter((period) => period.dueToday && period.freshness !== "current")
           .map((period) => `${period.freshness}-period:${period.mealPeriod}`),
         ...(duplicateExternalProductIds.length
           ? ["duplicate-offering-mapping"]
@@ -170,6 +213,9 @@ export function buildMenuInvariantReport(input: BuildMenuInvariantReportInput) {
           : []),
         ...(missingActiveItemIds.length || unexpectedActiveItemIds.length
           ? ["projection-drift"]
+          : []),
+        ...(invalidRetiredTransitions.length
+          ? ["invalid-retired-identity"]
           : []),
       ];
 
@@ -191,6 +237,12 @@ export function buildMenuInvariantReport(input: BuildMenuInvariantReportInput) {
         configuredOutActiveItems,
         missingActiveItemIds,
         unexpectedActiveItemIds,
+        retiredIdentityCount: input.transitions.filter(
+          (transition) =>
+            transition.menuSourceId === source.id &&
+            transition.kind === "merge",
+        ).length,
+        invalidRetiredTransitions,
         problems,
         ok: problems.length === 0,
       };
