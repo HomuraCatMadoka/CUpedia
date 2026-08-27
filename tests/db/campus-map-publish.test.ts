@@ -14,6 +14,11 @@ import {
   listCampusMapChangesets,
   listCampusMapCurrentPlaces,
 } from "@/lib/campus-map/fact-store";
+import {
+  commandCampusMapModeration,
+  getCampusMapModerationTarget,
+  listCampusMapModerationQueue,
+} from "@/lib/campus-map/moderation-governance";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -106,6 +111,12 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     await client.query("begin");
     try {
       await client.query("set local session_replication_role = replica");
+      await client.query("delete from campus_map_moderation_requests");
+      await client.query("delete from campus_map_moderation_decisions");
+      await client.query("delete from campus_map_reports");
+      await client.query("delete from campus_map_moderation_cases");
+      await client.query("delete from campus_map_moderation_rate_limits");
+      await client.query("delete from campus_map_contributor_blocks");
       if (placeIds.length > 0) {
         await client.query(
           "delete from campus_map_current_facts where place_id = any($1::uuid[])",
@@ -1937,6 +1948,169 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       [[placeId, restorePlace.placeId]],
     );
     expect(counts.rows.map((row) => row.revisions).sort()).toEqual([1, 2]);
+  });
+
+  it("redacts and revokes a historical payload through audited CAS decisions", async () => {
+    const adminId = await createActor({ role: "admin" });
+    const publishCommand = createCommand();
+    publishCommand.reviewRequested = true;
+    const published = await publishCampusMapChangeset(publishCommand, {
+      actorId: adminId,
+      clientIp: "203.0.113.121",
+    });
+    if (published.status !== "published") throw new Error("create failed");
+    const [{ placeId, revisionId }] = published.changes;
+    const redact = {
+      kind: "redact-revision",
+      idempotencyKey: randomUUID(),
+      revisionId,
+      expectedVisibility: "public",
+      reason: "历史版本包含个人资料",
+      caseId: null,
+    } as const;
+
+    const [first, raced] = await Promise.all([
+      commandCampusMapModeration(redact, {
+        actorId: adminId,
+        clientIp: "203.0.113.122",
+      }),
+      commandCampusMapModeration(
+        { ...redact, idempotencyKey: randomUUID() },
+        { actorId: adminId, clientIp: "203.0.113.123" },
+      ),
+    ]);
+    expect([first.status, raced.status].sort()).toEqual([
+      "conflict",
+      "decided",
+    ]);
+    await expect(
+      listCampusMapModerationQueue(
+        { signal: "review-requested" },
+        { actorId: adminId },
+      ),
+    ).resolves.toMatchObject({
+      status: "ok",
+      page: {
+        items: [
+          {
+            kind: "review-requested",
+            id: published.changesetId,
+            target: { kind: "changeset", id: published.changesetId },
+          },
+        ],
+      },
+    });
+    await expect(
+      listCampusMapModerationQueue(
+        { signal: "recent-high-risk-event", targetKind: "revision" },
+        { actorId: adminId },
+      ),
+    ).resolves.toMatchObject({
+      status: "ok",
+      page: {
+        items: [
+          {
+            kind: "recent-high-risk-event",
+            target: { kind: "revision", id: revisionId },
+          },
+        ],
+      },
+    });
+    await expect(getCampusMapPlaceHistory(placeId)).resolves.toMatchObject({
+      items: [
+        {
+          id: revisionId,
+          placeId,
+          content: { visibility: "redacted" },
+        },
+      ],
+    });
+    await expect(
+      getCampusMapModerationTarget(
+        { kind: "revision", id: revisionId },
+        { actorId: adminId },
+      ),
+    ).resolves.toMatchObject({
+      status: "ok",
+      payload: { id: revisionId, placeId, name: "大学图书馆饮水点" },
+    });
+
+    await expect(
+      commandCampusMapModeration(
+        {
+          kind: "revoke-revision-redaction",
+          idempotencyKey: randomUUID(),
+          revisionId,
+          expectedVisibility: "redacted",
+          reason: "复核后撤销内容隐藏",
+          caseId: null,
+        },
+        { actorId: adminId, clientIp: "203.0.113.124" },
+      ),
+    ).resolves.toMatchObject({ status: "decided" });
+    await expect(getCampusMapPlaceHistory(placeId)).resolves.toMatchObject({
+      items: [
+        {
+          id: revisionId,
+          content: {
+            visibility: "public",
+            fact: { name: "大学图书馆饮水点" },
+          },
+        },
+      ],
+    });
+  });
+
+  it("rechecks a publish-scoped contributor block inside the publish transaction", async () => {
+    const [contributorId, adminId] = await Promise.all([
+      createActor(),
+      createActor({ role: "admin" }),
+    ]);
+    const first = await publishCampusMapChangeset(createCommand(), {
+      actorId: contributorId,
+      clientIp: "203.0.113.125",
+    });
+    expect(first).toMatchObject({ status: "published" });
+    const blocked = await commandCampusMapModeration(
+      {
+        kind: "block-contributor",
+        idempotencyKey: randomUUID(),
+        contributorId,
+        scope: "publish",
+        startsAt: new Date(Date.now() - 1_000).toISOString(),
+        endsAt: null,
+        needsAcknowledgement: false,
+        reason: "暂停事实发布",
+        caseId: null,
+      },
+      { actorId: adminId, clientIp: "203.0.113.126" },
+    );
+    if (blocked.status !== "decided" || !blocked.blockId) {
+      throw new Error("block failed");
+    }
+    await expect(
+      publishCampusMapChangeset(createCommand(), {
+        actorId: contributorId,
+        clientIp: "203.0.113.127",
+      }),
+    ).resolves.toEqual({ status: "forbidden", code: "contributor-blocked" });
+
+    await commandCampusMapModeration(
+      {
+        kind: "revoke-contributor-block",
+        idempotencyKey: randomUUID(),
+        blockId: blocked.blockId,
+        reason: "恢复事实发布权限",
+        caseId: null,
+      },
+      { actorId: adminId, clientIp: "203.0.113.128" },
+    );
+    await expect(
+      publishCampusMapChangeset(createCommand(), {
+        actorId: contributorId,
+        clientIp: "203.0.113.129",
+      }),
+    ).resolves.toMatchObject({ status: "published" });
   });
 
   it("hides a redacted outdoor point from Changeset detail and feed bbox", async () => {

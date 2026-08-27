@@ -90,6 +90,7 @@ export type CampusMapNoteCommandResult =
       code:
         | "actor-not-eligible"
         | "actor-banned"
+        | "contributor-blocked"
         | "profile-incomplete"
         | "note-hidden";
     }

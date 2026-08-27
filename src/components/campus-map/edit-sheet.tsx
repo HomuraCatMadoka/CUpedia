@@ -715,6 +715,7 @@ export function CampusMapEditSheet({
     if (session.status === "forbidden") {
       const messages = {
         "actor-banned": "账号已被封禁，暂时不能发布地点资料。",
+        "contributor-blocked": "账号当前被限制参与校园地图贡献。",
         "profile-incomplete": "账号资料尚未完成，完成后才能发布地点资料。",
         "actor-not-eligible": "这个账号目前没有发布地点资料的资格。",
         "role-not-eligible": "当前账号角色没有发布地点资料的权限。",

@@ -547,6 +547,13 @@
       "when": 1787807418551,
       "tag": "0077_campus-map-note-event-immutability",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1787815552938,
+      "tag": "0078_campus-map-moderation-governance",
+      "breakpoints": true
     }
   ]
 }
