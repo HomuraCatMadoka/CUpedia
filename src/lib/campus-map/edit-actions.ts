@@ -112,14 +112,14 @@ export async function publishCampusMapEdit(
 
 /** Reconciles the original command identity without creating another request. */
 export async function reconcileCampusMapEditPublish(
-  idempotencyKey: string,
+  command: CampusMapPublishCommand,
   expectedActorId: string,
 ): Promise<CampusMapPublishReconciliation> {
   const user = await getOptionalUser();
   if (!user) return { status: "authentication-required" };
   if (user.id !== expectedActorId) return { status: "identity-mismatch" };
   try {
-    return await reconcileCampusMapPublishReceipt(idempotencyKey, user.id);
+    return await reconcileCampusMapPublishReceipt(command, user.id);
   } catch {
     return { status: "unavailable" };
   }

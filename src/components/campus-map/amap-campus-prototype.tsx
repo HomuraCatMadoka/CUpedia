@@ -1165,8 +1165,8 @@ export function AmapCampusPrototype({
         identifyActor: identifyCampusMapEditPublisher,
         readActorBinding: readBrowserCampusMapPublishActor,
         bindActor: bindBrowserCampusMapPublishActor,
-        reconcile: ({ idempotencyKey, actorId }) =>
-          reconcileCampusMapEditPublish(idempotencyKey, actorId),
+        reconcile: ({ command, actorId }) =>
+          reconcileCampusMapEditPublish(command, actorId),
         retry: publishCampusMapEdit,
         refresh: async ({ placeId }) => {
           const result = await projectionStore.refresh({ placeId });

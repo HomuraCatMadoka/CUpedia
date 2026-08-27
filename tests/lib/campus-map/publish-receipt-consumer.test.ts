@@ -113,7 +113,7 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
       consumer.consume({ command, intentToken: 3 }),
     ).resolves.toMatchObject({ status: "applied", receipt });
     expect(dependencies.reconcile).toHaveBeenCalledWith({
-      idempotencyKey: command.idempotencyKey,
+      command,
       actorId: "50000000-0000-4000-8000-000000000001",
     });
     expect(dependencies.retry).not.toHaveBeenCalled();
@@ -213,7 +213,7 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
       consumer.consume({ command, intentToken: 3 }),
     ).resolves.toEqual({ status: "applied", receipt });
     expect(dependencies.reconcile).toHaveBeenCalledWith({
-      idempotencyKey: command.idempotencyKey,
+      command,
       actorId: "50000000-0000-4000-8000-000000000001",
     });
     expect(dependencies.bindActor).toHaveBeenCalledWith(
@@ -235,6 +235,24 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
       status: "recoverable",
       reason: "identity-unavailable",
     });
+    expect(dependencies.bindActor).not.toHaveBeenCalled();
+    expect(dependencies.retry).not.toHaveBeenCalled();
+  });
+
+  it("does not reveal or bind an unbound draft when command identity differs", async () => {
+    const onIdentityVerified = vi.fn();
+    const { consumer, dependencies } = harness({
+      readActorBinding: vi.fn(() => null),
+      reconcile: vi.fn(async () => ({ status: "identity-mismatch" }) as const),
+    });
+
+    await expect(
+      consumer.consume({ command, intentToken: 3, onIdentityVerified }),
+    ).resolves.toEqual({
+      status: "recoverable",
+      reason: "identity-mismatch",
+    });
+    expect(onIdentityVerified).not.toHaveBeenCalled();
     expect(dependencies.bindActor).not.toHaveBeenCalled();
     expect(dependencies.retry).not.toHaveBeenCalled();
   });

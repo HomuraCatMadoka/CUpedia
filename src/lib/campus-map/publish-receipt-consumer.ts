@@ -55,7 +55,7 @@ interface CampusMapPublishReceiptConsumerDependencies {
   readActorBinding(identity: string): string | null;
   bindActor(identity: string, actorId: string): boolean;
   reconcile(identity: {
-    idempotencyKey: string;
+    command: CampusMapPublishCommand;
     actorId: string;
   }): Promise<CampusMapPublishReconciliation>;
   retry(
@@ -272,7 +272,7 @@ export class CampusMapPublishReceiptConsumer {
     if (!receipt) {
       const reconciliation = await this.bounded(
         this.dependencies.reconcile({
-          idempotencyKey: input.command.idempotencyKey,
+          command: input.command,
           actorId: actorIdentity.value.actorId,
         }),
       );

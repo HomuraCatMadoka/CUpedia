@@ -494,7 +494,7 @@ describe("AmapCampusPrototype", () => {
       window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
     ).toBeNull();
     expect(reconcileCampusMapEditPublish).toHaveBeenCalledWith(
-      idempotencyKey,
+      expect.objectContaining({ idempotencyKey }),
       "60000000-0000-4000-8000-000000000001",
     );
     expect(publishCampusMapEdit).not.toHaveBeenCalled();
@@ -724,7 +724,7 @@ describe("AmapCampusPrototype", () => {
     expect(document.body.textContent).not.toContain("正在发布地点资料");
     expect(screen.queryByRole("heading", { name: "添加校内设施" })).toBeNull();
     expect(reconcileCampusMapEditPublish).toHaveBeenCalledWith(
-      idempotencyKey,
+      expect.objectContaining({ idempotencyKey }),
       "60000000-0000-4000-8000-000000000001",
     );
     expect(publishCampusMapEdit).not.toHaveBeenCalled();

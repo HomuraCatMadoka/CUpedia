@@ -3097,16 +3097,25 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     if (published.status !== "published") throw new Error("publish failed");
 
     await expect(
-      reconcileCampusMapPublishReceipt(command.idempotencyKey, actorId),
+      reconcileCampusMapPublishReceipt(command, actorId),
     ).resolves.toEqual({ status: "committed", receipt: published });
     await expect(
-      reconcileCampusMapPublishReceipt(randomUUID(), actorId),
+      reconcileCampusMapPublishReceipt(
+        { ...command, comment: "same key, different private draft" },
+        actorId,
+      ),
+    ).resolves.toEqual({ status: "identity-mismatch" });
+    await expect(
+      reconcileCampusMapPublishReceipt(
+        { ...command, idempotencyKey: randomUUID() },
+        actorId,
+      ),
     ).resolves.toEqual({ status: "not-committed" });
     await expect(
-      reconcileCampusMapPublishReceipt(command.idempotencyKey, otherActorId),
+      reconcileCampusMapPublishReceipt(command, otherActorId),
     ).resolves.toEqual({ status: "not-committed" });
     await expect(
-      reconcileCampusMapPublishReceipt(command.idempotencyKey, null),
+      reconcileCampusMapPublishReceipt(command, null),
     ).resolves.toEqual({ status: "authentication-required" });
   });
 

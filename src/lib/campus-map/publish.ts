@@ -105,15 +105,24 @@ export async function publishCampusMapChangeset(
 
 /** Reads the private #718 idempotency record without starting a new publish. */
 export async function reconcileCampusMapPublishReceipt(
-  idempotencyKey: string,
+  command: CampusMapPublishCommand,
   actorId: string | null,
 ): Promise<CampusMapPublishReconciliation> {
   if (!actorId) return { status: "authentication-required" };
-  if (!isValidPublishIdempotencyKey(idempotencyKey)) {
+  if (
+    !hasPublishCommandStructure(command) ||
+    !isValidPublishIdempotencyKey(command.idempotencyKey)
+  ) {
     return { status: "not-committed" };
   }
+  const serializedCommand = serializePublishCommandIdentity(command);
+  if (serializedCommand === null) {
+    return { status: "identity-mismatch" };
+  }
+  const requestFingerprint = fingerprintRequest(serializedCommand);
   const [request] = await db
     .select({
+      requestFingerprint: campusMapPublishRequests.requestFingerprint,
       status: campusMapPublishRequests.status,
       result: campusMapPublishRequests.result,
     })
@@ -121,11 +130,14 @@ export async function reconcileCampusMapPublishReceipt(
     .where(
       and(
         eq(campusMapPublishRequests.actorIdSnapshot, actorId),
-        eq(campusMapPublishRequests.idempotencyKey, idempotencyKey),
+        eq(campusMapPublishRequests.idempotencyKey, command.idempotencyKey),
       ),
     )
     .limit(1);
   if (!request) return { status: "not-committed" };
+  if (request.requestFingerprint !== requestFingerprint) {
+    return { status: "identity-mismatch" };
+  }
   if (request.status === "published" && request.result !== null) {
     return { status: "committed", receipt: request.result };
   }
@@ -529,16 +541,10 @@ async function publishCampusMapChangesetInternal(
   let revertsChangesetId = options.revertsChangesetId;
   let noOpUpdatePlaceIds = options.noOpUpdatePlaceIds;
   let retireFactPlaceIds = options.retireFactPlaceIds;
-  let serializedCommand: string | null =
-    options.requestIdentity?.serialized ?? null;
-  try {
-    if (options.requestIdentity === undefined) {
-      serializedCommand = JSON.stringify(canonicalize(normalizedCommand));
-    }
-    if (typeof serializedCommand !== "string") serializedCommand = null;
-  } catch {
-    serializedCommand = null;
-  }
+  const serializedCommand =
+    options.requestIdentity === undefined
+      ? serializePublishCommandIdentity(command)
+      : options.requestIdentity.serialized;
   const requestIdempotencyKey =
     options.requestIdentity?.idempotencyKey ?? normalizedCommand.idempotencyKey;
   const requestKind = options.requestIdentity?.kind ?? normalizedCommand.kind;
@@ -1612,6 +1618,19 @@ function warningSummary(
 
 function fingerprintRequest(serializedCommand: string): string {
   return createHash("sha256").update(serializedCommand, "utf8").digest("hex");
+}
+
+function serializePublishCommandIdentity(
+  command: CampusMapPublishCommand,
+): string | null {
+  try {
+    const serialized = JSON.stringify(
+      canonicalize(normalizePublishCommandIdentifiers(command)),
+    );
+    return typeof serialized === "string" ? serialized : null;
+  } catch {
+    return null;
+  }
 }
 
 function canonicalize(value: unknown): unknown {
