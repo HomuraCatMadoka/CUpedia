@@ -1289,16 +1289,16 @@ describe("AmapCampusPrototype runtime effects", () => {
     const buildingOnly = projection.places.find(
       (place) => place.placeId === "building-only-water",
     )!;
+    const buildingName = projection.buildings.find(
+      (building) => building.buildingId === buildingOnly.buildingId,
+    )!.name;
     const { runtime } = await renderWithRuntime({ projection });
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    const buildingPlaceIds = projection.places
-      .filter((place) => place.buildingId === buildingOnly.buildingId)
-      .map((place) => place.placeId);
 
     const buildingPresence = await waitFor(() => {
       const match = runtime.markers.findLast(
         (marker) =>
-          buildingPlaceIds.includes(marker.getExtData()?.facilityId ?? "") &&
+          marker.content.includes(buildingName) &&
           marker.content.includes("建筑位置参考") &&
           (marker.handlers.get("click") ?? []).length > 0,
       );
@@ -1330,7 +1330,9 @@ describe("AmapCampusPrototype runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
     const marker = await waitFor(() => {
       const match = runtime.markers.findLast(
-        (candidate) => candidate.getExtData()?.facilityId === "outdoor-water",
+        (candidate) =>
+          candidate.content.includes("林荫饮水点") &&
+          (candidate.handlers.get("click") ?? []).length > 0,
       );
       expect(match).toBeDefined();
       return match!;
@@ -1546,8 +1548,13 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(clusterMarker.content).toContain('aria-label="3 个饮水点"');
     expect(clusterMarker.content).toContain(">3</button>");
 
+    const positionCounts = new Map<string, number>();
+    for (const item of cluster.data) {
+      const key = JSON.stringify(item.lnglat);
+      positionCounts.set(key, (positionCounts.get(key) ?? 0) + 1);
+    }
     const sciencePresence = cluster.data.filter(
-      (item) => item.markerKey === "building:science-centre:water",
+      (item) => (positionCounts.get(JSON.stringify(item.lnglat)) ?? 0) > 1,
     );
     expect(sciencePresence).toHaveLength(2);
     map.setBounds.mockClear();
@@ -1581,19 +1588,22 @@ describe("AmapCampusPrototype runtime effects", () => {
     });
 
     const scienceMarkers = await waitFor(() => {
-      const matches = runtime.markers.filter((marker) =>
-        [scienceWater.id, secondPlaceId].includes(
-          marker.getExtData()?.facilityId ?? "",
-        ),
+      const cluster = runtime.clusters.findLast(
+        (candidate) => candidate.data.length === 3,
+      );
+      const matches = (cluster?.singleMarkers ?? []).filter(
+        (marker) =>
+          marker.content.includes("科学馆有 2 个饮水点") ||
+          marker.content.includes('style="display:none"'),
       );
       expect(matches).toHaveLength(2);
       return matches;
     });
-    const primaryMarker = scienceMarkers.find(
-      (marker) => marker.getExtData()?.facilityId === scienceWater.id,
+    const primaryMarker = scienceMarkers.find((marker) =>
+      marker.content.includes("科学馆有 2 个饮水点"),
     )!;
-    const countOnlyMarker = scienceMarkers.find(
-      (marker) => marker.getExtData()?.facilityId === secondPlaceId,
+    const countOnlyMarker = scienceMarkers.find((marker) =>
+      marker.content.includes('style="display:none"'),
     )!;
 
     expect(primaryMarker.content).toContain('data-cupedia-marker="true"');
@@ -1629,22 +1639,13 @@ describe("AmapCampusPrototype runtime effects", () => {
         runtime.clusters.some((cluster) =>
           cluster.data.some(
             (item) =>
-              item.facilityId === "71000000-0000-4000-8000-000000000005",
+              Array.isArray(item.lnglat) &&
+              Math.abs(item.lnglat[0] - 114.21491129159927) < 1e-12 &&
+              Math.abs(item.lnglat[1] - 22.429498675716076) < 1e-12,
           ),
         ),
       ).toBe(true);
     });
-
-    const libraryWater = runtime.clusters
-      .flatMap((cluster) => [...cluster.data])
-      .find(
-        (item) => item.facilityId === "71000000-0000-4000-8000-000000000005",
-      );
-
-    expect(libraryWater?.lnglat).toEqual([
-      expect.closeTo(114.21491129159927, 12),
-      expect.closeTo(22.429498675716076, 12),
-    ]);
   });
 
   it("keeps one facility selection when a marker emits a companion map click", async () => {
@@ -1655,15 +1656,15 @@ describe("AmapCampusPrototype runtime effects", () => {
       expect(
         runtime.markers.some(
           (marker) =>
-            marker.getExtData()?.facilityId ===
-            "71000000-0000-4000-8000-000000000002",
+            marker.content.includes("科学馆") &&
+            (marker.handlers.get("click") ?? []).length > 0,
         ),
       ).toBe(true);
     });
     const marker = runtime.markers.findLast(
       (candidate) =>
-        candidate.getExtData()?.facilityId ===
-        "71000000-0000-4000-8000-000000000002",
+        candidate.content.includes("科学馆") &&
+        (candidate.handlers.get("click") ?? []).length > 0,
     )!;
 
     await act(async () => {

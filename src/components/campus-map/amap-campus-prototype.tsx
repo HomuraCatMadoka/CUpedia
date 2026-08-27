@@ -130,7 +130,7 @@ interface AMapEvent {
 
 interface AMapMarker {
   on(event: string, handler: () => void): void;
-  getExtData(): { markerKey?: string; facilityId?: string } | undefined;
+  getPosition(): AMapLngLat | null;
   setContent(content: string): void;
   setzIndex(zIndex: number): void;
 }
@@ -488,6 +488,12 @@ function browseMarkerKey(marker: CampusMapBrowseMarker) {
   return marker.kind === "place"
     ? `place:${marker.placeId}`
     : `building:${marker.buildingId}:${marker.pinType}`;
+}
+
+function amapPositionKey(position: AMapLngLat | Position) {
+  const longitude = "lng" in position ? position.lng : position[0];
+  const latitude = "lat" in position ? position.lat : position[1];
+  return `${longitude.toFixed(12)}:${latitude.toFixed(12)}`;
 }
 
 function browseMarkerView(
@@ -1764,7 +1770,7 @@ export function AmapCampusPrototype({
     const markerByKey = new Map(
       projectedMarkers.map((marker) => [browseMarkerKey(marker), marker]),
     );
-    const data = projectedMarkers.flatMap((marker) => {
+    const markerTargets = projectedMarkers.flatMap((marker) => {
       const position =
         marker.kind === "place"
           ? amapPositionsRef.current[`place:${marker.placeId}`]
@@ -1773,13 +1779,23 @@ export function AmapCampusPrototype({
       if (!position) return [];
       const placeIds =
         marker.kind === "place" ? [marker.placeId] : marker.placeIds;
-      return placeIds.map((placeId) => ({
-        lnglat: position,
+      return placeIds.map((_, index) => ({
         markerKey,
-        facilityId: placeId,
-        extData: { markerKey, facilityId: placeId },
+        position,
+        showMarker: marker.kind === "place" || index === 0,
       }));
     });
+    const data = markerTargets.map(({ position }) => ({ lnglat: position }));
+    const markerTargetsByPosition = new Map<
+      string,
+      Array<(typeof markerTargets)[number]>
+    >();
+    for (const target of markerTargets) {
+      const key = amapPositionKey(target.position);
+      const targets = markerTargetsByPosition.get(key) ?? [];
+      targets.push(target);
+      markerTargetsByPosition.set(key, targets);
+    }
 
     if (
       clusterRef.current &&
@@ -1796,21 +1812,34 @@ export function AmapCampusPrototype({
     try {
       if (!clusterRef.current) {
         const style = amenityStyle(activeAmenity);
+        const markerTargetAssignments = new WeakMap<
+          AMapMarker,
+          (typeof markerTargets)[number]
+        >();
+        const nextMarkerTargetIndex = new Map<string, number>();
         const cluster = new window.AMap.MarkerCluster(map, data, {
           gridSize: 90,
           maxZoom: 18,
           averageCenter: true,
           renderMarker: ({ marker }: { marker: AMapMarker }) => {
-            const markerData = marker.getExtData();
-            const markerKey = markerData?.markerKey;
+            let markerTarget = markerTargetAssignments.get(marker);
+            if (!markerTarget) {
+              const position = marker.getPosition();
+              if (!position) return;
+              const positionKey = amapPositionKey(position);
+              const targets = markerTargetsByPosition.get(positionKey);
+              if (!targets?.length) return;
+              const targetIndex = nextMarkerTargetIndex.get(positionKey) ?? 0;
+              markerTarget = targets[targetIndex % targets.length];
+              nextMarkerTargetIndex.set(positionKey, targetIndex + 1);
+              markerTargetAssignments.set(marker, markerTarget);
+            }
+            const { markerKey, showMarker } = markerTarget;
             const projectedMarker = markerKey
               ? markerByKey.get(markerKey)
               : undefined;
             if (!markerKey || !projectedMarker) return;
-            if (
-              projectedMarker.kind === "building-presence" &&
-              markerData?.facilityId !== projectedMarker.placeIds[0]
-            ) {
+            if (!showMarker) {
               marker.setContent(
                 '<span aria-hidden="true" style="display:none"></span>',
               );
