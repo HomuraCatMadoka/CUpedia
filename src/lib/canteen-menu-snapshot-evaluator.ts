@@ -102,6 +102,9 @@ export function evaluateCurrentMenuProjection(
   projection: CurrentMenuProjection,
   existingItems: ExistingSyncMenuItem[],
   options: MenuSnapshotEvaluationOptions = {},
+  acceptedPeriodItems: Parameters<
+    typeof materializeMealPeriodActivityProjection
+  >[3] = {},
 ): MenuSnapshotEvaluation<CurrentMenuProjection> {
   const canonicalState = canonicalizeSourceState(
     source.id,
@@ -115,6 +118,7 @@ export function evaluateCurrentMenuProjection(
     source.id,
     canonicalState.input,
     canonicalState.existingItems,
+    acceptedPeriodItems,
   );
   return evaluateCanonicalMenuSnapshot(
     source,
@@ -215,6 +219,7 @@ function evaluateCanonicalMenuSnapshot<TInput extends MenuEvaluationInput>(
     activeManagedCount,
     observedItems.length,
     projection.absenceAuthority,
+    projection.confirmedEmpty === true,
   );
 
   return {
@@ -232,6 +237,7 @@ function collectMenuSnapshotBlockingReasons(
   activeManagedCount: number,
   incomingItemCount: number,
   absenceAuthority: MenuAbsenceAuthority,
+  confirmedEmpty: boolean,
 ): MenuSnapshotBlockingReason[] {
   const reasons: MenuSnapshotBlockingReason[] = [];
   if (plan.conflicts.length > 0) {
@@ -242,6 +248,7 @@ function collectMenuSnapshotBlockingReasons(
     reasons.push(reasonWithRawSamples("MENU_SYNC_CONFLICT", unsafeSamples));
   }
   if (
+    !confirmedEmpty &&
     activeManagedCount > 0 &&
     isSuspiciousMenuIdentityChurn(
       observation,
@@ -264,6 +271,7 @@ function collectMenuSnapshotBlockingReasons(
     (action) => action.action === "deactivate",
   ).length;
   if (
+    !confirmedEmpty &&
     absenceAuthority.kind !== "current-activity" &&
     activeManagedCount > 0 &&
     deactivationCount > 0 &&

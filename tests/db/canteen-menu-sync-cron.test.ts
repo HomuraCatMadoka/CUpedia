@@ -14,6 +14,10 @@ const hardeningMigrationSql = readFileSync(
   "src/db/migrations/0095_harden-supabase-canteen-menu-sync-cron.sql",
   "utf8",
 );
+const confirmedEmptyHealthMigrationSql = readFileSync(
+  "src/db/migrations/0096_confirm-empty-menu-health.sql",
+  "utf8",
+);
 const migrationJournal = JSON.parse(
   readFileSync("src/db/migrations/meta/_journal.json", "utf8"),
 ) as {
@@ -24,6 +28,9 @@ const schedulerSnapshot = JSON.parse(
 ) as { id: string };
 const hardeningSnapshot = JSON.parse(
   readFileSync("src/db/migrations/meta/0095_snapshot.json", "utf8"),
+) as { id: string; prevId: string };
+const confirmedEmptyHealthSnapshot = JSON.parse(
+  readFileSync("src/db/migrations/meta/0096_snapshot.json", "utf8"),
 ) as { prevId: string };
 const runbookText = readFileSync(
   "docs/operations/canteen-menu-sync-scheduling.md",
@@ -67,12 +74,20 @@ describe("Supabase canteen menu scheduler migration #757", () => {
       "BEFORE INSERT OR UPDATE OF active",
     );
     expect(
-      migrationJournal.entries.slice(-2).map(({ idx, tag }) => ({ idx, tag })),
+      migrationJournal.entries.slice(-3).map(({ idx, tag }) => ({ idx, tag })),
     ).toEqual([
       { idx: 94, tag: "0094_supabase-canteen-menu-sync-cron" },
       { idx: 95, tag: "0095_harden-supabase-canteen-menu-sync-cron" },
+      { idx: 96, tag: "0096_confirm-empty-menu-health" },
     ]);
     expect(hardeningSnapshot.prevId).toBe(schedulerSnapshot.id);
+    expect(confirmedEmptyHealthSnapshot.prevId).toBe(hardeningSnapshot.id);
+    expect(confirmedEmptyHealthMigrationSql).not.toContain(
+      "snapshot.item_count > 0",
+    );
+    expect(confirmedEmptyHealthMigrationSql).toContain(
+      "MENU_SYNC_EMPTY_PENDING_CONFIRMATION",
+    );
   });
 
   it("uses supported cron functions and keeps all privileged helpers private", () => {
@@ -328,6 +343,7 @@ describe.skipIf(!hasSupabaseSchedulerDb)(
 
       await pool.query(migrationSql);
       await pool.query(hardeningMigrationSql);
+      await pool.query(confirmedEmptyHealthMigrationSql);
       expect(await readReviewedJobs(pool)).toEqual([
         {
           jobid: initialJob[0].jobid,
@@ -350,8 +366,10 @@ describe.skipIf(!hasSupabaseSchedulerDb)(
       );
       await pool.query(migrationSql);
       await pool.query(hardeningMigrationSql);
+      await pool.query(confirmedEmptyHealthMigrationSql);
       await pool.query(migrationSql);
       await pool.query(hardeningMigrationSql);
+      await pool.query(confirmedEmptyHealthMigrationSql);
 
       const reconciledJobs = await readReviewedJobs(pool);
       expect(reconciledJobs).toEqual([
@@ -1235,8 +1253,45 @@ describe.skipIf(!hasSupabaseSchedulerDb)(
         );
         const noWorkOnly = await readWindowHealth(client);
         expect(noWorkOnly.primary_completed_source_count).toBe(0);
-        expect(noWorkOnly.fallback_completed_source_count).toBe(0);
-        expect(noWorkOnly.classification).not.toMatch(/drained-window$/);
+        expect(noWorkOnly.fallback_completed_source_count).toBe(1);
+        expect(noWorkOnly.classification).toBe("fallback-completed-window");
+
+        await client.query(
+          `delete from public.canteen_menu_sync_snapshots
+           where run_id = $1`,
+          [runId],
+        );
+
+        await client.query(
+          `update public.canteen_menu_sync_runs
+           set status = 'failed',
+               error_code = 'MENU_SYNC_EMPTY_PENDING_CONFIRMATION'
+           where id = $1`,
+          [runId],
+        );
+        expect(await readWindowHealth(client)).toMatchObject({
+          provider_failure_count: 0,
+          review_required_count: 0,
+        });
+
+        await client.query(
+          `update public.canteen_menu_sync_runs
+           set status = 'applied', error_code = null
+           where id = $1`,
+          [runId],
+        );
+
+        await client.query(
+          `update canteen_menu_scheduler.delivery_audit
+           set endpoint_disposition = 'retry-later',
+               business_code = 'MENU_SYNC_EMPTY_PENDING_CONFIRMATION'
+           where request_id = -1001`,
+        );
+        expect(await readWindowHealth(client)).toMatchObject({
+          provider_failure_count: 0,
+          retry_later_count: 1,
+          classification: "retry-still-due",
+        });
 
         await client.query(
           `update canteen_menu_scheduler.delivery_audit

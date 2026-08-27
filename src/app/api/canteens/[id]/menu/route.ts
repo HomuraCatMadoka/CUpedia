@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCanteenById, getCanteenMenuItems } from "@/lib/canteen-actions";
+import {
+  getCanteenById,
+  getCanteenMenuFreshness,
+  getCanteenMenuItems,
+} from "@/lib/canteen-actions";
 
 export async function GET(
   _request: NextRequest,
@@ -10,6 +14,9 @@ export async function GET(
   if (!canteen) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  const items = await getCanteenMenuItems(id);
-  return NextResponse.json({ canteen, items });
+  const [items, freshness] = await Promise.all([
+    getCanteenMenuItems(id),
+    getCanteenMenuFreshness(id),
+  ]);
+  return NextResponse.json({ canteen, items, freshness });
 }

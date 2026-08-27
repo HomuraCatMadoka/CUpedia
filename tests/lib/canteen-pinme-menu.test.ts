@@ -205,6 +205,58 @@ describe("PINME menu adapter", () => {
     ).toThrow("EMPTY_PINME_MENU");
   });
 
+  it("marks a well-formed empty publication as open only inside its service window (#782)", () => {
+    const payload = {
+      code: 200,
+      data: {
+        is_close: 0,
+        is_operating: 1,
+        menu_group: [
+          {
+            menu_id: "5150",
+            start_time: "11:00",
+            end_time: "14:30",
+            groups: ["101"],
+          },
+        ],
+        group: [
+          {
+            group_id: "101",
+            start_time: "11:00",
+            end_time: "14:30",
+            products: [],
+          },
+        ],
+      },
+    };
+
+    const result = buildPinmeMenuSyncPayload(payload, {
+      observedAt: new Date("2026-08-27T03:30:00.000Z"),
+    });
+    expect(result.items).toEqual([]);
+    if (result.scopeEvidence?.provider !== "pinme") {
+      throw new Error("expected PINME scope evidence");
+    }
+    expect(result.emptyMenuEvidence).toEqual({
+      kind: "open-publication",
+      publicationKey: result.scopeEvidence.publicationKey,
+    });
+    expect(() =>
+      buildPinmeMenuSyncPayload(payload, {
+        observedAt: new Date("2026-08-27T13:00:00.000Z"),
+      }),
+    ).toThrow("EMPTY_PINME_MENU");
+    expect(() =>
+      buildPinmeMenuSyncPayload(
+        {
+          ...payload,
+          data: { ...payload.data, is_close: 1, is_operating: 0 },
+        },
+        { observedAt: new Date("2026-08-27T03:30:00.000Z") },
+      ),
+    ).toThrow("EMPTY_PINME_MENU");
+  });
+
   it("keeps upstream-authored duplicates with distinct product IDs", () => {
     const result = buildPinmeMenuSyncPayload({
       code: 200,

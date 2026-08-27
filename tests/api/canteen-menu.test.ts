@@ -1,13 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-const { mockGetCanteenById, mockGetCanteenMenuItems } = vi.hoisted(() => ({
+const {
+  mockGetCanteenById,
+  mockGetCanteenMenuFreshness,
+  mockGetCanteenMenuItems,
+} = vi.hoisted(() => ({
   mockGetCanteenById: vi.fn(),
+  mockGetCanteenMenuFreshness: vi.fn(),
   mockGetCanteenMenuItems: vi.fn(),
 }));
 
 vi.mock("@/lib/canteen-actions", () => ({
   getCanteenById: (...args: unknown[]) => mockGetCanteenById(...args),
+  getCanteenMenuFreshness: (...args: unknown[]) =>
+    mockGetCanteenMenuFreshness(...args),
   getCanteenMenuItems: (...args: unknown[]) => mockGetCanteenMenuItems(...args),
 }));
 
@@ -64,6 +71,14 @@ describe("GET /api/canteens/[id]/menu", () => {
     ];
     mockGetCanteenById.mockResolvedValue(canteen);
     mockGetCanteenMenuItems.mockResolvedValue(items);
+    mockGetCanteenMenuFreshness.mockResolvedValue({
+      evaluatedAt: new Date("2026-08-27T04:00:00.000Z"),
+      periods: {
+        breakfast: null,
+        lunch: new Date("2026-08-27T03:20:00.000Z"),
+        dinner: null,
+      },
+    });
 
     const res = await GET(
       new NextRequest("http://localhost/api/canteens/c1/menu"),
@@ -77,5 +92,6 @@ describe("GET /api/canteens/[id]/menu", () => {
     expect(json.canteen.name).toBe("Union");
     expect(json.items).toHaveLength(1);
     expect(json.items[0].name).toBe("叉烧饭");
+    expect(json.freshness.periods.lunch).toBe("2026-08-27T03:20:00.000Z");
   });
 });

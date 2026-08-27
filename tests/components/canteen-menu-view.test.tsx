@@ -105,6 +105,32 @@ afterEach(() => {
 });
 
 describe("CanteenMenuView", () => {
+  it("warns when the selected meal period was last synchronized yesterday (#782)", async () => {
+    render(
+      <CanteenMenuView
+        items={ITEMS}
+        voteCounts={{}}
+        myVotes={{}}
+        freshness={{
+          evaluatedAt: hktDate(12, 0),
+          periods: {
+            breakfast: hktDate(8, 0),
+            lunch: new Date(hktDate(12, 0).getTime() - 24 * 60 * 60_000),
+            dinner: null,
+          },
+        }}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toBe(
+        "最后同步于昨天 12:00",
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "早餐" }));
+    await waitFor(() => expect(screen.queryByText(/最后同步于/)).toBeNull());
+  });
+
   it("shows one menu for the current meal period with ranking view tabs", async () => {
     render(<CanteenMenuView items={ITEMS} voteCounts={{}} myVotes={{}} />);
 

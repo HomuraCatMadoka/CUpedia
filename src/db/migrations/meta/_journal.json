@@ -673,6 +673,13 @@
       "when": 1787747407237,
       "tag": "0095_harden-supabase-canteen-menu-sync-cron",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1787810000000,
+      "tag": "0096_confirm-empty-menu-health",
+      "breakpoints": true
     }
   ]
 }

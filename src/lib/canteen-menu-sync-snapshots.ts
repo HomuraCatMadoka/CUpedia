@@ -3,8 +3,9 @@ import {
   canteenMenuSyncSnapshotItems,
   canteenMenuSyncSnapshots,
   type HktWeekday,
+  type MealPeriod,
 } from "@/db/schema";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 import { menuSnapshotComparisonContext } from "./canteen-menu-snapshot-completeness";
 import type { MenuSyncTransaction } from "./canteen-menu-sync-store";
 import {
@@ -13,6 +14,7 @@ import {
 } from "./canteen-menu-sync-window";
 import type {
   MenuObservationContext,
+  MenuSyncItemInput,
   ProviderMenuObservation,
 } from "./canteen-types";
 
@@ -139,6 +141,117 @@ export async function readLatestScopedPublicationEvidence(
     }
   });
   return snapshot?.scopeEvidence ?? null;
+}
+
+/**
+ * Reads the newest accepted observation that can describe each configured
+ * period. An empty array is authoritative; a missing key means that period has
+ * never had usable evidence and its current projection must be preserved.
+ */
+export async function readLatestAcceptedMenuPeriodItems(
+  tx: MenuSyncTransaction,
+  sourceId: string,
+  mealPeriods: readonly MealPeriod[],
+): Promise<Partial<Record<MealPeriod, MenuSyncItemInput[]>>> {
+  const latestByPeriod = await readLatestAcceptedMenuPeriodObservations(
+    tx,
+    sourceId,
+    mealPeriods,
+  );
+
+  const runIds = [
+    ...new Set(
+      Object.values(latestByPeriod).flatMap((latest) =>
+        latest ? [latest.runId] : [],
+      ),
+    ),
+  ];
+  const rows =
+    runIds.length === 0
+      ? []
+      : await tx
+          .select()
+          .from(canteenMenuSyncSnapshotItems)
+          .where(inArray(canteenMenuSyncSnapshotItems.runId, runIds))
+          .orderBy(
+            asc(canteenMenuSyncSnapshotItems.sortOrder),
+            asc(canteenMenuSyncSnapshotItems.externalProductId),
+          );
+  return Object.fromEntries(
+    Object.entries(latestByPeriod).map(([mealPeriod, latest]) => [
+      mealPeriod,
+      rows
+        .filter(
+          (row) =>
+            row.runId === latest.runId &&
+            (latest.observationScope === "meal-period" ||
+              row.mealPeriods.includes("allday") ||
+              row.mealPeriods.includes(mealPeriod as MealPeriod)),
+        )
+        .map((row) => ({
+          externalProductId: row.externalProductId,
+          name: row.name,
+          priceOptions: structuredClone(row.priceOptions),
+          mealPeriods: [mealPeriod as MealPeriod],
+          sortOrder: row.sortOrder,
+          svgKey: row.svgKey,
+        })),
+    ]),
+  );
+}
+
+export type AcceptedMenuPeriodObservation = {
+  runId: string;
+  observationScope: "catalog" | "meal-period";
+  observedAt: Date;
+};
+
+/** Selects the newest snapshot that is allowed to affect each period. */
+export async function readLatestAcceptedMenuPeriodObservations(
+  tx: MenuSyncTransaction,
+  sourceId: string,
+  mealPeriods: readonly MealPeriod[],
+): Promise<Partial<Record<MealPeriod, AcceptedMenuPeriodObservation>>> {
+  const latestByPeriod = new Map<MealPeriod, AcceptedMenuPeriodObservation>();
+  for (const mealPeriod of mealPeriods) {
+    const candidates = await tx
+      .select({
+        runId: canteenMenuSyncSnapshots.runId,
+        observationScope: canteenMenuSyncSnapshots.observationScope,
+        observedAt: canteenMenuSyncSnapshots.observedAt,
+        syncWindowKey: canteenMenuSyncSnapshots.syncWindowKey,
+        mealPeriod: canteenMenuSyncSnapshots.mealPeriod,
+      })
+      .from(canteenMenuSyncSnapshots)
+      .where(
+        and(
+          eq(canteenMenuSyncSnapshots.menuSourceId, sourceId),
+          or(
+            eq(canteenMenuSyncSnapshots.observationScope, "catalog"),
+            and(
+              eq(canteenMenuSyncSnapshots.observationScope, "meal-period"),
+              eq(canteenMenuSyncSnapshots.mealPeriod, mealPeriod),
+            ),
+          ),
+        ),
+      )
+      .orderBy(
+        desc(canteenMenuSyncSnapshots.observedAt),
+        desc(canteenMenuSyncSnapshots.runId),
+      )
+      .limit(128);
+    const latest = candidates.find(
+      (candidate) =>
+        candidate.observationScope === "catalog" ||
+        menuObservationCanProjectActivity({
+          observedAt: candidate.observedAt,
+          syncWindowKey: candidate.syncWindowKey,
+          mealPeriod: candidate.mealPeriod,
+        }),
+    );
+    if (latest) latestByPeriod.set(mealPeriod, latest);
+  }
+  return Object.fromEntries(latestByPeriod);
 }
 
 function sameJson(left: unknown, right: unknown): boolean {

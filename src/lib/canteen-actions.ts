@@ -7,9 +7,14 @@ import {
   canteenMenuSources,
   canteenOrderingHandoffs,
   canteens,
+  MEAL_PERIODS,
 } from "@/db/schema";
 import { asc, eq, count, and } from "drizzle-orm";
-import type { Canteen, CanteenMenuItem } from "@/lib/canteen-types";
+import type {
+  Canteen,
+  CanteenMenuFreshness,
+  CanteenMenuItem,
+} from "@/lib/canteen-types";
 import { primaryMealPeriodSortKey } from "@/lib/canteen-types";
 import { buildMenuItemPricing } from "@/lib/canteen-pricing";
 import type { OrderingHandoff } from "@/lib/canteen-ordering-handoff";
@@ -19,6 +24,7 @@ import {
   mockListCanteens,
   mockListMenuItems,
 } from "@/lib/canteen-mock";
+import { readLatestAcceptedMenuPeriodObservations } from "@/lib/canteen-menu-sync-snapshots";
 
 export async function getCanteens(): Promise<Canteen[]> {
   if (isCanteenMockMode()) return mockListCanteens();
@@ -72,23 +78,35 @@ export async function getCanteenOrderingHandoff(
   return rows[0] ?? null;
 }
 
-export async function getCanteenMenuFreshness(canteenId: string): Promise<{
-  lastSuccessAt: Date | null;
-  stale: boolean;
-} | null> {
+export async function getCanteenMenuFreshness(
+  canteenId: string,
+): Promise<CanteenMenuFreshness | null> {
   if (isCanteenMockMode()) return null;
   const source = await db.query.canteenMenuSources.findFirst({
     where: eq(canteenMenuSources.canteenId, canteenId),
-    columns: { lastSuccessAt: true },
+    columns: { id: true, syncMealPeriods: true },
   });
   if (!source) return null;
-  const staleBefore = Date.now() - 48 * 60 * 60 * 1_000;
-  return {
-    lastSuccessAt: source.lastSuccessAt,
-    stale:
-      source.lastSuccessAt === null ||
-      source.lastSuccessAt.getTime() < staleBefore,
-  };
+  return db.transaction(async (tx) => {
+    const evaluatedAt = new Date();
+    const observations = await readLatestAcceptedMenuPeriodObservations(
+      tx,
+      source.id,
+      source.syncMealPeriods,
+    );
+    const configured = new Set(source.syncMealPeriods);
+    return {
+      evaluatedAt,
+      periods: Object.fromEntries(
+        MEAL_PERIODS.map((period) => [
+          period,
+          configured.has(period)
+            ? (observations[period]?.observedAt ?? null)
+            : null,
+        ]),
+      ) as CanteenMenuFreshness["periods"],
+    };
+  });
 }
 
 export async function getCanteenMenuItems(

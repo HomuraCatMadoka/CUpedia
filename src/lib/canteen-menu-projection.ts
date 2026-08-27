@@ -27,6 +27,9 @@ export function projectSingleMenuObservation(
     snapshotAbsenceIsEvidence(observation.snapshotCompleteness);
   return {
     items: observation.items,
+    ...(observation.items.length === 0 && observation.emptyMenuEvidence
+      ? { confirmedEmpty: true }
+      : {}),
     absenceAuthority: providerCatalogIsAuthoritative
       ? { kind: "provider-catalog" }
       : { kind: "none" },
@@ -69,6 +72,9 @@ export function projectScopedMenuObservation(
       ...structuredClone(item),
       mealPeriods: [context.mealPeriod],
     })),
+    ...(observation.items.length === 0 && observation.emptyMenuEvidence
+      ? { confirmedEmpty: true }
+      : {}),
     absenceAuthority: {
       kind: "current-activity",
       coveredMealPeriods: [context.mealPeriod],
@@ -87,7 +93,9 @@ function expandConfiguredMealPeriods(
   if (periods.includes("allday")) {
     return MEAL_PERIODS.filter((period) => configuredPeriods.has(period));
   }
-  return MEAL_PERIODS.filter((period) => periods.includes(period));
+  return MEAL_PERIODS.filter(
+    (period) => configuredPeriods.has(period) && periods.includes(period),
+  );
 }
 
 function existingProjectionItem(
@@ -116,6 +124,9 @@ export function materializeMealPeriodActivityProjection(
   sourceId: string,
   projection: CurrentMenuProjection,
   existingItems: readonly ExistingSyncMenuItem[],
+  acceptedPeriodItems: Partial<
+    Record<MealPeriod, readonly MenuSyncItemInput[]>
+  > = {},
 ): CurrentMenuProjection {
   if (projection.absenceAuthority.kind !== "current-activity") {
     return projection;
@@ -129,22 +140,29 @@ export function materializeMealPeriodActivityProjection(
   ) {
     throw new Error("MENU_ACTIVITY_SCOPE_INVALID");
   }
-  const managedByProduct = new Map(
-    existingItems.flatMap((item) =>
-      item.menuSourceId === sourceId && item.externalProductId !== null
-        ? [[item.externalProductId, item] as const]
-        : [],
-    ),
+  const managed = existingItems.filter(
+    (item) =>
+      item.menuSourceId === sourceId &&
+      item.externalProductId !== null &&
+      item.isAvailable,
   );
-  const observedIds = new Set<string>();
-  const items: MenuSyncItemInput[] = projection.items.map((observed) => {
-    observedIds.add(observed.externalProductId);
-    const existing = managedByProduct.get(observed.externalProductId);
-    const retained = existing?.isAvailable
-      ? expandConfiguredMealPeriods(existing.mealPeriods, configured).filter(
-          (period) => !covered.has(period),
-        )
-      : [];
+  const projected = new Map<
+    string,
+    { item: MenuSyncItemInput; mealPeriods: Set<MealPeriod> }
+  >();
+  const addPeriod = (item: MenuSyncItemInput, mealPeriod: MealPeriod) => {
+    const current = projected.get(item.externalProductId);
+    if (current) {
+      current.mealPeriods.add(mealPeriod);
+      return;
+    }
+    projected.set(item.externalProductId, {
+      item,
+      mealPeriods: new Set([mealPeriod]),
+    });
+  };
+
+  for (const observed of projection.items) {
     const observedPeriods = observed.mealPeriods.includes("allday")
       ? [...covered]
       : observed.mealPeriods.filter(
@@ -154,25 +172,37 @@ export function materializeMealPeriodActivityProjection(
     if (observedPeriods.length === 0) {
       throw new Error("MENU_ACTIVITY_SCOPE_ITEM_MISMATCH");
     }
-    const nextPeriods = new Set([...retained, ...observedPeriods]);
-    return {
-      ...observed,
-      mealPeriods: MEAL_PERIODS.filter((period) => nextPeriods.has(period)),
-    };
-  });
+    for (const mealPeriod of observedPeriods) addPeriod(observed, mealPeriod);
+  }
 
-  for (const existing of managedByProduct.values()) {
-    if (!existing.isAvailable || observedIds.has(existing.externalProductId!)) {
+  for (const mealPeriod of MEAL_PERIODS) {
+    if (!configured.has(mealPeriod) || covered.has(mealPeriod)) continue;
+    const accepted = acceptedPeriodItems[mealPeriod];
+    const periodAlreadyProjected = managed.some((item) =>
+      expandConfiguredMealPeriods(item.mealPeriods, configured).includes(
+        mealPeriod,
+      ),
+    );
+    if (accepted !== undefined && periodAlreadyProjected) {
+      for (const item of accepted) addPeriod(item, mealPeriod);
       continue;
     }
-    const remaining = expandConfiguredMealPeriods(
-      existing.mealPeriods,
-      configured,
-    ).filter((period) => !covered.has(period));
-    if (remaining.length > 0) {
-      items.push(existingProjectionItem(existing, remaining));
+    for (const existing of managed) {
+      if (
+        expandConfiguredMealPeriods(existing.mealPeriods, configured).includes(
+          mealPeriod,
+        )
+      ) {
+        addPeriod(existingProjectionItem(existing, [mealPeriod]), mealPeriod);
+      }
     }
   }
 
-  return { ...projection, items };
+  return {
+    ...projection,
+    items: [...projected.values()].map(({ item, mealPeriods }) => ({
+      ...item,
+      mealPeriods: MEAL_PERIODS.filter((period) => mealPeriods.has(period)),
+    })),
+  };
 }

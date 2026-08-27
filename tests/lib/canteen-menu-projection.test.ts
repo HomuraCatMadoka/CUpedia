@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { projectScopedMenuObservation } from "@/lib/canteen-menu-projection";
+import {
+  materializeMealPeriodActivityProjection,
+  projectScopedMenuObservation,
+} from "@/lib/canteen-menu-projection";
 import { menuPublicationIdentityFromEvidence } from "@/lib/canteen-menu-publication";
 import { pinmePublicationCompatibilityKey } from "@/lib/canteen-pinme-publication";
 import { menuPublicationIdentityForProvider } from "@/lib/canteen-menu-source-publication";
@@ -28,6 +31,126 @@ function breakfastObservation(): ProviderMenuObservation {
 }
 
 describe("current menu projection", () => {
+  it("removes meal periods that are no longer configured (#782)", () => {
+    const projection = materializeMealPeriodActivityProjection(
+      "source-1",
+      {
+        items: [
+          {
+            externalProductId: "lunch-item",
+            name: "午餐菜品",
+            priceOptions: [],
+            mealPeriods: ["lunch"],
+            sortOrder: 0,
+            svgKey: "午餐",
+          },
+        ],
+        absenceAuthority: {
+          kind: "current-activity",
+          coveredMealPeriods: ["lunch"],
+          configuredMealPeriods: ["lunch", "dinner"],
+        },
+      },
+      [
+        {
+          id: "breakfast-uuid",
+          menuSourceId: "source-1",
+          externalProductId: "breakfast-item",
+          name: "历史早餐",
+          priceOptions: [],
+          mealPeriods: ["breakfast"],
+          sortOrder: 1,
+          svgKey: "早餐",
+          isAvailable: true,
+        },
+      ],
+    );
+
+    expect(projection.items).toEqual([
+      expect.objectContaining({
+        externalProductId: "lunch-item",
+        mealPeriods: ["lunch"],
+      }),
+    ]);
+  });
+
+  it("preserves a newly configured period until that period is observed (#782)", () => {
+    const projection = materializeMealPeriodActivityProjection(
+      "source-1",
+      {
+        items: [],
+        absenceAuthority: {
+          kind: "current-activity",
+          coveredMealPeriods: ["lunch"],
+          configuredMealPeriods: ["lunch", "dinner"],
+        },
+      },
+      [
+        {
+          id: "dinner-uuid",
+          menuSourceId: "source-1",
+          externalProductId: "known-dinner-item",
+          name: "尚未重新观察的晚餐",
+          priceOptions: [],
+          mealPeriods: ["dinner"],
+          sortOrder: 1,
+          svgKey: "晚餐",
+          isAvailable: true,
+        },
+      ],
+    );
+
+    expect(projection.items).toEqual([
+      expect.objectContaining({
+        externalProductId: "known-dinner-item",
+        mealPeriods: ["dinner"],
+      }),
+    ]);
+  });
+
+  it("does not resurrect old snapshots when a removed period is re-enabled (#782)", () => {
+    const projection = materializeMealPeriodActivityProjection(
+      "source-1",
+      {
+        items: [
+          {
+            externalProductId: "lunch-item",
+            name: "午餐菜品",
+            priceOptions: [],
+            mealPeriods: ["lunch"],
+            sortOrder: 0,
+            svgKey: "午餐",
+          },
+        ],
+        absenceAuthority: {
+          kind: "current-activity",
+          coveredMealPeriods: ["lunch"],
+          configuredMealPeriods: ["lunch", "dinner"],
+        },
+      },
+      [],
+      {
+        dinner: [
+          {
+            externalProductId: "old-dinner-item",
+            name: "重新启用前的晚餐",
+            priceOptions: [],
+            mealPeriods: ["dinner"],
+            sortOrder: 0,
+            svgKey: "晚餐",
+          },
+        ],
+      },
+    );
+
+    expect(projection.items).toEqual([
+      expect.objectContaining({
+        externalProductId: "lunch-item",
+        mealPeriods: ["lunch"],
+      }),
+    ]);
+  });
+
   it("keeps a 03:05 breakfast-labelled read diagnostic-only (#743)", () => {
     const context = menuObservationContextAt(
       new Date("2026-08-24T19:05:00.000Z"),
