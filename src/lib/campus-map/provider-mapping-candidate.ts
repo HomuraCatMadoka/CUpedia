@@ -9,6 +9,11 @@ export type CampusMapProviderMappingCandidateSignal =
       providerName: string;
       canonicalName: string;
     }
+  | {
+      kind: "alias";
+      providerAlias: string;
+      canonicalAlias: string;
+    }
   | { kind: "distance"; meters: number }
   | {
       kind: "coordinate";

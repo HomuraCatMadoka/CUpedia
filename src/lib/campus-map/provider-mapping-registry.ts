@@ -90,6 +90,17 @@ export type CampusMapProviderMappingCommandResult =
       code: "provider-mapping-unavailable";
     };
 
+function hasExactKeys(
+  value: Record<string, unknown>,
+  expectedKeys: readonly string[],
+) {
+  const keys = Object.keys(value);
+  return (
+    keys.length === expectedKeys.length &&
+    keys.every((key) => expectedKeys.includes(key))
+  );
+}
+
 function canonicalTarget(
   target: CampusMapProviderMappingTarget,
 ): CampusMapProviderMappingTarget {
@@ -103,13 +114,21 @@ function normalizeTarget(
 ): CampusMapProviderMappingTarget | null {
   if (!value || typeof value !== "object") return null;
   const target = value as Record<string, unknown>;
-  if (target.kind === "building" && typeof target.buildingId === "string") {
+  if (
+    target.kind === "building" &&
+    typeof target.buildingId === "string" &&
+    hasExactKeys(target, ["kind", "buildingId"])
+  ) {
     return canonicalTarget({
       kind: "building",
       buildingId: target.buildingId,
     });
   }
-  if (target.kind === "place" && typeof target.placeId === "string") {
+  if (
+    target.kind === "place" &&
+    typeof target.placeId === "string" &&
+    hasExactKeys(target, ["kind", "placeId"])
+  ) {
     return canonicalTarget({ kind: "place", placeId: target.placeId });
   }
   return null;
@@ -132,7 +151,8 @@ function normalizeCommand(
   const rawIdentity = raw.identity as Record<string, unknown>;
   if (
     typeof rawIdentity.provider !== "string" ||
-    typeof rawIdentity.providerObjectId !== "string"
+    typeof rawIdentity.providerObjectId !== "string" ||
+    !hasExactKeys(rawIdentity, ["provider", "providerObjectId"])
   ) {
     return null;
   }
@@ -146,16 +166,53 @@ function normalizeCommand(
     provenanceId: raw.provenanceId.toLowerCase(),
   };
   if (raw.kind === "bind") {
+    if (
+      !hasExactKeys(raw, [
+        "kind",
+        "idempotencyKey",
+        "identity",
+        "target",
+        "reason",
+        "provenanceId",
+      ])
+    ) {
+      return null;
+    }
     const target = normalizeTarget(raw.target);
     return target ? { ...common, kind: "bind", target } : null;
   }
   if (raw.kind === "unlink") {
+    if (
+      !hasExactKeys(raw, [
+        "kind",
+        "idempotencyKey",
+        "identity",
+        "previousTarget",
+        "reason",
+        "provenanceId",
+      ])
+    ) {
+      return null;
+    }
     const previousTarget = normalizeTarget(raw.previousTarget);
     return previousTarget
       ? { ...common, kind: "unlink", previousTarget }
       : null;
   }
   if (raw.kind === "rebind") {
+    if (
+      !hasExactKeys(raw, [
+        "kind",
+        "idempotencyKey",
+        "identity",
+        "previousTarget",
+        "newTarget",
+        "reason",
+        "provenanceId",
+      ])
+    ) {
+      return null;
+    }
     const previousTarget = normalizeTarget(raw.previousTarget);
     const newTarget = normalizeTarget(raw.newTarget);
     return previousTarget && newTarget
@@ -510,31 +567,31 @@ export async function commandCampusMapProviderMapping(
         });
         return result;
       }
-      const nextTarget =
+      const commandTargets =
         command.kind === "bind"
-          ? command.target
-          : command.kind === "rebind"
-            ? command.newTarget
-            : null;
-      const targetValidation = nextTarget
-        ? await validateTarget(transaction, nextTarget)
-        : "valid";
-      if (targetValidation !== "valid") {
-        const result = {
-          status: "not-found",
-          code:
-            targetValidation === "kind-mismatch"
-              ? "mapping-target-kind-mismatch"
-              : "mapping-target-not-found",
-        } as const;
-        await storeMappingCommandResult(transaction, {
-          actorId: actor.id,
-          idempotencyKey: command.idempotencyKey,
-          fingerprint,
-          result,
-          createdAt: now,
-        });
-        return result;
+          ? [command.target]
+          : command.kind === "unlink"
+            ? [command.previousTarget]
+            : [command.previousTarget, command.newTarget];
+      for (const target of commandTargets) {
+        const targetValidation = await validateTarget(transaction, target);
+        if (targetValidation !== "valid") {
+          const result = {
+            status: "not-found",
+            code:
+              targetValidation === "kind-mismatch"
+                ? "mapping-target-kind-mismatch"
+                : "mapping-target-not-found",
+          } as const;
+          await storeMappingCommandResult(transaction, {
+            actorId: actor.id,
+            idempotencyKey: command.idempotencyKey,
+            fingerprint,
+            result,
+            createdAt: now,
+          });
+          return result;
+        }
       }
       const [active] = await transaction
         .select({

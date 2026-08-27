@@ -662,6 +662,102 @@ describe.skipIf(!hasDb)("Campus Map provider mapping registry", () => {
     ).resolves.toEqual({ status: "forbidden", code: "admin-required" });
   });
 
+  it("rejects ambiguous runtime command shapes instead of discarding fields", async () => {
+    const ambiguous = {
+      kind: "bind",
+      idempotencyKey: randomUUID(),
+      identity: {
+        provider: "test-provider-779",
+        providerObjectId: "ambiguous-target-poi",
+      },
+      target: {
+        kind: "building",
+        buildingId,
+        placeId: activePlaceId,
+      },
+      reason: "歧义 target 必须 fail closed",
+      provenanceId,
+    } as never;
+
+    await expect(
+      commandCampusMapProviderMapping(ambiguous, { actorId }),
+    ).resolves.toEqual({
+      status: "validation-failed",
+      errors: [{ code: "invalid-command", field: "command" }],
+    });
+    await expect(
+      resolveCampusMapProviderSelection(
+        "test-provider-779",
+        "ambiguous-target-poi",
+      ),
+    ).resolves.toBeNull();
+
+    const extraneousCommandField = {
+      kind: "bind",
+      idempotencyKey: randomUUID(),
+      identity: {
+        provider: "test-provider-779",
+        providerObjectId: "ambiguous-command-poi",
+      },
+      target: { kind: "building", buildingId },
+      previousTarget: { kind: "building", buildingId: secondBuildingId },
+      reason: "bind 不得静默丢弃 previousTarget",
+      provenanceId,
+    } as never;
+    await expect(
+      commandCampusMapProviderMapping(extraneousCommandField, { actorId }),
+    ).resolves.toEqual({
+      status: "validation-failed",
+      errors: [{ code: "invalid-command", field: "command" }],
+    });
+  });
+
+  it("validates every previous target before evaluating mapping state", async () => {
+    await expect(
+      commandCampusMapProviderMapping(
+        {
+          kind: "unlink",
+          idempotencyKey: randomUUID(),
+          identity: {
+            provider: "test-provider-779",
+            providerObjectId: "missing-previous-target-poi",
+          },
+          previousTarget: { kind: "building", buildingId: randomUUID() },
+          reason: "不存在的 previous target 必须 fail closed",
+          provenanceId,
+        },
+        { actorId },
+      ),
+    ).resolves.toEqual({
+      status: "not-found",
+      code: "mapping-target-not-found",
+    });
+
+    await expect(
+      commandCampusMapProviderMapping(
+        {
+          kind: "rebind",
+          idempotencyKey: randomUUID(),
+          identity: {
+            provider: "test-provider-779",
+            providerObjectId: "wrong-kind-previous-target-poi",
+          },
+          previousTarget: {
+            kind: "building",
+            buildingId: inactivePlaceId,
+          },
+          newTarget: { kind: "building", buildingId },
+          reason: "previous target kind 错误必须 fail closed",
+          provenanceId,
+        },
+        { actorId },
+      ),
+    ).resolves.toEqual({
+      status: "not-found",
+      code: "mapping-target-kind-mismatch",
+    });
+  });
+
   it("keeps audit and idempotency records append-only", async () => {
     const result = await commandCampusMapProviderMapping(
       {

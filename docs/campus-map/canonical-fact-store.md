@@ -44,7 +44,7 @@ current admin status, validates the public canonical target, updates the active
 projection, and appends an actor/reason/time/provenance decision in one
 transaction. `provider-mapping-registry-actions.ts` supplies authenticated
 server context; React, provider adapters, and seed/import code cannot write
-mapping rows. Name, distance, and coordinate evidence stays in the pure
+mapping rows. Name, alias, distance, and coordinate evidence stays in the pure
 `provider-mapping-candidate.ts` module until an admin sends an explicit command.
 
 ## Persistence invariants
