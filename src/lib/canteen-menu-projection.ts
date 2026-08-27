@@ -13,6 +13,7 @@ import type {
   MenuSyncItemInput,
   ProviderMenuObservation,
 } from "./canteen-types";
+import { menuProviderOccurrences } from "./canteen-types";
 
 /**
  * Projects one observation without inventing cross-scope absence evidence.
@@ -115,6 +116,26 @@ function existingProjectionItem(
   };
 }
 
+function occurrencesForPeriod(item: MenuSyncItemInput, mealPeriod: MealPeriod) {
+  const exact = menuProviderOccurrences(item)
+    .filter(
+      (occurrence) =>
+        occurrence.mealPeriod === mealPeriod ||
+        occurrence.mealPeriod === "allday",
+    )
+    .map((occurrence) => ({ ...occurrence, mealPeriod }));
+  return exact.length > 0
+    ? exact
+    : [
+        {
+          mealPeriod,
+          categoryKey: item.svgKey,
+          sortOrder: item.sortOrder,
+          priceOptions: item.priceOptions,
+        },
+      ];
+}
+
 /**
  * Applies current-activity evidence only to the meal periods it actually
  * observed. Missing identities lose those periods, while every other period
@@ -151,13 +172,27 @@ export function materializeMealPeriodActivityProjection(
     { item: MenuSyncItemInput; mealPeriods: Set<MealPeriod> }
   >();
   const addPeriod = (item: MenuSyncItemInput, mealPeriod: MealPeriod) => {
+    const incomingOccurrences = occurrencesForPeriod(item, mealPeriod);
     const current = projected.get(item.externalProductId);
     if (current) {
       current.mealPeriods.add(mealPeriod);
+      const occurrences = new Map(
+        (current.item.occurrences ?? []).map((occurrence) => [
+          `${occurrence.mealPeriod}\u0000${occurrence.categoryKey}`,
+          occurrence,
+        ]),
+      );
+      for (const occurrence of incomingOccurrences) {
+        occurrences.set(
+          `${occurrence.mealPeriod}\u0000${occurrence.categoryKey}`,
+          occurrence,
+        );
+      }
+      current.item.occurrences = [...occurrences.values()];
       return;
     }
     projected.set(item.externalProductId, {
-      item,
+      item: { ...item, occurrences: incomingOccurrences },
       mealPeriods: new Set([mealPeriod]),
     });
   };

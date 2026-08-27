@@ -26,6 +26,7 @@ import type {
   MenuAbsenceAuthority,
   MenuSyncInput,
 } from "./canteen-types";
+import { normalizeCanonicalDishName } from "./canteen-menu-canonicalization";
 
 export type ResolvedMenuSnapshotSource = {
   id: string;
@@ -187,35 +188,92 @@ function evaluateCanonicalMenuSnapshot<TInput extends MenuEvaluationInput>(
     projection.absenceAuthority.kind === "current-activity"
       ? new Set(projection.absenceAuthority.coveredMealPeriods)
       : null;
-  const managedIdentityProjection = canonicalState.existingItems.flatMap(
-    (item) =>
-      item.menuSourceId === source.id && item.externalProductId !== null
-        ? [
-            {
-              externalProductId: item.externalProductId,
-              name: item.name,
-              isAvailable:
-                item.isAvailable &&
-                (!coveredMealPeriods ||
-                  item.mealPeriods.includes("allday") ||
-                  item.mealPeriods.some(
-                    (period) =>
-                      period !== "allday" && coveredMealPeriods.has(period),
-                  )),
-            },
-          ]
-        : [],
+  const incomingIds = new Set(
+    observedItems.map((item) => item.externalProductId),
   );
-  const activeManagedCount = managedIdentityProjection.filter(
-    (item) => item.isAvailable,
-  ).length;
+  const resolvedAliases = new Map<
+    string,
+    { existingIds: Set<string>; incomingIds: string[]; name: string }
+  >();
+  for (const action of plan.actions) {
+    if (!action.itemId || action.action === "deactivate") continue;
+    const existing = canonicalState.existingItems.find(
+      (item) => item.id === action.itemId,
+    );
+    if (
+      !existing ||
+      normalizeCanonicalDishName(existing.name) !== action.normalizedName
+    ) {
+      continue;
+    }
+    resolvedAliases.set(action.itemId, {
+      existingIds: new Set(
+        existing.externalProductIds ??
+          (existing.externalProductId ? [existing.externalProductId] : []),
+      ),
+      incomingIds: action.externalProductIds,
+      name: action.name,
+    });
+  }
+  const managedIdentityProjection = canonicalState.existingItems.flatMap(
+    (item) => {
+      if (item.menuSourceId !== source.id) return [];
+      const productIds =
+        item.externalProductIds ??
+        (item.externalProductId === null ? [] : [item.externalProductId]);
+      const activeProductIds = new Set(
+        item.activeExternalProductIds ?? (item.isAvailable ? productIds : []),
+      );
+      return productIds.map((externalProductId) => ({
+        externalProductId,
+        name: item.name,
+        isAvailable:
+          activeProductIds.has(externalProductId) &&
+          (!coveredMealPeriods ||
+            item.mealPeriods.includes("allday") ||
+            item.mealPeriods.some(
+              (period) => period !== "allday" && coveredMealPeriods.has(period),
+            )),
+      }));
+    },
+  );
   const identityObservation = observeMenuIdentityChurn(
     managedIdentityProjection,
     observedItems,
   );
+  const resolvedMissingIds = new Set(
+    [...resolvedAliases.values()].flatMap((alias) =>
+      [...alias.existingIds].filter((productId) => !incomingIds.has(productId)),
+    ),
+  );
+  const blockingIdentityProjection = managedIdentityProjection.map((item) => ({
+    ...item,
+    isAvailable:
+      item.isAvailable && !resolvedMissingIds.has(item.externalProductId),
+  }));
+  const knownProjectedIds = new Set(
+    blockingIdentityProjection.map((item) => item.externalProductId),
+  );
+  for (const alias of resolvedAliases.values()) {
+    for (const externalProductId of alias.incomingIds) {
+      if (knownProjectedIds.has(externalProductId)) continue;
+      blockingIdentityProjection.push({
+        externalProductId,
+        name: alias.name,
+        isAvailable: true,
+      });
+    }
+  }
+  const activeManagedCount = managedIdentityProjection.filter(
+    (item) => item.isAvailable,
+  ).length;
+  const blockingIdentityObservation = observeMenuIdentityChurn(
+    blockingIdentityProjection,
+    observedItems,
+  );
   const blockingReasons = collectMenuSnapshotBlockingReasons(
     plan,
-    identityObservation,
+    blockingIdentityObservation,
     activeManagedCount,
     observedItems.length,
     projection.absenceAuthority,

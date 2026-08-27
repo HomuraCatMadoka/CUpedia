@@ -8,6 +8,7 @@ import {
   type MealPeriod,
   type MealPeriodAssignment,
   type MenuItemPriceOptionInput,
+  type MenuProviderOccurrenceInput,
 } from "./canteen-types";
 
 export type AigensItem = {
@@ -45,9 +46,13 @@ export type AigensParsedProduct = {
   priceOptions: MenuItemPriceOptionInput[];
   periods: MealPeriodAssignment[];
   svgKey: string;
+  occurrences: MenuProviderOccurrenceInput[];
 };
 
-type AigensAggregatedProduct = Omit<AigensParsedProduct, "priceOptions"> & {
+type AigensAggregatedProduct = Omit<
+  AigensParsedProduct,
+  "priceOptions" | "occurrences"
+> & {
   priceContexts: AigensPriceContext[];
 };
 
@@ -55,6 +60,7 @@ type AigensPriceContext = {
   categoryLabel: string;
   mealPeriod: MealPeriodAssignment;
   amountMinor: number;
+  sortOrder: number;
 };
 
 const MEAL_PERIOD_LABEL: Record<MealPeriodAssignment, string> = {
@@ -187,6 +193,7 @@ export function parseAigensMenuProducts(
   const products: AigensAggregatedProduct[] = [];
   const seen = new Map<string, AigensAggregatedProduct>();
   const validatedGroupIds = new Set<string>();
+  let providerOccurrenceOrder = 0;
 
   for (const category of categories) {
     if (!category.name || options.excludedCategories.has(category.name)) {
@@ -237,6 +244,7 @@ export function parseAigensMenuProducts(
       ]);
       const name = item.name!.trim().replace(/\s+/g, " ");
       const amountMinor = parseAigensPrice(item.price);
+      const itemSortOrder = providerOccurrenceOrder++;
       const svgKey = resolveMenuSectionKey({
         categoryName: category.name,
         dishName: name,
@@ -252,6 +260,7 @@ export function parseAigensMenuProducts(
             categoryLabel: svgKey,
             mealPeriod,
             amountMinor,
+            sortOrder: itemSortOrder,
           })),
           periods,
           svgKey,
@@ -299,6 +308,7 @@ export function parseAigensMenuProducts(
             categoryLabel: svgKey,
             mealPeriod,
             amountMinor,
+            sortOrder: itemSortOrder,
           });
         }
       }
@@ -316,6 +326,19 @@ export function parseAigensMenuProducts(
   return products.map(({ priceContexts, ...product }) => ({
     ...product,
     priceOptions: materializePriceOptions(priceContexts),
+    occurrences: priceContexts.map((context) => ({
+      mealPeriod: context.mealPeriod,
+      categoryKey: context.categoryLabel,
+      sortOrder: context.sortOrder,
+      priceOptions: [
+        {
+          label: null,
+          amountMinor: context.amountMinor,
+          currency: "HKD",
+          sortOrder: 0,
+        },
+      ],
+    })),
   }));
 }
 

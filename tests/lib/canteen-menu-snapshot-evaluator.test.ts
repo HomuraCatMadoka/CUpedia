@@ -117,7 +117,7 @@ describe("menu snapshot evaluator", () => {
     ).toThrow("MALFORMED_IDENTITY");
   });
 
-  it("observes but never joins a same-name product replacement", () => {
+  it("joins a same-name provider-ID replacement to the canonical UUID", () => {
     const result = evaluateMenuSnapshot(
       SOURCE,
       parseMenuSyncJson({
@@ -138,30 +138,19 @@ describe("menu snapshot evaluator", () => {
       ],
     );
 
-    expect(result.plan.actions).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ action: "create", itemId: null }),
-        expect.objectContaining({ action: "deactivate", itemId: "item-1" }),
-      ]),
-    );
-    expect(
-      result.plan.actions.some(
-        (action) => action.action === "update" && action.itemId === "item-1",
-      ),
-    ).toBe(false);
-    expect(result.identityObservation.suspectedReplacementCount).toBe(1);
-    expect(result.identityObservation.suspectedReplacementSamples).toHaveLength(
-      1,
-    );
-    expect(JSON.stringify(result.identityObservation)).not.toContain("secret");
-    expect(JSON.stringify(result.identityObservation)).not.toContain(
-      "同名示例菜品",
-    );
-    expect(result.blockingDecision).toMatchObject({
-      blocked: true,
-      code: "MENU_SYNC_IDENTITY_CHURN",
+    expect(result.plan.actions).toEqual([
+      expect.objectContaining({
+        action: "update",
+        itemId: "item-1",
+        externalProductIds: ["secret-new-id"],
+      }),
+    ]);
+    expect(result.identityObservation).toMatchObject({
+      newProductCount: 1,
+      missingProductCount: 1,
+      suspectedReplacementCount: 1,
     });
-    expect(JSON.stringify(result.blockingDecision)).not.toContain("secret");
+    expect(result.blockingDecision.blocked).toBe(false);
   });
 
   it("blocks a suspicious drop after planning missing products", () => {
@@ -347,7 +336,7 @@ describe("menu snapshot evaluator", () => {
     expect(result.blockingReasons).toEqual([]);
   });
 
-  it("still blocks same-name ID replacement during a publication transition", () => {
+  it("keeps the canonical UUID across a same-name publication transition", () => {
     const result = evaluateCurrentMenuProjection(
       SOURCE,
       {
@@ -377,10 +366,7 @@ describe("menu snapshot evaluator", () => {
     );
 
     expect(result.identityObservation.suspectedReplacementCount).toBe(1);
-    expect(result.blockingDecision).toMatchObject({
-      blocked: true,
-      code: "MENU_SYNC_IDENTITY_CHURN",
-    });
+    expect(result.blockingDecision.blocked).toBe(false);
   });
 
   it("removes only the observed meal period from missing identities (#743)", () => {
@@ -530,7 +516,16 @@ describe("menu snapshot evaluator", () => {
       missingProductCount: 1,
       suspectedReplacementCount: 0,
     });
-    expect(result.blockingDecision.blocked).toBe(false);
+    expect(result.plan.conflicts).toEqual([
+      expect.objectContaining({
+        reason: "MULTIPLE_CANONICAL_DISHES",
+        candidateIds: ["known-other-period", "old-current-period"],
+      }),
+    ]);
+    expect(result.blockingDecision).toMatchObject({
+      blocked: true,
+      code: "MENU_SYNC_CONFLICT",
+    });
   });
 
   it("observes absences without blocking or deactivating a partial snapshot", () => {
@@ -598,7 +593,7 @@ describe("menu snapshot evaluator", () => {
     expect(result.blockingDecision.blocked).toBe(false);
   });
 
-  it("still blocks a same-name identity replacement in a partial observation", () => {
+  it("joins a same-name offering in a partial observation", () => {
     const result = evaluateMenuSnapshot(
       SOURCE,
       {
@@ -614,10 +609,7 @@ describe("menu snapshot evaluator", () => {
     );
 
     expect(result.identityObservation.suspectedReplacementCount).toBe(1);
-    expect(result.blockingDecision).toMatchObject({
-      blocked: true,
-      code: "MENU_SYNC_IDENTITY_CHURN",
-    });
+    expect(result.blockingDecision.blocked).toBe(false);
     expect(
       result.plan.actions.some((action) => action.action === "deactivate"),
     ).toBe(false);

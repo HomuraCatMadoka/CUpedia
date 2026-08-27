@@ -10,7 +10,7 @@ _Avoid_: 仅因地址或营办方相同就合并独立档口；与「餐段」�
 **公告（Announcement）**: 管理员维护的短提示，展示在食堂详情页名称下方、弹幕上方（无边框灰底），用于外带加价、随餐饮品加价等说明；空则不展示。
 _Avoid_: 用弹幕或菜品名承载固定营运说明。
 
-**菜品（Menu item）**: 某食堂供应的一道菜，含名称、价格选项、餐段赋值、排序与图标 key；一道菜一个 UUID，赞踩与评论挂在该 UUID 上，跨餐段共享。
+**菜品（Canonical dish / Menu item）**: 某食堂里用户可辨认的一道菜；一道菜一个 CUpedia UUID，赞踩与评论挂在该 UUID 上，跨餐段、分类、价格和供应商 offering 共享。相同食堂来源内的名称只转换全角字符、清理首尾空白、合并连续空白并折叠 ASCII 英文字母大小写；其他 Unicode 兼容字符与非英文大小写保持原样。归一化名称相同即为同一道菜。
 _Avoid_: 把菜品当成全局实体——菜品始终归属某个食堂。
 
 **价格选项（Price option）**: 菜品可以没有价格，也可以有一个或多个带可选标签的价格。金额以最小货币单位保存（`amountMinor`；HKD 18 元为 `1800`），公开 DTO 固定为 `pricing.options[]`。UI 遍历选项，不识别「凍」「熱」等具体标签（标签与金额分行展示）。旧 `canteen_menu_items.price` 仅供迁移期读取，所有新写入进入 `canteen_menu_item_prices`。逸夫饮品凍/热样板见 [`examples/shaw-drink-pricing-sample.json`](examples/shaw-drink-pricing-sample.json)（金额为展示样板，需对照 Café Shaw 实价校对）。
@@ -27,22 +27,22 @@ _Avoid_: 用字符串 `localeCompare` 排序餐段；把「全天」做成可见
 
 **JSON 菜单输入**: 菜品输入字段含 name、pricing.options、mealPeriods（或旧 mealPeriod）、sortOrder、svgKey。`svgKey` 存分区键：爬虫来源有店家分类时写入原文分类名；无分类时才按菜名推断为旧版 `rice`/`noodle`/…。迁移期仍接受整数港币 `price` 并转换为单一 HKD 选项。旧 append-only action 仅为兼容保留，不用于周期性来源同步。善衡多规格示例见 [`examples/shho-pricing-sample.json`](examples/shho-pricing-sample.json)。
 
-**外部商品身份（External product identity）**: 一道供应商菜品在某个菜单来源内的稳定标识。CUpedia 的托管菜品身份是菜单来源 + provider-scoped product ID；PinMe 使用 product ID，Aigens 使用 backend ID，iCHEF 使用 `ichefUuid`（官方前端标注为 original setting item UUID）。iCHEF `menuItemsSnapshot.uuid` 是一次发布快照内的 occurrence，不是长期商品身份。餐段、名称、价格、分类和排序都是菜品事实或出现语境，不进入身份。同一商品跨餐段共享一个 CUpedia UUID；同一次供应商响应内，同一身份若出现不兼容名称或无法表达的价格事实则中止。不同时间的已接受观察之间允许正常改名和调价，由最新观察提供可变事实。
-_Avoid_: 用菜名或供应商数组顺序作为长期身份；对所有供应商套用同一种 product ID 粒度；把 5198 的 product ID 放进 5203 的菜单来源。
+**供应商 offering（Provider offering）**: 菜单来源 + provider-scoped product ID 标识一条上游售卖项；PinMe 使用 product ID，Aigens 使用 backend ID，iCHEF 使用 `ichefUuid`。每条 offering 只映射一个 canonical dish UUID，多条同规范化名称的 offering 可映射同一道菜。餐段、价格、分类和排序属于 occurrence 事实；调价不产生新 UUID。
+_Avoid_: 把一个 provider ID 直接等同一个用户菜品；用价格参与菜品身份；把 5198 的 product ID 放进 5203 的菜单来源。
 
-**供应商菜单 occurrence（Provider menu occurrence）**: 供应商原始分类树在某个餐段或分类中对一道菜品的一次引用，不等于新的菜品身份。同一 PinMe product 可同时出现在推荐区和常规分类；同一 Aigens backend product 可同时出现在午餐、晚餐和多个分类。兼容 occurrence 合并餐段与价格语境；不兼容名称或同一语境的冲突价格必须中止。适配器先在供应商边界聚合 occurrence，再对最终商品身份执行唯一性校验；分类选择和价格排序采用固定规则，等价 occurrence 的排列不改变快照。
+**供应商菜单 occurrence（Provider menu occurrence）**: 某条 offering 在一个餐段和分类中的当前事实，保存该语境的价格选项与供应商排序。同一 offering 可跨餐段/分类出现，多条 offering 也可汇入同一 canonical dish。canonical 展示采用当前 provider 排序最早的 occurrence，其余分类与价格仍保留为证据。
 _Avoid_: 在读取分类树时立即把每个 occurrence 当成独立菜品；为消除重复而把分类加入长期身份；无条件保留第一个 occurrence 并丢弃其余价格或餐段事实。
 
-**PINME 发布菜单拓扑（Published menu topology）**: `data.group` 是供应商返回的 broad group pool，只有被 `data.menu_group[].groups` 引用的 `group_id` 才属于本次顾客可见菜单。适配器对引用做有界去重，拒绝坏 ID、重复 group identity 与悬空引用；空引用集合不得退回遍历整个 group pool。只有结构完整、处于声明服务时段且带稳定 publication 标识的空菜单才是可确认观察；同一来源、餐段和 publication 必须在 10–45 分钟内连续空两次才可替换旧菜单，中间任何非空成功观察都会重置确认。快照 scope evidence 保存菜单组数、group pool 数、排序后的被引用 group ID、当前发布标识/窗口、服务时段与有界刷新提示，不保存原始响应。broad pool 的时间只可提示何时重读，其 products 不是菜单权威。不同 `product_id` 即使名称和价格相同也仍是不同菜品。
-_Avoid_: 把 `data.group` 当成当前完整菜单；按名称和价格合并不同 `product_id`；遇到空或坏 `menu_group` 时回退到 broad catalog。
+**PINME 发布菜单拓扑（Published menu topology）**: `data.group` 是供应商返回的 broad group pool，只有被 `data.menu_group[].groups` 引用的 `group_id` 才属于本次顾客可见菜单。适配器对引用做有界去重，拒绝坏 ID、重复 group identity 与悬空引用；空引用集合不得退回遍历整个 group pool。只有结构完整、处于声明服务时段且带稳定 publication 标识的空菜单才是可确认观察；同一来源、餐段和 publication 必须在 10–45 分钟内连续空两次才可替换旧菜单，中间任何非空成功观察都会重置确认。快照 scope evidence 保存菜单组数、group pool 数、排序后的被引用 group ID、当前发布标识/窗口、服务时段与有界刷新提示，不保存原始响应。broad pool 的时间只可提示何时重读，其 products 不是菜单权威。不同 `product_id` 是不同 offering；规范化名称相同则映射同一道 canonical dish。
+_Avoid_: 把 `data.group` 当成当前完整菜单；用价格阻止同名 offering 汇入同一道菜；遇到空或坏 `menu_group` 时回退到 broad catalog。
 
 **供应商发布窗口（Provider publication window）**: 供应商在某段时间选择给顾客看的一个当前菜单，可小于 CUpedia 的早/午/晚餐段。例如午餐 Tab 内可先发布正餐，再发布下午茶。发布标识、被引用分组与时间窗口是切换证据；菜品数量和菜名不是。
 _Avoid_: 认为一次午餐成功就代表整个 11:00–17:00 不再变化；用 broad catalog 或条数变化猜发布切换。
 
 **外部菜单同步**: Admin 对已经配置的菜单来源提交含 `items[].externalProductId` 与快照完整性的来源快照，必须先 dry-run 再应用。首次接管只接受完整目录快照；目录缺席权威可更新整店活跃性，餐段当前活跃性只更新本次实际观察的餐段。菜品失去最后一个可见餐段时才改为 `isAvailable = false`；两者都对本次出现的稳定身份原地更新或恢复同一 UUID。周期任务只接受菜单来源 ID，并强制禁止接管。
 
-**商品身份漂移（Product identity churn）**: 同一菜单来源在相邻快照中出现一批新 product ID，同时旧 ID 消失。观察期内只记录新增、消失与疑似一换一，不自动把新 ID 继承到旧菜品；疑似换 ID 或成批漂移必须保留最近成功菜单并等待审核。
-成批身份替换必须同时有足量新增和消失 ID；单边新增或缺席不是身份替换。部分快照中的缺席没有活跃性权威，完整目录的异常大幅缺席另由 suspicious-drop 规则中止；同名旧/新 ID 等可核对的替换证据始终须审核。
+**商品身份漂移（Product identity churn）**: 同一菜单来源在相邻快照中出现一批新 product ID，同时旧 ID 消失。规范化名称相同的 ID 变化自动作为同一道 canonical dish 的 offering 变化；名称不同或一个名称已指向多个 UUID 的歧义仍保留最近成功菜单并等待审核。
+成批身份替换必须同时有足量新增和消失 ID；单边新增或缺席不是身份替换。部分快照中的缺席没有活跃性权威，完整目录的异常大幅缺席另由 suspicious-drop 规则中止。
 _Avoid_: 让调用者同时传 source string 与 canteen ID；先清空菜单再导入；把普通追加导入当全量来源快照；无 dry-run 直接接管手工菜品。
 
 **身份转换审计（Identity transition audit）**: 对一个被商品身份漂移阻断的菜单来源，记录当前 CUpedia UUID、旧/新 provider ID，以及规范化名称、价格和餐段的确定性事实快照。审计可提示唯一的替换候选，但候选本身不是批准。
@@ -71,7 +71,7 @@ _Avoid_: claim 后重新调用 `new Date()`；让重试跨餐段改变请求语�
 **餐段作用域观察（Meal-period-scoped observation）**: 上游只返回某个观察餐段顾客可见菜单时，原始快照保持其真实的 `partial`/`complete` 目录证据与供应商声明售卖时段。一个有效观察立即替换该餐段的**当前可见成员**：出现的身份加入该餐段，缺席的托管身份只移除该餐段，其他已配置餐段原样保留。同一餐段可以有多次观察，最新成功观察替换先前的点时成员；同一商品跨餐段仍共享 UUID，名称、价格、分类和排序采用当前观察的最新事实。供应商声明时段属于原始证据，不能替代尚未发生的顾客可见性观察。
 _Avoid_: 等齐全部餐段才修正已观察餐段；把无 `saleTime` 的点时响应标成 `allday`；让晚餐快照移除午餐可见性；在 reconciliation 内按 provider 名称分支。
 
-**当前菜单投影（Current menu projection）**: 从一个权威目录观察，或一个有效餐段观察派生出的 CUpedia 当前展示状态。它只携带投影条目与缺席权威（无权威、供应商目录、当前活跃性），不携带伪造的快照完整性或观察作用域，也不会作为原始快照持久化。`current-activity` 明确携带本次覆盖餐段与来源配置餐段，用局部 patch 修正餐段成员；明确的供应商发布切换可解释成批菜单组成变化，但同名换 ID 和身份冲突始终须中止，没有发布证据的成批新旧 ID 漂移仍须审核。
+**当前菜单投影（Current menu projection）**: 从一个权威目录观察，或一个有效餐段观察派生出的 CUpedia 当前展示状态。它只携带投影条目与缺席权威（无权威、供应商目录、当前活跃性），不携带伪造的快照完整性或观察作用域，也不会作为原始快照持久化。`current-activity` 明确携带本次覆盖餐段与来源配置餐段，用局部 patch 修正餐段成员；同规范化名称的 offering 自动汇入同一道菜，一个名称已指向多个 UUID 或名称不同的成批新旧 ID 漂移仍须审核。
 _Avoid_: 把多个 `partial` 观察合成并标记为 `complete catalog`；让 adapter 直接签发内部活跃性权威；把可逆下线解释成供应商永久删除。
 
 **餐段当前可见性（Meal-period activity）**: 菜品当前是否出现在某个早、午、晚餐 Tab。一个权威餐段观察只拥有这个局部状态：缺席可移除该餐段，但不能推断未观察餐段。旧 `["allday"]` 托管数据在第一次局部更新时展开为该来源配置的具体餐段，避免未配置餐段永久阻止收敛。
@@ -121,3 +121,4 @@ _Avoid_: 与菜品赞踩表混用；把日榜做成 upsert/可取消。
 - [0028：以 Supabase Cron 作为菜单同步主时钟](../adr/0028-use-supabase-cron-as-primary-menu-sync-clock.md)
 - [0029：约束 Supabase pg_net 传输证据边界](../adr/0029-bound-supabase-pg-net-transport-evidence.md)
 - [0030：在有界刷新截止停止餐段观察](../adr/0030-stop-scoped-observations-at-refresh-horizons.md)
+- [0031：分离 canonical 菜品与供应商 offering](../adr/0031-separate-canonical-dishes-from-provider-offerings.md)

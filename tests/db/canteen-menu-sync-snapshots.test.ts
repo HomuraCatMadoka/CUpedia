@@ -350,7 +350,7 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
     expect(comparison.changed).toEqual([
       expect.objectContaining({
         externalProductId: "a",
-        fields: ["name", "priceOptions", "svgKey"],
+        fields: ["name", "priceOptions", "svgKey", "occurrences"],
       }),
     ]);
   });
@@ -1031,7 +1031,7 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
 
     const result = await syncCanteenMenuSource(sourceId);
     expect(result).toMatchObject({ status: "applied" });
-    const [[updated], [updatedPrice], [acceptedSnapshot]] = await Promise.all([
+    const [[updated], updatedPrices, [acceptedSnapshot]] = await Promise.all([
       db
         .select({
           id: canteenMenuItems.id,
@@ -1054,15 +1054,29 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
       name: "新菜名",
       mealPeriods: ["breakfast", "lunch", "dinner"],
     });
-    expect(updatedPrice).toEqual({ amountMinor: 2_500 });
+    expect(updatedPrices.map((price) => price.amountMinor).sort()).toEqual([
+      2_000, 2_500,
+    ]);
     expect(acceptedSnapshot).toEqual({ observationScope: "meal-period" });
   });
 
   it("does not record failed or review-blocked attempts", async () => {
     fetchMenuFromProvider
       .mockRejectedValueOnce(new Error("UPSTREAM_HTTP_503"))
-      .mockResolvedValueOnce(snapshot([item("old", { name: "同名菜品" })]))
-      .mockResolvedValueOnce(snapshot([item("new", { name: "同名菜品" })]));
+      .mockResolvedValueOnce(
+        snapshot([
+          item("old-1", { name: "舊菜一" }),
+          item("old-2", { name: "舊菜二" }),
+          item("old-3", { name: "舊菜三" }),
+        ]),
+      )
+      .mockResolvedValueOnce(
+        snapshot([
+          item("old-1", { name: "舊菜二" }),
+          item("old-2", { name: "舊菜二" }),
+          item("old-3", { name: "舊菜三" }),
+        ]),
+      );
 
     await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
       status: "provider-failure",
@@ -1072,7 +1086,7 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
     });
     await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
       status: "blocked",
-      code: "MENU_SYNC_IDENTITY_CHURN",
+      code: "MENU_SYNC_CONFLICT",
     });
 
     const snapshots = await db

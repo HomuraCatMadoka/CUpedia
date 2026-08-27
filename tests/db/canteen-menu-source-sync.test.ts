@@ -8,6 +8,7 @@ import {
   canteenDishVotes,
   canteenMenuItemPrices,
   canteenMenuItems,
+  canteenMenuProviderOfferings,
   canteenMenuSources,
   canteenMenuSyncRuns,
   canteens,
@@ -443,6 +444,12 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
         sortOrder: 0,
       },
     ];
+    input.items[0].occurrences = input.items[0].occurrences?.map(
+      (occurrence) => ({
+        ...occurrence,
+        priceOptions: input.items[0].priceOptions,
+      }),
+    );
     fetchMenuFromProvider.mockResolvedValueOnce(input);
 
     await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
@@ -1006,7 +1013,7 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
     expect(history.map(([row]) => row.value)).toEqual([1, 1]);
   });
 
-  it("blocks a same-name identity replacement without changing menu history", async () => {
+  it("maps a same-name provider replacement onto the existing UUID", async () => {
     const itemId = randomUUID();
     await db.insert(canteenMenuItems).values({
       id: itemId,
@@ -1028,19 +1035,16 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
     });
     const replacement = structuredClone(pinmeCurrent);
     replacement.data.group[0].products[0].local_name = "同名示例菜品";
+    const replacementPayload = buildPinmeMenuSyncPayload(replacement);
     const expectedPreview = await previewMenuSync(sourceId, {
-      ...buildPinmeMenuSyncPayload(replacement),
+      ...replacementPayload,
       takeOverLegacyItems: false,
     });
-    expect(expectedPreview.blockingDecision).toMatchObject({
-      blocked: true,
-      code: "MENU_SYNC_IDENTITY_CHURN",
-    });
+    expect(expectedPreview.blockingDecision.blocked).toBe(false);
     stubPinmeFetch(replacement);
 
     await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
-      status: "blocked",
-      code: "MENU_SYNC_IDENTITY_CHURN",
+      status: "applied",
     });
 
     const items = await db
@@ -1054,6 +1058,29 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
     expect(items).toEqual([
       { id: itemId, externalProductId: "secret-old-id", isAvailable: true },
     ]);
+    const offerings = await db
+      .select({
+        externalProductId: canteenMenuProviderOfferings.externalProductId,
+        menuItemId: canteenMenuProviderOfferings.menuItemId,
+        isAvailable: canteenMenuProviderOfferings.isAvailable,
+      })
+      .from(canteenMenuProviderOfferings)
+      .where(eq(canteenMenuProviderOfferings.menuSourceId, sourceId));
+    expect(offerings).toEqual(
+      expect.arrayContaining([
+        {
+          externalProductId: "secret-old-id",
+          menuItemId: itemId,
+          // The first scoped read cannot retire evidence in unobserved periods.
+          isAvailable: true,
+        },
+        {
+          externalProductId: replacementPayload.items[0].externalProductId,
+          menuItemId: itemId,
+          isAvailable: true,
+        },
+      ]),
+    );
     const [run] = await db
       .select({ observation: canteenMenuSyncRuns.observation })
       .from(canteenMenuSyncRuns)

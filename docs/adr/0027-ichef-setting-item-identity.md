@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded in part by [ADR 0031](0031-separate-canonical-dishes-from-provider-offerings.md)
 
 ## Context
 

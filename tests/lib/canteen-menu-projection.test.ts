@@ -108,6 +108,97 @@ describe("current menu projection", () => {
     ]);
   });
 
+  it("merges exact occurrences for one offering across scoped snapshots", () => {
+    const projection = materializeMealPeriodActivityProjection(
+      "source-1",
+      {
+        items: [
+          {
+            externalProductId: "shared-item",
+            name: "共享菜品",
+            priceOptions: [],
+            mealPeriods: ["lunch"],
+            sortOrder: 0,
+            svgKey: "午餐類",
+            occurrences: [
+              {
+                mealPeriod: "lunch",
+                categoryKey: "午餐類",
+                sortOrder: 2,
+                priceOptions: [
+                  {
+                    label: null,
+                    amountMinor: 2000,
+                    currency: "HKD",
+                    sortOrder: 0,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        absenceAuthority: {
+          kind: "current-activity",
+          coveredMealPeriods: ["lunch"],
+          configuredMealPeriods: ["lunch", "dinner"],
+        },
+      },
+      [
+        {
+          id: "shared-uuid",
+          menuSourceId: "source-1",
+          externalProductId: "shared-item",
+          name: "共享菜品",
+          priceOptions: [],
+          mealPeriods: ["lunch", "dinner"],
+          sortOrder: 0,
+          svgKey: "午餐類",
+          isAvailable: true,
+        },
+      ],
+      {
+        dinner: [
+          {
+            externalProductId: "shared-item",
+            name: "共享菜品",
+            priceOptions: [],
+            mealPeriods: ["dinner"],
+            sortOrder: 0,
+            svgKey: "晚餐類",
+            occurrences: [
+              {
+                mealPeriod: "dinner",
+                categoryKey: "晚餐類",
+                sortOrder: 7,
+                priceOptions: [
+                  {
+                    label: null,
+                    amountMinor: 2500,
+                    currency: "HKD",
+                    sortOrder: 0,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    );
+
+    expect(projection.items[0].occurrences).toEqual([
+      expect.objectContaining({
+        mealPeriod: "lunch",
+        categoryKey: "午餐類",
+        priceOptions: [expect.objectContaining({ amountMinor: 2000 })],
+      }),
+      expect.objectContaining({
+        mealPeriod: "dinner",
+        categoryKey: "晚餐類",
+        priceOptions: [expect.objectContaining({ amountMinor: 2500 })],
+      }),
+    ]);
+  });
+
   it("does not resurrect old snapshots when a removed period is re-enabled (#782)", () => {
     const projection = materializeMealPeriodActivityProjection(
       "source-1",

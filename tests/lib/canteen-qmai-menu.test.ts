@@ -58,6 +58,39 @@ describe("Qmai menu adapter", () => {
     });
   });
 
+  it("retains compatible category occurrences and their own prices", () => {
+    const repeatedResponse = structuredClone(menuResponse);
+    const second = structuredClone(
+      repeatedResponse.data.categoryItems[0].itemList[0],
+    );
+    second.skuList = [
+      {
+        skuId: "category-price",
+        salePrice: 42,
+        skuItemList: [{ itemName: "分類價" }],
+      },
+    ];
+    repeatedResponse.data.categoryItems.push({
+      available: 1,
+      categoryName: "另一分類",
+      itemList: [second],
+    });
+
+    const [item] = buildQmaiMenuSyncPayload(repeatedResponse, "lunch").items;
+    expect(item.occurrences).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          categoryKey: "另一分類",
+          priceOptions: [expect.objectContaining({ amountMinor: 4200 })],
+        }),
+      ]),
+    );
+    expect(item.occurrences).toHaveLength(2);
+    expect(item.priceOptions.map((option) => option.amountMinor)).toContain(
+      4200,
+    );
+  });
+
   it("normalizes available products, variants, and sale windows", () => {
     const result = buildQmaiMenuSyncPayload(menuResponse, "lunch");
 

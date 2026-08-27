@@ -15,6 +15,7 @@ import {
   type MenuSyncInput,
   type MenuSyncItemInput,
 } from "./canteen-types";
+import { normalizeCanonicalDishName } from "./canteen-menu-canonicalization";
 import {
   MENU_SNAPSHOT_COMPLETENESS,
   assertProviderSnapshotCompleteness,
@@ -1119,14 +1120,10 @@ function evidenceFor(
   }
   return {
     externalProductId: item.externalProductId,
-    normalizedName: normalizeName(item.name),
+    normalizedName: normalizeCanonicalDishName(item.name),
     mealPeriods: [...item.mealPeriods].sort(),
     priceOptions: canonicalizePriceOptions(item.priceOptions),
   };
-}
-
-function normalizeName(value: string): string {
-  return value.normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function groupExistingByNormalizedName(

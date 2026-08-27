@@ -66,6 +66,14 @@ export type MenuItemPricing = {
 
 export type MenuItemPriceOptionInput = Omit<CanteenPriceOption, "id">;
 
+/** One exact provider placement of an offering, before canonical projection. */
+export type MenuProviderOccurrenceInput = {
+  mealPeriod: MealPeriodAssignment;
+  categoryKey: string;
+  sortOrder: number;
+  priceOptions: MenuItemPriceOptionInput[];
+};
+
 export type CanteenMenuItem = {
   id: string;
   canteenId: string;
@@ -152,7 +160,37 @@ export type MenuItemJsonImportRow = {
 
 export type MenuSyncItemInput = MenuItemJsonImportRow & {
   externalProductId: string;
+  /** Exact period/category facts when the provider exposes repeated placements. */
+  occurrences?: MenuProviderOccurrenceInput[];
 };
+
+/** Exact occurrences, with a lossless fallback for legacy/admin payloads. */
+export function menuProviderOccurrences(
+  item: MenuSyncItemInput,
+): MenuProviderOccurrenceInput[] {
+  if (item.occurrences?.length) return item.occurrences;
+  return item.mealPeriods.map((mealPeriod) => ({
+    mealPeriod,
+    categoryKey: item.svgKey,
+    sortOrder: item.sortOrder,
+    priceOptions: item.priceOptions,
+  }));
+}
+
+export function sortMenuProviderOccurrences(
+  occurrences: readonly MenuProviderOccurrenceInput[],
+): MenuProviderOccurrenceInput[] {
+  return [...occurrences].sort(
+    (left, right) =>
+      primaryMealPeriodSortKey([left.mealPeriod]) -
+        primaryMealPeriodSortKey([right.mealPeriod]) ||
+      left.sortOrder - right.sortOrder ||
+      left.categoryKey.localeCompare(right.categoryKey) ||
+      JSON.stringify(left.priceOptions).localeCompare(
+        JSON.stringify(right.priceOptions),
+      ),
+  );
+}
 
 /** Immutable database-time context shared by one claimed provider read. */
 export type MenuObservationContext = {

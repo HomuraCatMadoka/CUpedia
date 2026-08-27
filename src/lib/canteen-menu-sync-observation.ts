@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { MenuAbsenceAuthority } from "./canteen-types";
+import { normalizeCanonicalDishName } from "./canteen-menu-canonicalization";
 
 declare const redactedMenuSampleBrand: unique symbol;
 export type RedactedMenuSample = string & {
@@ -23,10 +24,6 @@ const OBSERVATION_ID_LIMIT = 25;
 const MIN_CHURN_COUNT = 3;
 const CHURN_RATIO_PERCENT = 25;
 
-function normalizedName(value: string): string {
-  return value.normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase();
-}
-
 export function observeMenuIdentityChurn(
   existing: Array<{
     externalProductId: string;
@@ -47,11 +44,11 @@ export function observeMenuIdentityChurn(
   const newByName = new Map<string, typeof newItems>();
   const missingByName = new Map<string, typeof missingItems>();
   for (const item of newItems) {
-    const key = normalizedName(item.name);
+    const key = normalizeCanonicalDishName(item.name);
     newByName.set(key, [...(newByName.get(key) ?? []), item]);
   }
   for (const item of missingItems) {
-    const key = normalizedName(item.name);
+    const key = normalizeCanonicalDishName(item.name);
     missingByName.set(key, [...(missingByName.get(key) ?? []), item]);
   }
   const suspectedReplacements: Array<{

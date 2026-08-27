@@ -205,7 +205,7 @@ describe("iCHEF menu adapter", () => {
     ).toThrowError(expect.objectContaining({ code: "COLLIDING_IDENTITY" }));
   });
 
-  it("aggregates compatible category occurrences deterministically", () => {
+  it("aggregates compatible categories and retains provider order", () => {
     const categories = [
       {
         uuid: "a",
@@ -241,7 +241,47 @@ describe("iCHEF menu adapter", () => {
 
     expect(forward.items).toHaveLength(1);
     expect(reverse.items).toHaveLength(1);
-    expect(reverse.items[0]).toEqual(forward.items[0]);
+    expect(forward.items[0].occurrences).toEqual([
+      expect.objectContaining({ categoryKey: "飯類" }),
+      expect.objectContaining({ categoryKey: "飲品" }),
+    ]);
+    expect(reverse.items[0].occurrences).toEqual([
+      expect.objectContaining({ categoryKey: "飲品" }),
+      expect.objectContaining({ categoryKey: "飯類" }),
+    ]);
+  });
+
+  it("keeps dish order separate from price-option order", () => {
+    const secondUuid = "22222222-2222-4222-8222-222222222222";
+    const payload = buildIchefMenuSyncPayload(
+      [{ categorySnapshotUuids: ["a"] }],
+      [
+        {
+          uuid: "a",
+          name: "飯類",
+          menuItemsSnapshot: [
+            {
+              uuid: "published-first",
+              ichefUuid: ICHEF_PRODUCT_UUID,
+              name: "第一道",
+              price: 10,
+            },
+            {
+              uuid: "published-second",
+              ichefUuid: secondUuid,
+              name: "第二道",
+              price: 20,
+            },
+          ],
+        },
+      ],
+    );
+    const second = payload.items.find(
+      (item) => item.externalProductId === secondUuid,
+    );
+
+    expect(second?.occurrences?.[0].sortOrder).toBe(1);
+    expect(second?.occurrences?.[0].priceOptions[0].sortOrder).toBe(0);
   });
 
   it("fails closed instead of falling back to a snapshot UUID", () => {

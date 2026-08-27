@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded in part by [ADR 0026](0026-refresh-current-menus-across-provider-publication-windows.md)
+Superseded in part by [ADR 0026](0026-refresh-current-menus-across-provider-publication-windows.md) and [ADR 0031](0031-separate-canonical-dishes-from-provider-offerings.md)
 
 ## Context
 
@@ -14,10 +14,11 @@ votes and comments reference menu item IDs with cascading foreign keys, so a
 replacement import destroys the dish history.
 
 Names and meal periods are not stable external identities. Both PinMe product
-IDs and Aigens backend product IDs identify dishes independently of the menu
-period or category in which providers publish them. Period-specific names and
-prices are occurrence facts that must be aggregated or rejected when they
-cannot be represented without ambiguity.
+IDs and Aigens backend product IDs identify offerings independently of the menu
+period or category in which providers publish them. Period-specific names,
+prices and categories are occurrence facts. The current model preserves the
+exact representable contexts and rejects only conflicting facts for the same
+identity and context.
 
 Provider category trees can also reference the same offering more than once.
 These raw occurrences are not independent identities: recommendation and
@@ -35,15 +36,13 @@ same Aigens group.
    occurrences of one product aggregate onto one CUpedia UUID; incompatible
    facts fail closed instead of splitting or guessing history.
 2. Adapters aggregate repeated raw category occurrences before enforcing final
-   offering uniqueness. Repeated PinMe products merge meal periods only when
-   normalized names and prices agree. Repeated Aigens category and period
-   references merge the same backend product, retaining distinct contextual
-   prices as deterministically labeled options. Conflicting names, conflicting
-   PinMe prices, and duplicate product IDs inside one raw provider group fail
-   closed; an Aigens category label that maps to two prices is likewise
-   ambiguous and fails closed. Category never becomes part of the stable
-   identity. Canonical category selection and price ordering make the normalized
-   result independent of raw occurrence order.
+   offering uniqueness. Repeated products merge meal periods while retaining
+   each period/category placement and its contextual prices. Conflicting names,
+   conflicting prices for the same period/category context, and duplicate
+   product IDs inside one raw provider group fail closed. Category never becomes
+   part of stable identity. Canonical category selection, occurrence ordering
+   and price ordering make the normalized result independent of raw response
+   order.
 3. Every adapter labels its normalized response `complete` or `partial` and
    declares whether absence applies to the catalog or one meal period, using
    verified provider semantics. Aigens exposes the menu visible to an ordering

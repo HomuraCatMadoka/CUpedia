@@ -650,13 +650,8 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       snapshotCompleteness: "partial" as const,
     };
     const preview = await previewMenuSync(sourceId, ordinaryInput);
-    expect(preview.blockingDecision).toMatchObject({
-      blocked: true,
-      code: "MENU_SYNC_IDENTITY_CHURN",
-    });
-    expect(preview.blockingReasons.map((reason) => reason.code)).toEqual([
-      "MENU_SYNC_IDENTITY_CHURN",
-    ]);
+    expect(preview.blockingDecision.blocked).toBe(false);
+    expect(preview.blockingReasons).toEqual([]);
 
     await applyApprovedMenuIdentityTransition(sourceId, input, {
       schemaVersion: 4,
