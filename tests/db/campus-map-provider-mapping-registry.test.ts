@@ -28,7 +28,32 @@ describe.skipIf(!hasDb)("Campus Map provider mapping registry", () => {
   const activeChangesetId = randomUUID();
   const activeChangeId = randomUUID();
   const activeRevisionId = randomUUID();
+  const retiredChangesetId = randomUUID();
+  const retiredChangeId = randomUUID();
+  const retiredRevisionId = randomUUID();
   const provenanceId = randomUUID();
+  const activeFact: CampusMapAppendFact = {
+    name: "Issue 779 active Place",
+    buildingId,
+    floorId: null,
+    pinType: "water",
+    capabilities: [],
+    gender: "unknown",
+    wheelchairAccess: "unknown",
+    audience: "cuhk-member",
+    credentialRequirement: "none",
+    accessSchedule: { kind: "unknown" },
+    reservationRequirement: "none",
+    temporaryStatus: "normal",
+    locationKind: "building",
+    pointPrecision: null,
+    longitude: null,
+    latitude: null,
+    coordinateCrs: null,
+    observedAt: new Date("2000-01-01T00:00:00.000Z"),
+    verifiedAt: null,
+    verifiedByActorIdSnapshot: null,
+  };
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -82,28 +107,6 @@ describe.skipIf(!hasDb)("Campus Map provider mapping registry", () => {
        values ($1, 'provider-candidate', $2, '2026-08-27', 'restricted')`,
       [provenanceId, `test:provider-mapping:${provenanceId}`],
     );
-    const fact: CampusMapAppendFact = {
-      name: "Issue 779 active Place",
-      buildingId,
-      floorId: null,
-      pinType: "water",
-      capabilities: [],
-      gender: "unknown",
-      wheelchairAccess: "unknown",
-      audience: "cuhk-member",
-      credentialRequirement: "none",
-      accessSchedule: { kind: "unknown" },
-      reservationRequirement: "none",
-      temporaryStatus: "normal",
-      locationKind: "building",
-      pointPrecision: null,
-      longitude: null,
-      latitude: null,
-      coordinateCrs: null,
-      observedAt: new Date("2000-01-01T00:00:00.000Z"),
-      verifiedAt: null,
-      verifiedByActorIdSnapshot: null,
-    };
     const command: CampusMapAppendChangesetCommand = {
       id: activeChangesetId,
       actor: {
@@ -136,7 +139,7 @@ describe.skipIf(!hasDb)("Campus Map provider mapping registry", () => {
           },
           status: "active",
           mergedIntoPlaceId: null,
-          fact,
+          fact: activeFact,
           provenanceIds: [provenanceId],
           visibility: { visibility: "public" },
         },
@@ -169,22 +172,25 @@ describe.skipIf(!hasDb)("Campus Map provider mapping registry", () => {
       [activePlaceId],
     );
     await client.query(
-      "delete from campus_map_revision_visibility where revision_id = $1",
-      [activeRevisionId],
+      "delete from campus_map_revision_visibility where revision_id = any($1::uuid[])",
+      [[activeRevisionId, retiredRevisionId]],
     );
     await client.query(
-      "delete from campus_map_revision_provenance where revision_id = $1",
-      [activeRevisionId],
+      "delete from campus_map_revision_provenance where revision_id = any($1::uuid[])",
+      [[activeRevisionId, retiredRevisionId]],
     );
-    await client.query("delete from campus_map_fact_revisions where id = $1", [
-      activeRevisionId,
-    ]);
-    await client.query("delete from campus_map_place_changes where id = $1", [
-      activeChangeId,
-    ]);
-    await client.query("delete from campus_map_changesets where id = $1", [
-      activeChangesetId,
-    ]);
+    await client.query(
+      "delete from campus_map_fact_revisions where id = any($1::uuid[])",
+      [[activeRevisionId, retiredRevisionId]],
+    );
+    await client.query(
+      "delete from campus_map_place_changes where id = any($1::uuid[])",
+      [[activeChangeId, retiredChangeId]],
+    );
+    await client.query(
+      "delete from campus_map_changesets where id = any($1::uuid[])",
+      [[activeChangesetId, retiredChangesetId]],
+    );
     await client.query(
       "delete from campus_map_places where id = any($1::uuid[])",
       [[inactivePlaceId, activePlaceId]],
@@ -755,6 +761,108 @@ describe.skipIf(!hasDb)("Campus Map provider mapping registry", () => {
     ).resolves.toEqual({
       status: "not-found",
       code: "mapping-target-kind-mismatch",
+    });
+  });
+
+  it("can unlink and rebind a mapping after its Place is retired", async () => {
+    const unlinkIdentity = {
+      provider: "test-provider-779",
+      providerObjectId: "retired-place-unlink-poi",
+    };
+    const rebindIdentity = {
+      provider: "test-provider-779",
+      providerObjectId: "retired-place-rebind-poi",
+    };
+    const placeTarget = { kind: "place" as const, placeId: activePlaceId };
+    for (const identity of [unlinkIdentity, rebindIdentity]) {
+      await commandCampusMapProviderMapping(
+        {
+          kind: "bind",
+          idempotencyKey: randomUUID(),
+          identity,
+          target: placeTarget,
+          reason: "Place 退役前建立正式 mapping",
+          provenanceId,
+        },
+        { actorId },
+      );
+    }
+
+    await appendCampusMapChangesetForStorageTest({
+      id: retiredChangesetId,
+      actor: {
+        userId: actorId,
+        id: actorId,
+        nickname: "Provider mapping 管理员",
+      },
+      comment: "Retire the mapped Place",
+      sourceSummary: "Provider mapping lifecycle regression fixture",
+      reviewRequested: false,
+      client: { name: "provider-mapping-test", version: "1" },
+      warningSummary: [],
+      revertsChangesetId: null,
+      publishedAt: new Date("2000-01-02T00:00:00.000Z"),
+      changes: [
+        {
+          id: retiredChangeId,
+          placeId: activePlaceId,
+          revisionId: retiredRevisionId,
+          baseRevisionId: activeRevisionId,
+          operation: "retire",
+          factSchemaVersion: 1,
+          fieldMetadata: { name: { label: "名称" } },
+          fieldDiff: {},
+          status: "retired",
+          mergedIntoPlaceId: null,
+          fact: activeFact,
+          provenanceIds: [provenanceId],
+          visibility: { visibility: "public" },
+        },
+      ],
+    });
+    await expect(
+      resolveCampusMapProviderSelection(
+        unlinkIdentity.provider,
+        unlinkIdentity.providerObjectId,
+      ),
+    ).resolves.toBeNull();
+
+    await expect(
+      commandCampusMapProviderMapping(
+        {
+          kind: "unlink",
+          idempotencyKey: randomUUID(),
+          identity: unlinkIdentity,
+          previousTarget: placeTarget,
+          reason: "退役后清理 stale mapping",
+          provenanceId,
+        },
+        { actorId },
+      ),
+    ).resolves.toMatchObject({
+      status: "mapped",
+      outcome: "unlinked",
+      previousTarget: placeTarget,
+      target: null,
+    });
+    await expect(
+      commandCampusMapProviderMapping(
+        {
+          kind: "rebind",
+          idempotencyKey: randomUUID(),
+          identity: rebindIdentity,
+          previousTarget: placeTarget,
+          newTarget: { kind: "building", buildingId: secondBuildingId },
+          reason: "退役后重新绑定到有效 Building",
+          provenanceId,
+        },
+        { actorId },
+      ),
+    ).resolves.toMatchObject({
+      status: "mapped",
+      outcome: "rebound",
+      previousTarget: placeTarget,
+      target: { kind: "building", buildingId: secondBuildingId },
     });
   });
 

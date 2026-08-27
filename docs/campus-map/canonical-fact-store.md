@@ -40,9 +40,10 @@ expose a second application publish path.
 provider mappings and their private governance history. Its exact public query
 returns only a canonical Building/Place selection target or `null`. Its
 bind/unlink/rebind command locks one provider identity, rechecks the actor's
-current admin status, validates the public canonical target, updates the active
-projection, and appends an actor/reason/time/provenance decision in one
-transaction. `provider-mapping-registry-actions.ts` supplies authenticated
+current admin status, validates previous targets by stable canonical identity
+and new targets by public eligibility, updates the active projection, and
+appends an actor/reason/time/provenance decision in one transaction.
+`provider-mapping-registry-actions.ts` supplies authenticated
 server context; React, provider adapters, and seed/import code cannot write
 mapping rows. Name, alias, distance, and coordinate evidence stays in the pure
 `provider-mapping-candidate.ts` module until an admin sends an explicit command.

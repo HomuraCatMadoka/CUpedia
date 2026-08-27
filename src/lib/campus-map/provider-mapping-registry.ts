@@ -278,22 +278,36 @@ function validateProviderIdentity(identity: CampusMapProviderIdentity) {
   return errors;
 }
 
+type CampusMapProviderMappingTargetField =
+  | "target"
+  | "previousTarget"
+  | "newTarget";
+
+function mappingCommandTargets(
+  command: CampusMapProviderMappingCommand,
+): Array<{
+  field: CampusMapProviderMappingTargetField;
+  target: CampusMapProviderMappingTarget;
+}> {
+  if (command.kind === "bind") {
+    return [{ field: "target", target: command.target }];
+  }
+  if (command.kind === "unlink") {
+    return [{ field: "previousTarget", target: command.previousTarget }];
+  }
+  return [
+    { field: "previousTarget", target: command.previousTarget },
+    { field: "newTarget", target: command.newTarget },
+  ];
+}
+
 function validateCommand(command: CampusMapProviderMappingCommand) {
   const errors: Array<{ code: string; field: string }> = [];
   if (!isCanonicalCampusMapUuid(command.idempotencyKey.toLowerCase())) {
     errors.push({ code: "invalid-idempotency-key", field: "idempotencyKey" });
   }
   errors.push(...validateProviderIdentity(command.identity));
-  const targets =
-    command.kind === "bind"
-      ? [["target", command.target] as const]
-      : command.kind === "unlink"
-        ? [["previousTarget", command.previousTarget] as const]
-        : [
-            ["previousTarget", command.previousTarget] as const,
-            ["newTarget", command.newTarget] as const,
-          ];
-  for (const [field, target] of targets) {
+  for (const { field, target } of mappingCommandTargets(command)) {
     const targetId =
       target.kind === "building" ? target.buildingId : target.placeId;
     if (!isCanonicalCampusMapUuid(targetId.toLowerCase())) {
@@ -355,7 +369,7 @@ async function readAdmin(
   return { id: actor.id, nickname: actor.nickname };
 }
 
-async function validateTarget(
+async function validateCanonicalTargetIdentity(
   transaction: DatabaseTransaction,
   target: CampusMapProviderMappingTarget,
 ): Promise<"valid" | "not-found" | "kind-mismatch"> {
@@ -372,6 +386,27 @@ async function validateTarget(
       .where(eq(campusMapPlaces.id, target.buildingId))
       .limit(1);
     return place ? "kind-mismatch" : "not-found";
+  }
+  const [place] = await transaction
+    .select({ id: campusMapPlaces.id })
+    .from(campusMapPlaces)
+    .where(eq(campusMapPlaces.id, target.placeId))
+    .limit(1);
+  if (place) return "valid";
+  const [building] = await transaction
+    .select({ id: campusMapBuildings.id })
+    .from(campusMapBuildings)
+    .where(eq(campusMapBuildings.id, target.placeId))
+    .limit(1);
+  return building ? "kind-mismatch" : "not-found";
+}
+
+async function validatePublicMappingTarget(
+  transaction: DatabaseTransaction,
+  target: CampusMapProviderMappingTarget,
+): Promise<"valid" | "not-found" | "kind-mismatch"> {
+  if (target.kind === "building") {
+    return validateCanonicalTargetIdentity(transaction, target);
   }
   const [activePlace] = await transaction
     .select({ id: campusMapCurrentFacts.placeId })
@@ -392,12 +427,11 @@ async function validateTarget(
     )
     .limit(1);
   if (activePlace) return "valid";
-  const [building] = await transaction
-    .select({ id: campusMapBuildings.id })
-    .from(campusMapBuildings)
-    .where(eq(campusMapBuildings.id, target.placeId))
-    .limit(1);
-  return building ? "kind-mismatch" : "not-found";
+  const identityValidation = await validateCanonicalTargetIdentity(
+    transaction,
+    target,
+  );
+  return identityValidation === "kind-mismatch" ? "kind-mismatch" : "not-found";
 }
 
 async function appendMappingEvent(
@@ -567,14 +601,11 @@ export async function commandCampusMapProviderMapping(
         });
         return result;
       }
-      const commandTargets =
-        command.kind === "bind"
-          ? [command.target]
-          : command.kind === "unlink"
-            ? [command.previousTarget]
-            : [command.previousTarget, command.newTarget];
-      for (const target of commandTargets) {
-        const targetValidation = await validateTarget(transaction, target);
+      for (const { field, target } of mappingCommandTargets(command)) {
+        const targetValidation =
+          field === "previousTarget"
+            ? await validateCanonicalTargetIdentity(transaction, target)
+            : await validatePublicMappingTarget(transaction, target);
         if (targetValidation !== "valid") {
           const result = {
             status: "not-found",
