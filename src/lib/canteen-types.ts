@@ -78,6 +78,12 @@ export type CanteenMenuItem = {
   updatedAt: Date;
 };
 
+/** Latest accepted provider observation for each public meal period. */
+export type CanteenMenuFreshness = {
+  evaluatedAt: Date;
+  periods: Record<MealPeriod, Date | null>;
+};
+
 export type DeleteImpact = {
   menuItemCount: number;
   voteCount: number;
@@ -205,6 +211,11 @@ export type ProviderMenuObservation = {
   items: MenuSyncItemInput[];
   scopeEvidence?: MenuSnapshotScopeEvidence;
   observationScope?: MenuObservationScope;
+  /** Provider proof that an empty response is a valid, currently open menu. */
+  emptyMenuEvidence?: {
+    kind: "open-publication";
+    publicationKey: string;
+  };
 };
 
 /** Legacy/Admin command envelope around one provider observation. */
@@ -226,6 +237,8 @@ export type MenuAbsenceAuthority =
 export type CurrentMenuProjection = {
   items: MenuSyncItemInput[];
   absenceAuthority: MenuAbsenceAuthority;
+  /** True only after the source-sync confirmation gate accepted a proven empty. */
+  confirmedEmpty?: boolean;
 };
 
 function parseMenuObservationScope(

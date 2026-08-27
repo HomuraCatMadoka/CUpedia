@@ -9,6 +9,10 @@ import {
   menuSyncWindowAcceptsActivity,
   type MenuSyncWindow,
 } from "./canteen-menu-sync-window";
+import {
+  EMPTY_MENU_CONFIRMATION_MIN_MS,
+  EMPTY_MENU_CONFIRMATION_PENDING_CODE,
+} from "./canteen-menu-empty-confirmation";
 
 const MAX_WINDOW_FAILURES = 3;
 const FIRST_RETRY_DELAY_MS = 2 * 60 * 1_000;
@@ -213,7 +217,11 @@ function classifyMenuSourceSchedule(
   }
   if (facts.latestFailedAt) {
     const delay =
-      facts.failureCount === 1 ? FIRST_RETRY_DELAY_MS : LATER_RETRY_DELAY_MS;
+      facts.latestErrorCode === EMPTY_MENU_CONFIRMATION_PENDING_CODE
+        ? EMPTY_MENU_CONFIRMATION_MIN_MS
+        : facts.failureCount === 1
+          ? FIRST_RETRY_DELAY_MS
+          : LATER_RETRY_DELAY_MS;
     if (facts.latestFailedAt.getTime() + delay > databaseNow.getTime()) {
       return {
         state: "retry-later",
@@ -332,12 +340,16 @@ async function readMenuSourceScheduleFacts(
         (left, right) => right.startedAt.getTime() - left.startedAt.getTime(),
       );
     const latestFailure = failures[0] ?? null;
+    const quotaFailures = failures.filter(
+      (failure) =>
+        failure.errorCode !== EMPTY_MENU_CONFIRMATION_PENDING_CODE,
+    );
     return [
       {
         sourceId: row.source_id,
         createdAt: parseDatabaseDate(row.created_at)!,
         activeClaim: row.active_claim,
-        failureCount: failures.length,
+        failureCount: quotaFailures.length,
         latestErrorCode: latestFailure?.errorCode ?? null,
         latestFailedAt: latestFailure
           ? (latestFailure.completedAt ?? latestFailure.startedAt)

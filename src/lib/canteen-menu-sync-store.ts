@@ -30,9 +30,11 @@ import {
 import type { ExistingSyncMenuItem } from "./canteen-menu-sync";
 import type {
   CurrentMenuProjection,
+  MealPeriod,
   MealPeriodAssignment,
   MenuItemPriceOptionInput,
   MenuSyncInput,
+  MenuSyncItemInput,
 } from "./canteen-types";
 import { assertProviderSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
 
@@ -475,7 +477,13 @@ type MenuSyncApplyRequest =
       input: MenuSyncInput;
       expectedPreviewToken: unknown;
     }
-  | { kind: "recurring"; projection: CurrentMenuProjection }
+  | {
+      kind: "recurring";
+      projection: CurrentMenuProjection;
+      acceptedPeriodItems: Partial<
+        Record<MealPeriod, readonly MenuSyncItemInput[]>
+      >;
+    }
   | { kind: "identity-transition"; input: MenuSyncInput; artifact: unknown };
 
 async function applyLockedMenuSync(
@@ -543,6 +551,7 @@ async function applyLockedMenuSync(
       request.projection,
       existing,
       { adapterAcceptedEmpty: true },
+      request.acceptedPeriodItems,
     );
   } else if (request.kind === "identity-transition") {
     const projectionInput = manualMenuProjection(request.input);
@@ -833,10 +842,14 @@ export function applyRecurringMenuProjection(
   tx: MenuSyncTransaction,
   source: LockedMenuSource,
   input: CurrentMenuProjection,
+  acceptedPeriodItems: Partial<
+    Record<MealPeriod, readonly MenuSyncItemInput[]>
+  > = {},
 ): Promise<RecurringMenuProjection> {
   return applyLockedMenuSync(tx, source, {
     kind: "recurring",
     projection: input,
+    acceptedPeriodItems,
   });
 }
 

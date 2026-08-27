@@ -11,6 +11,7 @@ import {
 } from "react";
 import { Search, X } from "lucide-react";
 import type {
+  CanteenMenuFreshness,
   CanteenMenuItem,
   MealPeriod,
   MenuItemVoteCounts,
@@ -52,9 +53,11 @@ import {
   restoreWindowScroll,
   useRestorePinnedWindowScrollOnMount,
 } from "@/lib/pin-window-scroll";
+import { staleMenuFreshnessLabel } from "@/lib/canteen-menu-freshness";
 
 type CanteenMenuViewProps = {
   items: CanteenMenuItem[];
+  freshness?: CanteenMenuFreshness | null;
   voteCounts: Record<string, MenuItemVoteCounts>;
   myVotes: Record<string, VoteChoice>;
   commentCounts?: Record<string, number>;
@@ -531,6 +534,7 @@ function MenuFinder({
 
 export function CanteenMenuView({
   items,
+  freshness = null,
   voteCounts,
   myVotes,
   commentCounts = EMPTY_COMMENT_COUNTS,
@@ -903,6 +907,9 @@ export function CanteenMenuView({
   }
 
   const showHintNow = showAfternoonHint && period === "lunch";
+  const freshnessWarning = freshness
+    ? staleMenuFreshnessLabel(freshness.periods[period], freshness.evaluatedAt)
+    : null;
 
   return (
     <div
@@ -958,6 +965,11 @@ export function CanteenMenuView({
         </aside>
 
         <main className="canteen-order-content">
+          {freshnessWarning ? (
+            <p role="status" className="canteen-period-hint">
+              {freshnessWarning}
+            </p>
+          ) : null}
           {showHintNow ? (
             <p role="status" className="canteen-period-hint">
               {AFTERNOON_HINT_TEXT}

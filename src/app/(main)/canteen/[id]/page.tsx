@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import {
   getCanteenById,
+  getCanteenMenuFreshness,
   getCanteenMenuItems,
   getCanteenOrderingHandoff,
 } from "@/lib/canteen-actions";
@@ -87,6 +88,7 @@ export default async function CanteenMenuPage({
     danmaku,
     danmakuViewer,
     orderingHandoff,
+    freshness,
   ] = await Promise.all([
     getCanteenMenuItems(id),
     getMenuItemVoteCounts(id).catch(softEmpty({})),
@@ -111,6 +113,7 @@ export default async function CanteenMenuPage({
         }),
     mock ? Promise.resolve({ kind: "guest" as const }) : getDanmakuViewer(),
     getCanteenOrderingHandoff(id).catch(softEmpty(null)),
+    getCanteenMenuFreshness(id).catch(softEmpty(null)),
   ]);
   const currentUserId =
     sessionUser && !sessionUser.banned ? sessionUser.id : null;
@@ -143,6 +146,7 @@ export default async function CanteenMenuPage({
     >
       <CanteenMenuView
         items={items}
+        freshness={freshness}
         voteCounts={displayedVoteCounts}
         myVotes={myVotes}
         commentCounts={commentCounts}

@@ -303,7 +303,6 @@ clock has not started.
      FROM public.canteen_menu_sync_snapshots AS snapshot
      JOIN public.canteen_menu_sync_runs AS run ON run.id = snapshot.run_id
      WHERE run.status IN ('applied', 'unchanged')
-       AND snapshot.item_count > 0
    ),
    ranked_snapshots AS (
      SELECT source.id AS menu_source_id,
@@ -515,25 +514,27 @@ ORDER BY health.primary_starts_at;
 ```
 
 4. **Business completion:** every enabled source applicable to that HKT weekday
-   and meal period must have an `applied` or `unchanged` run joined to a
-   snapshot with `item_count > 0` and the exact sync-window key. HTTP 2xx,
-   `continue`, and `no-work` do not replace this proof. For a healthy primary,
+   and meal period must have an `applied` or `unchanged` run joined to an
+   accepted snapshot with the exact sync-window key. A confirmed provider-open
+   empty menu is valid completion with `item_count = 0`; a pending confirmation
+   is retry control flow and is not a provider failure. HTTP 2xx, `continue`,
+   and `no-work` do not replace snapshot proof. For a healthy primary,
    `primary_completed_at` is the completion time of the last applicable source;
    a no-applicable-source window uses its first correlated `no-work` completion.
 
 Interpret final window classifications as follows:
 
-| Classification                                                             | Meaning and action                                                                                                                                                  |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `primary-drained-window`                                                   | All applicable sources completed with non-empty snapshots by minute 35; every missing tick was followed by a successful later primary tick. Healthy primary result. |
-| `fallback-completed-window`                                                | Completion occurred after the primary cutoff and by minute 55. GitHub fallback recovered the window; investigate the primary gap.                                   |
-| `retry-still-due`                                                          | A retry remained due at observation time. Recheck after its bounded backoff.                                                                                        |
-| `review-required`                                                          | Identity churn, suspicious drop, conflict, or retry limit requires a human review. Do not force a success.                                                          |
-| `inapplicable-source-ran`                                                  | A disabled, closed-day, or wrong-meal source ran. Treat as a correctness incident.                                                                                  |
-| `provider-application-failed`                                              | Provider or application processing failed. Use the matching durable run and source error code.                                                                      |
-| `endpoint-rejected-or-malformed`                                           | Authentication or response-contract failure. Deactivate if repeated.                                                                                                |
-| `http-failed`, `enqueue-failed`, `evidence-unmatched`, `cron-tick-missing` | Transport or evidence correlation failed. GitHub may still recover by minute 55.                                                                                    |
-| `incomplete`                                                               | No earlier class explains missing non-empty business completion. Inspect source runs and snapshots.                                                                 |
+| Classification                                                             | Meaning and action                                                                                                                                                 |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `primary-drained-window`                                                   | All applicable sources completed with accepted snapshots by minute 35; every missing tick was followed by a successful later primary tick. Healthy primary result. |
+| `fallback-completed-window`                                                | Completion occurred after the primary cutoff and by minute 55. GitHub fallback recovered the window; investigate the primary gap.                                  |
+| `retry-still-due`                                                          | A retry remained due at observation time. Recheck after its bounded backoff.                                                                                       |
+| `review-required`                                                          | Identity churn, suspicious drop, conflict, or retry limit requires a human review. Do not force a success.                                                         |
+| `inapplicable-source-ran`                                                  | A disabled, closed-day, or wrong-meal source ran. Treat as a correctness incident.                                                                                 |
+| `provider-application-failed`                                              | Provider or application processing failed. Use the matching durable run and source error code.                                                                     |
+| `endpoint-rejected-or-malformed`                                           | Authentication or response-contract failure. Deactivate if repeated.                                                                                               |
+| `http-failed`, `enqueue-failed`, `evidence-unmatched`, `cron-tick-missing` | Transport or evidence correlation failed. GitHub may still recover by minute 55.                                                                                   |
+| `incomplete`                                                               | No earlier class explains missing accepted-snapshot business completion. Inspect source runs and snapshots.                                                        |
 
 A window with no applicable sources is complete without inventing a snapshot.
 For a window with applicable sources, do not declare success from a green cron
@@ -553,7 +554,7 @@ lunch, and dinner window for seven consecutive days:
 - counts by `delivery_health.classification`;
 - every row from `window_health`, including `primary_completed_at` and primary
   versus fallback completion;
-- applicable-source count, non-empty completed-source count, and any source/run
+- applicable-source count, accepted-snapshot completed-source count, and any source/run
   error code;
 - database size and active connection count;
 - GitHub fallback result at minute 37 and any manual dispatch;
@@ -571,8 +572,9 @@ The seven-day gate passes only when:
 - no pending HTTP request, evidence-correlation, enqueue/HTTP/auth/malformed-
   response failure, inapplicable run, unresolved retry, provider failure, or
   review-required class remains;
-- each intentionally enabled and operating source has a matching non-empty
-  snapshot in every applicable observed window;
+- each intentionally enabled and operating source has a matching accepted
+  snapshot in every applicable observed window; a confirmed empty snapshot is
+  valid, while a pending confirmation remains an unresolved retry;
 - no unexpected connection, database-size, scheduler-audit, or pending
   `pg_net` request-queue growth appears;
 - no new advisor finding is introduced by the scheduler objects.
@@ -660,7 +662,6 @@ JOIN public.canteen_menu_sources AS source
 LEFT JOIN public.canteen_menu_sync_snapshot_items AS snapshot_item
   ON snapshot_item.run_id = snapshot.run_id
 WHERE run.status IN ('applied', 'unchanged')
-  AND snapshot.item_count > 0
 GROUP BY source.id, source.provider, source.external_store_id, run.status,
          snapshot.run_id, snapshot.meal_period, snapshot.hkt_weekday,
          snapshot.observed_minute_of_day, snapshot.snapshot_completeness,

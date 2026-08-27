@@ -790,6 +790,105 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
     expect(snapshots).toEqual([]);
   });
 
+  it("waits ten minutes to confirm an open empty menu without consuming retry quota (#782)", async () => {
+    const firstObservedAt = new Date("2099-08-21T04:20:00.000Z");
+    const { sourceId } = await createEligibleSource("待确认空菜单来源", {
+      syncMealPeriods: ["lunch"],
+    });
+    await db.insert(canteenMenuSyncRuns).values({
+      id: randomUUID(),
+      menuSourceId: sourceId,
+      status: "failed",
+      errorCode: "MENU_SYNC_EMPTY_PENDING_CONFIRMATION",
+      error: "MENU_SYNC_EMPTY_PENDING_CONFIRMATION",
+      observation: {
+        emptyMenuConfirmation: {
+          mealPeriod: "lunch",
+          publicationKey: "lunch-publication",
+        },
+      },
+      startedAt: firstObservedAt,
+      completedAt: firstObservedAt,
+    });
+
+    const beforeConfirmation = new Date(firstObservedAt.getTime() + 9 * 60_000);
+    await expect(
+      db.transaction((tx) =>
+        listMenuSourceScheduleCandidates(
+          tx,
+          menuSyncWindowAt(beforeConfirmation),
+          beforeConfirmation,
+        ),
+      ),
+    ).resolves.toContainEqual({
+      state: "retry-later",
+      sourceId,
+      code: "MENU_SYNC_EMPTY_PENDING_CONFIRMATION",
+    });
+
+    const confirmationDue = new Date(firstObservedAt.getTime() + 10 * 60_000);
+    await expect(
+      db.transaction((tx) =>
+        listMenuSourceScheduleCandidates(
+          tx,
+          menuSyncWindowAt(confirmationDue),
+          confirmationDue,
+        ),
+      ),
+    ).resolves.toContainEqual({
+      state: "claimable",
+      sourceId,
+      attemptNumber: 1,
+    });
+  });
+
+  it("does not turn a pending empty confirmation into retry-limit review", async () => {
+    const { sourceId } = await createEligibleSource("空菜单确认不耗尽重试", {
+      syncMealPeriods: ["breakfast", "lunch", "dinner"],
+    });
+    const currentWindow = await currentDatabaseWindow();
+    const databaseNow = await currentTestDatabaseNow();
+    await db.insert(canteenMenuSyncRuns).values(
+      [12, 8].map((minutesAgo) => ({
+        id: randomUUID(),
+        menuSourceId: sourceId,
+        status: "failed" as const,
+        errorCode: "UPSTREAM_TIMEOUT",
+        error: "UPSTREAM_TIMEOUT",
+        startedAt: new Date(databaseNow.getTime() - minutesAgo * 60_000),
+        completedAt: new Date(databaseNow.getTime() - minutesAgo * 60_000),
+      })),
+    );
+    fetchMenuFromProvider.mockImplementation(async (_source, context) => ({
+      snapshotCompleteness: "partial",
+      observationScope: {
+        kind: "meal-period",
+        mealPeriod: context.mealPeriod,
+      },
+      items: [],
+      emptyMenuEvidence: {
+        kind: "open-publication",
+        publicationKey: "current-publication",
+      },
+      scopeEvidence: {
+        provider: "pinme",
+        menuGroupCount: 1,
+        groupCount: 1,
+        referencedGroupIds: ["current"],
+        publicationKey: "current-publication",
+        serviceWindows: [{ startTime: "00:00", endTime: "23:59" }],
+      },
+    }));
+
+    await expect(syncNextDueMenuSource()).resolves.toMatchObject({
+      disposition: "retry-later",
+      window: currentWindow.key,
+      sourceId,
+      code: "MENU_SYNC_EMPTY_PENDING_CONFIRMATION",
+      result: { code: "MENU_SYNC_EMPTY_PENDING_CONFIRMATION" },
+    });
+  });
+
   it("does not claim or call PinMe after a successful observation's refresh horizon (#762)", async () => {
     const observedAt = new Date("2099-08-20T11:44:01.000Z"); // 19:44 HKT
     const checkedAt = new Date("2099-08-20T12:04:21.000Z"); // 20:04 HKT

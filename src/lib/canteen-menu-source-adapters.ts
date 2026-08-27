@@ -445,7 +445,9 @@ export async function fetchPinmeMenu(
     },
     fetchImpl,
   );
-  return buildPinmeMenuSyncPayload(payload);
+  return buildPinmeMenuSyncPayload(payload, {
+    observedAt: options.observationContext?.observedAt,
+  });
 }
 
 export async function fetchQmaiMenu(
@@ -535,7 +537,11 @@ export function fetchMenuFromProvider(
       payload = fetchIchefMenu(source.externalStoreId, options, source.config);
       break;
     case "pinme":
-      payload = fetchPinmeMenu(source.externalStoreId, options, source.config);
+      payload = fetchPinmeMenu(
+        source.externalStoreId,
+        { ...options, observationContext },
+        source.config,
+      );
       break;
     case "qmai":
       payload = fetchQmaiMenu(
@@ -557,11 +563,15 @@ export function fetchMenuFromProvider(
             },
           }
         : result;
-    assertProviderMenuIdentitySnapshot(
-      source.provider,
-      source,
-      scopedResult.items,
-    );
+    if (scopedResult.items.length > 0) {
+      assertProviderMenuIdentitySnapshot(
+        source.provider,
+        source,
+        scopedResult.items,
+      );
+    } else if (scopedResult.emptyMenuEvidence === undefined) {
+      throw new Error("EMPTY_SNAPSHOT");
+    }
     return scopedResult;
   });
 }

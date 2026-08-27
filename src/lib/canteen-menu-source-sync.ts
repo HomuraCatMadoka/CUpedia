@@ -8,10 +8,12 @@ import {
 } from "@/db/schema";
 import {
   and,
+  desc,
   eq,
   getTableColumns,
   inArray,
   lt,
+  ne,
   notExists,
   sql,
 } from "drizzle-orm";
@@ -23,11 +25,18 @@ import {
   recheckMenuSourceScheduleCandidate,
 } from "./canteen-menu-sync-scheduler";
 import { readMenuSyncDatabaseNow } from "./canteen-menu-sync-clock";
+import {
+  EMPTY_MENU_CONFIRMATION_MAX_MS,
+  EMPTY_MENU_CONFIRMATION_MIN_MS,
+  EMPTY_MENU_CONFIRMATION_PENDING_CODE,
+  type EmptyMenuConfirmationEvidence,
+} from "./canteen-menu-empty-confirmation";
 import type { MenuIdentityObservation } from "./canteen-menu-sync-observation";
 import { projectScopedMenuObservation } from "./canteen-menu-projection";
 import { menuPublicationIdentityForProvider } from "./canteen-menu-source-publication";
 import {
   insertMenuSyncSnapshot,
+  readLatestAcceptedMenuPeriodItems,
   readLatestScopedPublicationEvidence,
 } from "./canteen-menu-sync-snapshots";
 import { assertProviderSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
@@ -147,7 +156,7 @@ type ClaimedRunFinalization =
       message: string;
       snapshotHash?: string;
       itemCount?: number;
-      observation: MenuIdentityObservation | Record<string, never>;
+      observation: MenuIdentityObservation | Record<string, unknown>;
     };
 
 function menuSourceFingerprint(source: Readonly<MenuSourceRow>): string {
@@ -569,6 +578,7 @@ async function finalizeFailureResult(
   error: unknown,
   status: "provider-failure" | "internal-failure",
   snapshot?: { hash: string; itemCount: number },
+  observation: Record<string, unknown> = {},
 ): Promise<MenuSourceSyncResult> {
   const code = errorCode(error);
   if (code === "MENU_SYNC_SUPERSEDED") {
@@ -580,7 +590,7 @@ async function finalizeFailureResult(
     message: safeError(error),
     snapshotHash: snapshot?.hash,
     itemCount: snapshot?.itemCount,
-    observation: {},
+    observation,
   });
   if (!finalized) {
     return supersededResult(claim);
@@ -592,6 +602,90 @@ async function finalizeFailureResult(
     status,
     code,
   };
+}
+
+function emptyMenuConfirmationEvidence(
+  claim: MenuSourceClaim,
+  input: ProviderMenuObservation,
+): EmptyMenuConfirmationEvidence | null {
+  if (input.items.length > 0) return null;
+  const scopeEvidence = input.scopeEvidence as
+    | Record<string, unknown>
+    | undefined;
+  const observationScope = input.observationScope?.kind ?? "catalog";
+  if (
+    (input.observationScope?.kind === "meal-period" &&
+      input.observationScope.mealPeriod !==
+        claim.observationContext.mealPeriod) ||
+    input.emptyMenuEvidence?.kind !== "open-publication" ||
+    !input.emptyMenuEvidence.publicationKey.trim() ||
+    input.emptyMenuEvidence.publicationKey.length > 200 ||
+    (typeof scopeEvidence?.publicationKey === "string" &&
+      scopeEvidence.publicationKey !== input.emptyMenuEvidence.publicationKey)
+  ) {
+    throw new Error("EMPTY_SNAPSHOT");
+  }
+  return {
+    mealPeriod: claim.observationContext.mealPeriod,
+    observationScope,
+    publicationKey: input.emptyMenuEvidence.publicationKey,
+  };
+}
+
+function sameEmptyMenuConfirmation(
+  value: unknown,
+  expected: EmptyMenuConfirmationEvidence,
+): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    record.mealPeriod === expected.mealPeriod &&
+    record.observationScope === expected.observationScope &&
+    record.publicationKey === expected.publicationKey
+  );
+}
+
+async function emptyMenuObservationIsConfirmed(
+  claim: MenuSourceClaim,
+  evidence: EmptyMenuConfirmationEvidence,
+): Promise<boolean> {
+  const [prior] = await db
+    .select({
+      startedAt: canteenMenuSyncRuns.startedAt,
+      observation: canteenMenuSyncRuns.observation,
+    })
+    .from(canteenMenuSyncRuns)
+    .where(
+      and(
+        eq(canteenMenuSyncRuns.menuSourceId, claim.source.id),
+        inArray(
+          canteenMenuSyncRuns.status,
+          CANTEEN_MENU_SYNC_TERMINAL_STATUSES,
+        ),
+        ne(canteenMenuSyncRuns.id, claim.runId),
+      ),
+    )
+    .orderBy(desc(canteenMenuSyncRuns.startedAt))
+    .limit(1);
+  if (
+    !prior ||
+    prior.observation === null ||
+    !sameEmptyMenuConfirmation(
+      prior.observation.emptyMenuConfirmation,
+      evidence,
+    )
+  ) {
+    return false;
+  }
+  const ageMs =
+    claim.observationContext.observedAt.getTime() - prior.startedAt.getTime();
+  if (
+    ageMs < EMPTY_MENU_CONFIRMATION_MIN_MS ||
+    ageMs > EMPTY_MENU_CONFIRMATION_MAX_MS
+  ) {
+    return false;
+  }
+  return true;
 }
 
 async function commitClaimedRecurringMenuSync(
@@ -639,10 +733,19 @@ async function commitClaimedRecurringMenuSync(
       input,
       { previousPublicationIdentity },
     );
+    const acceptedPeriodItems =
+      projectionInput.absenceAuthority.kind === "current-activity"
+        ? await readLatestAcceptedMenuPeriodItems(
+            tx,
+            source.id,
+            source.syncMealPeriods,
+          )
+        : {};
     const projection = await applyRecurringMenuProjection(
       tx,
       source,
       projectionInput,
+      acceptedPeriodItems,
     );
     const databaseNow = await readMenuSyncDatabaseNow(tx);
     if (projection.status === "blocked") {
@@ -706,6 +809,24 @@ async function executeClaimedMenuSourceSync(
     hash: snapshotHash(input),
     itemCount: input.items.length,
   };
+  let emptyEvidence: EmptyMenuConfirmationEvidence | null;
+  try {
+    emptyEvidence = emptyMenuConfirmationEvidence(claim, input);
+  } catch (error) {
+    return finalizeFailureResult(claim, error, "provider-failure", snapshot);
+  }
+  if (
+    emptyEvidence &&
+    !(await emptyMenuObservationIsConfirmed(claim, emptyEvidence))
+  ) {
+    return finalizeFailureResult(
+      claim,
+      new Error(EMPTY_MENU_CONFIRMATION_PENDING_CODE),
+      "provider-failure",
+      snapshot,
+      { emptyMenuConfirmation: emptyEvidence },
+    );
+  }
   try {
     const committed = await commitClaimedRecurringMenuSync(
       claim,
@@ -815,6 +936,7 @@ export async function syncNextDueMenuSource(): Promise<NextDueMenuSourceSyncResu
   }
   if (
     acquired.attemptNumber >= 3 &&
+    result.code !== EMPTY_MENU_CONFIRMATION_PENDING_CODE &&
     (result.status === "provider-failure" ||
       result.status === "internal-failure")
   ) {

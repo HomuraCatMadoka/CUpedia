@@ -298,6 +298,7 @@ function priceOptions(product: JsonObject): MenuItemPriceOptionInput[] {
 
 export function buildPinmeMenuSyncPayload(
   input: unknown,
+  options: { observedAt?: Date } = {},
 ): ProviderMenuObservation {
   const root = object(input);
   const data = object(root?.data);
@@ -380,8 +381,6 @@ export function buildPinmeMenuSyncPayload(
     ...item,
     sortOrder: 0,
   }));
-  if (items.length === 0) throw new Error("EMPTY_PINME_MENU");
-  assertProviderMenuIdentityItems("pinme", items);
   const normalizedServiceWindows = [...serviceWindows.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([, window]) => window);
@@ -393,6 +392,33 @@ export function buildPinmeMenuSyncPayload(
   if (!publicationCompatibilityKey) {
     throw new Error("INVALID_PINME_MENU_TOPOLOGY");
   }
+  let emptyMenuEvidence: ProviderMenuObservation["emptyMenuEvidence"];
+  if (items.length === 0) {
+    const observedAt = options.observedAt;
+    const observedHktMinute = observedAt
+      ? Math.floor((observedAt.getTime() + 8 * 60 * 60 * 1_000) / 60_000) %
+        (24 * 60)
+      : null;
+    const merchantIsOpen =
+      (data.is_close === 0 || data.is_close === "0") &&
+      (data.is_operating === 1 || data.is_operating === "1");
+    const publicationIsOpen =
+      merchantIsOpen &&
+      observedHktMinute !== null &&
+      normalizedServiceWindows.some((window) => {
+        const start = minuteOfDay(window.startTime);
+        const end = minuteOfDay(window.endTime);
+        return start < end
+          ? observedHktMinute >= start && observedHktMinute < end
+          : observedHktMinute >= start || observedHktMinute < end;
+      });
+    if (!publicationIsOpen) throw new Error("EMPTY_PINME_MENU");
+    emptyMenuEvidence = {
+      kind: "open-publication",
+      publicationKey: topology.publicationKey,
+    };
+  }
+  if (items.length > 0) assertProviderMenuIdentityItems("pinme", items);
   return {
     snapshotCompleteness: expectedMenuSnapshotCompleteness("pinme"),
     items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),
@@ -410,5 +436,6 @@ export function buildPinmeMenuSyncPayload(
         : {}),
       serviceWindows: normalizedServiceWindows,
     },
+    ...(emptyMenuEvidence ? { emptyMenuEvidence } : {}),
   };
 }
