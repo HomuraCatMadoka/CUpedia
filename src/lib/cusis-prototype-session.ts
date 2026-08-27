@@ -1,7 +1,13 @@
 import "server-only";
 
 /* eslint-disable import/no-extraneous-dependencies -- local-only prototype reuses the repository's Playwright test tooling. */
-import type { Browser, BrowserContext, Page } from "@playwright/test";
+import type {
+  Browser,
+  BrowserContext,
+  Page,
+  Request as PlaywrightRequest,
+  Response as PlaywrightResponse,
+} from "@playwright/test";
 
 const CUSIS_LANDING_URL =
   "https://cusis.cuhk.edu.hk/psc/CSPRD/EMPLOYEE/HRMS/c/NUI_FRAMEWORK.PT_LANDINGPAGE.GBL?";
@@ -62,7 +68,22 @@ export type CusisCurrentCoursesPrototype = {
       | "no-courses"
       | "component-loaded"
       | "thin-page";
+    network: {
+      exchanges: NetworkExchange[];
+      truncated: boolean;
+      integrationBrokerSeen: boolean;
+    };
   };
+};
+
+type NetworkExchange = {
+  method: string;
+  url: string;
+  resourceType: string;
+  queryFieldNames: string[];
+  postFieldNames: string[];
+  responseStatus: number | null;
+  responseContentType: string | null;
 };
 
 let activeSession: PrototypeSession | null = null;
@@ -92,6 +113,51 @@ function displayUrl(url: string) {
     return `${parsed.origin}${parsed.pathname}`;
   } catch {
     return "unavailable";
+  }
+}
+
+function fieldNamesFromRequest(request: PlaywrightRequest) {
+  const queryFieldNames = (() => {
+    try {
+      return [...new Set(new URL(request.url()).searchParams.keys())].sort();
+    } catch {
+      return [];
+    }
+  })();
+  const postData = request.postData();
+  if (!postData) return { queryFieldNames, postFieldNames: [] };
+
+  try {
+    if (postData.trimStart().startsWith("{")) {
+      const parsed = JSON.parse(postData) as unknown;
+      return {
+        queryFieldNames,
+        postFieldNames:
+          parsed && typeof parsed === "object" && !Array.isArray(parsed)
+            ? Object.keys(parsed).sort().slice(0, 200)
+            : [],
+      };
+    }
+    return {
+      queryFieldNames,
+      postFieldNames: [...new Set(new URLSearchParams(postData).keys())]
+        .sort()
+        .slice(0, 200),
+    };
+  } catch {
+    return { queryFieldNames, postFieldNames: [] };
+  }
+}
+
+function shouldRecordRequest(request: PlaywrightRequest) {
+  try {
+    const url = new URL(request.url());
+    return (
+      url.hostname === "cusis.cuhk.edu.hk" &&
+      ["document", "xhr", "fetch"].includes(request.resourceType())
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -205,11 +271,45 @@ export async function readCusisCoursesPrototype(
       }
     >;
     const target = targets[dataset];
+    const exchanges: NetworkExchange[] = [];
+    const exchangeIndexes = new WeakMap<PlaywrightRequest, number>();
+    const pendingResponses = new Set<Promise<void>>();
+    const onRequest = (request: PlaywrightRequest) => {
+      if (!shouldRecordRequest(request) || exchanges.length >= 50) return;
+      const fields = fieldNamesFromRequest(request);
+      exchangeIndexes.set(request, exchanges.length);
+      exchanges.push({
+        method: request.method(),
+        url: displayUrl(request.url()),
+        resourceType: request.resourceType(),
+        queryFieldNames: fields.queryFieldNames,
+        postFieldNames: fields.postFieldNames,
+        responseStatus: null,
+        responseContentType: null,
+      });
+    };
+    const recordResponse = async (response: PlaywrightResponse) => {
+      const index = exchangeIndexes.get(response.request());
+      if (index === undefined) return;
+      exchanges[index].responseStatus = response.status();
+      exchanges[index].responseContentType =
+        (await response.headerValue("content-type")) ?? null;
+    };
+    const onResponse = (response: PlaywrightResponse) => {
+      const pending = recordResponse(response);
+      pendingResponses.add(pending);
+      void pending.finally(() => pendingResponses.delete(pending));
+    };
+    session.page.on("request", onRequest);
+    session.page.on("response", onResponse);
     await session.page.goto(target.url, {
       waitUntil: "domcontentloaded",
       timeout: 45_000,
     });
     await session.page.waitForTimeout(2_000);
+    await Promise.all([...pendingResponses]);
+    session.page.off("request", onRequest);
+    session.page.off("response", onResponse);
 
     const inspectedFrameUrls: string[] = [];
     const courseCodes = new Set<string>();
@@ -259,6 +359,13 @@ export async function readCusisCoursesPrototype(
         formCount,
         tableCount,
         statusSignal,
+        network: {
+          exchanges,
+          truncated: exchanges.length >= 50,
+          integrationBrokerSeen: exchanges.some(({ url }) =>
+            url.includes("/PSIGW/RESTListeningConnector/"),
+          ),
+        },
       },
     };
     succeeded = true;

@@ -28,6 +28,19 @@ type PrototypeResult = {
       | "no-courses"
       | "component-loaded"
       | "thin-page";
+    network: {
+      exchanges: Array<{
+        method: string;
+        url: string;
+        resourceType: string;
+        queryFieldNames: string[];
+        postFieldNames: string[];
+        responseStatus: number | null;
+        responseContentType: string | null;
+      }>;
+      truncated: boolean;
+      integrationBrokerSeen: boolean;
+    };
   };
 };
 

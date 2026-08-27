@@ -73,6 +73,8 @@ Playwright 可以用 `headless: false` 打开本机窗口，也可以用 [`launc
 
 这次验证回答了架构问题：可以把 CUSIS 页面访问封装成 CUpedia 内部 adapter/API，但该 adapter 必须运行在持有临时浏览器会话的环境中。它不是 CUSIS 官方 API，也不能在普通 CUpedia 前端里读取另一个窗口的 Cookie。
 
+`.GBL`、`ICStateNum`、`ICSID`、`ICAction`、Activity Guide 和 Integration Broker 的协议边界见 [`peoplesoft-backend-protocol-research.md`](./peoplesoft-backend-protocol-research.md)。
+
 Playwright 也支持导出包含 Cookie、localStorage 和 IndexedDB 的 [`storageState`](https://playwright.dev/docs/api/class-browsercontext#browser-context-storage-state)，但官方明确提醒这类文件可能让持有者冒充账号，不能提交进仓库。[Playwright authentication 指南](https://playwright.dev/docs/auth)
 
 ### 3. Vercel Function 自带 Chromium / Playwright
