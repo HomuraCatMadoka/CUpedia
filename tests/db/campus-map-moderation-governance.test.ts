@@ -13,6 +13,7 @@ import type { CampusMapModerationCommand } from "@/lib/campus-map/moderation-gov
 import {
   commandCampusMapNote,
   deliverCampusMapNoteNotifications,
+  dispatchCampusMapNoteOutbox,
   getCampusMapNote,
   listCampusMapNotes,
 } from "@/lib/campus-map/map-notes";
@@ -451,6 +452,27 @@ describe.skipIf(!hasDb)("Campus Map moderation governance (#723)", () => {
       pendingNotificationId,
     ]);
     expect(projectedHiddenNotification.rows).toEqual([{ actor_id: null }]);
+    const genericOutboxId = randomUUID();
+    await pool.query(
+      `insert into campus_map_note_outbox
+         (id, note_id, event_id, recipient_user_id, status, available_at)
+       values ($1, $2, $3, $4, 'pending', now())`,
+      [genericOutboxId, created.noteId, created.eventId, author],
+    );
+    const genericMessages: Array<Record<string, unknown>> = [];
+    await expect(
+      dispatchCampusMapNoteOutbox(async (message) => {
+        genericMessages.push(message as unknown as Record<string, unknown>);
+      }),
+    ).resolves.toMatchObject({ delivered: 1, failed: 0 });
+    expect(genericMessages).toEqual([
+      {
+        id: genericOutboxId,
+        noteId: created.noteId,
+        eventId: created.eventId,
+        recipientUserId: author,
+      },
+    ]);
 
     await expect(getCampusMapNote(created.noteId)).resolves.toMatchObject({
       id: created.noteId,

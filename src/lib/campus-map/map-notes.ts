@@ -444,7 +444,6 @@ export interface CampusMapNoteOutboxMessage {
   noteId: string;
   eventId: string;
   recipientUserId: string;
-  actorUserId: string | null;
 }
 
 export async function dispatchCampusMapNoteOutbox(
@@ -460,13 +459,8 @@ export async function dispatchCampusMapNoteOutbox(
         noteId: campusMapNoteOutbox.noteId,
         eventId: campusMapNoteOutbox.eventId,
         recipientUserId: campusMapNoteOutbox.recipientUserId,
-        actorUserId: campusMapNoteEvents.actorUserId,
       })
       .from(campusMapNoteOutbox)
-      .innerJoin(
-        campusMapNoteEvents,
-        eq(campusMapNoteOutbox.eventId, campusMapNoteEvents.id),
-      )
       .where(
         and(
           inArray(campusMapNoteOutbox.status, [
