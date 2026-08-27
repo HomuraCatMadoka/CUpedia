@@ -561,6 +561,20 @@
       "when": 1787817151331,
       "tag": "0079_campus-map-moderation-ledger-guards",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1787829563073,
+      "tag": "0080_stale_nightshade",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1787830607270,
+      "tag": "0081_campus-map-provider-mapping-ledger-guards",
+      "breakpoints": true
     }
   ]
 }

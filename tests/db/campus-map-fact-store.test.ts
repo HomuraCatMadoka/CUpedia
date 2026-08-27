@@ -29,8 +29,8 @@ import {
   listCampusMapBrowseBuildings,
   listCampusMapChangesets,
   listCampusMapCurrentPlaces,
-  resolveCampusMapProviderSelection,
 } from "@/lib/campus-map/fact-store";
+import { resolveCampusMapProviderSelection } from "@/lib/campus-map/provider-mapping-registry";
 import { readCampusMapBrowse } from "@/lib/campus-map/browse-projection";
 
 function collectKeys(value: unknown, keys = new Set<string>()): Set<string> {

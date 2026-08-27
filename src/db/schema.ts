@@ -2329,6 +2329,153 @@ export const campusMapProviderMappings = pgTable(
   ],
 );
 
+export const campusMapProviderMappingEvents = pgTable(
+  "campus_map_provider_mapping_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    provider: text("provider").notNull(),
+    providerObjectId: text("provider_object_id").notNull(),
+    commandKind: text("command_kind").notNull(),
+    previousTargetKind: text("previous_target_kind"),
+    previousBuildingId: uuid("previous_building_id").references(
+      () => campusMapBuildings.id,
+      { onDelete: "restrict" },
+    ),
+    previousPlaceId: uuid("previous_place_id").references(
+      () => campusMapPlaces.id,
+      { onDelete: "restrict" },
+    ),
+    newTargetKind: text("new_target_kind"),
+    newBuildingId: uuid("new_building_id").references(
+      () => campusMapBuildings.id,
+      { onDelete: "restrict" },
+    ),
+    newPlaceId: uuid("new_place_id").references(() => campusMapPlaces.id, {
+      onDelete: "restrict",
+    }),
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorIdSnapshot: uuid("actor_id_snapshot").notNull(),
+    actorNicknameSnapshot: text("actor_nickname_snapshot").notNull(),
+    reason: text("reason").notNull(),
+    provenanceId: uuid("provenance_id")
+      .notNull()
+      .references(() => campusMapProvenanceSources.id, {
+        onDelete: "restrict",
+      }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("campus_map_provider_mapping_events_identity_idx").on(
+      table.provider,
+      table.providerObjectId,
+      table.createdAt,
+      table.id,
+    ),
+    index("campus_map_provider_mapping_events_actor_idx").on(table.actorUserId),
+    index("campus_map_provider_mapping_events_provenance_idx").on(
+      table.provenanceId,
+    ),
+    index("campus_map_provider_mapping_events_previous_building_idx").on(
+      table.previousBuildingId,
+    ),
+    index("campus_map_provider_mapping_events_previous_place_idx").on(
+      table.previousPlaceId,
+    ),
+    index("campus_map_provider_mapping_events_new_building_idx").on(
+      table.newBuildingId,
+    ),
+    index("campus_map_provider_mapping_events_new_place_idx").on(
+      table.newPlaceId,
+    ),
+    check(
+      "campus_map_provider_mapping_events_command_kind_check",
+      sql`${table.commandKind} in ('bind', 'unlink', 'rebind')`,
+    ),
+    check(
+      "campus_map_provider_mapping_events_reason_check",
+      sql`btrim(${table.reason}) <> ''`,
+    ),
+    check(
+      "campus_map_provider_mapping_events_previous_target_check",
+      sql`(
+        ${table.previousTargetKind} is null
+        and ${table.previousBuildingId} is null
+        and ${table.previousPlaceId} is null
+      ) or (
+        ${table.previousTargetKind} = 'building'
+        and ${table.previousBuildingId} is not null
+        and ${table.previousPlaceId} is null
+      ) or (
+        ${table.previousTargetKind} = 'place'
+        and ${table.previousBuildingId} is null
+        and ${table.previousPlaceId} is not null
+      )`,
+    ),
+    check(
+      "campus_map_provider_mapping_events_new_target_check",
+      sql`(
+        ${table.newTargetKind} is null
+        and ${table.newBuildingId} is null
+        and ${table.newPlaceId} is null
+      ) or (
+        ${table.newTargetKind} = 'building'
+        and ${table.newBuildingId} is not null
+        and ${table.newPlaceId} is null
+      ) or (
+        ${table.newTargetKind} = 'place'
+        and ${table.newBuildingId} is null
+        and ${table.newPlaceId} is not null
+      )`,
+    ),
+    check(
+      "campus_map_provider_mapping_events_lifecycle_check",
+      sql`(
+        ${table.commandKind} = 'bind'
+        and ${table.previousTargetKind} is null
+        and ${table.newTargetKind} is not null
+      ) or (
+        ${table.commandKind} = 'unlink'
+        and ${table.previousTargetKind} is not null
+        and ${table.newTargetKind} is null
+      ) or (
+        ${table.commandKind} = 'rebind'
+        and ${table.previousTargetKind} is not null
+        and ${table.newTargetKind} is not null
+      )`,
+    ),
+  ],
+);
+
+export const campusMapProviderMappingRequests = pgTable(
+  "campus_map_provider_mapping_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorIdSnapshot: uuid("actor_id_snapshot").notNull(),
+    idempotencyKey: uuid("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    result: jsonb("result").$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("campus_map_provider_mapping_requests_actor_key_uq").on(
+      table.actorIdSnapshot,
+      table.idempotencyKey,
+    ),
+    index("campus_map_provider_mapping_requests_actor_idx").on(
+      table.actorUserId,
+    ),
+  ],
+);
+
 export type CampusMapStoredPublishResult = {
   status: "published";
   changesetId: string;

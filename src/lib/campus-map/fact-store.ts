@@ -24,7 +24,6 @@ import {
   campusMapFloors,
   campusMapPlaceChanges,
   campusMapPlaces,
-  campusMapProviderMappings,
   campusMapProvenanceSources,
   campusMapRevisionProvenance,
   campusMapRevisionVisibility,
@@ -746,63 +745,6 @@ export async function listCampusMapBrowseBuildings(): Promise<
     }
   }
   return [...buildings.values()];
-}
-
-/** Resolves only an explicit provider mapping to a public canonical target. */
-export async function resolveCampusMapProviderSelection(
-  provider: string,
-  providerObjectId: string,
-): Promise<CampusMapSelectionTarget | null> {
-  if (
-    provider.length === 0 ||
-    provider !== provider.trim() ||
-    providerObjectId.length === 0 ||
-    providerObjectId !== providerObjectId.trim()
-  ) {
-    return null;
-  }
-  const [mapping] = await db
-    .select({
-      targetKind: campusMapProviderMappings.targetKind,
-      buildingId: campusMapProviderMappings.buildingId,
-      placeId: campusMapProviderMappings.placeId,
-    })
-    .from(campusMapProviderMappings)
-    .where(
-      and(
-        eq(campusMapProviderMappings.provider, provider),
-        eq(campusMapProviderMappings.providerObjectId, providerObjectId),
-      ),
-    )
-    .limit(1);
-  if (!mapping) return null;
-  if (mapping.targetKind === "building" && mapping.buildingId) {
-    return { kind: "building", buildingId: mapping.buildingId };
-  }
-  if (mapping.targetKind !== "place" || !mapping.placeId) return null;
-  const [place] = await db
-    .select({
-      placeId: campusMapCurrentFacts.placeId,
-      buildingId: campusMapCurrentFacts.buildingId,
-      floorId: campusMapCurrentFacts.floorId,
-    })
-    .from(campusMapCurrentFacts)
-    .innerJoin(
-      campusMapRevisionVisibility,
-      eq(
-        campusMapCurrentFacts.revisionId,
-        campusMapRevisionVisibility.revisionId,
-      ),
-    )
-    .where(
-      and(
-        eq(campusMapCurrentFacts.placeId, mapping.placeId),
-        eq(campusMapCurrentFacts.status, "active"),
-        eq(campusMapRevisionVisibility.visibility, "public"),
-      ),
-    )
-    .limit(1);
-  return place ? { kind: "place", ...place } : null;
 }
 
 /** Lists active facts through canonical dimensions; no provider identity leaks. */
