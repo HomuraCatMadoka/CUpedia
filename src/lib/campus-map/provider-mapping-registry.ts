@@ -202,26 +202,31 @@ function sameTarget(
     : right.kind === "place" && left.placeId === right.placeId;
 }
 
-function validateCommand(command: CampusMapProviderMappingCommand) {
+function validateProviderIdentity(identity: CampusMapProviderIdentity) {
   const errors: Array<{ code: string; field: string }> = [];
-  if (!isCanonicalCampusMapUuid(command.idempotencyKey.toLowerCase())) {
-    errors.push({ code: "invalid-idempotency-key", field: "idempotencyKey" });
-  }
-  if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(command.identity.provider)) {
+  if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(identity.provider)) {
     errors.push({ code: "invalid-provider", field: "identity.provider" });
   }
   if (
-    command.identity.providerObjectId.trim() === "" ||
-    command.identity.providerObjectId !==
-      command.identity.providerObjectId.trim() ||
-    Buffer.byteLength(command.identity.providerObjectId, "utf8") > 512 ||
-    /[\u0000-\u001f\u007f]/.test(command.identity.providerObjectId)
+    identity.providerObjectId.trim() === "" ||
+    identity.providerObjectId !== identity.providerObjectId.trim() ||
+    Buffer.byteLength(identity.providerObjectId, "utf8") > 512 ||
+    /[\u0000-\u001f\u007f]/.test(identity.providerObjectId)
   ) {
     errors.push({
       code: "invalid-provider-object-id",
       field: "identity.providerObjectId",
     });
   }
+  return errors;
+}
+
+function validateCommand(command: CampusMapProviderMappingCommand) {
+  const errors: Array<{ code: string; field: string }> = [];
+  if (!isCanonicalCampusMapUuid(command.idempotencyKey.toLowerCase())) {
+    errors.push({ code: "invalid-idempotency-key", field: "idempotencyKey" });
+  }
+  errors.push(...validateProviderIdentity(command.identity));
   const targets =
     command.kind === "bind"
       ? [["target", command.target] as const]
@@ -338,6 +343,64 @@ async function validateTarget(
   return building ? "kind-mismatch" : "not-found";
 }
 
+async function appendMappingEvent(
+  transaction: DatabaseTransaction,
+  input: {
+    id: string;
+    identity: CampusMapProviderIdentity;
+    kind: "bind" | "unlink" | "rebind";
+    previousTarget: CampusMapProviderMappingTarget | null;
+    newTarget: CampusMapProviderMappingTarget | null;
+    actor: { id: string; nickname: string };
+    reason: string;
+    provenanceId: string;
+    createdAt: Date;
+  },
+) {
+  const previous = input.previousTarget
+    ? targetColumns(input.previousTarget)
+    : null;
+  const next = input.newTarget ? targetColumns(input.newTarget) : null;
+  await transaction.insert(campusMapProviderMappingEvents).values({
+    id: input.id,
+    provider: input.identity.provider,
+    providerObjectId: input.identity.providerObjectId,
+    commandKind: input.kind,
+    previousTargetKind: previous?.targetKind ?? null,
+    previousBuildingId: previous?.buildingId ?? null,
+    previousPlaceId: previous?.placeId ?? null,
+    newTargetKind: next?.targetKind ?? null,
+    newBuildingId: next?.buildingId ?? null,
+    newPlaceId: next?.placeId ?? null,
+    actorUserId: input.actor.id,
+    actorIdSnapshot: input.actor.id,
+    actorNicknameSnapshot: input.actor.nickname,
+    reason: input.reason.trim(),
+    provenanceId: input.provenanceId,
+    createdAt: input.createdAt,
+  });
+}
+
+async function storeMappingCommandResult(
+  transaction: DatabaseTransaction,
+  input: {
+    actorId: string;
+    idempotencyKey: string;
+    fingerprint: string;
+    result: CampusMapProviderMappingCommandResult;
+    createdAt: Date;
+  },
+) {
+  await transaction.insert(campusMapProviderMappingRequests).values({
+    actorUserId: input.actorId,
+    actorIdSnapshot: input.actorId,
+    idempotencyKey: input.idempotencyKey,
+    requestFingerprint: input.fingerprint,
+    result: input.result,
+    createdAt: input.createdAt,
+  });
+}
+
 export async function commandCampusMapProviderMapping(
   rawCommand: CampusMapProviderMappingCommand,
   context: { actorId: string | null; now?: Date },
@@ -434,10 +497,18 @@ export async function commandCampusMapProviderMapping(
         .where(eq(campusMapProvenanceSources.id, command.provenanceId))
         .limit(1);
       if (!provenance) {
-        return {
+        const result = {
           status: "not-found",
           code: "mapping-provenance-not-found",
-        };
+        } as const;
+        await storeMappingCommandResult(transaction, {
+          actorId: actor.id,
+          idempotencyKey: command.idempotencyKey,
+          fingerprint,
+          result,
+          createdAt: now,
+        });
+        return result;
       }
       const nextTarget =
         command.kind === "bind"
@@ -449,13 +520,21 @@ export async function commandCampusMapProviderMapping(
         ? await validateTarget(transaction, nextTarget)
         : "valid";
       if (targetValidation !== "valid") {
-        return {
+        const result = {
           status: "not-found",
           code:
             targetValidation === "kind-mismatch"
               ? "mapping-target-kind-mismatch"
               : "mapping-target-not-found",
-        };
+        } as const;
+        await storeMappingCommandResult(transaction, {
+          actorId: actor.id,
+          idempotencyKey: command.idempotencyKey,
+          fingerprint,
+          result,
+          createdAt: now,
+        });
+        return result;
       }
       const [active] = await transaction
         .select({
@@ -502,20 +581,13 @@ export async function commandCampusMapProviderMapping(
           provenanceId: command.provenanceId,
           createdAt: now,
         });
-        await transaction.insert(campusMapProviderMappingEvents).values({
+        await appendMappingEvent(transaction, {
           id: eventId,
-          provider: command.identity.provider,
-          providerObjectId: command.identity.providerObjectId,
-          commandKind: "bind",
-          previousTargetKind: null,
-          previousBuildingId: null,
-          previousPlaceId: null,
-          newTargetKind: columns.targetKind,
-          newBuildingId: columns.buildingId,
-          newPlaceId: columns.placeId,
-          actorUserId: actor.id,
-          actorIdSnapshot: actor.id,
-          actorNicknameSnapshot: actor.nickname,
+          identity: command.identity,
+          kind: "bind",
+          previousTarget: null,
+          newTarget: command.target,
+          actor,
           reason: command.reason.trim(),
           provenanceId: command.provenanceId,
           createdAt: now,
@@ -546,7 +618,6 @@ export async function commandCampusMapProviderMapping(
           };
         } else {
           const eventId = randomUUID();
-          const previous = targetColumns(currentTarget);
           await transaction
             .delete(campusMapProviderMappings)
             .where(
@@ -561,20 +632,13 @@ export async function commandCampusMapProviderMapping(
                 ),
               ),
             );
-          await transaction.insert(campusMapProviderMappingEvents).values({
+          await appendMappingEvent(transaction, {
             id: eventId,
-            provider: command.identity.provider,
-            providerObjectId: command.identity.providerObjectId,
-            commandKind: "unlink",
-            previousTargetKind: previous.targetKind,
-            previousBuildingId: previous.buildingId,
-            previousPlaceId: previous.placeId,
-            newTargetKind: null,
-            newBuildingId: null,
-            newPlaceId: null,
-            actorUserId: actor.id,
-            actorIdSnapshot: actor.id,
-            actorNicknameSnapshot: actor.nickname,
+            identity: command.identity,
+            kind: "unlink",
+            previousTarget: currentTarget,
+            newTarget: null,
+            actor,
             reason: command.reason.trim(),
             provenanceId: command.provenanceId,
             createdAt: now,
@@ -589,18 +653,6 @@ export async function commandCampusMapProviderMapping(
           };
         }
       } else if (
-        currentTarget &&
-        sameTarget(currentTarget, command.newTarget)
-      ) {
-        result = {
-          status: "mapped",
-          outcome: "unchanged",
-          identity: command.identity,
-          previousTarget: command.previousTarget,
-          target: command.newTarget,
-          eventId: null,
-        };
-      } else if (
         currentTarget === null ||
         !sameTarget(currentTarget, command.previousTarget)
       ) {
@@ -609,9 +661,17 @@ export async function commandCampusMapProviderMapping(
           code: "provider-mapping-conflict",
           currentTarget,
         };
+      } else if (sameTarget(currentTarget, command.newTarget)) {
+        result = {
+          status: "mapped",
+          outcome: "unchanged",
+          identity: command.identity,
+          previousTarget: currentTarget,
+          target: currentTarget,
+          eventId: null,
+        };
       } else {
         const eventId = randomUUID();
-        const previous = targetColumns(currentTarget);
         const next = targetColumns(command.newTarget);
         await transaction
           .update(campusMapProviderMappings)
@@ -629,20 +689,13 @@ export async function commandCampusMapProviderMapping(
               ),
             ),
           );
-        await transaction.insert(campusMapProviderMappingEvents).values({
+        await appendMappingEvent(transaction, {
           id: eventId,
-          provider: command.identity.provider,
-          providerObjectId: command.identity.providerObjectId,
-          commandKind: "rebind",
-          previousTargetKind: previous.targetKind,
-          previousBuildingId: previous.buildingId,
-          previousPlaceId: previous.placeId,
-          newTargetKind: next.targetKind,
-          newBuildingId: next.buildingId,
-          newPlaceId: next.placeId,
-          actorUserId: actor.id,
-          actorIdSnapshot: actor.id,
-          actorNicknameSnapshot: actor.nickname,
+          identity: command.identity,
+          kind: "rebind",
+          previousTarget: currentTarget,
+          newTarget: command.newTarget,
+          actor,
           reason: command.reason.trim(),
           provenanceId: command.provenanceId,
           createdAt: now,
@@ -656,16 +709,13 @@ export async function commandCampusMapProviderMapping(
           eventId,
         };
       }
-      if (result.status === "mapped") {
-        await transaction.insert(campusMapProviderMappingRequests).values({
-          actorUserId: actor.id,
-          actorIdSnapshot: actor.id,
-          idempotencyKey: command.idempotencyKey,
-          requestFingerprint: fingerprint,
-          result,
-          createdAt: now,
-        });
-      }
+      await storeMappingCommandResult(transaction, {
+        actorId: actor.id,
+        idempotencyKey: command.idempotencyKey,
+        fingerprint,
+        result,
+        createdAt: now,
+      });
       return result;
     });
   } catch {
@@ -714,14 +764,11 @@ export async function getCampusMapProviderMappingGovernance(
   if (!isCanonicalCampusMapUuid(actorId)) {
     return { status: "forbidden", code: "actor-not-eligible" };
   }
-  if (
-    !/^[a-z0-9][a-z0-9._-]{0,63}$/.test(identity.provider) ||
-    identity.providerObjectId.trim() === "" ||
-    identity.providerObjectId !== identity.providerObjectId.trim()
-  ) {
+  const identityErrors = validateProviderIdentity(identity);
+  if (identityErrors.length > 0) {
     return {
       status: "validation-failed",
-      errors: [{ code: "invalid-provider-identity", field: "identity" }],
+      errors: identityErrors,
     };
   }
   try {

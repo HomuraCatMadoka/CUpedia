@@ -466,6 +466,108 @@ describe.skipIf(!hasDb)("Campus Map provider mapping registry", () => {
     });
   });
 
+  it("replays a conflict even after the active mapping changes", async () => {
+    const identity = {
+      provider: "test-provider-779",
+      providerObjectId: "idempotent-conflict-poi",
+    };
+    const originalTarget = { kind: "building" as const, buildingId };
+    const conflictingTarget = {
+      kind: "building" as const,
+      buildingId: secondBuildingId,
+    };
+    await commandCampusMapProviderMapping(
+      {
+        kind: "bind",
+        idempotencyKey: randomUUID(),
+        identity,
+        target: originalTarget,
+        reason: "建立冲突前的 active mapping",
+        provenanceId,
+      },
+      { actorId },
+    );
+    const conflictingCommand = {
+      kind: "bind" as const,
+      idempotencyKey: randomUUID(),
+      identity,
+      target: conflictingTarget,
+      reason: "这个确定性冲突必须可重放",
+      provenanceId,
+    };
+    const first = await commandCampusMapProviderMapping(conflictingCommand, {
+      actorId,
+    });
+    expect(first).toEqual({
+      status: "conflict",
+      code: "provider-mapping-conflict",
+      currentTarget: originalTarget,
+    });
+
+    await commandCampusMapProviderMapping(
+      {
+        kind: "unlink",
+        idempotencyKey: randomUUID(),
+        identity,
+        previousTarget: originalTarget,
+        reason: "改变外部状态后再次发送同一冲突命令",
+        provenanceId,
+      },
+      { actorId },
+    );
+
+    await expect(
+      commandCampusMapProviderMapping(conflictingCommand, { actorId }),
+    ).resolves.toEqual(first);
+    await expect(
+      resolveCampusMapProviderSelection(
+        identity.provider,
+        identity.providerObjectId,
+      ),
+    ).resolves.toBeNull();
+  });
+
+  it("rejects a rebind whose claimed previous target is stale", async () => {
+    const identity = {
+      provider: "test-provider-779",
+      providerObjectId: "stale-rebind-poi",
+    };
+    const activeTarget = {
+      kind: "building" as const,
+      buildingId: secondBuildingId,
+    };
+    await commandCampusMapProviderMapping(
+      {
+        kind: "bind",
+        idempotencyKey: randomUUID(),
+        identity,
+        target: activeTarget,
+        reason: "建立真实 active target",
+        provenanceId,
+      },
+      { actorId },
+    );
+
+    await expect(
+      commandCampusMapProviderMapping(
+        {
+          kind: "rebind",
+          idempotencyKey: randomUUID(),
+          identity,
+          previousTarget: { kind: "building", buildingId },
+          newTarget: activeTarget,
+          reason: "错误声称旧 target，不得当作成功",
+          provenanceId,
+        },
+        { actorId },
+      ),
+    ).resolves.toEqual({
+      status: "conflict",
+      code: "provider-mapping-conflict",
+      currentTarget: activeTarget,
+    });
+  });
+
   it("serializes conflicting concurrent binds to one active target", async () => {
     const identity = {
       provider: "test-provider-779",
