@@ -175,8 +175,11 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  await act(async () => {
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+  });
   document
     .querySelectorAll("script[data-amap-campus]")
     .forEach((script) => script.remove());
