@@ -1328,6 +1328,7 @@ describe("Campus Map AMap runtime effects", () => {
   it("shows an explicit error card when a mapped target cannot refresh", async () => {
     const latest = createCampusMapBrowseFixture();
     const place = latest.places[0]!;
+    const building = latest.buildings[0]!;
     const initial = {
       ...latest,
       places: latest.places.filter(
@@ -1359,6 +1360,24 @@ describe("Campus Map AMap runtime effects", () => {
     ).not.toBeNull();
     expect(screen.getByText(place.name)).not.toBeNull();
     expect(window.location.search).toBe("?v=1");
+
+    await act(async () => {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `/campus-map?v=1&scene=building&id=${building.buildingId}&snap=peek`,
+      );
+      window.dispatchEvent(
+        new PopStateEvent("popstate", { state: window.history.state }),
+      );
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: building.name }),
+    ).not.toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "地点资料暂时无法载入" }),
+    ).toBeNull();
   });
 
   it.each([
