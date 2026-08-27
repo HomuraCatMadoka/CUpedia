@@ -17,17 +17,21 @@ import {
 } from "@/db/schema";
 import { isCanonicalCampusMapUuid } from "./canonical-uuid";
 import type { CampusMapSelectionTarget } from "./fact-store";
+import {
+  normalizeCampusMapProviderIdentity,
+  normalizeCampusMapProviderMappingTarget as normalizeTarget,
+  sameCampusMapProviderMappingTarget as sameTarget,
+  validateCampusMapProviderIdentity as validateProviderIdentity,
+  type CampusMapProviderIdentity,
+  type CampusMapProviderMappingTarget,
+} from "./provider-mapping-domain";
+
+export type {
+  CampusMapProviderIdentity,
+  CampusMapProviderMappingTarget,
+} from "./provider-mapping-domain";
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-export interface CampusMapProviderIdentity {
-  provider: string;
-  providerObjectId: string;
-}
-
-export type CampusMapProviderMappingTarget =
-  | { kind: "building"; buildingId: string }
-  | { kind: "place"; placeId: string };
 
 interface CampusMapProviderMappingCommandBase {
   idempotencyKey: string;
@@ -101,39 +105,6 @@ function hasExactKeys(
   );
 }
 
-function canonicalTarget(
-  target: CampusMapProviderMappingTarget,
-): CampusMapProviderMappingTarget {
-  return target.kind === "building"
-    ? { kind: "building", buildingId: target.buildingId.toLowerCase() }
-    : { kind: "place", placeId: target.placeId.toLowerCase() };
-}
-
-function normalizeTarget(
-  value: unknown,
-): CampusMapProviderMappingTarget | null {
-  if (!value || typeof value !== "object") return null;
-  const target = value as Record<string, unknown>;
-  if (
-    target.kind === "building" &&
-    typeof target.buildingId === "string" &&
-    hasExactKeys(target, ["kind", "buildingId"])
-  ) {
-    return canonicalTarget({
-      kind: "building",
-      buildingId: target.buildingId,
-    });
-  }
-  if (
-    target.kind === "place" &&
-    typeof target.placeId === "string" &&
-    hasExactKeys(target, ["kind", "placeId"])
-  ) {
-    return canonicalTarget({ kind: "place", placeId: target.placeId });
-  }
-  return null;
-}
-
 function normalizeCommand(
   value: unknown,
 ): CampusMapProviderMappingCommand | null {
@@ -143,25 +114,15 @@ function normalizeCommand(
     typeof raw.idempotencyKey !== "string" ||
     typeof raw.reason !== "string" ||
     typeof raw.provenanceId !== "string" ||
-    !raw.identity ||
-    typeof raw.identity !== "object"
+    !raw.identity
   ) {
     return null;
   }
-  const rawIdentity = raw.identity as Record<string, unknown>;
-  if (
-    typeof rawIdentity.provider !== "string" ||
-    typeof rawIdentity.providerObjectId !== "string" ||
-    !hasExactKeys(rawIdentity, ["provider", "providerObjectId"])
-  ) {
-    return null;
-  }
+  const identity = normalizeCampusMapProviderIdentity(raw.identity);
+  if (!identity) return null;
   const common: CampusMapProviderMappingCommandBase = {
     idempotencyKey: raw.idempotencyKey.toLowerCase(),
-    identity: {
-      provider: rawIdentity.provider,
-      providerObjectId: rawIdentity.providerObjectId,
-    },
+    identity,
     reason: raw.reason,
     provenanceId: raw.provenanceId.toLowerCase(),
   };
@@ -248,34 +209,6 @@ function mappingTarget(mapping: {
     return { kind: "place", placeId: mapping.placeId };
   }
   return null;
-}
-
-function sameTarget(
-  left: CampusMapProviderMappingTarget,
-  right: CampusMapProviderMappingTarget,
-) {
-  return left.kind === "building"
-    ? right.kind === "building" && left.buildingId === right.buildingId
-    : right.kind === "place" && left.placeId === right.placeId;
-}
-
-function validateProviderIdentity(identity: CampusMapProviderIdentity) {
-  const errors: Array<{ code: string; field: string }> = [];
-  if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(identity.provider)) {
-    errors.push({ code: "invalid-provider", field: "identity.provider" });
-  }
-  if (
-    identity.providerObjectId.trim() === "" ||
-    identity.providerObjectId !== identity.providerObjectId.trim() ||
-    Buffer.byteLength(identity.providerObjectId, "utf8") > 512 ||
-    /[\u0000-\u001f\u007f]/.test(identity.providerObjectId)
-  ) {
-    errors.push({
-      code: "invalid-provider-object-id",
-      field: "identity.providerObjectId",
-    });
-  }
-  return errors;
 }
 
 type CampusMapProviderMappingTargetField =

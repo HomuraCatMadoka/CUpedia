@@ -48,6 +48,69 @@ server context; React, provider adapters, and seed/import code cannot write
 mapping rows. Name, alias, distance, and coordinate evidence stays in the pure
 `provider-mapping-candidate.ts` module until an admin sends an explicit command.
 
+For repeatable linked/unlinked browser acceptance, use the audited fixture
+runner from the fixed QA worktree. Keep its JSON manifest outside the
+repository; it contains a provenance record, one real AMap identity for a
+Building target, one for a Place target, and at least one identity that must
+remain unmapped. Configure `CAMPUS_MAP_PROVIDER_MAPPING_QA_ACTOR_ID` in that
+worktree's local environment as the trusted operator; it is not accepted from
+the fixture payload, and the registry rechecks its current admin status. The
+runner never reads an AMap key and never writes mapping tables directly:
+
+```bash
+pnpm qa:campus-map-provider-mappings -- apply /absolute/path/manifest.json
+pnpm qa:campus-map-provider-mappings -- verify /absolute/path/manifest.json
+pnpm qa:campus-map-provider-mappings -- cleanup /absolute/path/manifest.json
+```
+
+The manifest shape is:
+
+```json
+{
+  "version": 1,
+  "provenanceId": "provider-candidate-provenance-uuid",
+  "reason": "Fixed Campus Map QA",
+  "mapped": [
+    {
+      "label": "building",
+      "managed": true,
+      "identity": {
+        "provider": "amap",
+        "providerObjectId": "real-building-poi-id"
+      },
+      "target": { "kind": "building", "buildingId": "building-uuid" }
+    },
+    {
+      "label": "place",
+      "managed": false,
+      "identity": {
+        "provider": "amap",
+        "providerObjectId": "real-place-poi-id"
+      },
+      "target": { "kind": "place", "placeId": "place-uuid" }
+    }
+  ],
+  "unmapped": [
+    {
+      "label": "transient",
+      "identity": {
+        "provider": "amap",
+        "providerObjectId": "real-unmapped-poi-id"
+      }
+    }
+  ]
+}
+```
+
+`managed: true` means the fixture runner may bind that missing identity during
+`apply` and unlink its exact target during `cleanup`. `managed: false` means the
+mapping must already exist and is verification-only; cleanup preserves it.
+`verify` checks the public resolver used by Campus Map. Every mode fails closed
+if an identity is already bound elsewhere; rebind remains a separate, explicit
+governance decision. Run fixed-worktree QA serially, keep managed mappings
+applied until linked Building, linked Place, and transient POI checks are
+complete, and never run seed or bootstrap as part of this workflow.
+
 ## Persistence invariants
 
 - Building, Floor, and Place use UUID primary keys. Provider mappings have a

@@ -1458,8 +1458,8 @@ export function AmapCampusPrototype({
 
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
-      driver.restore(window.location.search, event.state);
-      if (editSession) {
+      const restored = driver.restore(window.location.search, event.state);
+      if (editSession && !restored.preservedReplacementTask) {
         dispatchEditEvent({ type: "REQUEST_CLOSE" });
       }
     };

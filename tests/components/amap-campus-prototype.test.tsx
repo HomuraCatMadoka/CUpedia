@@ -1332,6 +1332,38 @@ describe("AmapCampusPrototype", () => {
     ).toBe(true);
   });
 
+  it("keeps a replacement Add session when the discarded task's Back completes late", async () => {
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    render(<AmapCampusPrototype />);
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
+    fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
+    fireEvent.click(await screen.findByRole("button", { name: "放弃草稿" }));
+    expect(back).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    fireEvent.click(screen.getByRole("radio", { name: "打印服务" }));
+
+    window.history.replaceState(null, "", "/prototype/campus-map");
+    await act(async () => {
+      window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
+    });
+
+    await waitFor(() =>
+      expect(
+        (screen.getByRole("radio", { name: "打印服务" }) as HTMLInputElement)
+          .checked,
+      ).toBe(true),
+    );
+    expect(window.location.search).toContain("task=create");
+    expect(
+      screen.queryByRole("heading", { name: "放弃未发布的修改？" }),
+    ).toBeNull();
+  });
+
   it("uses one Add session for natural center-pin placement and dirty close", async () => {
     render(<AmapCampusPrototype />);
 

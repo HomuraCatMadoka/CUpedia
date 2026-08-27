@@ -446,6 +446,172 @@ describe("CampusMapSceneDriver", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it("replays a replacement task after an earlier task's Back completes", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "START_CREATE" });
+    vi.mocked(runtime.history.pushState).mockClear();
+
+    runtime.driver.dispatch({ type: "CANCEL_TASK" });
+    const queued = runtime.driver.dispatch({ type: "START_CREATE" });
+
+    expect(runtime.history.back).toHaveBeenCalledOnce();
+    expect(queued).toMatchObject({ status: "queued" });
+    expect(runtime.history.pushState).not.toHaveBeenCalled();
+
+    const restored = runtime.driver.restore("?v=1", {
+      campusMapScene: true,
+      version: 1,
+      depth: 0,
+    });
+
+    expect(restored).toMatchObject({
+      status: "restored",
+      completedPendingReturn: true,
+      preservedReplacementTask: true,
+    });
+    expect(runtime.driver.getSnapshot().session).toEqual({
+      mode: "task",
+      task: { kind: "create", anchor: { kind: "map" } },
+    });
+    expect(runtime.search).toBe("?v=1&task=create&anchor=map");
+    expect(runtime.history.pushState).toHaveBeenCalledOnce();
+  });
+
+  it("does not let an older browse Back overwrite a newer selection", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "science",
+      source: "map",
+    });
+    vi.mocked(runtime.history.pushState).mockClear();
+
+    runtime.driver.dispatch({ type: "NAVIGATE_BACK" });
+    const queued = runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "library",
+      source: "map",
+    });
+
+    expect(queued).toMatchObject({ status: "queued" });
+    expect(runtime.history.pushState).not.toHaveBeenCalled();
+
+    runtime.driver.restore("?v=1", {
+      campusMapScene: true,
+      version: 1,
+      depth: 0,
+    });
+
+    expect(runtime.driver.getSnapshot().session).toEqual({
+      mode: "browse",
+      scene: {
+        kind: "building",
+        buildingId: "library",
+        floorId: null,
+        snap: "peek",
+      },
+    });
+    expect(runtime.search).toBe("?v=1&scene=building&id=library&snap=peek");
+    expect(runtime.history.pushState).toHaveBeenCalledOnce();
+  });
+
+  it("opens a replacement task's published Place after the older Back completes", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "START_CREATE" });
+    runtime.driver.dispatch({ type: "CANCEL_TASK" });
+    runtime.driver.dispatch({ type: "START_CREATE" });
+    const intentToken = runtime.driver.getIntentToken();
+    (catalog.facilities as Record<string, object>).queuedPublishedWater = {
+      buildingId: null,
+      floorId: null,
+      category: "water",
+      cameraTarget: "place-point",
+    };
+    vi.mocked(runtime.history.pushState).mockClear();
+
+    expect(
+      runtime.driver.openPublishedPlace("queuedPublishedWater", intentToken),
+    ).toEqual({ status: "applied" });
+
+    runtime.driver.restore("?v=1", {
+      campusMapScene: true,
+      version: 1,
+      depth: 0,
+    });
+
+    expect(runtime.driver.getSnapshot().session).toEqual({
+      mode: "browse",
+      scene: {
+        kind: "facility",
+        facilityId: "queuedPublishedWater",
+        snap: "peek",
+      },
+    });
+    expect(runtime.search).toBe(
+      "?v=1&scene=facility&id=queuedPublishedWater&snap=peek",
+    );
+    expect(runtime.history.pushState).toHaveBeenCalledOnce();
+  });
+
+  it("keeps newer navigation over a queued published Place handoff", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "START_CREATE" });
+    runtime.driver.dispatch({ type: "CANCEL_TASK" });
+    runtime.driver.dispatch({ type: "START_CREATE" });
+    const intentToken = runtime.driver.getIntentToken();
+    (catalog.facilities as Record<string, object>).supersededPublishedWater = {
+      buildingId: null,
+      floorId: null,
+      category: "water",
+      cameraTarget: "place-point",
+    };
+    runtime.driver.openPublishedPlace("supersededPublishedWater", intentToken);
+
+    runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "library",
+      source: "map",
+    });
+    runtime.driver.restore("?v=1", {
+      campusMapScene: true,
+      version: 1,
+      depth: 0,
+    });
+
+    expect(runtime.driver.getSnapshot().session).toMatchObject({
+      mode: "browse",
+      scene: { kind: "building", buildingId: "library" },
+    });
+  });
+
+  it("carries a third task into the second pending Back acknowledgement", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "START_CREATE" });
+    runtime.driver.dispatch({ type: "CANCEL_TASK" });
+    runtime.driver.dispatch({ type: "START_CREATE" });
+    runtime.driver.dispatch({ type: "CANCEL_TASK" });
+    runtime.driver.dispatch({ type: "START_CREATE" });
+
+    runtime.driver.restore("?v=1", {
+      campusMapScene: true,
+      version: 1,
+      depth: 0,
+    });
+    expect(runtime.history.back).toHaveBeenCalledTimes(2);
+
+    runtime.driver.restore("?v=1", {
+      campusMapScene: true,
+      version: 1,
+      depth: 0,
+    });
+
+    expect(runtime.driver.getSnapshot().session).toEqual({
+      mode: "task",
+      task: { kind: "create", anchor: { kind: "map" } },
+    });
+    expect(runtime.search).toBe("?v=1&task=create&anchor=map");
+  });
+
   it("restores Back and Forward across an outdoor Place without writing history", () => {
     const runtime = harness();
     runtime.driver.dispatch({ type: "OPEN_CATEGORY", category: "water" });

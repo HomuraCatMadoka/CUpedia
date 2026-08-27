@@ -64,6 +64,13 @@ export interface CampusMapDriverSnapshot {
   transitionToken: number;
 }
 
+export interface CampusMapDriverRestoreResult {
+  status: "restored";
+  snapshot: CampusMapDriverSnapshot;
+  completedPendingReturn: boolean;
+  preservedReplacementTask: boolean;
+}
+
 export interface CampusMapDriverEffectContext {
   token: number;
   isCurrent(): boolean;
@@ -111,6 +118,7 @@ interface CampusMapDriverCommit {
   };
   syncSheet: boolean;
   bumpToken?: boolean;
+  incrementIntentVersion?: boolean;
 }
 
 function sheetCommand(session: CampusMapSession): CampusMapSheetCommand {
@@ -154,6 +162,10 @@ export class CampusMapSceneDriver {
   private lastSheetRect: ScreenRect | null = null;
   private started = false;
   private suppressNextSheetReframe = false;
+  private pendingHistoryReturn: {
+    queuedIntents: CampusMapEvent[];
+    publishedPlaceId: string | null;
+  } | null = null;
   private snapshot: CampusMapDriverSnapshot;
   private readonly listeners = new Set<() => void>();
   private readonly returnTargetsByDepth = new Map<
@@ -212,6 +224,18 @@ export class CampusMapSceneDriver {
   }
 
   dispatch(intent: CampusMapDriverIntent) {
+    if (intent.type === "FIT_CLUSTER") return this.fitCluster(intent.positions);
+    if (intent.type === "REFRAME") return this.reframe(intent.reason);
+    if (this.pendingHistoryReturn) {
+      if (intent.type === "NAVIGATE_BACK" || intent.type === "DISMISS") {
+        return { status: "pending" as const };
+      }
+      this.intentVersion += 1;
+      this.bumpToken();
+      this.pendingHistoryReturn.publishedPlaceId = null;
+      this.pendingHistoryReturn.queuedIntents.push(intent);
+      return { status: "queued" as const };
+    }
     if (intent.type === "NAVIGATE_BACK") return this.navigateBack();
     if (intent.type === "DISMISS") {
       const target = this.snapshot.returnTo ?? EMPTY_CAMPUS_MAP_SCENE_SESSION;
@@ -227,15 +251,15 @@ export class CampusMapSceneDriver {
         syncSheet: true,
       });
     }
-    if (intent.type === "FIT_CLUSTER") return this.fitCluster(intent.positions);
-    if (intent.type === "REFRAME") return this.reframe(intent.reason);
     return this.applyKernelEvent(
       intent,
       returnTargetFor(this.snapshot.session, intent),
     );
   }
 
-  restore(search: string, historyState: unknown) {
+  restore(search: string, historyState: unknown): CampusMapDriverRestoreResult {
+    const pendingReturn = this.pendingHistoryReturn;
+    this.pendingHistoryReturn = null;
     const metadata = decodeCampusMapHistoryMetadata(historyState);
     this.currentDepth = metadata.depth;
     const decoded = decodeCampusMapUrl(search, this.catalog);
@@ -245,12 +269,36 @@ export class CampusMapSceneDriver {
       this.catalog,
     );
     const returnTo = this.returnTargetsByDepth.get(this.currentDepth) ?? null;
-    return this.commitTransition({
+    this.commitTransition({
       session: result.session,
       returnTo,
       commands: result.commands,
       syncSheet: true,
+      incrementIntentVersion: pendingReturn === null,
     });
+    if (pendingReturn?.publishedPlaceId) {
+      this.commitPublishedPlace(pendingReturn.publishedPlaceId, "push", false);
+    } else {
+      const queuedIntents = pendingReturn?.queuedIntents ?? [];
+      for (const [index, intent] of queuedIntents.entries()) {
+        if (this.carryQueuedIntents(queuedIntents.slice(index))) break;
+        this.applyKernelEvent(
+          intent,
+          returnTargetFor(this.snapshot.session, intent),
+          false,
+        );
+      }
+    }
+    return {
+      status: "restored",
+      snapshot: this.snapshot,
+      completedPendingReturn: pendingReturn !== null,
+      preservedReplacementTask:
+        pendingReturn?.queuedIntents.some(
+          (intent) =>
+            intent.type === "START_CREATE" || intent.type === "START_EDIT",
+        ) === true && this.snapshot.session.mode === "task",
+    };
   }
 
   interruptCamera() {
@@ -288,35 +336,19 @@ export class CampusMapSceneDriver {
     if (this.intentVersion !== intentToken) {
       return { status: "superseded" as const };
     }
-    if (
-      !Object.prototype.hasOwnProperty.call(this.catalog.facilities, placeId) ||
-      !this.catalog.facilities[placeId]
-    ) {
+    if (!this.resolvePublishedPlace(placeId)) {
       return { status: "missing-target" as const };
     }
-    const target: CampusMapSession = {
-      mode: "browse",
-      scene: { kind: "facility", facilityId: placeId, snap: "peek" },
-    };
-    const resolved = resolveCampusMapSessionSemantics(target, this.catalog);
-    if (resolved.status !== "valid") {
-      return { status: "missing-target" as const };
+    if (this.pendingHistoryReturn) {
+      this.intentVersion += 1;
+      this.bumpToken();
+      this.pendingHistoryReturn.queuedIntents = [];
+      this.pendingHistoryReturn.publishedPlaceId = placeId;
+      return { status: "applied" as const };
     }
-    this.commitTransition({
-      session: target,
-      returnTo: null,
-      commands: {
-        history: "replace",
-        camera: projectCampusMapSceneCameraCommand(
-          resolved.cameraTarget,
-          "facility-selection",
-        ) ?? { kind: "cancel" },
-        focus: resolved.focus,
-        overlay: { kind: "close-external" },
-      },
-      syncSheet: true,
-    });
-    return { status: "applied" as const };
+    return this.commitPublishedPlace(placeId, "replace", true)
+      ? ({ status: "applied" } as const)
+      : ({ status: "missing-target" } as const);
   }
 
   updateSheetGeometry(nextRect: ScreenRect | null) {
@@ -342,6 +374,7 @@ export class CampusMapSceneDriver {
   private applyKernelEvent(
     event: CampusMapEvent,
     nextReturnTo: CampusMapSession | null | undefined,
+    incrementIntentVersion = true,
   ) {
     const result = transitionCampusMapSession(
       this.snapshot.session,
@@ -363,14 +396,14 @@ export class CampusMapSceneDriver {
         nextReturnTo === undefined ? this.snapshot.returnTo : nextReturnTo,
       commands: result.commands,
       syncSheet: result.session !== this.snapshot.session,
+      incrementIntentVersion,
     });
   }
 
   private navigateBack() {
     this.bumpToken();
     if (this.currentDepth > 0) {
-      this.ports.history.back();
-      return { status: "travelled" as const };
+      return this.beginHistoryReturn();
     }
 
     const fallback = this.fallbackFor(this.snapshot.session);
@@ -467,12 +500,12 @@ export class CampusMapSceneDriver {
     commands: { history, camera, focus, overlay },
     syncSheet,
     bumpToken = true,
+    incrementIntentVersion = true,
   }: CampusMapDriverCommit) {
-    this.intentVersion += 1;
+    if (incrementIntentVersion) this.intentVersion += 1;
     if (bumpToken) this.bumpToken();
     if (history === "back-or-push" && this.currentDepth > 0) {
-      this.ports.history.back();
-      return { status: "travelled" as const };
+      return this.beginHistoryReturn();
     }
 
     const nextDepth =
@@ -510,6 +543,62 @@ export class CampusMapSceneDriver {
       context,
     );
     return { status: "committed" as const, snapshot: this.snapshot };
+  }
+
+  private beginHistoryReturn() {
+    this.pendingHistoryReturn = {
+      queuedIntents: [],
+      publishedPlaceId: null,
+    };
+    this.ports.history.back();
+    return { status: "travelled" as const };
+  }
+
+  private carryQueuedIntents(intents: CampusMapEvent[]) {
+    if (!this.pendingHistoryReturn) return false;
+    this.pendingHistoryReturn.queuedIntents.push(...intents);
+    return true;
+  }
+
+  private commitPublishedPlace(
+    placeId: string,
+    history: "push" | "replace",
+    incrementIntentVersion: boolean,
+  ) {
+    const published = this.resolvePublishedPlace(placeId);
+    if (!published) return false;
+    const { target, resolved } = published;
+    this.commitTransition({
+      session: target,
+      returnTo: null,
+      commands: {
+        history,
+        camera: projectCampusMapSceneCameraCommand(
+          resolved.cameraTarget,
+          "facility-selection",
+        ) ?? { kind: "cancel" },
+        focus: resolved.focus,
+        overlay: { kind: "close-external" },
+      },
+      syncSheet: true,
+      incrementIntentVersion,
+    });
+    return true;
+  }
+
+  private resolvePublishedPlace(placeId: string) {
+    if (
+      !Object.prototype.hasOwnProperty.call(this.catalog.facilities, placeId) ||
+      !this.catalog.facilities[placeId]
+    ) {
+      return null;
+    }
+    const target: CampusMapSession = {
+      mode: "browse",
+      scene: { kind: "facility", facilityId: placeId, snap: "peek" },
+    };
+    const resolved = resolveCampusMapSessionSemantics(target, this.catalog);
+    return resolved.status === "valid" ? { target, resolved } : null;
   }
 
   private executeCommands(
