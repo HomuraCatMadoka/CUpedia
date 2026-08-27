@@ -73,7 +73,7 @@ vi.mock("@/lib/campus-map/browse-actions", () => ({
   loadCampusMapAmapPoiCard: mockLoadProviderPoiCard,
 }));
 
-import { AmapCampusPrototype as AmapCampusPrototypeView } from "@/components/campus-map/amap-campus-prototype";
+import { CampusMapRuntime as CampusMapRuntimeView } from "@/components/campus-map/campus-map-runtime";
 import {
   identifyCampusMapEditPublisher,
   loadCampusMapEditablePlace,
@@ -95,14 +95,12 @@ import type {
   CampusMapPublishFactInput,
   CampusMapPublishSourceInput,
 } from "@/lib/campus-map/publish-contract";
-import { createAmapPrototypeBrowseFixture } from "../helpers/campus-map-browse-projection";
+import { createCampusMapBrowseFixture } from "../helpers/campus-map-browse-projection";
 
-function AmapCampusPrototype(
-  props: ComponentProps<typeof AmapCampusPrototypeView>,
-) {
+function CampusMapRuntime(props: ComponentProps<typeof CampusMapRuntimeView>) {
   return (
-    <AmapCampusPrototypeView
-      initialBrowseProjection={createAmapPrototypeBrowseFixture()}
+    <CampusMapRuntimeView
+      initialBrowseProjection={createCampusMapBrowseFixture()}
       {...props}
     />
   );
@@ -140,7 +138,7 @@ beforeEach(() => {
   mockRequestContributorSetup.mockResolvedValue("complete");
   mockLoadBrowseProjection.mockReset();
   mockLoadBrowseProjection.mockImplementation(async () =>
-    createAmapPrototypeBrowseFixture(),
+    createCampusMapBrowseFixture(),
   );
   mockLoadProviderPoiCard.mockReset();
   window.sessionStorage.clear();
@@ -150,7 +148,7 @@ beforeEach(() => {
       request: async (_name: string, work: () => Promise<unknown>) => work(),
     },
   });
-  window.history.replaceState(null, "", "/prototype/campus-map");
+  window.history.replaceState(null, "", "/campus-map");
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue({
@@ -298,7 +296,7 @@ function publishedOutdoorProjection(placeId: string) {
   return publishedOutdoorProjectionFor([{ id: placeId, name: "新发布饮水点" }]);
 }
 
-describe("AmapCampusPrototype", () => {
+describe("CampusMapRuntime", () => {
   it("rejects a malformed persisted publish receipt", () => {
     const idempotencyKey = "10000000-0000-4000-8000-000000000099";
     window.localStorage.setItem(
@@ -319,7 +317,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("uses the formal edit schema labels for browse categories", () => {
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
 
     expect(screen.getByRole("button", { name: "饮水点" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "打印服务" })).not.toBeNull();
@@ -328,7 +326,7 @@ describe("AmapCampusPrototype", () => {
 
   it("searches formal Current facts and lists same-type Places separately in the Building card", async () => {
     render(
-      <AmapCampusPrototype
+      <CampusMapRuntime
         initialBrowseProjection={formalCurrentFactsProjection()}
       />,
     );
@@ -371,13 +369,13 @@ describe("AmapCampusPrototype", () => {
       publishedOutdoorProjection(placeId),
     );
     const { rerender } = render(
-      <AmapCampusPrototype
+      <CampusMapRuntime
         initialBrowseProjection={initialBrowseProjection}
         onPublishedProjectionRefreshed={initialProjectionObserver}
       />,
     );
     rerender(
-      <AmapCampusPrototype
+      <CampusMapRuntime
         initialBrowseProjection={initialBrowseProjection}
         onPublishedProjectionRefreshed={latestProjectionObserver}
       />,
@@ -484,7 +482,7 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?v=1&task=create&anchor=map",
+      "/campus-map?v=1&task=create&anchor=map",
     );
     vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
       status: "committed",
@@ -494,7 +492,7 @@ describe("AmapCampusPrototype", () => {
       publishedOutdoorProjection(placeId),
     );
 
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     expect(
       await screen.findByRole("heading", { name: "新发布饮水点" }),
@@ -558,14 +556,14 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?v=1&task=create&anchor=map",
+      "/campus-map?v=1&task=create&anchor=map",
     );
     vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
       status: "committed",
       receipt,
     });
 
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     await waitFor(() =>
       expect(
@@ -624,7 +622,7 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?v=1&task=create&anchor=map",
+      "/campus-map?v=1&task=create&anchor=map",
     );
     vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
       status: "committed",
@@ -640,7 +638,7 @@ describe("AmapCampusPrototype", () => {
     );
 
     render(
-      <AmapCampusPrototype
+      <CampusMapRuntime
         initialSearch={window.location.search}
         initialBrowseProjection={publishedOutdoorProjectionFor([
           { id: newerPlaceId, name: "较新的导航地点" },
@@ -654,7 +652,7 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       window.history.state,
       "",
-      `/prototype/campus-map?v=1&scene=facility&id=${newerPlaceId}&snap=peek`,
+      `/campus-map?v=1&scene=facility&id=${newerPlaceId}&snap=peek`,
     );
     window.dispatchEvent(
       new PopStateEvent("popstate", { state: window.history.state }),
@@ -736,7 +734,7 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?v=1&task=create&anchor=map",
+      "/campus-map?v=1&task=create&anchor=map",
     );
     let resolveIdentity!: () => void;
     vi.mocked(identifyCampusMapEditPublisher).mockReturnValueOnce(
@@ -749,12 +747,12 @@ describe("AmapCampusPrototype", () => {
       }),
     );
 
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
     await waitFor(() =>
       expect(identifyCampusMapEditPublisher).toHaveBeenCalledOnce(),
     );
 
-    window.history.replaceState(null, "", "/prototype/campus-map");
+    window.history.replaceState(null, "", "/campus-map");
     window.dispatchEvent(
       new PopStateEvent("popstate", { state: window.history.state }),
     );
@@ -780,7 +778,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("drops queued edit focus and announcements after newer navigation", async () => {
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     const queuedFrames: FrameRequestCallback[] = [];
@@ -794,7 +792,7 @@ describe("AmapCampusPrototype", () => {
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
-    window.history.replaceState(null, "", "/prototype/campus-map");
+    window.history.replaceState(null, "", "/campus-map");
     window.dispatchEvent(
       new PopStateEvent("popstate", { state: window.history.state }),
     );
@@ -852,13 +850,13 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?v=1&task=create&anchor=map",
+      "/campus-map?v=1&task=create&anchor=map",
     );
     vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
       status: "unavailable",
     });
 
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     expect(
       await screen.findByRole("button", { name: "检查发布结果" }),
@@ -924,7 +922,7 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?v=1&task=create&anchor=map",
+      "/campus-map?v=1&task=create&anchor=map",
     );
     vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
       status: "committed",
@@ -934,7 +932,7 @@ describe("AmapCampusPrototype", () => {
       publishedOutdoorProjection(placeId),
     );
 
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     await waitFor(() =>
       expect(window.location.search).toContain(`id=${placeId}`),
@@ -978,11 +976,11 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      `/prototype/campus-map?v=1&scene=facility&id=${selectedPlaceId}&snap=peek`,
+      `/campus-map?v=1&scene=facility&id=${selectedPlaceId}&snap=peek`,
     );
 
     render(
-      <AmapCampusPrototype
+      <CampusMapRuntime
         initialSearch={window.location.search}
         initialBrowseProjection={publishedOutdoorProjection(selectedPlaceId)}
       />,
@@ -1032,14 +1030,14 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?v=1&task=create&anchor=map",
+      "/campus-map?v=1&task=create&anchor=map",
     );
     vi.mocked(identifyCampusMapEditPublisher).mockResolvedValueOnce({
       status: "authenticated",
       actorId: "60000000-0000-4000-8000-000000000002",
     });
 
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     expect(
       await screen.findByText(
@@ -1091,13 +1089,13 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?v=1&task=create&anchor=map",
+      "/campus-map?v=1&task=create&anchor=map",
     );
     vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
       status: "identity-mismatch",
     });
 
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     expect(
       await screen.findByText(
@@ -1162,11 +1160,11 @@ describe("AmapCampusPrototype", () => {
       window.history.replaceState(
         null,
         "",
-        "/prototype/campus-map?v=1&task=create&anchor=map",
+        "/campus-map?v=1&task=create&anchor=map",
       );
       vi.mocked(identifyCampusMapEditPublisher).mockResolvedValueOnce(identity);
 
-      render(<AmapCampusPrototype initialSearch={window.location.search} />);
+      render(<CampusMapRuntime initialSearch={window.location.search} />);
 
       await waitFor(() =>
         expect(identifyCampusMapEditPublisher).toHaveBeenCalledOnce(),
@@ -1188,7 +1186,7 @@ describe("AmapCampusPrototype", () => {
     const placeId = "30000000-0000-4000-8000-000000000020";
 
     render(
-      <AmapCampusPrototype
+      <CampusMapRuntime
         initialSearch="?v=1&scene=search&q=新发布饮水点&snap=peek"
         initialBrowseProjection={publishedOutdoorProjection(placeId)}
       />,
@@ -1209,7 +1207,7 @@ describe("AmapCampusPrototype", () => {
     const placeId = "30000000-0000-4000-8000-000000000020";
 
     render(
-      <AmapCampusPrototype
+      <CampusMapRuntime
         initialSearch="?v=1&scene=category&id=water&snap=peek"
         initialBrowseProjection={publishedOutdoorProjection(placeId)}
       />,
@@ -1221,7 +1219,7 @@ describe("AmapCampusPrototype", () => {
 
   it("keeps the draft and does not publish when contributor setup is cancelled", async () => {
     mockRequestContributorSetup.mockResolvedValueOnce("cancelled");
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
@@ -1243,7 +1241,7 @@ describe("AmapCampusPrototype", () => {
       status: "authentication-required",
       code: "authentication-required",
     });
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
@@ -1263,7 +1261,7 @@ describe("AmapCampusPrototype", () => {
     vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
       status: "unavailable",
     });
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
@@ -1309,7 +1307,7 @@ describe("AmapCampusPrototype", () => {
         resolveSetup = () => resolve("complete");
       }),
     );
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
@@ -1334,7 +1332,7 @@ describe("AmapCampusPrototype", () => {
 
   it("keeps a replacement Add session when the discarded task's Back completes late", async () => {
     const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
@@ -1347,7 +1345,7 @@ describe("AmapCampusPrototype", () => {
     fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
     fireEvent.click(screen.getByRole("radio", { name: "打印服务" }));
 
-    window.history.replaceState(null, "", "/prototype/campus-map");
+    window.history.replaceState(null, "", "/campus-map");
     await act(async () => {
       window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
     });
@@ -1365,7 +1363,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("uses one Add session for natural center-pin placement and dirty close", async () => {
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     expect(
@@ -1414,7 +1412,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("keeps a dirty Add draft when browser Back is cancelled", async () => {
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
     await screen.findByRole("group", { name: "设施类型" });
@@ -1437,9 +1435,9 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
+      "/campus-map?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     await screen.findByRole("heading", { name: "饮水机" });
     fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
@@ -1464,10 +1462,10 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      `/prototype/campus-map?v=1&task=edit&id=${placeId}&returnNote=${noteId}`,
+      `/campus-map?v=1&task=edit&id=${placeId}&returnNote=${noteId}`,
     );
 
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     expect(
       await screen.findByRole("heading", { name: "修改设施" }),
@@ -1498,10 +1496,10 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      `/prototype/campus-map?v=1&task=edit&id=${urlPlaceId}`,
+      `/campus-map?v=1&task=edit&id=${urlPlaceId}`,
     );
 
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     expect(await screen.findByText(/草稿与当前编辑目标不一致/)).toBeTruthy();
     expect(
@@ -1586,7 +1584,7 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      `/prototype/campus-map?v=1&task=edit&id=${placeId}`,
+      `/campus-map?v=1&task=edit&id=${placeId}`,
     );
     vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
       status: "conflict",
@@ -1615,7 +1613,7 @@ describe("AmapCampusPrototype", () => {
       },
     });
 
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
     expect(await screen.findByText("最新：科学馆 · 1/F")).toBeTruthy();
     expect(document.body.textContent).not.toContain(buildingId);
     expect(document.body.textContent).not.toContain(floorId);
@@ -1628,9 +1626,9 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      `/prototype/campus-map?v=1&scene=facility&id=${placeId}&snap=peek`,
+      `/campus-map?v=1&scene=facility&id=${placeId}&snap=peek`,
     );
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     await screen.findByRole("heading", { name: "饮水机" });
     fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
@@ -1664,7 +1662,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("removes hidden map chrome from keyboard and screen-reader navigation during editing", async () => {
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
     const searchHeader = screen
       .getByPlaceholderText("搜索建筑")
       .closest("header");
@@ -1693,9 +1691,9 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      `/prototype/campus-map?v=1&scene=facility&id=${placeId}&snap=peek`,
+      `/campus-map?v=1&scene=facility&id=${placeId}&snap=peek`,
     );
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     await screen.findByRole("heading", { name: "饮水机" });
     fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
@@ -1710,10 +1708,10 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
+      "/campus-map?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
 
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     const heading = await screen.findByRole("heading", { name: "饮水机" });
     expect(heading.parentElement?.textContent).toContain("大学图书馆 · G/F");
@@ -1728,7 +1726,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("gives the AMap-owned container an explicit full-size parent", async () => {
-    const { container } = render(<AmapCampusPrototype />);
+    const { container } = render(<CampusMapRuntime />);
     const canvas = container.querySelector("#amap-campus-canvas");
 
     expect(canvas?.classList.contains("h-full")).toBe(true);
@@ -1739,7 +1737,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("inserts the AMap script after browser configuration loads", async () => {
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
 
     await waitFor(() => {
       const script = document.querySelector<HTMLScriptElement>(
@@ -1760,7 +1758,7 @@ describe("AmapCampusPrototype", () => {
       }),
     } as Response);
 
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
 
     expect(
       await screen.findByRole("heading", { name: "高德地图配置缺失" }),
@@ -1769,7 +1767,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("retries from a fail-closed state when the AMap SDK script fails", async () => {
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
     const script = await waitFor(() => {
       const value = document.querySelector<HTMLScriptElement>(
         "script[data-amap-campus]",
@@ -1798,7 +1796,7 @@ describe("AmapCampusPrototype", () => {
   it("pushes semantic selections and replaces floor filter history", async () => {
     const push = vi.spyOn(window.history, "pushState");
     const replace = vi.spyOn(window.history, "replaceState");
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     await selectScienceCentre();
     expect(push).toHaveBeenCalledTimes(1);
@@ -1824,7 +1822,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("uses browser history for facility back and hydrates the building", async () => {
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
     await selectScienceCentre();
     fireEvent.click(screen.getByRole("button", { name: /洗手间.*公众可达/ }));
     await screen.findByRole("heading", { name: "洗手间" });
@@ -1846,9 +1844,9 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?building=science-centre&facility=71000000-0000-4000-8000-000000000005&panel=full",
+      "/campus-map?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=full",
     );
-    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     const heading = await screen.findByRole("heading", { name: "饮水机" });
     expect(heading.parentElement?.textContent).toContain("大学图书馆 · G/F");
@@ -1859,10 +1857,10 @@ describe("AmapCampusPrototype", () => {
     });
   });
 
-  it("returns a filtered facility deep link to its category in one action", async () => {
+  it("moves from a direct Place link to its category in one intent", async () => {
     const push = vi.spyOn(window.history, "pushState");
     render(
-      <AmapCampusPrototype initialSearch="?category=toilet&building=wmy&facility=71000000-0000-4000-8000-000000000003&floor=5&amenity=toilet&panel=peek" />,
+      <CampusMapRuntime initialSearch="?v=1&scene=facility&id=71000000-0000-4000-8000-000000000003&snap=peek" />,
     );
     await screen.findByRole("heading", { name: "洗手间" });
     const before = push.mock.calls.length;
@@ -1900,7 +1898,9 @@ describe("AmapCampusPrototype", () => {
   it("replaces history when switching category filters", async () => {
     const push = vi.spyOn(window.history, "pushState");
     const replace = vi.spyOn(window.history, "replaceState");
-    render(<AmapCampusPrototype initialSearch="?category=toilet&panel=peek" />);
+    render(
+      <CampusMapRuntime initialSearch="?v=1&scene=category&id=toilet&snap=peek" />,
+    );
     await screen.findByRole("heading", {
       name: "2 栋建筑 · 2 个洗手间",
     });
@@ -1921,7 +1921,7 @@ describe("AmapCampusPrototype", () => {
   it("keeps a direct facility deep-link building fallback reversible", async () => {
     const push = vi.spyOn(window.history, "pushState");
     render(
-      <AmapCampusPrototype initialSearch="?category=toilet&building=wmy&facility=71000000-0000-4000-8000-000000000003&floor=5&amenity=toilet&panel=peek" />,
+      <CampusMapRuntime initialSearch="?v=1&scene=facility&id=71000000-0000-4000-8000-000000000003&snap=peek" />,
     );
     await screen.findByRole("heading", { name: "洗手间" });
     const before = push.mock.calls.length;
@@ -1936,7 +1936,7 @@ describe("AmapCampusPrototype", () => {
 
   it("labels building-level facility positions without claiming indoor precision", async () => {
     render(
-      <AmapCampusPrototype initialSearch="?building=wmy&facility=71000000-0000-4000-8000-000000000003&floor=5&panel=peek" />,
+      <CampusMapRuntime initialSearch="?v=1&scene=facility&id=71000000-0000-4000-8000-000000000003&snap=peek" />,
     );
 
     expect(
@@ -1946,7 +1946,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("closes with Escape and restores focus to the search result trigger", async () => {
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
     const search = screen.getByPlaceholderText("搜索建筑");
     fireEvent.change(search, { target: { value: "科学馆" } });
     fireEvent.submit(search.closest("form")!);
@@ -1965,7 +1965,7 @@ describe("AmapCampusPrototype", () => {
 
   it("returns focus to the map when dismissing a non-search selection", async () => {
     render(
-      <AmapCampusPrototype initialSearch="?v=1&scene=building&id=science-centre&snap=peek" />,
+      <CampusMapRuntime initialSearch="?v=1&scene=building&id=science-centre&snap=peek" />,
     );
     await screen.findByRole("heading", { name: "科学馆" });
     fireEvent.click(screen.getByRole("button", { name: "关闭地点详情" }));
@@ -1981,7 +1981,7 @@ describe("AmapCampusPrototype", () => {
     const push = vi.spyOn(window.history, "pushState");
     render(
       <StrictMode>
-        <AmapCampusPrototype />
+        <CampusMapRuntime />
       </StrictMode>,
     );
 
@@ -1990,7 +1990,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("shows search results while typing instead of requiring a hidden submit step", async () => {
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
     const search = screen.getByPlaceholderText("搜索建筑");
 
     fireEvent.input(search, { target: { value: "科学馆" } });
@@ -2001,7 +2001,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("preserves a typed word separator for multi-token facility search", async () => {
-    render(<AmapCampusPrototype initialSearch="?v=1" />);
+    render(<CampusMapRuntime initialSearch="?v=1" />);
     const search = screen.getByPlaceholderText("搜索建筑");
 
     fireEvent.change(search, { target: { value: "大学图书馆" } });
@@ -2015,7 +2015,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("dismisses search results with Escape", async () => {
-    render(<AmapCampusPrototype initialSearch="?v=1" />);
+    render(<CampusMapRuntime initialSearch="?v=1" />);
     const search = screen.getByPlaceholderText("搜索建筑");
     fireEvent.change(search, { target: { value: "科学馆" } });
     expect(
@@ -2029,7 +2029,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("opens a facility search result at the same canonical facility URL", async () => {
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
     const search = screen.getByPlaceholderText("搜索建筑");
 
     fireEvent.change(search, { target: { value: "大学图书馆 饮水机" } });
@@ -2045,18 +2045,30 @@ describe("AmapCampusPrototype", () => {
     );
   });
 
-  it("keeps the known Science Centre prototype link working", async () => {
+  it("links the selected canonical Place to its public history", async () => {
     render(
-      <AmapCampusPrototype initialSearch="?building=building%3A15&panel=peek" />,
+      <CampusMapRuntime initialSearch="?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=full" />,
     );
 
-    expect(
-      await screen.findByRole("heading", { name: "科学馆" }),
-    ).not.toBeNull();
+    const history = await screen.findByRole("link", {
+      name: "查看编辑记录",
+    });
+    expect(history.getAttribute("href")).toBe(
+      "/campus-map/places/71000000-0000-4000-8000-000000000005/history",
+    );
+  });
+
+  it("degrades a removed legacy query to the canonical map scene", async () => {
+    render(
+      <CampusMapRuntime initialSearch="?building=building%3A15&panel=peek" />,
+    );
+
+    await waitFor(() => expect(window.location.search).toBe("?v=1"));
+    expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
   });
 
   it("keeps the building directory out of the compact mobile preview", async () => {
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
     await selectScienceCentre();
 
     const floor = screen.getByRole("button", { name: "LG/F" });
@@ -2068,7 +2080,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("opens a browsable result sheet when a facility category is selected", async () => {
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
@@ -2086,7 +2098,7 @@ describe("AmapCampusPrototype", () => {
   });
 
   it("restores navigation from browser history state", async () => {
-    render(<AmapCampusPrototype />);
+    render(<CampusMapRuntime />);
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
     fireEvent.click(screen.getByRole("button", { name: /科学馆 · 1\/F/ }));
     const facilityHistory = window.history.state;

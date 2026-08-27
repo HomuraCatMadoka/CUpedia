@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CampusMapBrowseProjection } from "@/lib/campus-map/browse-projection";
-import {
-  createCampusMapSceneCatalog,
-  createLegacyCampusMapCatalog,
-} from "@/lib/campus-map/browse-scene-catalog";
+import { createCampusMapSceneCatalog } from "@/lib/campus-map/browse-scene-catalog";
 
 const projection = {
   buildings: [
@@ -63,18 +60,6 @@ describe("Campus Map browse scene catalog", () => {
         floorId: null,
         category: "water",
         cameraTarget: "place-point",
-      },
-    });
-  });
-
-  it("isolates legacy query parsing behind an explicit adapter", () => {
-    const catalog = createCampusMapSceneCatalog(projection, ["water"]);
-
-    expect(createLegacyCampusMapCatalog(catalog).facilities).toEqual({
-      indoor: {
-        buildingId: "science",
-        floorId: "G",
-        category: "water",
       },
     });
   });

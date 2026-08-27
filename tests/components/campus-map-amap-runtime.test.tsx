@@ -24,29 +24,29 @@ vi.mock("@/lib/campus-map/browse-actions", () => ({
   loadCampusMapAmapPoiCard: mockLoadProviderPoiCard,
 }));
 
-import { AmapCampusPrototype as AmapCampusPrototypeView } from "@/components/campus-map/amap-campus-prototype";
-import { AMAP_PROTOTYPE_FACILITIES } from "@/lib/campus-map/amap-prototype-catalog";
+import { CampusMapRuntime as CampusMapRuntimeView } from "@/components/campus-map/campus-map-runtime";
 import {
   encodeCampusMapEditSnapshot,
   transitionCampusMapEdit,
 } from "@/lib/campus-map/edit-session";
 import { installAmapRuntime } from "../helpers/amap-runtime";
-import { createAmapPrototypeBrowseFixture } from "../helpers/campus-map-browse-projection";
+import {
+  CAMPUS_MAP_TEST_FACILITIES,
+  createCampusMapBrowseFixture,
+} from "../helpers/campus-map-browse-projection";
 import type { CampusMapBrowseProjection } from "@/lib/campus-map/browse-projection";
 
-function AmapCampusPrototype(
-  props: ComponentProps<typeof AmapCampusPrototypeView>,
-) {
+function CampusMapRuntime(props: ComponentProps<typeof CampusMapRuntimeView>) {
   return (
-    <AmapCampusPrototypeView
-      initialBrowseProjection={createAmapPrototypeBrowseFixture()}
+    <CampusMapRuntimeView
+      initialBrowseProjection={createCampusMapBrowseFixture()}
       {...props}
     />
   );
 }
 
 function createNullablePlaceFixture(): CampusMapBrowseProjection {
-  const base = createAmapPrototypeBrowseFixture();
+  const base = createCampusMapBrowseFixture();
   const template = base.places[0]!;
   const building = base.buildings.find(
     (candidate) => candidate.buildingId === template.buildingId,
@@ -133,10 +133,10 @@ function createNullablePlaceFixture(): CampusMapBrowseProjection {
   };
 }
 
-const mutableFacilityFixtures = AMAP_PROTOTYPE_FACILITIES as unknown as Array<
-  (typeof AMAP_PROTOTYPE_FACILITIES)[number]
+const mutableFacilityFixtures = CAMPUS_MAP_TEST_FACILITIES as unknown as Array<
+  (typeof CAMPUS_MAP_TEST_FACILITIES)[number]
 >;
-const originalFacilityFixtures = [...AMAP_PROTOTYPE_FACILITIES];
+const originalFacilityFixtures = [...CAMPUS_MAP_TEST_FACILITIES];
 const scrollIntoView = vi.fn();
 
 function restoreFacilityFixtures() {
@@ -155,11 +155,11 @@ beforeEach(() => {
     value: scrollIntoView,
   });
   window.sessionStorage.clear();
-  window.history.replaceState(null, "", "/prototype/campus-map");
+  window.history.replaceState(null, "", "/campus-map");
   restoreFacilityFixtures();
   mockLoadBrowseProjection.mockReset();
   mockLoadBrowseProjection.mockImplementation(async () =>
-    createAmapPrototypeBrowseFixture(),
+    createCampusMapBrowseFixture(),
   );
   mockLoadProviderPoiCard.mockReset();
   mockLoadProviderPoiCard.mockImplementation(
@@ -244,8 +244,8 @@ async function renderWithRuntime(options?: {
   const { projection, initialSearch, ...runtimeOptions } = options ?? {};
   const runtime = installAmapRuntime(runtimeOptions);
   render(
-    <AmapCampusPrototype
-      initialBrowseProjection={projection ?? createAmapPrototypeBrowseFixture()}
+    <CampusMapRuntime
+      initialBrowseProjection={projection ?? createCampusMapBrowseFixture()}
       initialSearch={initialSearch}
     />,
   );
@@ -262,7 +262,7 @@ async function renderWithRuntime(options?: {
   return { runtime, map };
 }
 
-describe("AmapCampusPrototype runtime effects", () => {
+describe("Campus Map AMap runtime effects", () => {
   it("uses the visible centre pin rather than the occluded map centre for mobile Add", async () => {
     const { runtime } = await renderWithRuntime({
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },

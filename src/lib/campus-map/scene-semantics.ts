@@ -1,12 +1,12 @@
 import type {
   CampusMapBrowseScene,
+  CampusMapCameraCommand,
   CampusMapContributionTask,
   CampusMapFocusCommand,
   CampusMapSceneCatalog,
   CampusMapSession,
 } from "./scene-kernel";
 import type { CameraReason } from "./camera-policy";
-import type { CampusMapCameraCommand } from "./map-session";
 import { isCanonicalCampusMapUuid } from "./canonical-uuid";
 
 export type PersistableCampusMapSession =

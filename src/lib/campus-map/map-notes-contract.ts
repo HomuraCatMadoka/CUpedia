@@ -196,7 +196,7 @@ export function createCampusMapNoteCorrectionContext(
   });
   return {
     placeId: canonicalPlaceId,
-    editHref: `/prototype/campus-map?${query.toString()}`,
+    editHref: `/campus-map?${query.toString()}`,
     returnContext: {
       kind: "map-note",
       noteId: canonicalNoteId,

@@ -12,7 +12,7 @@
 - `AMap.PlaceSearch.searchNearBy()` 可以围绕中心点取候选 POI；`AMap.AutoComplete` 可以做关键词输入提示。
 - AMapUI `PositionPicker` 已经验证了“拖地图、中心 pin、停止后返回地址/最近 POI”的交互模型。
 
-但推荐**只借这些能力和交互模式，不引入 AMapUI PositionPicker 或第三方完整选点组件**。现有 `AmapCampusPrototype` 已经是唯一地图实例 owner，Issue #645 仍应唯一拥有 history、camera、focus 和 sheet；Issue #718 仍应唯一执行 publish。新增能力应是一层很薄的 provider query adapter，由现有 owner 在 `moveend` 后调用，再把结构化结果交给现有 React Sheet 显示。
+但推荐**只借这些能力和交互模式，不引入 AMapUI PositionPicker 或第三方完整选点组件**。现有 `CampusMapRuntime` 是唯一地图实例 owner，Issue #645 仍唯一拥有 history、camera、focus 和 sheet；Issue #718 仍唯一执行 publish。新增能力应是一层很薄的 provider query adapter，由现有 owner 在 `moveend` 后调用，再把结构化结果交给现有 React Sheet 显示。
 
 第一版最小实现建议：
 
@@ -254,8 +254,7 @@ JS API 2.0 的类名是 `AMap.AutoComplete`，不是旧版 `AMap.Autocomplete`�
 
 当前实现启动时用官方 `convertFrom()` 得到 WGS84 → GCJ-02 投影，但在地图移动结束后，用“校园中心的一次偏移量”把 GCJ-02 中心近似还原为 WGS84：
 
-- [`amap-campus-prototype.tsx:938`](../../src/components/campus-map/amap-campus-prototype.tsx#L938) 批量执行官方正向转换；
-- [`amap-campus-prototype.tsx:1016`](../../src/components/campus-map/amap-campus-prototype.tsx#L1016) 用单一 offset 做近似逆变换。
+- [`campus-map-runtime.tsx`](../../src/components/campus-map/campus-map-runtime.tsx) 批量执行官方正向转换，并用单一 offset 做近似逆变换。
 
 这个近似在一个很小的校园范围内可能足够用于“约略位置”，但不能未经验证就声明 `precision: precise`。验收前应至少用校园边界和内部网格点测量最大误差，并写清允许范围。如果无法证明误差满足产品的 precise 门槛，应把新建点保存为 `approximate`；高德 GCJ-02 坐标只留在 adapter/transient result，不能覆盖 canonical WGS84。
 
@@ -265,7 +264,7 @@ JS API 2.0 的类名是 `AMap.AutoComplete`，不是旧版 `AMap.Autocomplete`�
 
 生产环境的重要问题：高德官方明确说 `securityJsCode` 明文放在浏览器端不安全，强烈建议用 `window._AMapSecurityConfig.serviceHost` 走服务端代理。[安全密钥官方指南](https://lbs.amap.com/api/javascript-api-v2/guide/abc/jscode)
 
-当前 [`config/route.ts:16`](../../src/app/api/campus-map/config/route.ts#L16) 把 key 和 `securityCode` 一起返回给浏览器，[`amap-campus-prototype.tsx:846`](../../src/components/campus-map/amap-campus-prototype.tsx#L846) 再把它写进 `window._AMapSecurityConfig`。这可以作为本地 prototype 配置，但**不能作为生产方案**。正式接入前应：
+当前 [`config/route.ts`](../../src/app/api/campus-map/config/route.ts) 把 key 和 `securityCode` 一起返回给浏览器，[`campus-map-runtime.tsx`](../../src/components/campus-map/campus-map-runtime.tsx) 再把它写进 `window._AMapSecurityConfig`。这是 #759 明确保留的生产安全缺口，本次 runtime 收口不改变该安全边界；发布前仍应：
 
 1. 浏览器只拿 Web JS API key；
 2. 服务调用通过同域 `/_AMapService` 代理；

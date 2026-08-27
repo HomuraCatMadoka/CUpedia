@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   type CSSProperties,
   useCallback,
@@ -47,10 +48,6 @@ import {
   type AmapResolvedPlaceContext,
 } from "@/lib/campus-map/amap-place-context";
 import {
-  parseCampusMapState,
-  type CampusMapState,
-} from "@/lib/campus-map/map-state";
-import {
   facilityMarkerContent,
   type CampusMapAmenity,
 } from "@/lib/campus-map/facility-marker";
@@ -79,9 +76,9 @@ import {
 } from "@/lib/campus-map/browse-projection-store";
 import {
   createCampusMapSceneCatalog,
-  createLegacyCampusMapCatalog,
   RefreshableCampusMapSceneCatalog,
 } from "@/lib/campus-map/browse-scene-catalog";
+import { projectCampusMapBuildingDirectory } from "@/lib/campus-map/building-directory";
 import {
   identifyCampusMapEditPublisher,
   publishCampusMapEdit,
@@ -245,80 +242,30 @@ const CATEGORIES = CAMPUS_MAP_EDIT_SCHEMA.presets.map((preset) => ({
   ...CATEGORY_PRESENTATION[preset.pinType],
 }));
 
-function canonicalSessionFromLegacySearch(
-  search: string,
-  catalog: CampusMapSceneCatalog,
-): CampusMapSession {
-  const params = new URLSearchParams(search);
-  if (params.get("v") === "1") return EMPTY_CAMPUS_MAP_SCENE_SESSION;
-  if (
-    params.get("building") === "building:15" &&
-    catalog.buildings["science-centre"]
-  ) {
-    params.set("building", "science-centre");
-  }
-  const state = parseCampusMapState(
-    params,
-    createLegacyCampusMapCatalog(catalog),
-  );
-  const snap = state.sheet.snap === "full" ? "full" : "peek";
-  if (state.selection.kind === "facility") {
-    return {
-      mode: "browse",
-      scene: { kind: "facility", facilityId: state.selection.facilityId, snap },
-    };
-  }
-  if (state.selection.kind === "content") {
-    return {
-      mode: "browse",
-      scene: { kind: "content", contentId: state.selection.contentId, snap },
-    };
-  }
-  if (state.selection.kind === "building") {
-    return {
-      mode: "browse",
-      scene: {
-        kind: "building",
-        buildingId: state.selection.buildingId,
-        floorId: state.buildingContext.floorId,
-        snap,
-      },
-    };
-  }
-  if (state.mapFilter.category) {
-    return {
-      mode: "browse",
-      scene: {
-        kind: "category-results",
-        category: state.mapFilter.category,
-        snap,
-      },
-    };
-  }
-  if (state.mapFilter.query) {
-    return {
-      mode: "browse",
-      scene: { kind: "search-results", query: state.mapFilter.query, snap },
-    };
-  }
-  return EMPTY_CAMPUS_MAP_SCENE_SESSION;
-}
-
 function canonicalInitialSearch(
   search: string,
   catalog: CampusMapSceneCatalog,
 ) {
   const params = new URLSearchParams(search);
   if (params.get("v") === "1") return search;
-  return `?${encodeCampusMapUrl(canonicalSessionFromLegacySearch(search, catalog), catalog)}`;
+  return `?${encodeCampusMapUrl(EMPTY_CAMPUS_MAP_SCENE_SESSION, catalog)}`;
 }
 
 type ProjectedCampusMapSelection =
-  | Exclude<CampusMapState["selection"], { kind: "facility" }>
-  | { kind: "facility"; buildingId: string | null; facilityId: string };
+  | { kind: "none" }
+  | { kind: "building"; buildingId: string }
+  | { kind: "facility"; buildingId: string | null; facilityId: string }
+  | {
+      kind: "external";
+      externalId: string;
+      position: readonly [longitude: number, latitude: number];
+    };
 
-type ProjectedCampusMapState = Omit<CampusMapState, "selection"> & {
+type ProjectedCampusMapState = {
   selection: ProjectedCampusMapSelection;
+  mapFilter: { category: string | null; query: string };
+  buildingContext: { floorId: string | null };
+  sheet: { snap: "hidden" | "peek" | "full" };
 };
 
 function projectedState(
@@ -330,7 +277,7 @@ function projectedState(
     return {
       selection: { kind: "none" },
       mapFilter: { category: null, query: "" },
-      buildingContext: { floorId: null, amenity: null, query: "" },
+      buildingContext: { floorId: null },
       sheet: { snap: "hidden" },
     };
   }
@@ -376,8 +323,6 @@ function projectedState(
           : scene.kind === "facility" && facility
             ? facility.floorId
             : null,
-      amenity: null,
-      query: "",
     },
     sheet: {
       snap: "snap" in scene ? scene.snap : "hidden",
@@ -434,9 +379,7 @@ function buildingFor(
   buildings: readonly Building[],
 ) {
   const buildingId =
-    selection.kind === "building" ||
-    selection.kind === "facility" ||
-    selection.kind === "content"
+    selection.kind === "building" || selection.kind === "facility"
       ? selection.buildingId
       : null;
   return (
@@ -579,7 +522,7 @@ function placeLocationLabel(place: Facility) {
   }
 }
 
-export function AmapCampusPrototype({
+export function CampusMapRuntime({
   initialSearch = "",
   factSchema = null,
   initialBrowseProjection = EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
@@ -1037,8 +980,7 @@ export function AmapCampusPrototype({
         replaceState: () => {},
       },
       location: {
-        pathname: () =>
-          browserWindow?.location.pathname ?? "/prototype/campus-map",
+        pathname: () => browserWindow?.location.pathname ?? "/campus-map",
         search: () => browserWindow?.location.search ?? driverInitialSearch,
       },
       camera: executeDriverCamera,
@@ -2100,16 +2042,14 @@ export function AmapCampusPrototype({
     ];
   }, [browseProjection, buildings, state.mapFilter.query]);
 
-  const buildingFacilities = selectedBuilding
-    ? facilities.filter(
-        (facility) =>
-          facility.buildingId === selectedBuilding.buildingId &&
-          (!state.buildingContext.floorId ||
-            facility.floorId === state.buildingContext.floorId) &&
-          (!state.buildingContext.amenity ||
-            facility.pinType === state.buildingContext.amenity),
+  const buildingDirectory = selectedBuilding
+    ? projectCampusMapBuildingDirectory(
+        browseSnapshot,
+        selectedBuilding.buildingId,
+        state.buildingContext.floorId,
       )
-    : [];
+    : null;
+  const buildingFacilities = buildingDirectory?.places ?? [];
   const categoryResults = activeAmenity
     ? queryCampusMapBrowse(browseProjection, { pinType: activeAmenity })
     : null;
@@ -2468,6 +2408,7 @@ export function AmapCampusPrototype({
                 : placeContext
             }
             factSchema={factSchema}
+            buildings={buildings}
             onEvent={dispatchEditEvent}
           />
         ) : state.selection.kind === "none" &&
@@ -2676,6 +2617,12 @@ export function AmapCampusPrototype({
                 >
                   建议修改
                 </button>
+                <Link
+                  href={`/campus-map/places/${selectedFacility.placeId}/history`}
+                  className="mt-3 flex min-h-11 w-full items-center justify-center rounded-xl border border-black/15 px-4 text-sm font-semibold text-neutral-700"
+                >
+                  查看编辑记录
+                </Link>
                 {state.sheet.snap === "full" ? (
                   <dl className="mt-5 grid gap-3 border-t border-black/8 pt-4 text-sm">
                     <div>
@@ -2747,7 +2694,28 @@ export function AmapCampusPrototype({
                       state.sheet.snap !== "full" && "hidden md:block",
                     )}
                   >
-                    {buildingFacilities.length ? (
+                    {buildingDirectory?.status === "loading" ? (
+                      <p
+                        role="status"
+                        className="py-8 text-center text-sm text-neutral-500"
+                      >
+                        正在读取建筑内设施
+                      </p>
+                    ) : buildingDirectory?.status === "error" ? (
+                      <div
+                        role="alert"
+                        className="py-6 text-center text-sm text-neutral-600"
+                      >
+                        <p>无法读取建筑内设施</p>
+                        <button
+                          type="button"
+                          className="mt-3 min-h-11 rounded-xl border border-black/15 px-4 font-semibold"
+                          onClick={() => void projectionStore.refresh()}
+                        >
+                          重新读取
+                        </button>
+                      </div>
+                    ) : buildingDirectory?.status === "ready" ? (
                       buildingFacilities.map((facility) => {
                         const style = amenityStyle(facility.pinType);
                         const Icon = style.icon;

@@ -1,6 +1,141 @@
 // ref #646
 import { expect, test } from "@playwright/test";
+import { Client } from "pg";
 import { loginWithPassword } from "./helpers/auth";
+
+const browseIds = {
+  building: "00000000-0000-4000-8000-000000006481",
+  floor: "00000000-0000-4000-8000-000000006482",
+  place: "00000000-0000-4000-8000-000000006483",
+  changeset: "00000000-0000-4000-8000-000000006484",
+  change: "00000000-0000-4000-8000-000000006485",
+  revision: "00000000-0000-4000-8000-000000006486",
+  actor: "00000000-0000-4000-8000-000000006487",
+} as const;
+
+async function withBrowseFixture(action: "apply" | "cleanup") {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query("begin");
+    await client.query("set local session_replication_role = replica");
+    if (action === "cleanup") {
+      for (const statement of [
+        "delete from campus_map_current_facts where place_id = $1",
+        "delete from campus_map_current_revisions where place_id = $1",
+        "delete from campus_map_revision_visibility where revision_id = $1",
+        "delete from campus_map_fact_revisions where id = $1",
+        "delete from campus_map_place_changes where id = $1",
+        "delete from campus_map_changesets where id = $1",
+        "delete from campus_map_places where id = $1",
+        "delete from campus_map_floors where id = $1",
+        "delete from campus_map_buildings where id = $1",
+      ]) {
+        const id =
+          statement.includes("revision_visibility") ||
+          statement.includes("fact_revisions")
+            ? browseIds.revision
+            : statement.includes("place_changes")
+              ? browseIds.change
+              : statement.includes("changesets")
+                ? browseIds.changeset
+                : statement.includes("floors")
+                  ? browseIds.floor
+                  : statement.includes("buildings")
+                    ? browseIds.building
+                    : browseIds.place;
+        await client.query(statement, [id]);
+      }
+      await client.query(
+        "delete from campus_map_fact_schemas where version = 648",
+      );
+    } else {
+      await client.query(
+        `insert into campus_map_fact_schemas (version, status, definition, display_metadata)
+         values (648, 'draft', '{"fields":{},"pinTypes":{}}', '{}')
+         on conflict (version) do nothing`,
+      );
+      await client.query(
+        `insert into campus_map_buildings
+           (id, name, english_name, code, aliases, anchor_longitude, anchor_latitude, anchor_crs)
+         values ($1, '正式测试楼', 'Canonical Test Building', 'QA648',
+           array['测试楼'], 114.2072, 22.4191, 'wgs84') on conflict do nothing`,
+        [browseIds.building],
+      );
+      await client.query(
+        `insert into campus_map_floors (id, building_id, display_label, sort_order)
+         values ($1, $2, 'G/F', 0) on conflict do nothing`,
+        [browseIds.floor, browseIds.building],
+      );
+      await client.query(
+        "insert into campus_map_places (id) values ($1) on conflict do nothing",
+        [browseIds.place],
+      );
+      await client.query(
+        `insert into campus_map_changesets
+           (id, actor_id_snapshot, actor_nickname_snapshot, comment, source_summary,
+            client_name, client_version, affected_count, created_count, published_at)
+         values ($1, $2, 'E2E 地图贡献者', '建立正式 runtime fixture', 'E2E fixture',
+           'e2e', '1', 1, 1, '2026-08-28T00:00:00Z') on conflict do nothing`,
+        [browseIds.changeset, browseIds.actor],
+      );
+      await client.query(
+        `insert into campus_map_place_changes (id, changeset_id, place_id, operation, field_diff)
+         values ($1, $2, $3, 'create', '{}') on conflict do nothing`,
+        [browseIds.change, browseIds.changeset, browseIds.place],
+      );
+      await client.query(
+        `insert into campus_map_fact_revisions
+           (id, place_id, changeset_id, place_change_id, fact_schema_version,
+            field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
+            name, building_id, floor_id, pin_type, location_kind, created_at)
+         values ($1, $2, $3, $4, 648, '{}', 'active', $5, 'E2E 地图贡献者',
+           '正式测试饮水点', $6, $7, 'water', 'floor', '2026-08-28T00:00:00Z')
+         on conflict do nothing`,
+        [
+          browseIds.revision,
+          browseIds.place,
+          browseIds.changeset,
+          browseIds.change,
+          browseIds.actor,
+          browseIds.building,
+          browseIds.floor,
+        ],
+      );
+      await client.query(
+        "insert into campus_map_revision_visibility (revision_id) values ($1) on conflict do nothing",
+        [browseIds.revision],
+      );
+      await client.query(
+        `insert into campus_map_current_revisions (place_id, revision_id, status)
+         values ($1, $2, 'active') on conflict do nothing`,
+        [browseIds.place, browseIds.revision],
+      );
+      await client.query(
+        `insert into campus_map_current_facts
+           (place_id, revision_id, fact_schema_version, name, building_id, floor_id,
+            pin_type, location_kind, published_at)
+         values ($1, $2, 648, '正式测试饮水点', $3, $4, 'water', 'floor',
+           '2026-08-28T00:00:00Z') on conflict do nothing`,
+        [
+          browseIds.place,
+          browseIds.revision,
+          browseIds.building,
+          browseIds.floor,
+        ],
+      );
+    }
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    await client.end();
+  }
+}
+
+test.beforeAll(() => withBrowseFixture("apply"));
+test.afterAll(() => withBrowseFixture("cleanup"));
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -161,13 +296,13 @@ test("Campus Map and its AMap config require authentication", async ({
   const configResponse = await anonymous.request.get("/api/campus-map/config");
   expect(configResponse.status()).toBe(401);
 
-  await anonymous.goto("/prototype/campus-map?v=1&task=create&anchor=map");
+  await anonymous.goto("/campus-map?v=1&task=create&anchor=map");
   await expect(anonymous).toHaveURL(/\/login\?/);
   const callbackUrl = new URL(anonymous.url()).searchParams.get("callbackUrl");
-  expect(callbackUrl).toBe("/prototype/campus-map?v=1&task=create&anchor=map");
+  expect(callbackUrl).toBe("/campus-map?v=1&task=create&anchor=map");
   await anonymous.close();
 
-  await page.goto("/prototype/campus-map");
+  await page.goto("/campus-map");
   await page.getByRole("button", { name: "添加地点" }).click();
   await page.getByRole("button", { name: "使用此位置" }).click();
   await page
@@ -196,11 +331,47 @@ test("Campus Map and its AMap config require authentication", async ({
   await expect(page.getByText("地点资料已发布")).toHaveCount(0);
 });
 
+test("formal Campus Map keeps canonical Place identity through Back, Forward, and refresh", async ({
+  page,
+}) => {
+  await page.goto("/campus-map");
+  const search = page.getByPlaceholder("搜索建筑");
+  await search.fill("正式测试饮水点");
+  await page
+    .getByRole("button", { name: /正式测试楼.*正式测试饮水点/ })
+    .click();
+
+  const canonicalUrl = new RegExp(
+    `/campus-map\\?v=1&scene=facility&id=${browseIds.place}&snap=peek$`,
+  );
+  await expect(page).toHaveURL(canonicalUrl);
+  await expect(
+    page.getByRole("heading", { name: "正式测试饮水点" }),
+  ).toBeVisible();
+
+  await page.goBack();
+  await expect(page).toHaveURL(/scene=search/);
+  await expect(
+    page.getByRole("button", { name: /正式测试楼.*正式测试饮水点/ }),
+  ).toBeVisible();
+
+  await page.goForward();
+  await expect(page).toHaveURL(canonicalUrl);
+  await page.reload();
+  await expect(page).toHaveURL(canonicalUrl);
+  await expect(
+    page.getByRole("heading", { name: "正式测试饮水点" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "查看编辑记录" }),
+  ).toHaveAttribute("href", `/campus-map/places/${browseIds.place}/history`);
+});
+
 test("Campus Map editing keeps its primary action inside a 390px-high viewport", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 720, height: 390 });
-  await page.goto("/prototype/campus-map");
+  await page.goto("/campus-map");
 
   await page.getByRole("button", { name: "添加地点" }).click();
   const confirmPosition = page.getByRole("button", { name: "使用此位置" });
@@ -228,7 +399,7 @@ test("Campus Map editing keeps only the essential controls in a compact mobile v
   page,
 }) => {
   await page.setViewportSize({ width: 545, height: 688 });
-  await page.goto("/prototype/campus-map");
+  await page.goto("/campus-map");
 
   await page.getByRole("button", { name: "添加地点" }).click();
   await page.getByRole("button", { name: "使用此位置" }).click();
@@ -261,7 +432,7 @@ test("Campus Map editing supports the keyboard placement and dirty-close path", 
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 720 });
-  await page.goto("/prototype/campus-map");
+  await page.goto("/campus-map");
 
   await page.getByRole("button", { name: "添加地点" }).click();
   await page.getByRole("button", { name: "使用此位置" }).click();

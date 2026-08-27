@@ -5,8 +5,8 @@ import { useId, useState } from "react";
 import { MapPinIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { AMAP_PROTOTYPE_BUILDINGS } from "@/lib/campus-map/amap-prototype-catalog";
 import type { AmapPlaceContextResult } from "@/lib/campus-map/amap-place-context";
+import type { CampusMapBrowseBuilding } from "@/lib/campus-map/browse-projection";
 import {
   isCampusMapEditDirty,
   type CampusMapEditEvent,
@@ -24,6 +24,7 @@ interface CampusMapEditSheetProps {
   placementPending?: boolean;
   placeContext?: AmapPlaceContextResult | { status: "loading" } | null;
   factSchema?: CampusMapFactSchema | null;
+  buildings?: readonly CampusMapBrowseBuilding[];
   returnContext?: CampusMapTaskReturnContext;
   onEvent(event: CampusMapEditEvent): void;
 }
@@ -89,9 +90,7 @@ function placementIsReadable(
     return false;
   }
   if (matchingDisplay(fact, display)) return true;
-  return AMAP_PROTOTYPE_BUILDINGS.some(
-    (building) => building.id === fact.buildingId,
-  );
+  return false;
 }
 
 function hasUnreadablePlacementConflict(
@@ -122,17 +121,10 @@ function describeLocation(
     }`;
   }
   const canonicalDisplay = matchingDisplay(fact, display);
-  const prototypeBuilding = AMAP_PROTOTYPE_BUILDINGS.find(
-    (building) => building.id === fact.buildingId,
-  );
-  const buildingName =
-    canonicalDisplay?.buildingName ?? prototypeBuilding?.name;
+  const buildingName = canonicalDisplay?.buildingName;
   if (fact.location.kind === "floor") {
     if (buildingName && canonicalDisplay?.floorLabel) {
       return `${buildingName} · ${canonicalDisplay.floorLabel}`;
-    }
-    if (buildingName && prototypeBuilding) {
-      return `${buildingName} · 楼层 ${fact.floorId ?? "未知"}`;
     }
     return "建筑内楼层";
   }
@@ -160,11 +152,16 @@ function distanceBetweenPositions(
 
 function nearbyBuildingLabel(
   position: readonly [number, number],
+  buildings: readonly CampusMapBrowseBuilding[],
 ): string | null {
-  const nearest = AMAP_PROTOTYPE_BUILDINGS.reduce<
+  const nearest = buildings.reduce<
     { name: string; distance: number } | undefined
   >((current, building) => {
-    const distance = distanceBetweenPositions(position, building.position);
+    if (!building.anchor) return current;
+    const distance = distanceBetweenPositions(position, [
+      building.anchor.longitude,
+      building.anchor.latitude,
+    ]);
     return !current || distance < current.distance
       ? { name: building.name, distance }
       : current;
@@ -187,21 +184,18 @@ function describeOutdoorPosition(position: {
 function friendlyLocationLabel(
   fact: CampusMapEditSession["draft"]["fact"],
   display?: CampusMapIndoorLocationDisplay | null,
+  buildings: readonly CampusMapBrowseBuilding[] = [],
 ): string {
   if (fact.location?.kind === "outdoor-point") {
     return (
-      nearbyBuildingLabel([fact.location.longitude, fact.location.latitude]) ??
-      "地图坐标"
+      nearbyBuildingLabel(
+        [fact.location.longitude, fact.location.latitude],
+        buildings,
+      ) ?? "地图坐标"
     );
   }
   if (fact.buildingId) {
-    return (
-      matchingDisplay(fact, display)?.buildingName ??
-      AMAP_PROTOTYPE_BUILDINGS.find(
-        (building) => building.id === fact.buildingId,
-      )?.name ??
-      "建筑内位置"
-    );
+    return matchingDisplay(fact, display)?.buildingName ?? "建筑内位置";
   }
   return "尚未定位";
 }
@@ -417,6 +411,7 @@ export function CampusMapEditSheet({
   placementPending = false,
   placeContext = null,
   factSchema,
+  buildings = [],
   onEvent,
   returnContext,
 }: CampusMapEditSheetProps) {
@@ -511,7 +506,7 @@ export function CampusMapEditSheet({
       session.publishFeedbackReason === "receipt-lock-unavailable";
     const callbackUrl =
       typeof window === "undefined"
-        ? "/prototype/campus-map"
+        ? "/campus-map"
         : `${window.location.pathname}${window.location.search}`;
     const title =
       session.status === "publish-unknown"
@@ -608,10 +603,10 @@ export function CampusMapEditSheet({
     keyboardLatitudeNumber <= 90;
   const resolvedContext =
     placeContext?.status === "resolved" ? placeContext.context : null;
-  const nearbyPlacementLabel = nearbyBuildingLabel([
-    placementPosition.longitude,
-    placementPosition.latitude,
-  ]);
+  const nearbyPlacementLabel = nearbyBuildingLabel(
+    [placementPosition.longitude, placementPosition.latitude],
+    buildings,
+  );
   const placementLabel =
     resolvedContext?.label && resolvedContext.label !== "地图中心位置"
       ? resolvedContext.label
@@ -1077,7 +1072,11 @@ export function CampusMapEditSheet({
                 {isPlacing
                   ? placementLabel
                   : (lockedOutdoorLabel ??
-                    friendlyLocationLabel(fact, draft.locationDisplay))}
+                    friendlyLocationLabel(
+                      fact,
+                      draft.locationDisplay,
+                      buildings,
+                    ))}
               </p>
               <p
                 className={cn(
