@@ -65,7 +65,7 @@ function harness(initialSearch = "?v=1", clearStartEffects = true) {
   const ports: CampusMapSceneDriverPorts = {
     history,
     location: {
-      pathname: () => "/prototype/campus-map",
+      pathname: () => "/campus-map",
       search: () => search,
     },
     camera: vi.fn(),

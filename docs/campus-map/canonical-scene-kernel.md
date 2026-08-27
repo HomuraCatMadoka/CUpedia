@@ -108,10 +108,10 @@ returnable while switching result filters replaces the current entry.
 7. The kernel imports #593 command contracts but never calls browser, DOM, or
    AMap APIs and does not implement provider gesture, camera execution,
    overlay lifecycle, browser-history, or MarkerCluster failure behavior.
-8. #644 itself did not connect the UI. The current AMap prototype is connected
-   through the #645 driver and projects its browse/edit UI from that owner; it
-   does not copy or synchronize the legacy session fields or create a second
-   session/kernel.
+8. #644 itself did not connect the UI. The formal `/campus-map` runtime is
+   connected through the #645 driver and projects its browse/edit UI from that
+   owner; it does not copy or synchronize legacy session fields or create a
+   second session/kernel. `/prototype/campus-map` only redirects to that route.
 9. The 8 × 13 scene-by-event-type baseline asserts the exact next session and
    all four command slots for every cell. Payload-sensitive branches such as
    entity `source` and semantic `RESTORE` targets have separate exact contract

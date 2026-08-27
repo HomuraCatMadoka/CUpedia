@@ -55,25 +55,17 @@ react-map-gl 的 React `Map` 只创建、更新和销毁一个 wrapper，并把�
 
 更底层的 MapLibre 把 DOM 事件统一注册到 [`HandlerManager`](https://github.com/maplibre/maplibre-gl-js/blob/06cac16ca843bbc9b029aff71d4120ef448f79b4/src/ui/handler_manager.ts#L230-L267)，handler 显式声明哪些交互可同时发生，并统一 reset/stop（[源码](https://github.com/maplibre/maplibre-gl-js/blob/06cac16ca843bbc9b029aff71d4120ef448f79b4/src/ui/handler_manager.ts#L269-L390)）；`Map` 另建 `Camera`，再把 handler manager 接上去（[源码](https://github.com/maplibre/maplibre-gl-js/blob/06cac16ca843bbc9b029aff71d4120ef448f79b4/src/ui/map.ts#L735-L845)）。高德内部没有给我们同等级的产品事件仲裁，因此应在 AMap adaptor 内补一个很小的 gesture arbiter，而不是让产品 reducer理解 `hotspotclick`、`originEvent` 或 RAF 时序。
 
-## 与 #593 当前实现的差距
+## #648 收口后的实现
 
-本轮修复前的代码不是推倒重来，而是一个明确的中间态：
-
-1. [`map-state.ts`](../../src/lib/campus-map/map-state.ts) 已能纯计算 canonical state 与 history mode；
-2. [`map-session.ts`](../../src/lib/campus-map/map-session.ts) 已把 #593 范围内的产品命令映射成 state/history/camera/overlay intent；
-3. [`browser-history.ts`](../../src/lib/campus-map/browser-history.ts) 是 browser history 的唯一执行边界；`back-or-push` 让同一返回 command 在站内前序存在时 travel、直接深链时提交可逆 fallback；
-4. 但 [`amap-campus-prototype.tsx`](../../src/components/campus-map/amap-campus-prototype.tsx) 仍负责：
-   - 执行与取消 camera；
-   - 归并 `hotspotclick`/`click`；
-   - 创建 InfoWindow、MarkerCluster、marker DOM；
-   - 监听 popstate/resize/keyboard；
-   - 渲染 panel。
-
-因此当前故障的根因不是“缺一个 timeout”，而是 provider gesture 与产品 command 之间没有唯一 owner，且 session transition 之后仍允许组件绕过 transition 单独执行 history/camera。
+这份调研记录的中间态已经删除。正式
+[`campus-map-runtime.tsx`](../../src/components/campus-map/campus-map-runtime.tsx)
+只把用户和 provider intent 交给 `scene-driver.ts`；driver 统一拥有 URL/history、camera、focus、
+Sheet 与 overlay effect。`map-state.ts`、`map-session.ts`、`browser-history.ts` 和静态 runtime
+catalog 已删除，`/prototype/campus-map` 只重定向到正式 `/campus-map`。
 
 ### #593 当前落地状态
 
-本轮已经把上述两个最高风险 seam 接入原型：
+上述两个最高风险 seam 已接入正式 runtime：
 
 1. `AmapInteractionAdapter` 以 pointer gesture 为边界仲裁 `hotspotclick` / marker / cluster 与 companion map `click`；provider 与 background handler 只能把产品动作交给 adapter，adapter 对同一 pointer cycle 最多执行一次；background click 经过可取消 settlement，两个事件顺序均有 trace test；
 2. `scene-kernel.ts` 暴露互斥的 map / search-results / category-results / building / facility / content / provider-poi scene，以及对应的 typed intent；facility 的 building、floor 与 category 只从 catalog 推导；

@@ -9,7 +9,9 @@ import {
   EMPTY_CAMPUS_MAP_SCENE_SESSION,
   transitionCampusMapSession,
   type CampusMapEvent,
+  type CampusMapCameraCommand,
   type CampusMapFocusCommand,
+  type CampusMapOverlayCommand,
   type CampusMapSceneCatalog,
   type CampusMapSceneCommands,
   type CampusMapSession,
@@ -18,10 +20,6 @@ import {
   projectCampusMapSceneCameraCommand,
   resolveCampusMapSessionSemantics,
 } from "./scene-semantics";
-import type {
-  CampusMapCameraCommand,
-  CampusMapOverlayCommand,
-} from "./map-session";
 
 export type CampusMapDriverIntent =
   | CampusMapEvent

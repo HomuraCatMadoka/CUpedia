@@ -1,9 +1,4 @@
-import type {
-  CampusMapCameraCommand,
-  CampusMapOverlayCommand,
-  CampusMapSessionTransition,
-} from "./map-session";
-import type { CampusMapSheetSnap } from "./map-state";
+import type { CameraReason } from "./camera-policy";
 import {
   projectCampusMapSceneCameraCommand,
   resolveCampusMapSessionSemantics,
@@ -141,8 +136,24 @@ export type CampusMapFocusCommand =
   | { kind: "heading" }
   | { kind: "contribution-form" };
 
+export type CampusMapSheetSnap = "hidden" | "peek" | "full";
+
+export type CampusMapCameraCommand =
+  | { kind: "focus"; buildingId: string; reason: CameraReason }
+  | { kind: "focus-place"; placeId: string; reason: CameraReason }
+  | { kind: "cancel" };
+
+export type CampusMapOverlayCommand =
+  | {
+      kind: "open-external";
+      externalId: string;
+      name: string;
+      position: readonly [number, number];
+    }
+  | { kind: "close-external" };
+
 export type CampusMapSceneCommands = {
-  history: CampusMapSessionTransition["history"] | null;
+  history: "push" | "replace" | "back-or-push" | null;
   camera: CampusMapCameraCommand | null;
   focus: CampusMapFocusCommand | null;
   overlay: CampusMapOverlayCommand | null;

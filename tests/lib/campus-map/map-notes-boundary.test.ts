@@ -50,7 +50,7 @@ describe("Campus Map Notes module boundary (#722)", () => {
     ).toEqual({
       placeId: "72000000-0000-4000-8000-000000000002",
       editHref:
-        "/prototype/campus-map?v=1&task=edit&id=72000000-0000-4000-8000-000000000002&returnNote=72000000-0000-4000-8000-000000000003",
+        "/campus-map?v=1&task=edit&id=72000000-0000-4000-8000-000000000002&returnNote=72000000-0000-4000-8000-000000000003",
       returnContext: {
         kind: "map-note",
         noteId: "72000000-0000-4000-8000-000000000003",

@@ -1,22 +1,111 @@
 import {
-  AMAP_PROTOTYPE_BUILDINGS,
-  AMAP_PROTOTYPE_FACILITIES,
-} from "@/lib/campus-map/amap-prototype-catalog";
-import {
   projectCampusMapBrowse,
   type CampusMapBrowseProjection,
 } from "@/lib/campus-map/browse-projection";
 import type { CampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
+import type { CampusMapAmenity } from "@/lib/campus-map/facility-marker";
+
+interface CampusMapTestBuilding {
+  id: string;
+  name: string;
+  englishName: string;
+  code: string;
+  position: readonly [number, number];
+  aliases: readonly string[];
+  floorIds: readonly string[];
+}
+
+interface CampusMapTestFacility {
+  id: string;
+  buildingId: string;
+  category: CampusMapAmenity;
+  name: string;
+  floorId: string;
+  access: string;
+}
+
+export const CAMPUS_MAP_TEST_BUILDINGS: readonly CampusMapTestBuilding[] = [
+  {
+    id: "science-centre",
+    name: "科学馆",
+    englishName: "University Science Centre",
+    code: "H10",
+    position: [114.20801, 22.41966] as const,
+    aliases: ["科学馆", "科學館", "Science Centre"],
+    floorIds: ["LG", "G", "1", "2", "3", "4"],
+  },
+  {
+    id: "wmy",
+    name: "伍何曼原楼",
+    englishName: "Wu Ho Man Yuen Building",
+    code: "C39b",
+    position: [114.21161413192749, 22.416696837628166] as const,
+    aliases: ["伍何曼原楼", "Wu Ho Man Yuen Building", "WMY"],
+    floorIds: ["G", "1", "2", "3", "4", "5", "6"],
+  },
+  {
+    id: "university-library",
+    name: "大学图书馆",
+    englishName: "University Library",
+    code: "UL",
+    position: [114.20491129159927, 22.419498675716074] as const,
+    aliases: ["大学图书馆", "大學圖書館", "University Library"],
+    floorIds: ["G", "1", "2", "3", "4"],
+  },
+] as const;
+
+export const CAMPUS_MAP_TEST_FACILITIES: readonly CampusMapTestFacility[] = [
+  {
+    id: "71000000-0000-4000-8000-000000000001",
+    buildingId: "science-centre",
+    category: "toilet",
+    name: "洗手间",
+    floorId: "LG",
+    access: "公众可达",
+  },
+  {
+    id: "71000000-0000-4000-8000-000000000002",
+    buildingId: "science-centre",
+    category: "water",
+    name: "饮水机",
+    floorId: "1",
+    access: "公众可达",
+  },
+  {
+    id: "71000000-0000-4000-8000-000000000003",
+    buildingId: "wmy",
+    category: "toilet",
+    name: "洗手间",
+    floorId: "5",
+    access: "需 CUHK 身份",
+  },
+  {
+    id: "71000000-0000-4000-8000-000000000004",
+    buildingId: "wmy",
+    category: "printer",
+    name: "打印站",
+    floorId: "6",
+    access: "需 CUHK 身份",
+  },
+  {
+    id: "71000000-0000-4000-8000-000000000005",
+    buildingId: "university-library",
+    category: "water",
+    name: "饮水机",
+    floorId: "G",
+    access: "进入图书馆后可用",
+  },
+] as const;
 
 /**
- * Keeps the old prototype scenarios available to component tests without
- * making the production map read the prototype catalogue at runtime.
+ * Deterministic canonical facts for component tests. Production reads the
+ * Current-facts projection and never imports this fixture.
  */
-export function createAmapPrototypeBrowseFixture(): CampusMapBrowseProjection {
+export function createCampusMapBrowseFixture(): CampusMapBrowseProjection {
   const buildingById = new Map(
-    AMAP_PROTOTYPE_BUILDINGS.map((building) => [building.id, building]),
+    CAMPUS_MAP_TEST_BUILDINGS.map((building) => [building.id, building]),
   );
-  const places: CampusMapCurrentPlace[] = AMAP_PROTOTYPE_FACILITIES.flatMap(
+  const places: CampusMapCurrentPlace[] = CAMPUS_MAP_TEST_FACILITIES.flatMap(
     (facility) => {
       const building = buildingById.get(facility.buildingId);
       if (!building) return [];
@@ -67,7 +156,7 @@ export function createAmapPrototypeBrowseFixture(): CampusMapBrowseProjection {
   );
 
   return projectCampusMapBrowse({
-    buildings: AMAP_PROTOTYPE_BUILDINGS.map((building) => ({
+    buildings: CAMPUS_MAP_TEST_BUILDINGS.map((building) => ({
       buildingId: building.id,
       name: building.name,
       englishName: building.englishName,

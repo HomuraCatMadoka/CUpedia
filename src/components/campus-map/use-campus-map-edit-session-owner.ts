@@ -376,7 +376,7 @@ export function useCampusMapEditSessionOwner({
         const current = await loadCampusMapEditablePlace(placeId);
         if (token !== editLoadTokenRef.current) return;
         if (!current) {
-          setAnnouncement("这项原型资料尚未连接到正式 Place，暂时不能修改");
+          setAnnouncement("这项地点资料暂时不能修改");
           return;
         }
         dispatchEvent({

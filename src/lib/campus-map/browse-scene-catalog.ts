@@ -1,5 +1,4 @@
 import type { CampusMapBrowseProjection } from "./browse-projection";
-import type { CampusMapCatalog } from "./map-state";
 import type { CampusMapSceneCatalog } from "./scene-kernel";
 
 export function createCampusMapSceneCatalog(
@@ -60,30 +59,4 @@ export class RefreshableCampusMapSceneCatalog implements CampusMapSceneCatalog {
     this.facilities = next.facilities;
     this.contents = next.contents;
   }
-}
-
-/** Compatibility adapter for legacy query-string parsing only. */
-export function createLegacyCampusMapCatalog(
-  catalog: CampusMapSceneCatalog,
-): CampusMapCatalog {
-  return {
-    categories: catalog.categories,
-    buildings: catalog.buildings,
-    facilities: Object.fromEntries(
-      Object.entries(catalog.facilities).flatMap(([placeId, place]) =>
-        place?.buildingId && place.floorId
-          ? [
-              [
-                placeId,
-                {
-                  buildingId: place.buildingId,
-                  floorId: place.floorId,
-                  category: place.category,
-                },
-              ],
-            ]
-          : [],
-      ),
-    ),
-  };
 }
