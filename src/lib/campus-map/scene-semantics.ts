@@ -7,6 +7,7 @@ import type {
 } from "./scene-kernel";
 import type { CameraReason } from "./camera-policy";
 import type { CampusMapCameraCommand } from "./map-session";
+import { isCanonicalCampusMapUuid } from "./canonical-uuid";
 
 export type PersistableCampusMapSession =
   | {
@@ -74,15 +75,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function isCanonicalCampusMapId(value: unknown): value is string {
   return (
     typeof value === "string" && value.length > 0 && value === value.trim()
-  );
-}
-
-function isCanonicalUuid(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
-      value,
-    )
   );
 }
 
@@ -187,7 +179,7 @@ export function resolveCampusMapSessionSemantics(
       session.task.kind === "edit" &&
       session.task.returnContext !== undefined &&
       (session.task.returnContext.kind !== "map-note" ||
-        !isCanonicalUuid(session.task.returnContext.noteId))
+        !isCanonicalCampusMapUuid(session.task.returnContext.noteId))
     ) {
       return { status: "invalid", reason: "invalid-return-context" };
     }

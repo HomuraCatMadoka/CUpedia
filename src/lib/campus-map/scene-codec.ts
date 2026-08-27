@@ -8,6 +8,7 @@ import {
   resolveCampusMapSessionSemantics,
   type PersistableCampusMapSession,
 } from "./scene-semantics";
+import { isCanonicalCampusMapUuid } from "./canonical-uuid";
 
 export const CAMPUS_MAP_SCENE_CODEC_VERSION = 1 as const;
 
@@ -217,12 +218,7 @@ export function decodeCampusMapUrl(
       const placeId = params.get("id");
       if (!isCanonicalCampusMapId(placeId)) return fallback("invalid-identity");
       const returnNote = params.get("returnNote");
-      if (
-        returnNote !== null &&
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
-          returnNote,
-        )
-      ) {
+      if (returnNote !== null && !isCanonicalCampusMapUuid(returnNote)) {
         return fallback("invalid-return-context");
       }
       const session: CampusMapSession = {

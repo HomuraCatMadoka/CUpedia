@@ -1,4 +1,8 @@
 import type { CampusMapTaskReturnContext } from "./scene-kernel";
+import {
+  canonicalizeCampusMapUuid,
+  isCanonicalCampusMapUuid,
+} from "./canonical-uuid";
 
 export const CAMPUS_MAP_NOTE_STATUSES = [
   "open",
@@ -175,9 +179,12 @@ export function createCampusMapNoteCorrectionContext(
   noteId: string,
   placeId: string,
 ): CampusMapNoteCorrectionContext | null {
-  const canonicalNoteId = canonicalUuid(noteId);
-  const canonicalPlaceId = canonicalUuid(placeId);
-  if (!isCanonicalUuid(canonicalNoteId) || !isCanonicalUuid(canonicalPlaceId)) {
+  const canonicalNoteId = canonicalizeCampusMapUuid(noteId);
+  const canonicalPlaceId = canonicalizeCampusMapUuid(placeId);
+  if (
+    !isCanonicalCampusMapUuid(canonicalNoteId) ||
+    !isCanonicalCampusMapUuid(canonicalPlaceId)
+  ) {
     return null;
   }
   const query = new URLSearchParams({
@@ -203,48 +210,43 @@ export function normalizeCampusMapNoteCommand(
   if (command.kind === "create") {
     return {
       ...command,
-      idempotencyKey: canonicalUuid(command.idempotencyKey),
-      placeId: command.placeId === null ? null : canonicalUuid(command.placeId),
+      idempotencyKey: canonicalizeCampusMapUuid(command.idempotencyKey),
+      placeId:
+        command.placeId === null
+          ? null
+          : canonicalizeCampusMapUuid(command.placeId),
       openingComment: command.openingComment.trim(),
     };
   }
   if (command.kind === "comment") {
     return {
       ...command,
-      idempotencyKey: canonicalUuid(command.idempotencyKey),
-      noteId: canonicalUuid(command.noteId),
+      idempotencyKey: canonicalizeCampusMapUuid(command.idempotencyKey),
+      noteId: canonicalizeCampusMapUuid(command.noteId),
       comment: command.comment.trim(),
     };
   }
   if (command.kind === "resolve") {
     return {
       ...command,
-      idempotencyKey: canonicalUuid(command.idempotencyKey),
-      noteId: canonicalUuid(command.noteId),
+      idempotencyKey: canonicalizeCampusMapUuid(command.idempotencyKey),
+      noteId: canonicalizeCampusMapUuid(command.noteId),
       resolution: {
         ...command.resolution,
         resolvedByChangesetId:
           command.resolution.resolvedByChangesetId === null
             ? null
-            : canonicalUuid(command.resolution.resolvedByChangesetId),
+            : canonicalizeCampusMapUuid(
+                command.resolution.resolvedByChangesetId,
+              ),
       },
       comment: command.comment?.trim() || null,
     };
   }
   return {
     ...command,
-    idempotencyKey: canonicalUuid(command.idempotencyKey),
-    noteId: canonicalUuid(command.noteId),
+    idempotencyKey: canonicalizeCampusMapUuid(command.idempotencyKey),
+    noteId: canonicalizeCampusMapUuid(command.noteId),
     comment: command.comment.trim(),
   };
-}
-
-export function isCanonicalUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
-    value,
-  );
-}
-
-function canonicalUuid(value: string): string {
-  return typeof value === "string" ? value.toLowerCase() : value;
 }

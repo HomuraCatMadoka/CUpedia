@@ -7,6 +7,7 @@ import type {
   CampusMapPublishWarning,
 } from "./publish-contract";
 import { CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES } from "./publish-contract";
+import { isCampusMapUuid } from "./canonical-uuid";
 import {
   CAMPUS_MAP_EDIT_SCHEMA,
   firstInvalidCampusMapEditField,
@@ -1103,12 +1104,7 @@ function validTimestamp(value: unknown): boolean {
 }
 
 function validUuid(value: unknown): boolean {
-  return (
-    typeof value === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value,
-    )
-  );
+  return isCampusMapUuid(value);
 }
 
 function looksLikeFact(value: unknown, allowNullLocation: boolean): boolean {

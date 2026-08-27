@@ -25,10 +25,10 @@ import {
   users,
 } from "@/db/schema";
 import { isAllowedEmail } from "@/lib/email";
+import { isCanonicalCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
 import { consumeMapNoteRate } from "@/lib/campus-map/map-note-rate-policy";
 import {
   CAMPUS_MAP_NOTE_RESOLUTION_REASONS,
-  isCanonicalUuid,
   normalizeCampusMapNoteCommand,
   type CampusMapNoteCommand,
   type CampusMapNoteCommandContext,
@@ -81,7 +81,7 @@ export async function commandCampusMapNote(
     };
   }
   const actorId = context.actorId.toLowerCase();
-  if (!isCanonicalUuid(actorId)) {
+  if (!isCanonicalCampusMapUuid(actorId)) {
     return { status: "forbidden", code: "actor-not-eligible" };
   }
   let command: CampusMapNoteCommand | null;
@@ -176,7 +176,7 @@ export async function getCampusMapNote(
   viewerId: string | null = null,
 ): Promise<CampusMapNoteView | null> {
   const canonicalNoteId = noteId.toLowerCase();
-  if (!isCanonicalUuid(canonicalNoteId)) return null;
+  if (!isCanonicalCampusMapUuid(canonicalNoteId)) return null;
   const [note] = await db
     .select({
       id: campusMapNotes.id,
@@ -210,7 +210,7 @@ export async function getCampusMapNote(
       .from(campusMapNoteEvents)
       .where(eq(campusMapNoteEvents.noteId, canonicalNoteId))
       .orderBy(campusMapNoteEvents.revision),
-    viewerId && isCanonicalUuid(viewerId.toLowerCase())
+    viewerId && isCanonicalCampusMapUuid(viewerId.toLowerCase())
       ? db
           .select({ subscribed: campusMapNoteSubscriptions.subscribed })
           .from(campusMapNoteSubscriptions)
@@ -364,10 +364,10 @@ export async function setCampusMapNoteSubscription(
   }
   const canonicalActorId = actorId.toLowerCase();
   const canonicalNoteId = noteId.toLowerCase();
-  if (!isCanonicalUuid(canonicalActorId)) {
+  if (!isCanonicalCampusMapUuid(canonicalActorId)) {
     return { status: "forbidden", code: "actor-not-eligible" };
   }
-  if (!isCanonicalUuid(canonicalNoteId)) {
+  if (!isCanonicalCampusMapUuid(canonicalNoteId)) {
     return { status: "not-found", code: "note-not-found" };
   }
   return db.transaction(async (transaction) => {
@@ -801,14 +801,17 @@ function validateCommand(
     errors.push({ code: "command-too-large", field: "command" });
     return errors;
   }
-  if (!isCanonicalUuid(command.idempotencyKey)) {
+  if (!isCanonicalCampusMapUuid(command.idempotencyKey)) {
     errors.push({ code: "invalid-idempotency-key", field: "idempotencyKey" });
   }
   if (command.kind === "create") {
     if (command.placeId === null && command.position === null) {
       errors.push({ code: "note-context-required", field: "context" });
     }
-    if (command.placeId !== null && !isCanonicalUuid(command.placeId)) {
+    if (
+      command.placeId !== null &&
+      !isCanonicalCampusMapUuid(command.placeId)
+    ) {
       errors.push({ code: "invalid-place-id", field: "placeId" });
     }
     if (command.position !== null && !isValidPosition(command.position)) {
@@ -817,7 +820,7 @@ function validateCommand(
     validateComment(command.openingComment, "openingComment", errors);
     return errors;
   }
-  if (!isCanonicalUuid(command.noteId)) {
+  if (!isCanonicalCampusMapUuid(command.noteId)) {
     errors.push({ code: "invalid-note-id", field: "noteId" });
   }
   if (command.kind === "comment" || command.kind === "reopen") {
@@ -843,7 +846,7 @@ function validateCommand(
     }
     if (
       command.resolution.resolvedByChangesetId !== null &&
-      !isCanonicalUuid(command.resolution.resolvedByChangesetId)
+      !isCanonicalCampusMapUuid(command.resolution.resolvedByChangesetId)
     ) {
       errors.push({
         code: "invalid-changeset-id",
@@ -940,10 +943,10 @@ function normalizeQuery(query: CampusMapNoteQuery): CampusMapNoteQuery | null {
   const normalized = structuredClone(query);
   if (normalized.scope.kind === "place") {
     normalized.scope.placeId = normalized.scope.placeId.toLowerCase();
-    if (!isCanonicalUuid(normalized.scope.placeId)) return null;
+    if (!isCanonicalCampusMapUuid(normalized.scope.placeId)) return null;
   } else if (normalized.scope.kind === "author") {
     normalized.scope.actorId = normalized.scope.actorId.toLowerCase();
-    if (!isCanonicalUuid(normalized.scope.actorId)) return null;
+    if (!isCanonicalCampusMapUuid(normalized.scope.actorId)) return null;
   } else if (normalized.scope.kind === "bbox") {
     const { west, south, east, north } = normalized.scope;
     if (
@@ -989,7 +992,7 @@ function decodeCursor(value: string): { updatedAt: Date; id: string } | null {
     const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
     const updatedAt = new Date(parsed.updatedAt);
     return typeof parsed.id === "string" &&
-      isCanonicalUuid(parsed.id) &&
+      isCanonicalCampusMapUuid(parsed.id) &&
       Number.isFinite(updatedAt.getTime())
       ? { updatedAt, id: parsed.id }
       : null;

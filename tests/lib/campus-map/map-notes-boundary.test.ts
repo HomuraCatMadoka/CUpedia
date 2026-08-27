@@ -7,6 +7,22 @@ import {
   normalizeCampusMapNoteCommand,
   type CampusMapNoteCommand,
 } from "@/lib/campus-map/map-notes-contract";
+import { decodeCampusMapUrl } from "@/lib/campus-map/scene-codec";
+import type { CampusMapSceneCatalog } from "@/lib/campus-map/scene-kernel";
+
+const correctionCatalog: CampusMapSceneCatalog = {
+  categories: [],
+  buildings: {},
+  facilities: {
+    "72000000-0000-4000-8000-000000000002": {
+      buildingId: null,
+      floorId: null,
+      category: "map-note-correction",
+      cameraTarget: "place-point",
+    },
+  },
+  contents: {},
+};
 
 describe("Campus Map Notes module boundary (#722)", () => {
   it("normalizes canonical identifiers and WGS84 context before fingerprinting", () => {
@@ -39,6 +55,34 @@ describe("Campus Map Notes module boundary (#722)", () => {
         kind: "map-note",
         noteId: "72000000-0000-4000-8000-000000000003",
         href: "/campus-map/notes/72000000-0000-4000-8000-000000000003",
+      },
+    });
+  });
+
+  it("keeps every accepted canonical Note UUID valid across the Edit URL boundary", () => {
+    const correction = createCampusMapNoteCorrectionContext(
+      "0198f4c6-88f4-7e52-88c3-e570808c9a73",
+      "72000000-0000-4000-8000-000000000002",
+    );
+    if (!correction) throw new Error("expected canonical correction context");
+
+    expect(
+      decodeCampusMapUrl(
+        new URL(correction.editHref, "https://example.test").searchParams,
+        correctionCatalog,
+      ),
+    ).toEqual({
+      status: "decoded",
+      session: {
+        mode: "task",
+        task: {
+          kind: "edit",
+          placeId: correction.placeId,
+          returnContext: {
+            kind: "map-note",
+            noteId: "0198f4c6-88f4-7e52-88c3-e570808c9a73",
+          },
+        },
       },
     });
   });
