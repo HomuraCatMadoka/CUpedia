@@ -460,22 +460,12 @@ export async function dispatchCampusMapNoteOutbox(
         noteId: campusMapNoteOutbox.noteId,
         eventId: campusMapNoteOutbox.eventId,
         recipientUserId: campusMapNoteOutbox.recipientUserId,
-        actorUserId: sql<
-          string | null
-        >`case when ${campusMapNoteVisibility.visibility} = 'public' and ${campusMapNoteEventVisibility.visibility} = 'public' then ${campusMapNoteEvents.actorUserId} else null end`,
+        actorUserId: campusMapNoteEvents.actorUserId,
       })
       .from(campusMapNoteOutbox)
       .innerJoin(
         campusMapNoteEvents,
         eq(campusMapNoteOutbox.eventId, campusMapNoteEvents.id),
-      )
-      .innerJoin(
-        campusMapNoteEventVisibility,
-        eq(campusMapNoteEventVisibility.eventId, campusMapNoteEvents.id),
-      )
-      .innerJoin(
-        campusMapNoteVisibility,
-        eq(campusMapNoteVisibility.noteId, campusMapNoteEvents.noteId),
       )
       .where(
         and(
@@ -541,16 +531,44 @@ export async function dispatchCampusMapNoteOutbox(
 
 export async function deliverCampusMapNoteNotifications(limit = 25) {
   return dispatchCampusMapNoteOutbox(async (message) => {
-    await db
-      .insert(notifications)
-      .values({
-        id: message.id,
-        recipientId: message.recipientUserId,
-        actorId: message.actorUserId,
-        kind: "campus_map_note_event",
-        metadata: { noteId: message.noteId, eventId: message.eventId },
-      })
-      .onConflictDoNothing({ target: notifications.id });
+    await db.transaction(async (transaction) => {
+      const [noteVisibility] = await transaction
+        .select({ visibility: campusMapNoteVisibility.visibility })
+        .from(campusMapNoteVisibility)
+        .where(eq(campusMapNoteVisibility.noteId, message.noteId))
+        .for("share")
+        .limit(1);
+      const [event] = await transaction
+        .select({
+          actorUserId: campusMapNoteEvents.actorUserId,
+          visibility: campusMapNoteEventVisibility.visibility,
+        })
+        .from(campusMapNoteEvents)
+        .innerJoin(
+          campusMapNoteEventVisibility,
+          eq(campusMapNoteEventVisibility.eventId, campusMapNoteEvents.id),
+        )
+        .where(eq(campusMapNoteEvents.id, message.eventId))
+        .for("share")
+        .limit(1);
+      if (!noteVisibility || !event) {
+        throw new Error("Campus Map Note notification target is missing");
+      }
+      const actorId =
+        noteVisibility.visibility === "public" && event.visibility === "public"
+          ? event.actorUserId
+          : null;
+      await transaction
+        .insert(notifications)
+        .values({
+          id: message.id,
+          recipientId: message.recipientUserId,
+          actorId,
+          kind: "campus_map_note_event",
+          metadata: { noteId: message.noteId, eventId: message.eventId },
+        })
+        .onConflictDoNothing({ target: notifications.id });
+    });
   }, limit);
 }
 

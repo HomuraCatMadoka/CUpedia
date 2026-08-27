@@ -398,6 +398,28 @@ describe.skipIf(!hasDb)("Campus Map moderation governance (#723)", () => {
       ),
     ).resolves.toEqual({ status: "forbidden", code: "admin-required" });
 
+    const projectionGate = await pool.connect();
+    await projectionGate.query("begin");
+    await projectionGate.query(
+      "select note_id from campus_map_note_visibility where note_id = $1 for update",
+      [created.noteId],
+    );
+    const delivery = deliverCampusMapNoteNotifications();
+    const deliveryDeadline = Date.now() + 5_000;
+    while (Date.now() < deliveryDeadline) {
+      const state = await pool.query<{ status: string }>(
+        "select status from campus_map_note_outbox where id = $1",
+        [pendingNotificationId],
+      );
+      if (state.rows[0]?.status === "processing") break;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    const claimed = await pool.query<{ status: string }>(
+      "select status from campus_map_note_outbox where id = $1",
+      [pendingNotificationId],
+    );
+    expect(claimed.rows).toEqual([{ status: "processing" }]);
+
     const [winner, loser] = await Promise.all([
       commandCampusMapModeration(hide, {
         actorId: admin,
@@ -412,12 +434,14 @@ describe.skipIf(!hasDb)("Campus Map moderation governance (#723)", () => {
       "conflict",
       "decided",
     ]);
+    await projectionGate.query("commit");
+    projectionGate.release();
     const hiddenNotification = await pool.query<{ actor_id: string | null }>(
       "select actor_id from notifications where id = $1",
       [notificationId],
     );
     expect(hiddenNotification.rows).toEqual([{ actor_id: null }]);
-    await expect(deliverCampusMapNoteNotifications()).resolves.toMatchObject({
+    await expect(delivery).resolves.toMatchObject({
       delivered: 1,
       failed: 0,
     });
