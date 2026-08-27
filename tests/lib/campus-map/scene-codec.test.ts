@@ -49,6 +49,35 @@ const catalog: CampusMapSceneCatalog = {
 };
 
 describe("Campus Map versioned scene codec", () => {
+  it("round-trips a canonical Map Note return context for refresh recovery", () => {
+    const session: CampusMapSession = {
+      mode: "task",
+      task: {
+        kind: "edit",
+        placeId: "fountain",
+        returnContext: {
+          kind: "map-note",
+          noteId: "72000000-0000-4000-8000-000000000003",
+        },
+      },
+    };
+
+    const encoded = encodeCampusMapUrl(session, catalog);
+    expect(encoded.toString()).toBe(
+      "v=1&task=edit&id=fountain&returnNote=72000000-0000-4000-8000-000000000003",
+    );
+    expect(decodeCampusMapUrl(encoded, catalog)).toEqual({
+      status: "decoded",
+      session,
+    });
+    expect(
+      decodeCampusMapUrl(
+        "v=1&task=edit&id=fountain&returnNote=NOT-A-CANONICAL-UUID",
+        catalog,
+      ),
+    ).toMatchObject({ status: "fallback", reason: "invalid-return-context" });
+  });
+
   it("round-trips a facility URL without derived relationship fields", () => {
     const session: CampusMapSession = {
       mode: "browse",

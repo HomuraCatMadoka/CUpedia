@@ -56,7 +56,16 @@ export type CampusMapContributionTask =
       kind: "create";
       anchor: { kind: "map" } | { kind: "building"; buildingId: string };
     }
-  | { kind: "edit"; placeId: string };
+  | {
+      kind: "edit";
+      placeId: string;
+      returnContext?: CampusMapTaskReturnContext;
+    };
+
+export type CampusMapTaskReturnContext = {
+  kind: "map-note";
+  noteId: string;
+};
 
 export type CampusMapSession =
   | { mode: "browse"; scene: CampusMapBrowseScene }

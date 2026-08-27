@@ -16,6 +16,7 @@ import {
 import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
+import type { CampusMapTaskReturnContext } from "@/lib/campus-map/scene-kernel";
 
 interface CampusMapEditSheetProps {
   session: CampusMapEditSession;
@@ -23,6 +24,7 @@ interface CampusMapEditSheetProps {
   placementPending?: boolean;
   placeContext?: AmapPlaceContextResult | { status: "loading" } | null;
   factSchema?: CampusMapFactSchema | null;
+  returnContext?: CampusMapTaskReturnContext;
   onEvent(event: CampusMapEditEvent): void;
 }
 
@@ -416,6 +418,7 @@ export function CampusMapEditSheet({
   placeContext = null,
   factSchema,
   onEvent,
+  returnContext,
 }: CampusMapEditSheetProps) {
   const fieldPrefix = useId();
   const [keyboardLongitude, setKeyboardLongitude] = useState(
@@ -479,6 +482,14 @@ export function CampusMapEditSheet({
         >
           查看 History
         </Link>
+        {returnContext?.kind === "map-note" ? (
+          <Link
+            className={secondaryClass}
+            href={`/campus-map/notes/${returnContext.noteId}`}
+          >
+            返回地图备注
+          </Link>
+        ) : null}
       </div>
     );
   }

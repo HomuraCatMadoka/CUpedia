@@ -77,6 +77,15 @@ export function isCanonicalCampusMapId(value: unknown): value is string {
   );
 }
 
+function isCanonicalUuid(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      value,
+    )
+  );
+}
+
 function hasCategory(catalog: CampusMapSceneCatalog, category: string) {
   return (
     isCanonicalCampusMapId(category) &&
@@ -174,6 +183,14 @@ export function resolveCampusMapSessionSemantics(
   catalog: CampusMapSceneCatalog,
 ): CampusMapSessionSemantics {
   if (session.mode === "task") {
+    if (
+      session.task.kind === "edit" &&
+      session.task.returnContext !== undefined &&
+      (session.task.returnContext.kind !== "map-note" ||
+        !isCanonicalUuid(session.task.returnContext.noteId))
+    ) {
+      return { status: "invalid", reason: "invalid-return-context" };
+    }
     const editedPlace =
       session.task.kind === "edit"
         ? findFacility(catalog, session.task.placeId)

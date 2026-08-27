@@ -117,6 +117,22 @@ _Avoid_: 自动合并；认为同层只能有一个同类服务位置
 的 tombstone；两者来源、历史链接和 ID 均保留。
 _Avoid_: 删除或复用 loser ID；让旧 deep link 失效
 
+**地图备注（Map Note）**: 围绕一个 canonical Place、一个 WGS84 地图位置或两者提出的公开问题与
+补充上下文；它有独立生命周期，不能直接改变 Current fact。
+_Avoid_: Changeset discussion；事实草稿；评分评论；用 Note 关闭代替发布修正
+
+**备注事件（Note event）**: Map Note 时间线中的不可变 opening comment、comment、resolve 或
+reopen 记录；后续动作只追加事件，不覆盖较早内容。
+_Avoid_: 可编辑评论；原地改写状态历史；通用 audit log
+
+**解决说明（Resolution）**: 显式关闭 Map Note 时记录的结构化理由，可引用真正修正事实的
+Changeset；发布成功本身不会自动形成 Resolution。
+_Avoid_: 发布回执；审批结果；没有理由的关闭
+
+**备注订阅（Note subscription）**: User 是否接收某个 Map Note 后续事件提醒的独立偏好；作者与
+评论者默认订阅，取消订阅不删除其事件或署名。
+_Avoid_: Note 参与者身份；阅读状态；删除历史
+
 **公开事实（Current fact）**: active Current revision 形成的公开搜索与地图投影；retired
 Place 只保留 tombstone/deep link，Edit draft、供应商候选、讨论和评分均不属于地点事实。
 _Avoid_: 把直接发布称为批准；把 Review request 当可见性状态；用通用 audit log 代替事实修订

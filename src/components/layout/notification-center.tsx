@@ -230,10 +230,7 @@ export function NotificationCenter() {
                           !notification.read && "font-semibold",
                         )}
                       >
-                        <span className="break-words">
-                          {notification.actorNickname}
-                        </span>{" "}
-                        回复了你在 {notification.courseCode} 的评论
+                        {notification.message}
                       </span>
                       <span className="mt-1 block text-xs text-muted-foreground">
                         {timeAgo(notification.createdAt)}

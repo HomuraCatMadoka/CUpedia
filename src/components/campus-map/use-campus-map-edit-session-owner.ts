@@ -277,7 +277,11 @@ export function useCampusMapEditSessionOwner({
     driver.start();
     const encoded = window.sessionStorage.getItem(SNAPSHOT_KEY);
     if (!encoded) {
-      if (driver.getSnapshot().session.mode === "task") {
+      const urlSession = driver.getSnapshot().session;
+      if (urlSession.mode === "task" && urlSession.task.kind === "edit") {
+        const placeId = urlSession.task.placeId;
+        queueMicrotask(() => void startEdit(placeId));
+      } else if (urlSession.mode === "task") {
         dispatch({ type: "CANCEL_TASK" });
         queueMicrotask(() =>
           setRestoreNotice("这项地图编辑已结束，没有可恢复的草稿。"),
@@ -363,7 +367,7 @@ export function useCampusMapEditSessionOwner({
       );
     }
     queueMicrotask(() => setAnnouncement("已恢复未发布的地图编辑草稿"));
-  }, [dispatch, driver]);
+  }, [dispatch, driver, startEdit]);
 
   useEffect(() => {
     if (!isCampusMapEditDirty(session)) return;

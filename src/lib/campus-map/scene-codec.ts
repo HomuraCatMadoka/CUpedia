@@ -143,6 +143,9 @@ export function encodeCampusMapUrl(
     params.set("task", normalized.task.kind);
     if (normalized.task.kind === "edit") {
       params.set("id", normalized.task.placeId);
+      if (normalized.task.returnContext?.kind === "map-note") {
+        params.set("returnNote", normalized.task.returnContext.noteId);
+      }
       return params;
     }
     params.set("anchor", normalized.task.anchor.kind);
@@ -204,18 +207,38 @@ export function decodeCampusMapUrl(
   }
 
   if (taskKind) {
-    if (!hasOnlyUrlKeys(params, ["v", "task", "anchor", "id"])) {
+    if (!hasOnlyUrlKeys(params, ["v", "task", "anchor", "id", "returnNote"])) {
       return fallback("conflicting-fields");
     }
     if (taskKind === "edit") {
-      if (!hasOnlyUrlKeys(params, ["v", "task", "id"])) {
+      if (!hasOnlyUrlKeys(params, ["v", "task", "id", "returnNote"])) {
         return fallback("conflicting-fields");
       }
       const placeId = params.get("id");
       if (!isCanonicalCampusMapId(placeId)) return fallback("invalid-identity");
+      const returnNote = params.get("returnNote");
+      if (
+        returnNote !== null &&
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+          returnNote,
+        )
+      ) {
+        return fallback("invalid-return-context");
+      }
       const session: CampusMapSession = {
         mode: "task",
-        task: { kind: "edit", placeId },
+        task: {
+          kind: "edit",
+          placeId,
+          ...(returnNote
+            ? {
+                returnContext: {
+                  kind: "map-note" as const,
+                  noteId: returnNote,
+                },
+              }
+            : {}),
+        },
       };
       return validSession(session, catalog)
         ? { status: "decoded", session }
