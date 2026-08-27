@@ -9,9 +9,10 @@ import {
 } from "@/lib/campus-map/edit-actions";
 import {
   decodeCampusMapEditSnapshot,
+  deriveCampusMapPublishCommand,
   encodeCampusMapEditSnapshot,
   isCampusMapEditDirty,
-  deriveCampusMapPublishCommand,
+  isCampusMapPublishOutcomePending,
   transitionCampusMapEdit,
   type CampusMapEditDraft,
   type CampusMapEditEvent,
@@ -431,12 +432,9 @@ export function useCampusMapEditSessionOwner({
         ? restored.session.draft.mode === "add"
         : restored.session.draft.mode === "edit" &&
           restored.session.draft.placeId === urlSession.task.placeId);
-    const isRecoveringPublish = [
-      "publishing",
-      "publish-unknown",
-      "publish-identity",
-      "publish-recovery-unavailable",
-    ].includes(restored.session.status);
+    const isRecoveringPublish = isCampusMapPublishOutcomePending(
+      restored.session.status,
+    );
     const matchesUrlTask = isRecoveringPublish
       ? matchesExactUrlTask
       : urlSession.mode !== "task" || matchesExactUrlTask;
@@ -522,15 +520,7 @@ export function useCampusMapEditSessionOwner({
         }
       });
     };
-    if (
-      next &&
-      [
-        "publishing",
-        "publish-unknown",
-        "publish-identity",
-        "publish-recovery-unavailable",
-      ].includes(next.status)
-    ) {
+    if (next && isCampusMapPublishOutcomePending(next.status)) {
       const command = deriveCampusMapPublishCommand(next.draft);
       const intentToken = driver.getIntentToken();
       void recoverPublish(command).then((outcome) => {

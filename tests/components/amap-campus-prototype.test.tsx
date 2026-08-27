@@ -872,6 +872,77 @@ describe("AmapCampusPrototype", () => {
     });
   });
 
+  it("finishes a refreshed unknown publish when the original result is found", async () => {
+    const placeId = "30000000-0000-4000-8000-000000000059";
+    const idempotencyKey = "10000000-0000-4000-8000-000000000059";
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey,
+    }).session!;
+    const positioned = transitionCampusMapEdit(started, {
+      type: "CONFIRM_POSITION",
+      position: {
+        longitude: 114.208,
+        latitude: 22.42,
+        crs: "wgs84",
+        precision: "approximate",
+        method: "keyboard",
+      },
+    }).session!;
+    const publishing = transitionCampusMapEdit(positioned, {
+      type: "REQUEST_PUBLISH",
+      accessedOn: "2026-08-27",
+    }).session!;
+    const unknown = transitionCampusMapEdit(publishing, {
+      type: "PUBLISH_RECOVERY_RESULT",
+      idempotencyKey,
+      reason: "reconciliation-unavailable",
+    }).session!;
+    const receipt = {
+      status: "published" as const,
+      changesetId: "50000000-0000-4000-8000-000000000059",
+      changes: [
+        {
+          placeId,
+          revisionId: "40000000-0000-4000-8000-000000000059",
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    };
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(unknown),
+    );
+    bindBrowserCampusMapPublishActor(
+      idempotencyKey,
+      "60000000-0000-4000-8000-000000000001",
+    );
+    window.history.replaceState(
+      null,
+      "",
+      "/prototype/campus-map?v=1&task=create&anchor=map",
+    );
+    vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
+      status: "committed",
+      receipt,
+    });
+    mockLoadBrowseProjection.mockResolvedValueOnce(
+      publishedOutdoorProjection(placeId),
+    );
+
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    await waitFor(() =>
+      expect(window.location.search).toContain(`id=${placeId}`),
+    );
+    expect(
+      window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
+    ).toBeNull();
+    expect(screen.queryByText("正在确认发布结果")).toBeNull();
+    expect(publishCampusMapEdit).not.toHaveBeenCalled();
+  });
+
   it("discards a publishing snapshot instead of reclaiming selection after remounting on B", async () => {
     const idempotencyKey = "10000000-0000-4000-8000-000000000022";
     const selectedPlaceId = "30000000-0000-4000-8000-000000000022";

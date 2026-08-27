@@ -72,6 +72,19 @@ export type CampusMapEditStatus =
   | "conflict"
   | "published";
 
+const PUBLISH_OUTCOME_PENDING_STATUSES = [
+  "publishing",
+  "publish-unknown",
+  "publish-identity",
+  "publish-recovery-unavailable",
+] satisfies ReadonlyArray<CampusMapEditStatus>;
+
+export function isCampusMapPublishOutcomePending(status: CampusMapEditStatus) {
+  return PUBLISH_OUTCOME_PENDING_STATUSES.some(
+    (candidate) => candidate === status,
+  );
+}
+
 export interface CampusMapEditReceipt {
   placeId: string;
   revisionId: string;
@@ -798,7 +811,7 @@ export function transitionCampusMapEdit(
 
   if (event.type === "PUBLISH_RESULT") {
     if (
-      session.status !== "publishing" ||
+      !isCampusMapPublishOutcomePending(session.status) ||
       event.idempotencyKey !== session.draft.idempotencyKey
     ) {
       return rejected(session);
@@ -968,7 +981,7 @@ export function transitionCampusMapEdit(
 
   if (event.type === "PUBLISH_RECOVERY_RESULT") {
     if (
-      session.status !== "publishing" ||
+      !isCampusMapPublishOutcomePending(session.status) ||
       event.idempotencyKey !== session.draft.idempotencyKey ||
       event.reason === "superseded" ||
       event.reason === "projection-superseded"
@@ -1035,7 +1048,7 @@ export function transitionCampusMapEdit(
 
   if (event.type === "PUBLISH_HANDOFF_COMPLETED") {
     if (
-      session.status !== "publishing" ||
+      !isCampusMapPublishOutcomePending(session.status) ||
       event.idempotencyKey !== session.draft.idempotencyKey
     ) {
       return rejected(session);

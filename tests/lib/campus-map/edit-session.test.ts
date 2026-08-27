@@ -679,6 +679,62 @@ describe("Campus Map edit session transition", () => {
     },
   );
 
+  it("accepts refreshed recovery outcomes from persisted feedback states", () => {
+    const draft = editSession().draft;
+    const unknown: CampusMapEditSession = {
+      status: "publish-unknown",
+      draft,
+      publishFeedbackReason: "reconciliation-unavailable",
+    };
+    const identityUnavailable: CampusMapEditSession = {
+      status: "publish-identity",
+      draft,
+      publishFeedbackReason: "identity-unavailable",
+    };
+    const lockUnavailable: CampusMapEditSession = {
+      status: "publish-recovery-unavailable",
+      draft,
+      publishFeedbackReason: "receipt-lock-unavailable",
+    };
+
+    expect(
+      transitionCampusMapEdit(unknown, {
+        type: "PUBLISH_HANDOFF_COMPLETED",
+        idempotencyKey: firstKey,
+      }),
+    ).toMatchObject({
+      accepted: true,
+      session: null,
+      commands: [{ kind: "clear-snapshot" }],
+    });
+    expect(
+      transitionCampusMapEdit(identityUnavailable, {
+        type: "PUBLISH_RESULT",
+        idempotencyKey: firstKey,
+        result: {
+          status: "authentication-required",
+          code: "authentication-required",
+        },
+      }),
+    ).toMatchObject({
+      accepted: true,
+      session: { status: "authentication-required" },
+    });
+    expect(
+      transitionCampusMapEdit(lockUnavailable, {
+        type: "PUBLISH_RECOVERY_RESULT",
+        idempotencyKey: firstKey,
+        reason: "reconciliation-unavailable",
+      }),
+    ).toMatchObject({
+      accepted: true,
+      session: {
+        status: "publish-unknown",
+        publishFeedbackReason: "reconciliation-unavailable",
+      },
+    });
+  });
+
   it("migrates version 1 and 2 drafts with empty placement display metadata", () => {
     const legacy = JSON.parse(encodeCampusMapEditSnapshot(editSession())) as {
       version: number;
