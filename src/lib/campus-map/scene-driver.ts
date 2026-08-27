@@ -355,7 +355,7 @@ export class CampusMapSceneDriver {
       resolved.status === "valid" &&
       session.mode === "browse" &&
       (session.scene.kind === "facility" || session.scene.kind === "content") &&
-      resolved.context
+      resolved.context?.buildingId
     ) {
       return {
         mode: "browse",
@@ -376,9 +376,19 @@ export class CampusMapSceneDriver {
       this.catalog,
     );
     this.bumpToken();
-    if (resolved.status === "valid" && resolved.buildingId) {
+    if (resolved.status === "valid" && resolved.cameraTarget) {
       this.ports.camera(
-        { kind: "focus", buildingId: resolved.buildingId, reason },
+        resolved.cameraTarget.kind === "building"
+          ? {
+              kind: "focus",
+              buildingId: resolved.cameraTarget.buildingId,
+              reason,
+            }
+          : {
+              kind: "focus-place",
+              placeId: resolved.cameraTarget.placeId,
+              reason,
+            },
         this.effectContext(),
       );
     }

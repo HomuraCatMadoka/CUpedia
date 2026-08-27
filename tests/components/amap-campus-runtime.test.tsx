@@ -32,6 +32,7 @@ import {
 } from "@/lib/campus-map/edit-session";
 import { installAmapRuntime } from "../helpers/amap-runtime";
 import { createAmapPrototypeBrowseFixture } from "../helpers/campus-map-browse-projection";
+import type { CampusMapBrowseProjection } from "@/lib/campus-map/browse-projection";
 
 function AmapCampusPrototype(
   props: ComponentProps<typeof AmapCampusPrototypeView>,
@@ -42,6 +43,83 @@ function AmapCampusPrototype(
       {...props}
     />
   );
+}
+
+function createNullablePlaceFixture(): CampusMapBrowseProjection {
+  const base = createAmapPrototypeBrowseFixture();
+  const template = base.places[0]!;
+  const building = base.buildings[0]!;
+  const buildingOnly = {
+    ...template,
+    placeId: "building-only-water",
+    revisionId: "building-only-water-revision",
+    name: "大堂饮水点",
+    pinType: "water" as const,
+    buildingId: building.buildingId,
+    floorId: null,
+    floorLabel: null,
+    location: {
+      kind: "building" as const,
+      building: {
+        id: building.buildingId,
+        name: building.name,
+        englishName: building.englishName,
+        code: building.code,
+      },
+    },
+    selectionTarget: {
+      kind: "place" as const,
+      placeId: "building-only-water",
+      buildingId: building.buildingId,
+      floorId: null,
+    },
+  };
+  const outdoor = {
+    ...template,
+    placeId: "outdoor-water",
+    revisionId: "outdoor-water-revision",
+    name: "林荫饮水点",
+    pinType: "water" as const,
+    buildingId: null,
+    floorId: null,
+    floorLabel: null,
+    location: {
+      kind: "outdoor-point" as const,
+      point: {
+        longitude: 114.2078,
+        latitude: 22.4188,
+        crs: "wgs84" as const,
+        precision: "precise" as const,
+      },
+    },
+    selectionTarget: {
+      kind: "place" as const,
+      placeId: "outdoor-water",
+      buildingId: null,
+      floorId: null,
+    },
+  };
+  return {
+    ...base,
+    buildings: base.buildings.map((candidate) =>
+      candidate.buildingId === building.buildingId
+        ? {
+            ...candidate,
+            placeIds: [...candidate.placeIds, buildingOnly.placeId],
+          }
+        : candidate,
+    ),
+    places: [buildingOnly, outdoor, ...base.places],
+    markers: [
+      ...base.markers,
+      {
+        kind: "place",
+        placeId: outdoor.placeId,
+        pinType: outdoor.pinType,
+        position: outdoor.location.point,
+      },
+    ],
+  };
 }
 
 const mutableFacilityFixtures = AMAP_PROTOTYPE_FACILITIES as unknown as Array<
@@ -136,6 +214,8 @@ afterEach(() => {
 });
 
 async function renderWithRuntime(options?: {
+  projection?: CampusMapBrowseProjection;
+  initialSearch?: string;
   deferConvertFrom?: boolean;
   convertFromFails?: boolean;
   convertFromMutatesInput?: boolean;
@@ -150,8 +230,14 @@ async function renderWithRuntime(options?: {
   projectedPoint?: { x: number; y: number };
   placementAnchorPosition?: { longitude: number; latitude: number };
 }) {
-  const runtime = installAmapRuntime(options);
-  render(<AmapCampusPrototype />);
+  const { projection, initialSearch, ...runtimeOptions } = options ?? {};
+  const runtime = installAmapRuntime(runtimeOptions);
+  render(
+    <AmapCampusPrototype
+      initialBrowseProjection={projection ?? createAmapPrototypeBrowseFixture()}
+      initialSearch={initialSearch}
+    />,
+  );
   await waitFor(() => expect(runtime.maps).toHaveLength(1));
   const map = runtime.maps[0]!;
   await waitFor(() =>
@@ -1153,6 +1239,107 @@ describe("AmapCampusPrototype runtime effects", () => {
     await screen.findByRole("heading", { name: "饮水机" });
     expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
     expect(runtime.infoWindows).toHaveLength(0);
+  });
+
+  it.each([
+    ["search", "林荫饮水点", "outdoor-water"],
+    ["category", "大堂饮水点", "building-only-water"],
+  ])(
+    "opens a nullable-context Place from %s as one canonical scene",
+    async (entry, name, placeId) => {
+      const projection = createNullablePlaceFixture();
+      await renderWithRuntime({ projection });
+
+      if (entry === "search") {
+        fireEvent.change(screen.getByPlaceholderText("搜索建筑"), {
+          target: { value: name },
+        });
+      } else {
+        fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+      }
+      fireEvent.click(
+        await screen.findByRole("button", { name: new RegExp(name) }),
+      );
+
+      expect(await screen.findByRole("heading", { name })).not.toBeNull();
+      expect(window.location.search).toBe(
+        `?v=1&scene=facility&id=${placeId}&snap=peek`,
+      );
+    },
+  );
+
+  it("opens an outdoor Place marker and focuses its projected public point", async () => {
+    const projection = createNullablePlaceFixture();
+    const { runtime } = await renderWithRuntime({
+      projection,
+      projectedPoint: { x: 360, y: 700 },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    const marker = await waitFor(() => {
+      const match = runtime.markers.findLast(
+        (candidate) => candidate.getExtData()?.facilityId === "outdoor-water",
+      );
+      expect(match).toBeDefined();
+      return match!;
+    });
+
+    await act(async () => {
+      runtime.maps[0]!.getContainer().dispatchEvent(
+        new Event("pointerdown", { bubbles: true }),
+      );
+      marker.emit("click");
+    });
+    await runtime.flushAnimationFrames();
+
+    expect(window.location.search).toContain("scene=facility&id=outdoor-water");
+    expect(
+      await screen.findByRole("heading", { name: "林荫饮水点" }),
+    ).not.toBeNull();
+    expect(runtime.maps[0]!.panTo).toHaveBeenCalled();
+  });
+
+  it("opens a mapped outdoor provider target as the same canonical Place", async () => {
+    const projection = createNullablePlaceFixture();
+    mockLoadProviderPoiCard.mockResolvedValueOnce({
+      kind: "linked",
+      title: "林荫饮水点",
+      selectionTarget: {
+        kind: "place",
+        placeId: "outdoor-water",
+        buildingId: null,
+        floorId: null,
+      },
+    });
+    const { runtime } = await renderWithRuntime({ projection });
+
+    await act(async () => {
+      runtime.maps[0]!.emit("hotspotclick", {
+        id: "mapped-outdoor-water",
+        name: "高德饮水点",
+        lnglat: { lng: 114.2078, lat: 22.4188 },
+      });
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "林荫饮水点" }),
+    ).not.toBeNull();
+    expect(window.location.search).toContain("scene=facility&id=outdoor-water");
+    expect(runtime.infoWindows).toHaveLength(0);
+  });
+
+  it("restores an outdoor Place deep link after refresh", async () => {
+    const projection = createNullablePlaceFixture();
+    await renderWithRuntime({
+      projection,
+      initialSearch: "?v=1&scene=facility&id=outdoor-water&snap=peek",
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "林荫饮水点" }),
+    ).not.toBeNull();
+    expect(window.location.search).toBe(
+      "?v=1&scene=facility&id=outdoor-water&snap=peek",
+    );
   });
 
   it.each([

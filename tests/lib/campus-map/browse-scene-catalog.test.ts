@@ -10,6 +10,7 @@ const projection = {
   buildings: [
     {
       buildingId: "science",
+      anchor: { longitude: 114.2, latitude: 22.4, crs: "wgs84" },
       floors: [{ floorId: "G" }],
     },
   ],
@@ -19,18 +20,21 @@ const projection = {
       buildingId: "science",
       floorId: "G",
       pinType: "water",
+      location: { kind: "floor" },
     },
     {
       placeId: "building-only",
       buildingId: "science",
       floorId: null,
       pinType: "water",
+      location: { kind: "building" },
     },
     {
       placeId: "outdoor",
       buildingId: null,
       floorId: null,
       pinType: "water",
+      location: { kind: "outdoor-point" },
     },
   ],
   presences: [],
@@ -38,7 +42,7 @@ const projection = {
 } as unknown as CampusMapBrowseProjection;
 
 describe("Campus Map browse scene catalog", () => {
-  it("adapts only relations supported by the existing canonical scene owner", () => {
+  it("adapts every stable Place with nullable browse and camera context", () => {
     const catalog = createCampusMapSceneCatalog(projection, ["water"]);
 
     expect(catalog.facilities).toEqual({
@@ -46,6 +50,19 @@ describe("Campus Map browse scene catalog", () => {
         buildingId: "science",
         floorId: "G",
         category: "water",
+        cameraTarget: "building-anchor",
+      },
+      "building-only": {
+        buildingId: "science",
+        floorId: null,
+        category: "water",
+        cameraTarget: "building-anchor",
+      },
+      outdoor: {
+        buildingId: null,
+        floorId: null,
+        category: "water",
+        cameraTarget: "place-point",
       },
     });
   });
@@ -59,6 +76,26 @@ describe("Campus Map browse scene catalog", () => {
         floorId: "G",
         category: "water",
       },
+    });
+  });
+
+  it("keeps a Place selectable when its Building has no camera anchor", () => {
+    const withoutAnchor = {
+      ...projection,
+      buildings: projection.buildings.map((building) => ({
+        ...building,
+        anchor: null,
+      })),
+    };
+
+    expect(
+      createCampusMapSceneCatalog(withoutAnchor, ["water"]).facilities[
+        "building-only"
+      ],
+    ).toMatchObject({
+      buildingId: "science",
+      floorId: null,
+      cameraTarget: null,
     });
   });
 });

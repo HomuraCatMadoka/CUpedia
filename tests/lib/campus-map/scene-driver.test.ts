@@ -17,6 +17,25 @@ const catalog: CampusMapSceneCatalog = {
       buildingId: "science",
       floorId: "1",
       category: "water",
+      cameraTarget: "building-anchor",
+    },
+    lobbyWater: {
+      buildingId: "science",
+      floorId: null,
+      category: "water",
+      cameraTarget: "building-anchor",
+    },
+    courtyardWater: {
+      buildingId: null,
+      floorId: null,
+      category: "water",
+      cameraTarget: "place-point",
+    },
+    locationPending: {
+      buildingId: null,
+      floorId: null,
+      category: "water",
+      cameraTarget: null,
     },
   },
   contents: {},
@@ -97,6 +116,33 @@ describe("CampusMapSceneDriver", () => {
     expect(runtime.ports.sheet).toHaveBeenCalledTimes(1);
     expect(runtime.ports.sheet).toHaveBeenCalledWith(
       { kind: "show", snap: "peek" },
+      expect.any(Object),
+    );
+  });
+
+  it.each([
+    [
+      "outdoor Place point",
+      "courtyardWater",
+      {
+        kind: "focus-place",
+        placeId: "courtyardWater",
+        reason: "deep-link",
+      },
+    ],
+    ["no camera target", "locationPending", { kind: "cancel" }],
+  ])("restores a Place deep link with %s", (_label, facilityId, camera) => {
+    const runtime = harness(
+      `?v=1&scene=facility&id=${facilityId}&snap=peek`,
+      false,
+    );
+
+    expect(runtime.driver.getSnapshot().session).toMatchObject({
+      mode: "browse",
+      scene: { kind: "facility", facilityId },
+    });
+    expect(runtime.ports.camera).toHaveBeenCalledWith(
+      camera,
       expect.any(Object),
     );
   });
@@ -203,6 +249,63 @@ describe("CampusMapSceneDriver", () => {
       },
     });
     expect(direct.history.pushState).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [
+      "building-only Place",
+      "lobbyWater",
+      {
+        kind: "building",
+        buildingId: "science",
+        floorId: null,
+        snap: "peek",
+      },
+    ],
+    ["outdoor Place", "courtyardWater", { kind: "map" }],
+    ["Place without camera target", "locationPending", { kind: "map" }],
+  ])(
+    "uses a safe direct-link Back fallback for a %s",
+    (_label, facilityId, scene) => {
+      const runtime = harness(`?v=1&scene=facility&id=${facilityId}&snap=peek`);
+
+      runtime.driver.dispatch({ type: "NAVIGATE_BACK" });
+
+      expect(runtime.driver.getSnapshot().session).toEqual({
+        mode: "browse",
+        scene,
+      });
+    },
+  );
+
+  it("keeps only the latest Place during rapid A to B and out-of-order camera work", () => {
+    const pending: Array<() => void> = [];
+    const executed: string[] = [];
+    const runtime = harness();
+    vi.mocked(runtime.ports.camera).mockImplementation((command, context) => {
+      pending.push(() => {
+        if (context.isCurrent()) executed.push(command.kind);
+      });
+    });
+
+    runtime.driver.dispatch({
+      type: "OPEN_FACILITY",
+      facilityId: "courtyardWater",
+      source: "map",
+    });
+    runtime.driver.dispatch({
+      type: "OPEN_FACILITY",
+      facilityId: "lobbyWater",
+      source: "search",
+    });
+    pending[1]!();
+    pending[0]!();
+
+    expect(runtime.driver.getSnapshot().session).toMatchObject({
+      mode: "browse",
+      scene: { kind: "facility", facilityId: "lobbyWater" },
+    });
+    expect(executed).toEqual(["focus"]);
   });
 
   it.each(["X", "Escape"])("keeps %s dismissal independent from Back", () => {
@@ -341,6 +444,40 @@ describe("CampusMapSceneDriver", () => {
     });
     expect(push).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("restores Back and Forward across an outdoor Place without writing history", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "OPEN_CATEGORY", category: "water" });
+    runtime.driver.dispatch({
+      type: "OPEN_FACILITY",
+      facilityId: "courtyardWater",
+      source: "map",
+    });
+    vi.mocked(runtime.history.pushState).mockClear();
+    vi.mocked(runtime.history.replaceState).mockClear();
+
+    runtime.driver.restore("?v=1&scene=category&id=water&snap=peek", {
+      campusMapScene: true,
+      version: 1,
+      depth: 0,
+    });
+    expect(runtime.driver.getSnapshot().session).toMatchObject({
+      mode: "browse",
+      scene: { kind: "category-results", category: "water" },
+    });
+
+    runtime.driver.restore("?v=1&scene=facility&id=courtyardWater&snap=peek", {
+      campusMapScene: true,
+      version: 1,
+      depth: 1,
+    });
+    expect(runtime.driver.getSnapshot().session).toMatchObject({
+      mode: "browse",
+      scene: { kind: "facility", facilityId: "courtyardWater" },
+    });
+    expect(runtime.history.pushState).not.toHaveBeenCalled();
+    expect(runtime.history.replaceState).not.toHaveBeenCalled();
   });
 
   it("invalidates stale camera work for rapid transitions and user gestures", () => {
