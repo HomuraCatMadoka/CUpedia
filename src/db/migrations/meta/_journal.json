@@ -687,6 +687,13 @@
       "when": 1787814309979,
       "tag": "0097_canteen-canonical-provider-offerings",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1787818572345,
+      "tag": "0098_canteen-menu-identity-evolution",
+      "breakpoints": true
     }
   ]
 }

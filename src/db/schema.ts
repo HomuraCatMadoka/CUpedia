@@ -2275,6 +2275,86 @@ export const canteenMenuOfferingOccurrences = pgTable(
   ],
 ).enableRLS();
 
+export const CANTEEN_MENU_IDENTITY_TRANSITION_KINDS = [
+  "rename",
+  "split",
+  "merge",
+] as const;
+export type CanteenMenuIdentityTransitionKind =
+  (typeof CANTEEN_MENU_IDENTITY_TRANSITION_KINDS)[number];
+
+/** Immutable audit trail for canonical UUID identity evolution. */
+export const canteenMenuIdentityTransitions = pgTable(
+  "canteen_menu_identity_transitions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    canteenId: uuid("canteen_id").notNull(),
+    menuSourceId: uuid("menu_source_id").notNull(),
+    kind: text("kind").$type<CanteenMenuIdentityTransitionKind>().notNull(),
+    fromMenuItemId: uuid("from_menu_item_id").notNull(),
+    toMenuItemId: uuid("to_menu_item_id").notNull(),
+    fromNormalizedName: text("from_normalized_name").notNull(),
+    toNormalizedName: text("to_normalized_name").notNull(),
+    externalProductIds: text("external_product_ids")
+      .array()
+      .$type<string[]>()
+      .notNull(),
+    eventKey: text("event_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("canteen_menu_identity_transitions_event_uidx").on(
+      table.menuSourceId,
+      table.eventKey,
+    ),
+    index("canteen_menu_identity_transitions_from_idx").on(
+      table.fromMenuItemId,
+      table.createdAt,
+    ),
+    index("canteen_menu_identity_transitions_to_idx").on(
+      table.toMenuItemId,
+      table.createdAt,
+    ),
+    foreignKey({
+      columns: [table.menuSourceId, table.canteenId],
+      foreignColumns: [canteenMenuSources.id, canteenMenuSources.canteenId],
+      name: "canteen_menu_identity_transitions_source_canteen_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.fromMenuItemId, table.canteenId],
+      foreignColumns: [canteenMenuItems.id, canteenMenuItems.canteenId],
+      name: "canteen_menu_identity_transitions_from_canteen_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.toMenuItemId, table.canteenId],
+      foreignColumns: [canteenMenuItems.id, canteenMenuItems.canteenId],
+      name: "canteen_menu_identity_transitions_to_canteen_fk",
+    }).onDelete("cascade"),
+    check(
+      "canteen_menu_identity_transitions_kind_chk",
+      sql`${table.kind} in ('rename', 'split', 'merge')`,
+    ),
+    check(
+      "canteen_menu_identity_transitions_shape_chk",
+      sql`(${table.kind} = 'rename' and ${table.fromMenuItemId} = ${table.toMenuItemId} and ${table.fromNormalizedName} <> ${table.toNormalizedName}) or (${table.kind} in ('split', 'merge') and ${table.fromMenuItemId} <> ${table.toMenuItemId})`,
+    ),
+    check(
+      "canteen_menu_identity_transitions_names_chk",
+      sql`length(trim(${table.fromNormalizedName})) between 1 and 200 and length(trim(${table.toNormalizedName})) between 1 and 200`,
+    ),
+    check(
+      "canteen_menu_identity_transitions_products_chk",
+      sql`cardinality(${table.externalProductIds}) > 0`,
+    ),
+    check(
+      "canteen_menu_identity_transitions_event_key_chk",
+      sql`${table.eventKey} ~ '^[0-9a-f]{64}$'`,
+    ),
+  ],
+).enableRLS();
+
 export const VOTE_VALUES = ["like", "dislike"] as const;
 export type VoteValue = (typeof VOTE_VALUES)[number];
 

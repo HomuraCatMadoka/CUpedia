@@ -3,11 +3,13 @@ import { db } from "@/db";
 import {
   canteenDishComments,
   canteenDishVotes,
+  canteenMenuIdentityTransitions,
   canteenMenuItemPrices,
   canteenMenuItems,
   canteenMenuOfferingOccurrences,
   canteenMenuProviderOfferings,
   canteenMenuSources,
+  siteSettings,
 } from "@/db/schema";
 import {
   and,
@@ -36,7 +38,10 @@ import {
   type MenuIdentityTransitionSourceConfiguration,
   verifyMenuIdentityTransitionApproval,
 } from "./canteen-menu-identity-transition";
-import type { ExistingSyncMenuItem } from "./canteen-menu-sync";
+import type {
+  ApprovedMenuIdentityReplacement,
+  ExistingSyncMenuItem,
+} from "./canteen-menu-sync";
 import {
   menuProviderOccurrences,
   type CurrentMenuProjection,
@@ -48,6 +53,11 @@ import {
 } from "./canteen-types";
 import { assertProviderSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
 import { normalizeCanonicalDishName } from "./canteen-menu-canonicalization";
+import {
+  planCanonicalIdentityEvolution,
+  type CanonicalIdentityEvolution,
+  type CanonicalIdentityItem,
+} from "./canteen-menu-identity-evolution";
 
 type MenuSourceRow = typeof canteenMenuSources.$inferSelect;
 export type MenuSyncTransaction = Parameters<
@@ -69,6 +79,8 @@ export type RecurringMenuProjection = {
 type SyncMenuRow = {
   id: string;
   name: string;
+  normalizedName: string | null;
+  createdAt: Date;
   mealPeriods: string[];
   sortOrder: number;
   svgKey: string;
@@ -86,8 +98,49 @@ type SyncMenuRow = {
 type SyncOfferingRow = {
   menuItemId: string;
   externalProductId: string;
+  providerName: string;
+  normalizedName: string;
+  createdAt: Date;
   isAvailable: boolean;
 };
+
+export const CANTEEN_MENU_IDENTITY_EVOLUTION_SETTING =
+  "canteen_menu_identity_evolution";
+
+type CanonicalIdentityTransitionFact = {
+  kind: "rename" | "split" | "merge";
+  fromMenuItemId: string;
+  toMenuItemId: string;
+  fromNormalizedName: string;
+  toNormalizedName: string;
+  externalProductIds: string[];
+};
+
+function canonicalIdentityTransitionEventKey(
+  source: LockedMenuSource,
+  transition: CanonicalIdentityTransitionFact,
+): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        observation: source.syncClaimToken ?? source.databaseNow.toISOString(),
+        sourceId: source.id,
+        ...transition,
+        externalProductIds: [...transition.externalProductIds].sort(),
+      }),
+    )
+    .digest("hex");
+}
+
+async function isCanonicalIdentityEvolutionEnabled(
+  tx: MenuSyncTransaction,
+): Promise<boolean> {
+  const [setting] = await tx
+    .select({ value: siteSettings.value })
+    .from(siteSettings)
+    .where(eq(siteSettings.key, CANTEEN_MENU_IDENTITY_EVOLUTION_SETTING));
+  return setting?.value === "enabled";
+}
 
 function projectApprovedIdentityChanges(
   existingItems: readonly ExistingSyncMenuItem[],
@@ -143,14 +196,52 @@ async function canonicalizeApprovedIdentities(
   }
 }
 
-async function mergeApprovedIdentityHistory(
+type MenuIdentityHistoryMerge = {
+  survivorItemId: string;
+  mergedItemIds: string[];
+  nextProductId?: string;
+  previousProductIds?: string[];
+  normalizedName?: string;
+};
+
+async function mergeCanonicalDishHistory(
   tx: MenuSyncTransaction,
-  canteenId: string,
-  now: Date,
-  merges: readonly ApprovedMenuIdentityMerge[],
+  source: LockedMenuSource,
+  merges: readonly MenuIdentityHistoryMerge[],
 ): Promise<void> {
+  const canteenId = source.canteenId;
+  const menuSourceId = source.id;
+  const now = source.databaseNow;
   for (const merge of merges) {
     const allItemIds = [merge.survivorItemId, ...merge.mergedItemIds];
+    const identityRows = await tx
+      .select({
+        id: canteenMenuItems.id,
+        name: canteenMenuItems.name,
+        normalizedName: canteenMenuItems.normalizedName,
+        externalProductId: canteenMenuItems.externalProductId,
+      })
+      .from(canteenMenuItems)
+      .where(
+        and(
+          eq(canteenMenuItems.canteenId, canteenId),
+          inArray(canteenMenuItems.id, allItemIds),
+        ),
+      )
+      .for("update", { of: canteenMenuItems });
+    const identityById = new Map(identityRows.map((item) => [item.id, item]));
+    const survivorIdentity = identityById.get(merge.survivorItemId);
+    if (!survivorIdentity || identityRows.length !== allItemIds.length) {
+      throw new Error("MENU_SYNC_STALE");
+    }
+    const offeringRows = await tx
+      .select({
+        menuItemId: canteenMenuProviderOfferings.menuItemId,
+        externalProductId: canteenMenuProviderOfferings.externalProductId,
+      })
+      .from(canteenMenuProviderOfferings)
+      .where(inArray(canteenMenuProviderOfferings.menuItemId, allItemIds))
+      .for("update", { of: canteenMenuProviderOfferings });
     const votes = await tx
       .select({
         id: canteenDishVotes.id,
@@ -159,6 +250,7 @@ async function mergeApprovedIdentityHistory(
         anonymousSessionId: canteenDishVotes.anonymousSessionId,
         vote: canteenDishVotes.vote,
         createdAt: canteenDishVotes.createdAt,
+        updatedAt: canteenDishVotes.updatedAt,
       })
       .from(canteenDishVotes)
       .where(inArray(canteenDishVotes.menuItemId, allItemIds))
@@ -173,15 +265,11 @@ async function mergeApprovedIdentityHistory(
     const duplicateVoteIds: string[] = [];
     const votesToMove: string[] = [];
     for (const actorVotes of votesByActor.values()) {
-      if (new Set(actorVotes.map((vote) => vote.vote)).size > 1) {
-        throw new Error("MENU_IDENTITY_TRANSITION_VOTE_CONFLICT");
-      }
       const ordered = actorVotes.toSorted(
         (left, right) =>
-          Number(right.menuItemId === merge.survivorItemId) -
-            Number(left.menuItemId === merge.survivorItemId) ||
-          left.createdAt.getTime() - right.createdAt.getTime() ||
-          left.id.localeCompare(right.id),
+          right.updatedAt.getTime() - left.updatedAt.getTime() ||
+          right.createdAt.getTime() - left.createdAt.getTime() ||
+          right.id.localeCompare(left.id),
       );
       const [keeper, ...duplicates] = ordered;
       duplicateVoteIds.push(...duplicates.map((vote) => vote.id));
@@ -205,6 +293,15 @@ async function mergeApprovedIdentityHistory(
       .set({ menuItemId: merge.survivorItemId })
       .where(inArray(canteenDishComments.menuItemId, merge.mergedItemIds));
     await tx
+      .update(canteenMenuProviderOfferings)
+      .set({ menuItemId: merge.survivorItemId, updatedAt: now })
+      .where(
+        and(
+          eq(canteenMenuProviderOfferings.menuSourceId, menuSourceId),
+          inArray(canteenMenuProviderOfferings.menuItemId, merge.mergedItemIds),
+        ),
+      );
+    await tx
       .delete(canteenMenuItemPrices)
       .where(inArray(canteenMenuItemPrices.menuItemId, merge.mergedItemIds));
     await tx
@@ -221,19 +318,242 @@ async function mergeApprovedIdentityHistory(
           inArray(canteenMenuItems.id, merge.mergedItemIds),
         ),
       );
+    if (merge.nextProductId) {
+      await tx
+        .update(canteenMenuItems)
+        .set({
+          externalProductId: merge.nextProductId,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(canteenMenuItems.canteenId, canteenId),
+            eq(canteenMenuItems.id, merge.survivorItemId),
+          ),
+        );
+    }
+    const transitionValues = merge.mergedItemIds.map((mergedItemId) => {
+      const retired = identityById.get(mergedItemId)!;
+      const externalProductIds = offeringRows
+        .filter((offering) => offering.menuItemId === mergedItemId)
+        .map((offering) => offering.externalProductId);
+      if (externalProductIds.length === 0 && retired.externalProductId) {
+        externalProductIds.push(retired.externalProductId);
+      }
+      if (externalProductIds.length === 0) {
+        throw new Error("MENU_IDENTITY_TRANSITION_EMPTY_PRODUCTS");
+      }
+      const transition: CanonicalIdentityTransitionFact = {
+        kind: "merge" as const,
+        fromMenuItemId: mergedItemId,
+        toMenuItemId: merge.survivorItemId,
+        fromNormalizedName:
+          retired.normalizedName ?? normalizeCanonicalDishName(retired.name),
+        toNormalizedName:
+          merge.normalizedName ??
+          survivorIdentity.normalizedName ??
+          normalizeCanonicalDishName(survivorIdentity.name),
+        externalProductIds: [...new Set(externalProductIds)].sort(),
+      };
+      return {
+        canteenId,
+        menuSourceId,
+        ...transition,
+        eventKey: canonicalIdentityTransitionEventKey(source, transition),
+        createdAt: now,
+      };
+    });
+    if (transitionValues.length > 0) {
+      await tx
+        .insert(canteenMenuIdentityTransitions)
+        .values(transitionValues)
+        .onConflictDoNothing({
+          target: [
+            canteenMenuIdentityTransitions.menuSourceId,
+            canteenMenuIdentityTransitions.eventKey,
+          ],
+        });
+    }
+  }
+}
+
+async function persistCanonicalIdentityEvolutionBeforeMenu(
+  tx: MenuSyncTransaction,
+  source: LockedMenuSource,
+  evolution: CanonicalIdentityEvolution,
+): Promise<void> {
+  if (evolution.merges.length > 0) {
+    await mergeCanonicalDishHistory(tx, source, evolution.merges);
+  }
+  const splitSourceIds = [
+    ...new Set(evolution.splits.map((split) => split.sourceItemId)),
+  ];
+  if (splitSourceIds.length > 0) {
     await tx
       .update(canteenMenuItems)
+      .set({ menuSourceId: null, externalProductId: null })
+      .where(
+        and(
+          eq(canteenMenuItems.canteenId, source.canteenId),
+          inArray(canteenMenuItems.id, splitSourceIds),
+        ),
+      );
+    for (const itemId of splitSourceIds) {
+      const projected = evolution.projectedItems.find(
+        (item) => item.id === itemId,
+      );
+      if (!projected?.externalProductId) throw new Error("MENU_SYNC_STALE");
+      await tx
+        .update(canteenMenuItems)
+        .set({
+          menuSourceId: source.id,
+          externalProductId: projected.externalProductId,
+          updatedAt: source.databaseNow,
+        })
+        .where(
+          and(
+            eq(canteenMenuItems.canteenId, source.canteenId),
+            eq(canteenMenuItems.id, itemId),
+          ),
+        );
+    }
+  }
+  for (const split of evolution.splits) {
+    if (!split.targetItemId) continue;
+    await tx
+      .update(canteenMenuProviderOfferings)
       .set({
-        externalProductId: merge.nextProductId,
-        updatedAt: now,
+        menuItemId: split.targetItemId,
+        updatedAt: source.databaseNow,
       })
       .where(
         and(
-          eq(canteenMenuItems.canteenId, canteenId),
-          eq(canteenMenuItems.id, merge.survivorItemId),
+          eq(canteenMenuProviderOfferings.menuSourceId, source.id),
+          eq(canteenMenuProviderOfferings.menuItemId, split.sourceItemId),
+          inArray(
+            canteenMenuProviderOfferings.externalProductId,
+            split.externalProductIds,
+          ),
         ),
       );
   }
+}
+
+async function recordCanonicalIdentityEvolution(
+  tx: MenuSyncTransaction,
+  source: LockedMenuSource,
+  evolution: CanonicalIdentityEvolution,
+  persistedItemIds: ReadonlyMap<string, string>,
+): Promise<void> {
+  const transitions: CanonicalIdentityTransitionFact[] = [
+    ...evolution.renames.map((rename) => ({
+      kind: "rename" as const,
+      fromMenuItemId: rename.itemId,
+      toMenuItemId: rename.itemId,
+      fromNormalizedName: rename.fromNormalizedName,
+      toNormalizedName: rename.toNormalizedName,
+      externalProductIds: rename.externalProductIds,
+    })),
+    ...evolution.splits.map((split) => {
+      const targetItemId =
+        split.targetItemId ?? persistedItemIds.get(split.toNormalizedName);
+      if (!targetItemId) throw new Error("MENU_SYNC_STALE");
+      return {
+        kind: "split" as const,
+        fromMenuItemId: split.sourceItemId,
+        toMenuItemId: targetItemId,
+        fromNormalizedName: split.fromNormalizedName,
+        toNormalizedName: split.toNormalizedName,
+        externalProductIds: split.externalProductIds,
+      };
+    }),
+  ].filter((transition) => transition.externalProductIds.length > 0);
+  const values = transitions.map((transition) => ({
+    canteenId: source.canteenId,
+    menuSourceId: source.id,
+    ...transition,
+    eventKey: canonicalIdentityTransitionEventKey(source, transition),
+    createdAt: source.databaseNow,
+  }));
+  if (values.length === 0) return;
+  await tx
+    .insert(canteenMenuIdentityTransitions)
+    .values(values)
+    .onConflictDoNothing({
+      target: [
+        canteenMenuIdentityTransitions.menuSourceId,
+        canteenMenuIdentityTransitions.eventKey,
+      ],
+    });
+}
+
+async function seedExistingProviderOfferings(
+  tx: MenuSyncTransaction,
+  source: LockedMenuSource,
+  existingItems: readonly CanonicalIdentityItem[],
+): Promise<void> {
+  const values = existingItems.flatMap((existingItem) =>
+    existingItem.menuSourceId === source.id
+      ? (
+          existingItem.externalProductIds ??
+          (existingItem.externalProductId
+            ? [existingItem.externalProductId]
+            : [])
+        ).map((externalProductId) => {
+          const evidence = existingItem.providerOfferings.find(
+            (offering) => offering.externalProductId === externalProductId,
+          );
+          return {
+            canteenId: source.canteenId,
+            menuSourceId: source.id,
+            menuItemId: existingItem.id,
+            externalProductId,
+            providerName: evidence?.providerName ?? existingItem.name,
+            normalizedName:
+              evidence?.normalizedName ?? existingItem.normalizedName,
+            isAvailable:
+              existingItem.activeExternalProductIds?.includes(
+                externalProductId,
+              ) ?? existingItem.isAvailable,
+            createdAt: evidence?.createdAt ?? source.databaseNow,
+            updatedAt: source.databaseNow,
+          };
+        })
+      : [],
+  );
+  if (values.length === 0) return;
+  await tx
+    .insert(canteenMenuProviderOfferings)
+    .values(values)
+    .onConflictDoNothing({
+      target: [
+        canteenMenuProviderOfferings.menuSourceId,
+        canteenMenuProviderOfferings.externalProductId,
+      ],
+    });
+}
+
+async function retireApprovedOfferingAliases(
+  tx: MenuSyncTransaction,
+  source: LockedMenuSource,
+  transitions: readonly (
+    | ApprovedMenuIdentityReplacement
+    | ApprovedMenuIdentityCanonicalization
+  )[],
+): Promise<void> {
+  if (transitions.length === 0) return;
+  await tx
+    .update(canteenMenuProviderOfferings)
+    .set({ isAvailable: false, updatedAt: source.databaseNow })
+    .where(
+      and(
+        eq(canteenMenuProviderOfferings.menuSourceId, source.id),
+        inArray(
+          canteenMenuProviderOfferings.externalProductId,
+          transitions.map((transition) => transition.previousProductId),
+        ),
+      ),
+    );
 }
 
 function priceOptionValues(
@@ -252,8 +572,8 @@ function priceOptionValues(
 function collectExistingSyncItems(
   rows: SyncMenuRow[],
   offerings: SyncOfferingRow[] = [],
-): ExistingSyncMenuItem[] {
-  const items = new Map<string, ExistingSyncMenuItem>();
+): CanonicalIdentityItem[] {
+  const items = new Map<string, CanonicalIdentityItem>();
   for (const row of rows) {
     const existing = items.get(row.id);
     if (existing) {
@@ -270,6 +590,9 @@ function collectExistingSyncItems(
     items.set(row.id, {
       id: row.id,
       name: row.name,
+      normalizedName:
+        row.normalizedName ?? normalizeCanonicalDishName(row.name),
+      createdAt: row.createdAt,
       mealPeriods: row.mealPeriods as MealPeriodAssignment[],
       sortOrder: row.sortOrder,
       svgKey: row.svgKey,
@@ -294,6 +617,7 @@ function collectExistingSyncItems(
             ],
       menuSourceId: row.menuSourceId,
       externalProductId: row.externalProductId,
+      providerOfferings: [],
       isAvailable: row.isAvailable,
     });
   }
@@ -309,6 +633,15 @@ function collectExistingSyncItems(
       ];
     }
     if (item) item.activeExternalProductIds ??= [];
+    if (item) {
+      item.providerOfferings.push({
+        externalProductId: offering.externalProductId,
+        providerName: offering.providerName,
+        normalizedName: offering.normalizedName,
+        createdAt: offering.createdAt,
+        isAvailable: offering.isAvailable,
+      });
+    }
     if (item && offering.isAvailable) {
       item.activeExternalProductIds = [
         ...(item.activeExternalProductIds ?? []),
@@ -317,17 +650,58 @@ function collectExistingSyncItems(
     }
   }
   for (const item of items.values()) {
+    if (
+      item.providerOfferings.length === 0 &&
+      item.externalProductId !== null
+    ) {
+      item.providerOfferings.push({
+        externalProductId: item.externalProductId,
+        providerName: item.name,
+        normalizedName: item.normalizedName,
+        createdAt: item.createdAt,
+        isAvailable: item.isAvailable,
+      });
+    }
     item.externalProductIds?.sort();
     item.activeExternalProductIds?.sort();
+    item.providerOfferings.sort(
+      (left, right) =>
+        left.createdAt.getTime() - right.createdAt.getTime() ||
+        left.externalProductId.localeCompare(right.externalProductId),
+    );
     item.priceOptions.sort((a, b) => a.sortOrder - b.sortOrder);
   }
   return [...items.values()];
+}
+
+function evaluationItems(
+  items: readonly CanonicalIdentityItem[],
+): ExistingSyncMenuItem[] {
+  return items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    mealPeriods: [...item.mealPeriods],
+    sortOrder: item.sortOrder,
+    svgKey: item.svgKey,
+    priceOptions: item.priceOptions.map((option) => ({ ...option })),
+    menuSourceId: item.menuSourceId,
+    externalProductId: item.externalProductId,
+    externalProductIds: item.externalProductIds
+      ? [...item.externalProductIds]
+      : undefined,
+    activeExternalProductIds: item.activeExternalProductIds
+      ? [...item.activeExternalProductIds]
+      : undefined,
+    isAvailable: item.isAvailable,
+  }));
 }
 
 function syncMenuSelection() {
   return {
     id: canteenMenuItems.id,
     name: canteenMenuItems.name,
+    normalizedName: canteenMenuItems.normalizedName,
+    createdAt: canteenMenuItems.createdAt,
     mealPeriods: canteenMenuItems.mealPeriods,
     sortOrder: canteenMenuItems.sortOrder,
     svgKey: canteenMenuItems.svgKey,
@@ -406,6 +780,9 @@ async function selectExistingOfferings(
     .select({
       menuItemId: canteenMenuProviderOfferings.menuItemId,
       externalProductId: canteenMenuProviderOfferings.externalProductId,
+      providerName: canteenMenuProviderOfferings.providerName,
+      normalizedName: canteenMenuProviderOfferings.normalizedName,
+      createdAt: canteenMenuProviderOfferings.createdAt,
       isAvailable: canteenMenuProviderOfferings.isAvailable,
     })
     .from(canteenMenuProviderOfferings)
@@ -462,7 +839,7 @@ export async function previewMenuSync(
       legacyAdoptionOpen: source.legacyTakeoverAt === null,
     },
     projectionInput,
-    existing,
+    evaluationItems(existing),
   );
   return {
     ...evaluation,
@@ -498,7 +875,7 @@ export async function auditMenuIdentityTransition(
       legacyAdoptionOpen: source.legacyTakeoverAt === null,
     },
     projectionInput,
-    existing,
+    evaluationItems(existing),
   );
   const audit = buildMenuIdentityTransitionAudit(
     evaluation.canonicalState.existingItems.filter(
@@ -611,11 +988,20 @@ async function applyLockedMenuSync(
     | MenuSnapshotEvaluation<CurrentMenuProjection>;
   let approvedCanonicalizations: ApprovedMenuIdentityCanonicalization[] = [];
   let approvedMerges: ApprovedMenuIdentityMerge[] = [];
+  let approvedReplacements: ApprovedMenuIdentityReplacement[] = [];
+  let canonicalIdentityEvolution: CanonicalIdentityEvolution | null = null;
   if (request.kind === "recurring") {
+    if (await isCanonicalIdentityEvolutionEnabled(tx)) {
+      canonicalIdentityEvolution = planCanonicalIdentityEvolution({
+        sourceId: source.id,
+        existingItems: existing,
+        projection: request.projection,
+      });
+    }
     evaluation = evaluateCurrentMenuProjection(
       evaluationSource,
       request.projection,
-      existing,
+      evaluationItems(canonicalIdentityEvolution?.projectedItems ?? existing),
       { adapterAcceptedEmpty: true },
       request.acceptedPeriodItems,
     );
@@ -624,7 +1010,7 @@ async function applyLockedMenuSync(
     const identityEvaluation = evaluateMenuIdentityTransitionSnapshot(
       evaluationSource,
       projectionInput,
-      existing,
+      evaluationItems(existing),
     );
     const approval = verifyMenuIdentityTransitionApproval(
       {
@@ -652,6 +1038,7 @@ async function applyLockedMenuSync(
     }
     approvedCanonicalizations = approval.canonicalizations;
     approvedMerges = approval.merges;
+    approvedReplacements = approval.replacements;
     evaluation = resolveApprovedIdentityTransitionBlocking(
       evaluateMenuIdentityTransitionSnapshot(
         evaluationSource,
@@ -669,7 +1056,7 @@ async function applyLockedMenuSync(
     const legacyEvaluation = evaluateMenuSnapshot(
       evaluationSource,
       projectionInput,
-      existing,
+      evaluationItems(existing),
       [],
       { adapterAcceptedEmpty: false },
     );
@@ -715,6 +1102,12 @@ async function applyLockedMenuSync(
     });
   }
 
+  await seedExistingProviderOfferings(tx, source, existing);
+  await retireApprovedOfferingAliases(tx, source, [
+    ...approvedReplacements,
+    ...approvedCanonicalizations,
+  ]);
+
   if (approvedCanonicalizations.length > 0) {
     await canonicalizeApprovedIdentities(
       tx,
@@ -724,11 +1117,13 @@ async function applyLockedMenuSync(
     );
   }
   if (approvedMerges.length > 0) {
-    await mergeApprovedIdentityHistory(
+    await mergeCanonicalDishHistory(tx, source, approvedMerges);
+  }
+  if (canonicalIdentityEvolution) {
+    await persistCanonicalIdentityEvolutionBeforeMenu(
       tx,
-      source.canteenId,
-      now,
-      approvedMerges,
+      source,
+      canonicalIdentityEvolution,
     );
   }
 
@@ -755,38 +1150,6 @@ async function applyLockedMenuSync(
   const observedOfferingIds = currentPlan.canonicalItems.flatMap((item) =>
     item.offerings.map((offering) => offering.externalProductId),
   );
-
-  const legacyOfferingSeeds = evaluation.canonicalState.existingItems.flatMap(
-    (existingItem) =>
-      existingItem.menuSourceId === source.id &&
-      existingItem.externalProductId !== null &&
-      existingItem.externalProductIds === undefined
-        ? [
-            {
-              canteenId: source.canteenId,
-              menuSourceId: source.id,
-              menuItemId: existingItem.id,
-              externalProductId: existingItem.externalProductId,
-              providerName: existingItem.name,
-              normalizedName: normalizeCanonicalDishName(existingItem.name),
-              isAvailable: existingItem.isAvailable,
-              createdAt: now,
-              updatedAt: now,
-            },
-          ]
-        : [],
-  );
-  if (legacyOfferingSeeds.length > 0) {
-    await tx
-      .insert(canteenMenuProviderOfferings)
-      .values(legacyOfferingSeeds)
-      .onConflictDoNothing({
-        target: [
-          canteenMenuProviderOfferings.menuSourceId,
-          canteenMenuProviderOfferings.externalProductId,
-        ],
-      });
-  }
 
   const offeringAbsenceIsEvidence =
     request.kind === "recurring"
@@ -958,6 +1321,15 @@ async function applyLockedMenuSync(
     if (occurrenceValues.length > 0) {
       await tx.insert(canteenMenuOfferingOccurrences).values(occurrenceValues);
     }
+  }
+
+  if (canonicalIdentityEvolution) {
+    await recordCanonicalIdentityEvolution(
+      tx,
+      source,
+      canonicalIdentityEvolution,
+      persistedItemIds,
+    );
   }
 
   for (const action of currentPlan.actions) {
