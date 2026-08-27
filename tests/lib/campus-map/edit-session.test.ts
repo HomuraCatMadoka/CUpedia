@@ -500,7 +500,7 @@ describe("Campus Map edit session transition", () => {
     }).session;
     const encoded = encodeCampusMapEditSnapshot(changed!);
 
-    expect(CAMPUS_MAP_EDIT_SNAPSHOT_VERSION).toBe(3);
+    expect(CAMPUS_MAP_EDIT_SNAPSHOT_VERSION).toBe(4);
     expect(JSON.parse(encoded)).toMatchObject({
       version: CAMPUS_MAP_EDIT_SNAPSHOT_VERSION,
       session: { draft: { placeId, baseRevisionId } },
@@ -518,6 +518,221 @@ describe("Campus Map edit session transition", () => {
         JSON.stringify({ version: 999, session: changed }),
       ),
     ).toEqual({ status: "discarded", reason: "unsupported-version" });
+  });
+
+  it.each([
+    "reconciliation-unavailable",
+    "handoff-failed",
+    "projection-failed",
+    "missing-target",
+    "receipt-state-unavailable",
+  ] as const)("keeps %s as an unknown original publish result", (reason) => {
+    const publishing = transitionCampusMapEdit(
+      transitionCampusMapEdit(editSession(), {
+        type: "CHANGE_FACT",
+        fact: { ...fact, name: "等待确认" },
+      }).session,
+      { type: "REQUEST_PUBLISH" },
+    ).session!;
+
+    const unknown = transitionCampusMapEdit(publishing, {
+      type: "PUBLISH_RECOVERY_RESULT",
+      idempotencyKey: firstKey,
+      reason,
+    });
+
+    expect(unknown.session).toMatchObject({
+      status: "publish-unknown",
+      publishFeedbackReason: reason,
+    });
+    expect(unknown.commands).toEqual([
+      { kind: "persist-snapshot" },
+      { kind: "focus", target: "publish-feedback" },
+      {
+        kind: "announce",
+        message: "正在确认发布结果，你的修改已经保留",
+      },
+    ]);
+    expect(
+      decodeCampusMapEditSnapshot(
+        encodeCampusMapEditSnapshot(unknown.session!),
+      ),
+    ).toMatchObject({
+      status: "restored",
+      session: {
+        status: "publish-unknown",
+        publishFeedbackReason: reason,
+      },
+    });
+
+    const checking = transitionCampusMapEdit(unknown.session, {
+      type: "CHECK_PUBLISH_RESULT",
+    });
+    expect(checking.session?.status).toBe("publishing");
+    expect(checking.commands).toContainEqual(
+      expect.objectContaining({ kind: "publish" }),
+    );
+    expect(
+      transitionCampusMapEdit(checking.session, {
+        type: "CHECK_PUBLISH_RESULT",
+      }).accepted,
+    ).toBe(false);
+  });
+
+  it("fails closed when receipt locking prevents safe recovery", () => {
+    const reason = "receipt-lock-unavailable" as const;
+    const publishing = transitionCampusMapEdit(
+      transitionCampusMapEdit(editSession(), {
+        type: "CHANGE_FACT",
+        fact: { ...fact, name: "等待安全恢复" },
+      }).session,
+      { type: "REQUEST_PUBLISH" },
+    ).session!;
+
+    const blocked = transitionCampusMapEdit(publishing, {
+      type: "PUBLISH_RECOVERY_RESULT",
+      idempotencyKey: firstKey,
+      reason,
+    });
+
+    expect(blocked.session).toMatchObject({
+      status: "publish-recovery-unavailable",
+      publishFeedbackReason: reason,
+    });
+    expect(
+      transitionCampusMapEdit(blocked.session, {
+        type: "RETRY_PUBLISH",
+      }).accepted,
+    ).toBe(false);
+    expect(
+      transitionCampusMapEdit(blocked.session, {
+        type: "CHECK_PUBLISH_RESULT",
+      }).accepted,
+    ).toBe(false);
+    expect(
+      transitionCampusMapEdit(blocked.session, {
+        type: "CONTINUE_EDITING",
+      }),
+    ).toMatchObject({
+      accepted: true,
+      session: { status: "editing", draft: blocked.session?.draft },
+      commands: [
+        { kind: "persist-snapshot" },
+        { kind: "scene", intent: "start-edit" },
+        { kind: "focus", target: "form-heading" },
+      ],
+    });
+  });
+
+  it.each(["identity-mismatch", "identity-unavailable"] as const)(
+    "presents %s without offering a publish retry",
+    (reason) => {
+      const publishing = transitionCampusMapEdit(
+        transitionCampusMapEdit(editSession(), {
+          type: "CHANGE_FACT",
+          fact: { ...fact, name: "不应显示的草稿内容" },
+        }).session,
+        { type: "REQUEST_PUBLISH" },
+      ).session!;
+
+      const identity = transitionCampusMapEdit(publishing, {
+        type: "PUBLISH_RECOVERY_RESULT",
+        idempotencyKey: firstKey,
+        reason,
+      });
+
+      expect(identity.session).toMatchObject({
+        status: "publish-identity",
+        publishFeedbackReason: reason,
+      });
+      expect(
+        transitionCampusMapEdit(identity.session, {
+          type: "RETRY_PUBLISH",
+        }).accepted,
+      ).toBe(false);
+      expect(identity.commands).toContainEqual(
+        reason === "identity-mismatch"
+          ? { kind: "clear-snapshot" }
+          : { kind: "persist-snapshot" },
+      );
+    },
+  );
+
+  it.each(["superseded", "projection-superseded"] as const)(
+    "silently ignores %s without changing state or focus",
+    (reason) => {
+      const publishing = transitionCampusMapEdit(
+        transitionCampusMapEdit(editSession(), {
+          type: "CHANGE_FACT",
+          fact: { ...fact, name: "较旧的发布" },
+        }).session,
+        { type: "REQUEST_PUBLISH" },
+      ).session!;
+
+      expect(
+        transitionCampusMapEdit(publishing, {
+          type: "PUBLISH_RECOVERY_RESULT",
+          idempotencyKey: firstKey,
+          reason,
+        }),
+      ).toEqual({ accepted: false, session: publishing, commands: [] });
+    },
+  );
+
+  it("accepts refreshed recovery outcomes from persisted feedback states", () => {
+    const draft = editSession().draft;
+    const unknown: CampusMapEditSession = {
+      status: "publish-unknown",
+      draft,
+      publishFeedbackReason: "reconciliation-unavailable",
+    };
+    const identityUnavailable: CampusMapEditSession = {
+      status: "publish-identity",
+      draft,
+      publishFeedbackReason: "identity-unavailable",
+    };
+    const lockUnavailable: CampusMapEditSession = {
+      status: "publish-recovery-unavailable",
+      draft,
+      publishFeedbackReason: "receipt-lock-unavailable",
+    };
+
+    expect(
+      transitionCampusMapEdit(unknown, {
+        type: "PUBLISH_HANDOFF_COMPLETED",
+        idempotencyKey: firstKey,
+      }),
+    ).toMatchObject({
+      accepted: true,
+      session: null,
+      commands: [{ kind: "clear-snapshot" }],
+    });
+    expect(
+      transitionCampusMapEdit(identityUnavailable, {
+        type: "PUBLISH_RESULT",
+        idempotencyKey: firstKey,
+        result: {
+          status: "authentication-required",
+          code: "authentication-required",
+        },
+      }),
+    ).toMatchObject({
+      accepted: true,
+      session: { status: "authentication-required" },
+    });
+    expect(
+      transitionCampusMapEdit(lockUnavailable, {
+        type: "PUBLISH_RECOVERY_RESULT",
+        idempotencyKey: firstKey,
+        reason: "reconciliation-unavailable",
+      }),
+    ).toMatchObject({
+      accepted: true,
+      session: {
+        status: "publish-unknown",
+        publishFeedbackReason: "reconciliation-unavailable",
+      },
+    });
   });
 
   it("migrates version 1 and 2 drafts with empty placement display metadata", () => {
@@ -829,6 +1044,51 @@ describe("Campus Map edit session transition", () => {
         ?.status,
     ).toBe("editing");
   });
+
+  it.each([
+    [
+      {
+        status: "authentication-required" as const,
+        code: "authentication-required" as const,
+      },
+      "需要登录，草稿已保留",
+    ],
+    [
+      { status: "forbidden" as const, code: "actor-banned" as const },
+      "当前账号无法发布，草稿已保留",
+    ],
+    [
+      {
+        status: "temporarily-unavailable" as const,
+        code: "publish-unavailable" as const,
+        retryable: true as const,
+      },
+      "暂时无法发布，你的修改已保存在这个浏览器中",
+    ],
+  ])(
+    "announces a failed publish after leaving publishing",
+    (result, message) => {
+      const dirty = transitionCampusMapEdit(editSession(), {
+        type: "CHANGE_FACT",
+        fact: { ...fact, name: "读屏反馈" },
+      }).session!;
+      const publishing = transitionCampusMapEdit(dirty, {
+        type: "REQUEST_PUBLISH",
+      }).session!;
+
+      const failed = transitionCampusMapEdit(publishing, {
+        type: "PUBLISH_RESULT",
+        idempotencyKey: firstKey,
+        result,
+      });
+
+      expect(failed.commands).toContainEqual({ kind: "announce", message });
+      expect(failed.commands).toContainEqual({
+        kind: "focus",
+        target: "publish-feedback",
+      });
+    },
+  );
 
   it("does not retry a rate-limited attempt before the server delay elapses", () => {
     const dirty = transitionCampusMapEdit(editSession(), {
