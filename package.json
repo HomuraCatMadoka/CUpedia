@@ -26,7 +26,8 @@
     "migrate-content": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts",
     "migrate-content:dry": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts --dry-run",
     "wiki-links:check": "node --import tsx scripts/wiki-links-integrity.ts",
-    "wiki-links:repair": "node --import tsx scripts/wiki-links-integrity.ts --repair"
+    "wiki-links:repair": "node --import tsx scripts/wiki-links-integrity.ts --repair",
+    "qa:campus-map-provider-mappings": "node --import tsx scripts/campus-map-provider-mapping-qa.ts"
   },
   "dependencies": {
     "@ariakit/react": "^0.4.28",
