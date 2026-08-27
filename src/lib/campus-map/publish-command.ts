@@ -46,7 +46,7 @@ const POSTGRES_TIMESTAMP_MIN_MILLISECONDS = Date.parse(
   "-004712-01-01T00:00:00.000Z",
 );
 
-function canonicalUuid<T>(value: T): T {
+export function canonicalCampusMapUuid<T>(value: T): T {
   return typeof value === "string" && UUID_PATTERN.test(value)
     ? (value.toLowerCase() as T)
     : value;
@@ -58,42 +58,42 @@ export function normalizePublishCommandIdentifiers(
 ): CampusMapPublishCommand {
   return {
     ...command,
-    idempotencyKey: canonicalUuid(command.idempotencyKey),
+    idempotencyKey: canonicalCampusMapUuid(command.idempotencyKey),
     changes: command.changes.map((change) => {
       if (change.operation === "create") {
         return {
           ...change,
           fact: {
             ...change.fact,
-            buildingId: canonicalUuid(change.fact.buildingId),
-            floorId: canonicalUuid(change.fact.floorId),
+            buildingId: canonicalCampusMapUuid(change.fact.buildingId),
+            floorId: canonicalCampusMapUuid(change.fact.floorId),
           },
         };
       }
       if (change.operation === "retire") {
         return {
           ...change,
-          placeId: canonicalUuid(change.placeId),
-          baseRevisionId: canonicalUuid(change.baseRevisionId),
+          placeId: canonicalCampusMapUuid(change.placeId),
+          baseRevisionId: canonicalCampusMapUuid(change.baseRevisionId),
         };
       }
       if (change.operation === "merge") {
         return {
           ...change,
-          placeId: canonicalUuid(change.placeId),
-          baseRevisionId: canonicalUuid(change.baseRevisionId),
-          mergedIntoPlaceId: canonicalUuid(change.mergedIntoPlaceId),
+          placeId: canonicalCampusMapUuid(change.placeId),
+          baseRevisionId: canonicalCampusMapUuid(change.baseRevisionId),
+          mergedIntoPlaceId: canonicalCampusMapUuid(change.mergedIntoPlaceId),
         };
       }
       if (change.operation === "update" || change.operation === "restore") {
         return {
           ...change,
-          placeId: canonicalUuid(change.placeId),
-          baseRevisionId: canonicalUuid(change.baseRevisionId),
+          placeId: canonicalCampusMapUuid(change.placeId),
+          baseRevisionId: canonicalCampusMapUuid(change.baseRevisionId),
           fact: {
             ...change.fact,
-            buildingId: canonicalUuid(change.fact.buildingId),
-            floorId: canonicalUuid(change.fact.floorId),
+            buildingId: canonicalCampusMapUuid(change.fact.buildingId),
+            floorId: canonicalCampusMapUuid(change.fact.floorId),
           },
         };
       }

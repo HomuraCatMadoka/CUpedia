@@ -387,8 +387,14 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
       ],
     });
 
+    const uppercaseReplay = {
+      ...command,
+      placeId: command.placeId.toUpperCase(),
+      baseRevisionId: command.baseRevisionId.toUpperCase(),
+      targetRevisionId: command.targetRevisionId.toUpperCase(),
+    };
     await expect(
-      governCampusMapFacts(command, {
+      governCampusMapFacts(uppercaseReplay, {
         actorId: adminId,
         clientIp: "203.0.113.122",
       }),
@@ -477,14 +483,15 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
     });
     if (restored.status !== "published") throw new Error("restore failed");
 
-    const reverted = await governCampusMapFacts(
-      revertCommand({
-        placeId: created.placeId,
-        baseRevisionId: restored.changes[0].revisionId,
-        targetRevisionId: retired.changes[0].revisionId,
-      }),
-      { actorId: adminId, clientIp: "203.0.113.123" },
-    );
+    const command = revertCommand({
+      placeId: created.placeId,
+      baseRevisionId: restored.changes[0].revisionId,
+      targetRevisionId: retired.changes[0].revisionId,
+    });
+    const reverted = await governCampusMapFacts(command, {
+      actorId: adminId,
+      clientIp: "203.0.113.123",
+    });
 
     expect(reverted).toMatchObject({ status: "published" });
     if (reverted.status !== "published") throw new Error("revert failed");
@@ -499,6 +506,12 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
       previousRevisionId: restored.changes[0].revisionId,
       content: { visibility: "public", fact: { name: "retirement snapshot" } },
     });
+    await expect(
+      governCampusMapFacts(command, {
+        actorId: adminId,
+        clientIp: "203.0.113.123",
+      }),
+    ).resolves.toEqual(reverted);
   });
 
   it("atomically merges stable IDs and preserves both histories and deep links", async () => {
@@ -508,6 +521,19 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
     const command = mergeCommand({
       survivor: { ...survivor, name: "merge resolved fact" },
       loser,
+    });
+    const sameCanonicalPlace = structuredClone(command);
+    sameCanonicalPlace.idempotencyKey = randomUUID();
+    sameCanonicalPlace.loser.placeId = survivor.placeId.toUpperCase();
+    sameCanonicalPlace.loser.baseRevisionId = survivor.revisionId.toUpperCase();
+    await expect(
+      governCampusMapFacts(sameCanonicalPlace, {
+        actorId: adminId,
+        clientIp: "203.0.113.124",
+      }),
+    ).resolves.toMatchObject({
+      status: "validation-failed",
+      errors: [{ code: "merge-place-must-differ" }],
     });
 
     const merged = await governCampusMapFacts(command, {
