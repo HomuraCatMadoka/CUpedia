@@ -399,6 +399,27 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
         clientIp: "203.0.113.122",
       }),
     ).resolves.toEqual(reverted);
+
+    await pool.query(
+      "update campus_map_revision_visibility set visibility = 'redacted', redaction_ref = 'test:#720-replay' where revision_id = $1",
+      [created.revisionId],
+    );
+    await expect(
+      governCampusMapFacts(command, {
+        actorId: adminId,
+        clientIp: "203.0.113.122",
+      }),
+    ).resolves.toEqual(reverted);
+
+    await expect(
+      governCampusMapFacts(
+        { ...command, reason: "同一 key 不得代表另一条治理命令" },
+        { actorId: adminId, clientIp: "203.0.113.122" },
+      ),
+    ).resolves.toMatchObject({
+      status: "validation-failed",
+      errors: [{ code: "idempotency-key-reused" }],
+    });
   });
 
   it("fails closed when the old revision no longer satisfies the current validator", async () => {

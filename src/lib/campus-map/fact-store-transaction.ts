@@ -52,6 +52,10 @@ export interface CampusMapLockedRevisionSnapshot {
   visibility: "public" | "redacted";
 }
 
+export interface CampusMapGovernanceRevisionSnapshot extends CampusMapLockedRevisionSnapshot {
+  changesetId: string;
+}
+
 export interface CampusMapAppendFact {
   name: string;
   buildingId: string | null;
@@ -219,6 +223,95 @@ export class CampusMapFactStoreTransaction {
     return {
       revisionId: current.revisionId,
       status: current.status,
+      factSchemaVersion: revision.factSchemaVersion,
+      fact: {
+        name: revision.name,
+        buildingId: revision.buildingId,
+        floorId: revision.floorId,
+        pinType: revision.pinType,
+        capabilities: revision.capabilities,
+        gender: revision.gender,
+        wheelchairAccess: revision.wheelchairAccess,
+        audience: revision.audience,
+        credentialRequirement: revision.credentialRequirement,
+        accessSchedule: revision.accessSchedule,
+        reservationRequirement: revision.reservationRequirement,
+        temporaryStatus: revision.temporaryStatus,
+        locationKind: revision.locationKind,
+        pointPrecision: revision.pointPrecision,
+        longitude: revision.longitude,
+        latitude: revision.latitude,
+        coordinateCrs: revision.coordinateCrs,
+        observedAt: revision.observedAt,
+        verifiedAt: revision.verifiedAt,
+        verifiedByActorIdSnapshot: revision.verifiedByActorIdSnapshot,
+      },
+      visibility: revision.visibility,
+    };
+  }
+
+  async readGovernanceRevisionSnapshot(
+    placeId: string,
+    revisionId: string,
+  ): Promise<CampusMapGovernanceRevisionSnapshot | null> {
+    const [revision] = await this.transaction
+      .select({
+        changesetId: campusMapFactRevisions.changesetId,
+        status: campusMapFactRevisions.status,
+        factSchemaVersion: campusMapFactRevisions.factSchemaVersion,
+        name: campusMapFactRevisions.name,
+        buildingId: campusMapFactRevisions.buildingId,
+        floorId: campusMapFactRevisions.floorId,
+        pinType: campusMapFactRevisions.pinType,
+        capabilities: campusMapFactRevisions.capabilities,
+        gender: campusMapFactRevisions.gender,
+        wheelchairAccess: campusMapFactRevisions.wheelchairAccess,
+        audience: campusMapFactRevisions.audience,
+        credentialRequirement: campusMapFactRevisions.credentialRequirement,
+        accessSchedule: campusMapFactRevisions.accessSchedule,
+        reservationRequirement: campusMapFactRevisions.reservationRequirement,
+        temporaryStatus: campusMapFactRevisions.temporaryStatus,
+        locationKind: campusMapFactRevisions.locationKind,
+        pointPrecision: campusMapFactRevisions.pointPrecision,
+        longitude: campusMapFactRevisions.longitude,
+        latitude: campusMapFactRevisions.latitude,
+        coordinateCrs: campusMapFactRevisions.coordinateCrs,
+        observedAt: campusMapFactRevisions.observedAt,
+        verifiedAt: campusMapFactRevisions.verifiedAt,
+        verifiedByActorIdSnapshot:
+          campusMapFactRevisions.verifiedByActorIdSnapshot,
+        visibility: campusMapRevisionVisibility.visibility,
+      })
+      .from(campusMapFactRevisions)
+      .innerJoin(
+        campusMapRevisionVisibility,
+        eq(campusMapFactRevisions.id, campusMapRevisionVisibility.revisionId),
+      )
+      .where(
+        and(
+          eq(campusMapFactRevisions.placeId, placeId),
+          eq(campusMapFactRevisions.id, revisionId),
+        ),
+      )
+      .limit(1);
+    if (!revision) return null;
+    if (
+      revision.status !== "active" &&
+      revision.status !== "retired" &&
+      revision.status !== "merged"
+    ) {
+      throw new Error("Campus Map revision status is invalid");
+    }
+    if (
+      revision.visibility !== "public" &&
+      revision.visibility !== "redacted"
+    ) {
+      throw new Error("Campus Map revision visibility is invalid");
+    }
+    return {
+      revisionId,
+      changesetId: revision.changesetId,
+      status: revision.status,
       factSchemaVersion: revision.factSchemaVersion,
       fact: {
         name: revision.name,

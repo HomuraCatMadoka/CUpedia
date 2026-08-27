@@ -23,10 +23,6 @@ import {
   type CampusMapLockedRevisionSnapshot,
   type CampusMapAppendPlaceChange,
 } from "@/lib/campus-map/fact-store-transaction";
-import {
-  getCampusMapPlaceRevision,
-  type CampusMapHistoricalFact,
-} from "@/lib/campus-map/fact-store";
 import type {
   CampusMapFactGovernanceCommand,
   CampusMapMergeFieldResolution,
@@ -103,7 +99,6 @@ export async function publishCampusMapChangeset(
     revertsChangesetId: null,
     noOpUpdatePlaceIds: new Set(),
     retireFactPlaceIds: new Set(),
-    requestFingerprintContext: null,
   });
 }
 
@@ -154,96 +149,34 @@ export async function governCampusMapFacts(
     );
   }
 
-  const authorizationFailure = await preauthorizeCampusMapGovernanceRead(
-    command,
-    context,
-  );
-  if (authorizationFailure) return authorizationFailure;
-
   if (command.kind === "revert") {
-    return revertCampusMapFact(command, context);
+    return publishCampusMapGovernanceIntent(command, context, (store) =>
+      prepareCampusMapRevert(command, store),
+    );
   }
-  return mergeCampusMapFacts(command, context);
+  return publishCampusMapGovernanceIntent(command, context, (store) =>
+    prepareCampusMapMerge(command, store),
+  );
 }
 
-async function preauthorizeCampusMapGovernanceRead(
-  command: Exclude<CampusMapFactGovernanceCommand, { kind: "bulk-edit" }>,
-  context: CampusMapPublishContext,
-): Promise<CampusMapPublishResult | null> {
-  const actorId = context.actorId;
-  if (actorId === null) {
-    return {
-      status: "authentication-required",
-      code: "authentication-required",
-    };
-  }
-  if (!isValidPublishIdempotencyKey(actorId)) {
-    return { status: "forbidden", code: "actor-not-eligible" };
-  }
-  if (isValidPublishIdempotencyKey(command.idempotencyKey)) {
-    const [existingRequest] = await db
-      .select({ id: campusMapPublishRequests.id })
-      .from(campusMapPublishRequests)
-      .where(
-        and(
-          eq(campusMapPublishRequests.actorIdSnapshot, actorId),
-          eq(campusMapPublishRequests.idempotencyKey, command.idempotencyKey),
-        ),
-      )
-      .limit(1);
-    if (existingRequest) return null;
-  }
-
-  const [actor] = await db
-    .select({
-      id: users.id,
-      banned: users.banned,
-      email: users.email,
-      emailVerified: users.emailVerified,
-      nickname: users.nickname,
-      role: users.role,
-    })
-    .from(users)
-    .where(eq(users.id, actorId))
-    .limit(1);
-  if (!actor || !actor.emailVerified || !isAllowedEmail(actor.email)) {
-    return { status: "forbidden", code: "actor-not-eligible" };
-  }
-  if (actor.banned) return { status: "forbidden", code: "actor-banned" };
-  if (actor.role !== "admin") {
-    return { status: "forbidden", code: "admin-required" };
-  }
-  const [credential] = await db
-    .select({ id: accounts.id })
-    .from(accounts)
-    .where(
-      and(
-        eq(accounts.userId, actor.id),
-        eq(accounts.providerId, "credential"),
-        isNotNull(accounts.password),
-      ),
-    )
-    .limit(1);
-  return actor.nickname.trim() === "" || !credential
-    ? { status: "forbidden", code: "profile-incomplete" }
-    : null;
-}
-
-async function revertCampusMapFact(
+async function prepareCampusMapRevert(
   command: Extract<CampusMapFactGovernanceCommand, { kind: "revert" }>,
-  context: CampusMapPublishContext,
-): Promise<CampusMapPublishResult> {
+  store: CampusMapFactStoreTransaction,
+): Promise<PreparedCampusMapGovernancePublish | CampusMapPublishResult> {
   const [target, base] = await Promise.all([
-    getCampusMapPlaceRevision(command.placeId, command.targetRevisionId),
-    getCampusMapPlaceRevision(command.placeId, command.baseRevisionId),
+    store.readGovernanceRevisionSnapshot(
+      command.placeId,
+      command.targetRevisionId,
+    ),
+    store.readGovernanceRevisionSnapshot(
+      command.placeId,
+      command.baseRevisionId,
+    ),
   ]);
   if (!target || !base) {
     return governanceValidationFailure("revision-not-found");
   }
-  if (
-    target.content.visibility !== "public" ||
-    base.content.visibility !== "public"
-  ) {
+  if (target.visibility !== "public" || base.visibility !== "public") {
     return governanceValidationFailure("redacted-revision-not-revertible");
   }
   if (target.status === "merged" || base.status === "merged") {
@@ -260,7 +193,7 @@ async function revertCampusMapFact(
   if (operation === null) {
     return governanceValidationFailure("revision-status-not-revertible");
   }
-  const targetFact = toPublishFact(target.content.fact);
+  const targetFact = toPublishFact(target.fact);
   const publishCommand: CampusMapPublishCommand = {
     kind: "single",
     idempotencyKey: command.idempotencyKey,
@@ -279,21 +212,18 @@ async function revertCampusMapFact(
       },
     ],
   };
-  return publishCampusMapGovernanceChangeset(publishCommand, context, {
+  return {
+    command: publishCommand,
     revertsChangesetId: target.changesetId,
     retireFactPlaceIds:
       operation === "retire" ? new Set([command.placeId]) : undefined,
-    requestFingerprintContext: {
-      kind: command.kind,
-      targetRevisionId: command.targetRevisionId,
-    },
-  });
+  };
 }
 
-async function mergeCampusMapFacts(
+async function prepareCampusMapMerge(
   command: Extract<CampusMapFactGovernanceCommand, { kind: "merge" }>,
-  context: CampusMapPublishContext,
-): Promise<CampusMapPublishResult> {
+  store: CampusMapFactStoreTransaction,
+): Promise<PreparedCampusMapGovernancePublish | CampusMapPublishResult> {
   if (command.survivor.placeId === command.loser.placeId) {
     return governanceValidationFailure("merge-place-must-differ");
   }
@@ -301,11 +231,11 @@ async function mergeCampusMapFacts(
     return governanceValidationFailure("merge-field-resolution-required");
   }
   const [survivorBase, loserBase] = await Promise.all([
-    getCampusMapPlaceRevision(
+    store.readGovernanceRevisionSnapshot(
       command.survivor.placeId,
       command.survivor.baseRevisionId,
     ),
-    getCampusMapPlaceRevision(
+    store.readGovernanceRevisionSnapshot(
       command.loser.placeId,
       command.loser.baseRevisionId,
     ),
@@ -314,16 +244,16 @@ async function mergeCampusMapFacts(
     return governanceValidationFailure("merge-base-revision-not-found");
   }
   if (
-    survivorBase.content.visibility !== "public" ||
-    loserBase.content.visibility !== "public"
+    survivorBase.visibility !== "public" ||
+    loserBase.visibility !== "public"
   ) {
     return governanceValidationFailure("redacted-revision-not-mergeable");
   }
   if (
     !hasConsistentFieldResolution(
       command.survivor.fact,
-      toPublishFact(survivorBase.content.fact),
-      toPublishFact(loserBase.content.fact),
+      toPublishFact(survivorBase.fact),
+      toPublishFact(loserBase.fact),
       command.fieldResolutions,
     )
   ) {
@@ -355,14 +285,11 @@ async function mergeCampusMapFacts(
       },
     ],
   };
-  return publishCampusMapGovernanceChangeset(publishCommand, context, {
+  return {
+    command: publishCommand,
     revertsChangesetId: null,
     noOpUpdatePlaceIds: new Set([command.survivor.placeId]),
-    requestFingerprintContext: {
-      kind: command.kind,
-      fieldResolutions: command.fieldResolutions,
-    },
-  });
+  };
 }
 
 function normalizeGovernanceCommandIdentifiers(
@@ -457,9 +384,7 @@ function hasConsistentFieldResolution(
   });
 }
 
-function toPublishFact(
-  fact: CampusMapHistoricalFact,
-): CampusMapPublishFactInput {
+function toPublishFact(fact: CampusMapAppendFact): CampusMapPublishFactInput {
   return {
     name: fact.name,
     buildingId: fact.buildingId,
@@ -496,26 +421,50 @@ function governanceValidationFailure(code: string): CampusMapPublishResult {
   };
 }
 
-interface CampusMapGovernancePublishOptions {
+interface PreparedCampusMapGovernancePublish {
+  command: CampusMapPublishCommand;
   revertsChangesetId: string | null;
   noOpUpdatePlaceIds?: ReadonlySet<string>;
   retireFactPlaceIds?: ReadonlySet<string>;
-  requestFingerprintContext: unknown;
 }
 
-/** @internal The fact-governance module is the only authorized caller. */
-function publishCampusMapGovernanceChangeset(
-  command: CampusMapPublishCommand,
+function publishCampusMapGovernanceIntent(
+  command: Exclude<CampusMapFactGovernanceCommand, { kind: "bulk-edit" }>,
   context: CampusMapPublishContext,
-  options: CampusMapGovernancePublishOptions,
+  prepare: (
+    store: CampusMapFactStoreTransaction,
+  ) => Promise<PreparedCampusMapGovernancePublish | CampusMapPublishResult>,
 ): Promise<CampusMapPublishResult> {
-  return publishCampusMapChangesetInternal(command, context, {
+  const commandKind = command.kind === "merge" ? "bulk" : "single";
+  let serializedCommand: string | null = null;
+  try {
+    serializedCommand = JSON.stringify(canonicalize(command));
+    if (typeof serializedCommand !== "string") serializedCommand = null;
+  } catch {
+    serializedCommand = null;
+  }
+  const placeholder: CampusMapPublishCommand = {
+    kind: commandKind,
+    idempotencyKey: command.idempotencyKey,
+    comment: command.reason,
+    sourceSummary: "Campus Map fact governance",
+    reviewRequested: false,
+    client: command.client,
+    warningAcknowledgements: [],
+    changes: [],
+  };
+  return publishCampusMapChangesetInternal(placeholder, context, {
     allowMerge: true,
     requireAdmin: true,
-    revertsChangesetId: options.revertsChangesetId,
-    noOpUpdatePlaceIds: options.noOpUpdatePlaceIds ?? new Set(),
-    retireFactPlaceIds: options.retireFactPlaceIds ?? new Set(),
-    requestFingerprintContext: options.requestFingerprintContext,
+    revertsChangesetId: null,
+    noOpUpdatePlaceIds: new Set(),
+    retireFactPlaceIds: new Set(),
+    requestIdentity: {
+      idempotencyKey: command.idempotencyKey,
+      kind: commandKind,
+      serialized: serializedCommand,
+    },
+    prepare,
   });
 }
 
@@ -528,7 +477,14 @@ async function publishCampusMapChangesetInternal(
     revertsChangesetId: string | null;
     noOpUpdatePlaceIds: ReadonlySet<string>;
     retireFactPlaceIds: ReadonlySet<string>;
-    requestFingerprintContext: unknown;
+    requestIdentity?: {
+      idempotencyKey: string;
+      kind: CampusMapPublishCommand["kind"];
+      serialized: string | null;
+    };
+    prepare?: (
+      store: CampusMapFactStoreTransaction,
+    ) => Promise<PreparedCampusMapGovernancePublish | CampusMapPublishResult>;
   },
 ): Promise<CampusMapPublishResult> {
   const actorId = context.actorId?.toLowerCase() ?? null;
@@ -538,53 +494,55 @@ async function publishCampusMapChangesetInternal(
       code: "authentication-required",
     };
   }
-  const hasValidStructure = hasPublishCommandStructure(command);
+  const hasValidStructure =
+    options.requestIdentity !== undefined ||
+    hasPublishCommandStructure(command);
   const normalizedCommand = hasValidStructure
     ? normalizePublishCommandIdentifiers(command)
     : command;
-  let serializedCommand: string | null = null;
+  let revertsChangesetId = options.revertsChangesetId;
+  let noOpUpdatePlaceIds = options.noOpUpdatePlaceIds;
+  let retireFactPlaceIds = options.retireFactPlaceIds;
+  let serializedCommand: string | null =
+    options.requestIdentity?.serialized ?? null;
   try {
-    serializedCommand = JSON.stringify(
-      canonicalize(
-        options.requestFingerprintContext === null
-          ? normalizedCommand
-          : {
-              command: normalizedCommand,
-              governance: options.requestFingerprintContext,
-            },
-      ),
-    );
+    if (options.requestIdentity === undefined) {
+      serializedCommand = JSON.stringify(canonicalize(normalizedCommand));
+    }
     if (typeof serializedCommand !== "string") serializedCommand = null;
   } catch {
     serializedCommand = null;
   }
+  const requestIdempotencyKey =
+    options.requestIdentity?.idempotencyKey ?? normalizedCommand.idempotencyKey;
+  const requestKind = options.requestIdentity?.kind ?? normalizedCommand.kind;
   try {
     return await db.transaction(async (transaction) => {
-      const command = normalizedCommand;
+      let command = normalizedCommand;
       let requestFingerprint: string | null = null;
       let reusedRequest: StoredPublishRequest | null = null;
       if (
         hasValidStructure &&
         serializedCommand !== null &&
-        isValidPublishIdempotencyKey(command.idempotencyKey)
+        isValidPublishIdempotencyKey(requestIdempotencyKey)
       ) {
         requestFingerprint = fingerprintRequest(serializedCommand);
         const existingRequest = await findPublishRequest(
           transaction,
           actorId,
-          command.idempotencyKey,
+          requestIdempotencyKey,
         );
         if (existingRequest?.requestFingerprint === requestFingerprint) {
           return replayPublishRequest(existingRequest, requestFingerprint);
         }
         await acquireTransactionAdvisoryLock(
           transaction,
-          `publish-request\u0000${actorId}\u0000${command.idempotencyKey}`,
+          `publish-request\u0000${actorId}\u0000${requestIdempotencyKey}`,
         );
         const requestPublishedWhileWaiting = await findPublishRequest(
           transaction,
           actorId,
-          command.idempotencyKey,
+          requestIdempotencyKey,
         );
         if (
           requestPublishedWhileWaiting?.requestFingerprint ===
@@ -657,7 +615,7 @@ async function publishCampusMapChangesetInternal(
       if (!hasValidStructure || serializedCommand === null) {
         return invalidCommandResult();
       }
-      if (isPublishCommandTooLarge(serializedCommand, command.kind)) {
+      if (isPublishCommandTooLarge(serializedCommand, requestKind)) {
         return {
           status: "validation-failed",
           errors: [{ code: "command-too-large", anchor: { field: "command" } }],
@@ -665,7 +623,7 @@ async function publishCampusMapChangesetInternal(
           suggestions: [],
         } as const;
       }
-      if (!isValidPublishIdempotencyKey(command.idempotencyKey)) {
+      if (!isValidPublishIdempotencyKey(requestIdempotencyKey)) {
         return {
           status: "validation-failed",
           errors: [
@@ -683,6 +641,17 @@ async function publishCampusMapChangesetInternal(
       }
       if (reusedRequest) {
         return replayPublishRequest(reusedRequest, requestFingerprint);
+      }
+      if (options.prepare) {
+        const prepared = await options.prepare(
+          new CampusMapFactStoreTransaction(transaction),
+        );
+        if ("status" in prepared) return prepared;
+        command = normalizePublishCommandIdentifiers(prepared.command);
+        revertsChangesetId = prepared.revertsChangesetId;
+        noOpUpdatePlaceIds = prepared.noOpUpdatePlaceIds ?? new Set<string>();
+        retireFactPlaceIds = prepared.retireFactPlaceIds ?? new Set<string>();
+        if (!hasPublishCommandStructure(command)) return invalidCommandResult();
       }
       if (command.kind === "single" && command.changes.length !== 1) {
         return {
@@ -800,7 +769,7 @@ async function publishCampusMapChangesetInternal(
       const factErrors = command.changes.flatMap((change, changeIndex) =>
         change.operation === "merge" ||
         (change.operation === "retire" &&
-          !options.retireFactPlaceIds.has(change.placeId))
+          !retireFactPlaceIds.has(change.placeId))
           ? []
           : validateFact(change.fact!, changeIndex),
       );
@@ -839,7 +808,7 @@ async function publishCampusMapChangesetInternal(
         if (
           change.operation === "merge" ||
           (change.operation === "retire" &&
-            !options.retireFactPlaceIds.has(change.placeId))
+            !retireFactPlaceIds.has(change.placeId))
         )
           continue;
         const fact = change.fact!;
@@ -888,7 +857,7 @@ async function publishCampusMapChangesetInternal(
         if (
           change.operation === "merge" ||
           (change.operation === "retire" &&
-            !options.retireFactPlaceIds.has(change.placeId)) ||
+            !retireFactPlaceIds.has(change.placeId)) ||
           change.fact!.location.kind !== "outdoor-point" ||
           change.fact!.location.precision !== "precise"
         ) {
@@ -925,7 +894,7 @@ async function publishCampusMapChangesetInternal(
         command.changes.flatMap((change, changeIndex) =>
           change.operation !== "merge" &&
           (change.operation !== "retire" ||
-            options.retireFactPlaceIds.has(change.placeId)) &&
+            retireFactPlaceIds.has(change.placeId)) &&
           change.fact!.observedAt === null
             ? [
                 {
@@ -985,7 +954,7 @@ async function publishCampusMapChangesetInternal(
         const racedRequest = await findPublishRequest(
           transaction,
           actor.id,
-          command.idempotencyKey,
+          requestIdempotencyKey,
         );
         if (racedRequest) {
           return replayPublishRequest(racedRequest, requestFingerprint);
@@ -1051,7 +1020,7 @@ async function publishCampusMapChangesetInternal(
       const emptyUpdateErrors = command.changes.flatMap(
         (change, changeIndex) => {
           if (change.operation !== "update") return [];
-          if (options.noOpUpdatePlaceIds.has(change.placeId)) return [];
+          if (noOpUpdatePlaceIds.has(change.placeId)) return [];
           const current = lockedByPlace.get(change.placeId);
           if (!current) return [];
           const diff = createFieldDiff(current.fact, toAppendFact(change.fact));
@@ -1160,7 +1129,7 @@ async function publishCampusMapChangesetInternal(
         .values({
           actorUserId: actor.id,
           actorIdSnapshot: actor.id,
-          idempotencyKey: command.idempotencyKey,
+          idempotencyKey: requestIdempotencyKey,
           requestFingerprint,
           status: "processing",
         })
@@ -1175,7 +1144,7 @@ async function publishCampusMapChangesetInternal(
         const racedRequest = await findPublishRequest(
           transaction,
           actor.id,
-          command.idempotencyKey,
+          requestIdempotencyKey,
         );
         if (!racedRequest) {
           throw new Error("Campus Map idempotency request disappeared");
@@ -1200,7 +1169,7 @@ async function publishCampusMapChangesetInternal(
         const fact =
           change.operation === "merge" ||
           (change.operation === "retire" &&
-            !options.retireFactPlaceIds.has(change.placeId))
+            !retireFactPlaceIds.has(change.placeId))
             ? current!.fact
             : toAppendFact(change.fact!);
         const placeId =
@@ -1255,7 +1224,7 @@ async function publishCampusMapChangesetInternal(
         reviewRequested: command.reviewRequested,
         client: command.client,
         warningSummary: warningSummary(warnings),
-        revertsChangesetId: options.revertsChangesetId,
+        revertsChangesetId,
         publishedAt,
         changes,
       });
