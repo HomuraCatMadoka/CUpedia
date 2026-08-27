@@ -45,6 +45,7 @@ describe("Campus Map moderation governance boundary (#723)", () => {
         idempotencyKey: "72300000-0000-4000-8000-000000000005",
         revisionId: "72300000-0000-4000-8000-000000000006",
         expectedVisibility: "public",
+        trigger: "privacy",
         reason: "历史版本包含个人资料",
         caseId: "72300000-0000-4000-8000-000000000004",
       },

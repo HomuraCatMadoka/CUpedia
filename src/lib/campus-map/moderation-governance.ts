@@ -8,6 +8,7 @@ import {
   gte,
   isNotNull,
   isNull,
+  lt,
   lte,
   or,
   sql,
@@ -28,6 +29,7 @@ import {
   campusMapNotes,
   campusMapReports,
   campusMapRevisionVisibility,
+  notifications,
   users,
 } from "@/db/schema";
 import { isAllowedEmail } from "@/lib/email";
@@ -35,6 +37,7 @@ import { isCanonicalCampusMapUuid } from "./canonical-uuid";
 import {
   CAMPUS_MAP_MODERATION_TARGET_KINDS,
   CAMPUS_MAP_REPORT_SIGNALS,
+  CAMPUS_MAP_REVISION_REDACTION_TRIGGERS,
   normalizeCampusMapModerationCommand,
   type CampusMapModerationAdminContext,
   type CampusMapModerationCaseReadResult,
@@ -66,6 +69,7 @@ export type {
   CampusMapModerationTarget,
   CampusMapModerationTargetReadResult,
   CampusMapReportSignal,
+  CampusMapRevisionRedactionTrigger,
 } from "./moderation-governance-contract";
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -75,6 +79,7 @@ export type CampusMapContributorWriteSurface = "publish" | "map-notes";
 const MAX_REPORT_DETAILS_BYTES = 8_192;
 const MAX_REPORT_EVIDENCE_BYTES = 16_384;
 const MAX_COMMAND_BYTES = 32_768;
+type QueueCursor = { occurredAt: Date; id: string };
 
 /** Internal projection initializer used by the sole Map Notes writer. */
 export async function initializeCampusMapNoteModerationProjection(
@@ -342,13 +347,27 @@ async function executeAdminCommand(
 ): Promise<CampusMapModerationCommandResult> {
   if (command.kind !== "decide-case" && command.caseId !== null) {
     const [linkedCase] = await transaction
-      .select({ id: campusMapModerationCases.id })
+      .select({
+        id: campusMapModerationCases.id,
+        targetKind: campusMapModerationCases.targetKind,
+        targetId: campusMapModerationCases.targetId,
+      })
       .from(campusMapModerationCases)
       .where(eq(campusMapModerationCases.id, command.caseId))
       .for("update")
       .limit(1);
     if (!linkedCase) {
       return { status: "not-found", code: "moderation-target-not-found" };
+    }
+    const commandTarget = await resolveAdminCommandTarget(transaction, command);
+    if (commandTarget === null) {
+      return { status: "not-found", code: "moderation-target-not-found" };
+    }
+    if (
+      linkedCase.targetKind !== commandTarget.kind ||
+      linkedCase.targetId !== commandTarget.id
+    ) {
+      return validationFailure("case-target-mismatch", "caseId");
     }
   }
   const decisionId = randomUUID();
@@ -411,6 +430,17 @@ async function executeAdminCommand(
         updatedAt: now,
       })
       .where(eq(campusMapNoteVisibility.noteId, command.noteId));
+    if (desired === "hidden") {
+      await transaction
+        .update(notifications)
+        .set({ actorId: null })
+        .where(
+          and(
+            eq(notifications.kind, "campus_map_note_event"),
+            sql`${notifications.metadata}->>'noteId' = ${command.noteId}`,
+          ),
+        );
+    }
   } else if (
     command.kind === "hide-map-note-event" ||
     command.kind === "unhide-map-note-event"
@@ -442,6 +472,17 @@ async function executeAdminCommand(
         updatedAt: now,
       })
       .where(eq(campusMapNoteEventVisibility.eventId, command.eventId));
+    if (desired === "hidden") {
+      await transaction
+        .update(notifications)
+        .set({ actorId: null })
+        .where(
+          and(
+            eq(notifications.kind, "campus_map_note_event"),
+            sql`${notifications.metadata}->>'eventId' = ${command.eventId}`,
+          ),
+        );
+    }
     await refreshPublicNoteSearchDocument(transaction, state.noteId, now);
   } else if (
     command.kind === "redact-revision" ||
@@ -468,6 +509,9 @@ async function executeAdminCommand(
     after = {
       visibility: desired,
       decisionRef: desired === "redacted" ? decisionRef : null,
+      ...(command.kind === "redact-revision"
+        ? { trigger: command.trigger }
+        : {}),
     };
     await transaction
       .update(campusMapRevisionVisibility)
@@ -495,14 +539,48 @@ async function executeAdminCommand(
         "contributorId",
       );
     }
+    const startsAt = new Date(command.startsAt);
+    const endsAt = command.endsAt === null ? null : new Date(command.endsAt);
+    const [overlap] = await transaction
+      .select({ id: campusMapContributorBlocks.id })
+      .from(campusMapContributorBlocks)
+      .where(
+        and(
+          eq(campusMapContributorBlocks.contributorIdSnapshot, contributor.id),
+          isNull(campusMapContributorBlocks.revokedAt),
+          or(
+            eq(campusMapContributorBlocks.scope, command.scope),
+            eq(campusMapContributorBlocks.scope, "all"),
+            sql`${command.scope} = 'all'`,
+          ),
+          endsAt === null
+            ? sql`true`
+            : lt(campusMapContributorBlocks.startsAt, endsAt),
+          or(
+            isNull(campusMapContributorBlocks.endsAt),
+            gt(campusMapContributorBlocks.endsAt, startsAt),
+          ),
+        ),
+      )
+      .orderBy(
+        campusMapContributorBlocks.startsAt,
+        campusMapContributorBlocks.id,
+      )
+      .for("update")
+      .limit(1);
+    if (overlap) return conflict("no-overlapping-block", overlap.id);
     blockId = randomUUID();
-    before = { activeBlock: null };
+    before = { blocks: [] };
     after = {
-      blockId,
-      scope: command.scope,
-      startsAt: command.startsAt,
-      endsAt: command.endsAt,
-      needsAcknowledgement: command.needsAcknowledgement,
+      blocks: [
+        {
+          blockId,
+          scope: command.scope,
+          startsAt: command.startsAt,
+          endsAt: command.endsAt,
+          needsAcknowledgement: command.needsAcknowledgement,
+        },
+      ],
     };
     await transaction.insert(campusMapContributorBlocks).values({
       id: blockId,
@@ -511,8 +589,8 @@ async function executeAdminCommand(
       scope: command.scope,
       reason: command.reason,
       createdByActorIdSnapshot: actor.id,
-      startsAt: new Date(command.startsAt),
-      endsAt: command.endsAt === null ? null : new Date(command.endsAt),
+      startsAt,
+      endsAt,
       needsAcknowledgement: command.needsAcknowledgement,
       createdDecisionRef: decisionRef,
       createdAt: now,
@@ -575,6 +653,40 @@ async function executeAdminCommand(
     caseStatus,
     ...(blockId ? { blockId } : {}),
   };
+}
+
+async function resolveAdminCommandTarget(
+  transaction: DatabaseTransaction,
+  command: Exclude<
+    CampusMapModerationCommand,
+    { kind: "report" } | { kind: "decide-case" }
+  >,
+): Promise<CampusMapModerationTarget | null> {
+  if (command.kind === "hide-map-note" || command.kind === "unhide-map-note") {
+    return { kind: "map-note", id: command.noteId };
+  }
+  if (
+    command.kind === "hide-map-note-event" ||
+    command.kind === "unhide-map-note-event"
+  ) {
+    return { kind: "map-note-event", id: command.eventId };
+  }
+  if (
+    command.kind === "redact-revision" ||
+    command.kind === "revoke-revision-redaction"
+  ) {
+    return { kind: "revision", id: command.revisionId };
+  }
+  if (command.kind === "block-contributor") {
+    return { kind: "actor", id: command.contributorId };
+  }
+  const [block] = await transaction
+    .select({ contributorId: campusMapContributorBlocks.contributorIdSnapshot })
+    .from(campusMapContributorBlocks)
+    .where(eq(campusMapContributorBlocks.id, command.blockId))
+    .for("update")
+    .limit(1);
+  return block ? { kind: "actor", id: block.contributorId } : null;
 }
 
 async function lockNoteVisibility(
@@ -773,53 +885,7 @@ export async function getCampusMapModerationTarget(
   ) {
     return { status: "not-found", code: "moderation-target-not-found" };
   }
-  let payload: Record<string, unknown> | undefined;
-  if (canonicalTarget.kind === "actor") {
-    payload = (
-      await db
-        .select({
-          id: users.id,
-          nickname: users.nickname,
-          role: users.role,
-          banned: users.banned,
-        })
-        .from(users)
-        .where(eq(users.id, canonicalTarget.id))
-        .limit(1)
-    )[0];
-  } else if (canonicalTarget.kind === "changeset") {
-    payload = (
-      await db
-        .select()
-        .from(campusMapChangesets)
-        .where(eq(campusMapChangesets.id, canonicalTarget.id))
-        .limit(1)
-    )[0];
-  } else if (canonicalTarget.kind === "revision") {
-    payload = (
-      await db
-        .select()
-        .from(campusMapFactRevisions)
-        .where(eq(campusMapFactRevisions.id, canonicalTarget.id))
-        .limit(1)
-    )[0];
-  } else if (canonicalTarget.kind === "map-note") {
-    payload = (
-      await db
-        .select()
-        .from(campusMapNotes)
-        .where(eq(campusMapNotes.id, canonicalTarget.id))
-        .limit(1)
-    )[0];
-  } else {
-    payload = (
-      await db
-        .select()
-        .from(campusMapNoteEvents)
-        .where(eq(campusMapNoteEvents.id, canonicalTarget.id))
-        .limit(1)
-    )[0];
-  }
+  const payload = await readModerationTargetPayload(db, canonicalTarget);
   return payload
     ? { status: "ok", target: canonicalTarget, payload }
     : { status: "not-found", code: "moderation-target-not-found" };
@@ -832,11 +898,15 @@ export async function listCampusMapModerationQueue(
   const authority = await readAdminAuthority(context.actorId);
   if (authority) return authority;
   const limit = Math.min(50, Math.max(1, query.limit ?? 20));
+  const cursor = query.cursor ? decodeQueueCursor(query.cursor) : null;
+  if (query.cursor && cursor === null) {
+    return { status: "ok", page: { items: [], nextCursor: null } };
+  }
   if (query.signal === "review-requested" || query.signal === "warning") {
-    return listChangesetSignals(query, limit);
+    return listChangesetSignals(query, limit, cursor);
   }
   if (query.signal === "recent-high-risk-event") {
-    return listHighRiskDecisions(query, limit);
+    return listHighRiskDecisions(query, limit, cursor);
   }
   const predicates = [];
   if (query.status)
@@ -857,6 +927,17 @@ export async function listCampusMapModerationQueue(
   const to = parseDate(query.to);
   if (from) predicates.push(gte(campusMapModerationCases.updatedAt, from));
   if (to) predicates.push(lte(campusMapModerationCases.updatedAt, to));
+  if (cursor) {
+    predicates.push(
+      or(
+        lt(campusMapModerationCases.updatedAt, cursor.occurredAt),
+        and(
+          eq(campusMapModerationCases.updatedAt, cursor.occurredAt),
+          lt(campusMapModerationCases.id, cursor.id),
+        ),
+      )!,
+    );
+  }
   const rows = await db
     .select()
     .from(campusMapModerationCases)
@@ -880,7 +961,9 @@ export async function listCampusMapModerationQueue(
         occurredAt: row.updatedAt.toISOString(),
       })),
       nextCursor:
-        rows.length > limit && visible.length > 0 ? visible.at(-1)!.id : null,
+        rows.length > limit && visible.length > 0
+          ? encodeQueueCursor(visible.at(-1)!.updatedAt, visible.at(-1)!.id)
+          : null,
     },
   };
 }
@@ -888,6 +971,7 @@ export async function listCampusMapModerationQueue(
 async function listChangesetSignals(
   query: CampusMapModerationQueueQuery,
   limit: number,
+  cursor: QueueCursor | null,
 ): Promise<CampusMapModerationQueueReadResult> {
   if (
     query.status !== undefined ||
@@ -903,6 +987,17 @@ async function listChangesetSignals(
   const to = parseDate(query.to);
   if (from) predicates.push(gte(campusMapChangesets.publishedAt, from));
   if (to) predicates.push(lte(campusMapChangesets.publishedAt, to));
+  if (cursor) {
+    predicates.push(
+      or(
+        lt(campusMapChangesets.publishedAt, cursor.occurredAt),
+        and(
+          eq(campusMapChangesets.publishedAt, cursor.occurredAt),
+          lt(campusMapChangesets.id, cursor.id),
+        ),
+      )!,
+    );
+  }
   const rows = await db
     .select({
       id: campusMapChangesets.id,
@@ -937,7 +1032,9 @@ async function listChangesetSignals(
         occurredAt: row.publishedAt.toISOString(),
       })),
       nextCursor:
-        rows.length > limit && visible.length > 0 ? visible.at(-1)!.id : null,
+        rows.length > limit && visible.length > 0
+          ? encodeQueueCursor(visible.at(-1)!.publishedAt, visible.at(-1)!.id)
+          : null,
     },
   };
 }
@@ -945,6 +1042,7 @@ async function listChangesetSignals(
 async function listHighRiskDecisions(
   query: CampusMapModerationQueueQuery,
   limit: number,
+  cursor: QueueCursor | null,
 ): Promise<CampusMapModerationQueueReadResult> {
   const predicates = [];
   if (query.targetKind) {
@@ -958,6 +1056,17 @@ async function listHighRiskDecisions(
   const to = parseDate(query.to);
   if (from) predicates.push(gte(campusMapModerationDecisions.createdAt, from));
   if (to) predicates.push(lte(campusMapModerationDecisions.createdAt, to));
+  if (cursor) {
+    predicates.push(
+      or(
+        lt(campusMapModerationDecisions.createdAt, cursor.occurredAt),
+        and(
+          eq(campusMapModerationDecisions.createdAt, cursor.occurredAt),
+          lt(campusMapModerationDecisions.id, cursor.id),
+        ),
+      )!,
+    );
+  }
   const rows = await db
     .select({
       id: campusMapModerationDecisions.id,
@@ -993,7 +1102,9 @@ async function listHighRiskDecisions(
         occurredAt: row.createdAt.toISOString(),
       })),
       nextCursor:
-        rows.length > limit && visible.length > 0 ? visible.at(-1)!.id : null,
+        rows.length > limit && visible.length > 0
+          ? encodeQueueCursor(visible.at(-1)!.createdAt, visible.at(-1)!.id)
+          : null,
     },
   };
 }
@@ -1070,59 +1181,61 @@ async function targetExists(
   transaction: DatabaseTransaction,
   target: CampusMapModerationTarget,
 ): Promise<boolean> {
+  return Boolean(await readModerationTargetPayload(transaction, target));
+}
+
+async function readModerationTargetPayload(
+  source: typeof db | DatabaseTransaction,
+  target: CampusMapModerationTarget,
+): Promise<Record<string, unknown> | undefined> {
   if (target.kind === "actor") {
-    return Boolean(
-      (
-        await transaction
-          .select({ id: users.id })
-          .from(users)
-          .where(eq(users.id, target.id))
-          .limit(1)
-      )[0],
-    );
+    return (
+      await source
+        .select({
+          id: users.id,
+          nickname: users.nickname,
+          role: users.role,
+          banned: users.banned,
+        })
+        .from(users)
+        .where(eq(users.id, target.id))
+        .limit(1)
+    )[0];
   }
   if (target.kind === "changeset") {
-    return Boolean(
-      (
-        await transaction
-          .select({ id: campusMapChangesets.id })
-          .from(campusMapChangesets)
-          .where(eq(campusMapChangesets.id, target.id))
-          .limit(1)
-      )[0],
-    );
+    return (
+      await source
+        .select()
+        .from(campusMapChangesets)
+        .where(eq(campusMapChangesets.id, target.id))
+        .limit(1)
+    )[0];
   }
   if (target.kind === "revision") {
-    return Boolean(
-      (
-        await transaction
-          .select({ id: campusMapFactRevisions.id })
-          .from(campusMapFactRevisions)
-          .where(eq(campusMapFactRevisions.id, target.id))
-          .limit(1)
-      )[0],
-    );
+    return (
+      await source
+        .select()
+        .from(campusMapFactRevisions)
+        .where(eq(campusMapFactRevisions.id, target.id))
+        .limit(1)
+    )[0];
   }
   if (target.kind === "map-note") {
-    return Boolean(
-      (
-        await transaction
-          .select({ id: campusMapNotes.id })
-          .from(campusMapNotes)
-          .where(eq(campusMapNotes.id, target.id))
-          .limit(1)
-      )[0],
-    );
-  }
-  return Boolean(
-    (
-      await transaction
-        .select({ id: campusMapNoteEvents.id })
-        .from(campusMapNoteEvents)
-        .where(eq(campusMapNoteEvents.id, target.id))
+    return (
+      await source
+        .select()
+        .from(campusMapNotes)
+        .where(eq(campusMapNotes.id, target.id))
         .limit(1)
-    )[0],
-  );
+    )[0];
+  }
+  return (
+    await source
+      .select()
+      .from(campusMapNoteEvents)
+      .where(eq(campusMapNoteEvents.id, target.id))
+      .limit(1)
+  )[0];
 }
 
 function validateCommand(
@@ -1203,6 +1316,12 @@ function validateCommand(
       if (!isCanonicalCampusMapUuid(command.revisionId)) {
         errors.push({ code: "invalid-revision-id", field: "revisionId" });
       }
+      if (
+        command.kind === "redact-revision" &&
+        !CAMPUS_MAP_REVISION_REDACTION_TRIGGERS.includes(command.trigger)
+      ) {
+        errors.push({ code: "invalid-redaction-trigger", field: "trigger" });
+      }
     } else if (command.kind === "block-contributor") {
       if (!isCanonicalCampusMapUuid(command.contributorId)) {
         errors.push({ code: "invalid-contributor-id", field: "contributorId" });
@@ -1237,4 +1356,35 @@ function parseDate(value: string | undefined): Date | null {
   if (value === undefined) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function encodeQueueCursor(occurredAt: Date, id: string): string {
+  return Buffer.from(
+    JSON.stringify({ occurredAt: occurredAt.toISOString(), id }),
+    "utf8",
+  ).toString("base64url");
+}
+
+function decodeQueueCursor(value: string): QueueCursor | null {
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    ) as {
+      occurredAt?: unknown;
+      id?: unknown;
+    };
+    if (
+      typeof parsed.occurredAt !== "string" ||
+      typeof parsed.id !== "string" ||
+      !isCanonicalCampusMapUuid(parsed.id)
+    ) {
+      return null;
+    }
+    const occurredAt = new Date(parsed.occurredAt);
+    return Number.isNaN(occurredAt.getTime())
+      ? null
+      : { occurredAt, id: parsed.id };
+  } catch {
+    return null;
+  }
 }

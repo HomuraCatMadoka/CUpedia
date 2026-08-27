@@ -12,6 +12,7 @@ import {
 import type { CampusMapModerationCommand } from "@/lib/campus-map/moderation-governance-contract";
 import {
   commandCampusMapNote,
+  deliverCampusMapNoteNotifications,
   getCampusMapNote,
   listCampusMapNotes,
 } from "@/lib/campus-map/map-notes";
@@ -263,6 +264,56 @@ describe.skipIf(!hasDb)("Campus Map moderation governance (#723)", () => {
       },
     });
 
+    await expect(
+      commandCampusMapModeration(
+        {
+          kind: "block-contributor",
+          idempotencyKey: randomUUID(),
+          contributorId: reporterA,
+          scope: "all",
+          startsAt: new Date().toISOString(),
+          endsAt: null,
+          needsAcknowledgement: false,
+          reason: "错误关联不得生效",
+          caseId: first.caseId,
+        },
+        { actorId: admin, clientIp: "203.0.113.3" },
+      ),
+    ).resolves.toEqual({
+      status: "validation-failed",
+      errors: [{ code: "case-target-mismatch", field: "caseId" }],
+    });
+    const mismatchedBlocks = await pool.query(
+      "select id from campus_map_contributor_blocks where contributor_id_snapshot = $1",
+      [reporterA],
+    );
+    expect(mismatchedBlocks.rowCount).toBe(0);
+
+    const secondTarget = await createActor();
+    const anotherCase = await commandCampusMapModeration(
+      reportCommand(secondTarget),
+      { actorId: reporterA, clientIp: "203.0.113.9" },
+    );
+    expect(anotherCase).toMatchObject({ status: "reported" });
+    const firstPage = await listCampusMapModerationQueue(
+      { status: "open", limit: 1 },
+      { actorId: admin },
+    );
+    expect(firstPage).toMatchObject({
+      status: "ok",
+      page: { items: [{ kind: "case" }], nextCursor: expect.any(String) },
+    });
+    if (firstPage.status !== "ok" || firstPage.page.nextCursor === null) {
+      throw new Error("first moderation queue page missing cursor");
+    }
+    const secondPage = await listCampusMapModerationQueue(
+      { status: "open", limit: 1, cursor: firstPage.page.nextCursor },
+      { actorId: admin },
+    );
+    expect(secondPage).toMatchObject({ status: "ok", page: { items: [{}] } });
+    if (secondPage.status !== "ok") throw new Error("queue read failed");
+    expect(secondPage.page.items[0]?.id).not.toBe(firstPage.page.items[0]?.id);
+
     const resolved = await commandCampusMapModeration(
       {
         kind: "decide-case",
@@ -313,6 +364,24 @@ describe.skipIf(!hasDb)("Campus Map moderation governance (#723)", () => {
       createActor("admin"),
     ]);
     const created = await createNote(author, "private evidence marker");
+    const notificationId = randomUUID();
+    const pendingNotificationId = randomUUID();
+    await pool.query(
+      `insert into notifications (id, recipient_id, actor_id, kind, metadata)
+       values ($1, $2, $3, 'campus_map_note_event', $4::jsonb)`,
+      [
+        notificationId,
+        admin,
+        author,
+        JSON.stringify({ noteId: created.noteId, eventId: created.eventId }),
+      ],
+    );
+    await pool.query(
+      `insert into campus_map_note_outbox
+         (id, note_id, event_id, recipient_user_id, status, available_at)
+       values ($1, $2, $3, $4, 'pending', now())`,
+      [pendingNotificationId, created.noteId, created.eventId, admin],
+    );
     const hide = {
       kind: "hide-map-note-event",
       idempotencyKey: randomUUID(),
@@ -343,6 +412,21 @@ describe.skipIf(!hasDb)("Campus Map moderation governance (#723)", () => {
       "conflict",
       "decided",
     ]);
+    const hiddenNotification = await pool.query<{ actor_id: string | null }>(
+      "select actor_id from notifications where id = $1",
+      [notificationId],
+    );
+    expect(hiddenNotification.rows).toEqual([{ actor_id: null }]);
+    await expect(deliverCampusMapNoteNotifications()).resolves.toMatchObject({
+      delivered: 1,
+      failed: 0,
+    });
+    const projectedHiddenNotification = await pool.query<{
+      actor_id: string | null;
+    }>("select actor_id from notifications where id = $1", [
+      pendingNotificationId,
+    ]);
+    expect(projectedHiddenNotification.rows).toEqual([{ actor_id: null }]);
 
     await expect(getCampusMapNote(created.noteId)).resolves.toMatchObject({
       id: created.noteId,
@@ -443,6 +527,28 @@ describe.skipIf(!hasDb)("Campus Map moderation governance (#723)", () => {
       "hide-map-note",
       "unhide-map-note",
     ]);
+    const riskPage = await listCampusMapModerationQueue(
+      { signal: "recent-high-risk-event", limit: 1 },
+      { actorId: admin },
+    );
+    expect(riskPage).toMatchObject({
+      status: "ok",
+      page: { items: [{}], nextCursor: expect.any(String) },
+    });
+    if (riskPage.status !== "ok" || riskPage.page.nextCursor === null) {
+      throw new Error("high-risk queue cursor missing");
+    }
+    const nextRiskPage = await listCampusMapModerationQueue(
+      {
+        signal: "recent-high-risk-event",
+        limit: 1,
+        cursor: riskPage.page.nextCursor,
+      },
+      { actorId: admin },
+    );
+    expect(nextRiskPage).toMatchObject({ status: "ok", page: { items: [{}] } });
+    if (nextRiskPage.status !== "ok") throw new Error("queue read failed");
+    expect(nextRiskPage.page.items[0]?.id).not.toBe(riskPage.page.items[0]?.id);
     await expect(
       pool.query(
         "update campus_map_moderation_decisions set reason = 'rewritten'",
@@ -527,6 +633,26 @@ describe.skipIf(!hasDb)("Campus Map moderation governance (#723)", () => {
     if (blocked.status !== "decided" || !blocked.blockId) {
       throw new Error("block failed");
     }
+    await expect(
+      commandCampusMapModeration(
+        {
+          kind: "block-contributor",
+          idempotencyKey: randomUUID(),
+          contributorId: contributor,
+          scope: "all",
+          startsAt: startsAt.toISOString(),
+          endsAt: null,
+          needsAcknowledgement: false,
+          reason: "重叠限制不得产生含糊审计",
+          caseId: null,
+        },
+        { actorId: admin, clientIp: "203.0.113.8", now: startsAt },
+      ),
+    ).resolves.toMatchObject({
+      status: "conflict",
+      expected: "no-overlapping-block",
+      current: blocked.blockId,
+    });
     await expect(racedComment).resolves.toEqual({
       status: "forbidden",
       code: "contributor-blocked",

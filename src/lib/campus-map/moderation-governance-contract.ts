@@ -20,6 +20,14 @@ export const CAMPUS_MAP_REPORT_SIGNALS = [
 ] as const;
 export type CampusMapReportSignal = (typeof CAMPUS_MAP_REPORT_SIGNALS)[number];
 
+export const CAMPUS_MAP_REVISION_REDACTION_TRIGGERS = [
+  "privacy",
+  "copyright",
+  "legal",
+] as const;
+export type CampusMapRevisionRedactionTrigger =
+  (typeof CAMPUS_MAP_REVISION_REDACTION_TRIGGERS)[number];
+
 export const CAMPUS_MAP_MODERATION_CASE_STATUSES = [
   "open",
   "ignored",
@@ -61,10 +69,8 @@ type MapNoteEventVisibilityCommand<
   eventId: string;
   expectedVisibility: "public" | "hidden";
 };
-type RevisionRedactionCommand<
-  Kind extends "redact-revision" | "revoke-revision-redaction",
-> = AdminCommandBase & {
-  kind: Kind;
+type RevisionVisibilityCommand = AdminCommandBase & {
+  kind: "revoke-revision-redaction";
   revisionId: string;
   expectedVisibility: "public" | "redacted";
 };
@@ -88,8 +94,13 @@ export type CampusMapModerationCommand =
   | MapNoteVisibilityCommand<"unhide-map-note">
   | MapNoteEventVisibilityCommand<"hide-map-note-event">
   | MapNoteEventVisibilityCommand<"unhide-map-note-event">
-  | RevisionRedactionCommand<"redact-revision">
-  | RevisionRedactionCommand<"revoke-revision-redaction">
+  | (AdminCommandBase & {
+      kind: "redact-revision";
+      revisionId: string;
+      expectedVisibility: "public";
+      trigger: CampusMapRevisionRedactionTrigger;
+    })
+  | RevisionVisibilityCommand
   | (AdminCommandBase & {
       kind: "block-contributor";
       contributorId: string;

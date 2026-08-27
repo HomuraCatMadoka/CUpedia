@@ -1959,15 +1959,40 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       clientIp: "203.0.113.121",
     });
     if (published.status !== "published") throw new Error("create failed");
+    const secondReviewCommand = createCommand();
+    secondReviewCommand.reviewRequested = true;
+    secondReviewCommand.comment = "第二条分页复核请求";
+    const secondReview = await publishCampusMapChangeset(secondReviewCommand, {
+      actorId: adminId,
+      clientIp: "203.0.113.125",
+    });
+    if (secondReview.status !== "published") {
+      throw new Error("second review create failed");
+    }
     const [{ placeId, revisionId }] = published.changes;
     const redact = {
       kind: "redact-revision",
       idempotencyKey: randomUUID(),
       revisionId,
       expectedVisibility: "public",
+      trigger: "privacy",
       reason: "历史版本包含个人资料",
       caseId: null,
     } as const;
+
+    await expect(
+      commandCampusMapModeration(
+        {
+          ...redact,
+          idempotencyKey: randomUUID(),
+          trigger: "product-error" as "privacy",
+        },
+        { actorId: adminId, clientIp: "203.0.113.120" },
+      ),
+    ).resolves.toEqual({
+      status: "validation-failed",
+      errors: [{ code: "invalid-redaction-trigger", field: "trigger" }],
+    });
 
     const [first, raced] = await Promise.all([
       commandCampusMapModeration(redact, {
@@ -1983,23 +2008,36 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       "conflict",
       "decided",
     ]);
-    await expect(
-      listCampusMapModerationQueue(
-        { signal: "review-requested" },
-        { actorId: adminId },
-      ),
-    ).resolves.toMatchObject({
+    const reviewPage = await listCampusMapModerationQueue(
+      { signal: "review-requested", limit: 1 },
+      { actorId: adminId },
+    );
+    expect(reviewPage).toMatchObject({
       status: "ok",
       page: {
-        items: [
-          {
-            kind: "review-requested",
-            id: published.changesetId,
-            target: { kind: "changeset", id: published.changesetId },
-          },
-        ],
+        items: [{ kind: "review-requested" }],
+        nextCursor: expect.any(String),
       },
     });
+    if (reviewPage.status !== "ok" || reviewPage.page.nextCursor === null) {
+      throw new Error("review queue cursor missing");
+    }
+    const nextReviewPage = await listCampusMapModerationQueue(
+      {
+        signal: "review-requested",
+        limit: 1,
+        cursor: reviewPage.page.nextCursor,
+      },
+      { actorId: adminId },
+    );
+    expect(nextReviewPage).toMatchObject({
+      status: "ok",
+      page: { items: [{ kind: "review-requested" }] },
+    });
+    if (nextReviewPage.status !== "ok") throw new Error("queue read failed");
+    expect(
+      new Set([reviewPage.page.items[0]?.id, nextReviewPage.page.items[0]?.id]),
+    ).toEqual(new Set([published.changesetId, secondReview.changesetId]));
     await expect(
       listCampusMapModerationQueue(
         { signal: "recent-high-risk-event", targetKind: "revision" },

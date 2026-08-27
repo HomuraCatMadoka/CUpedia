@@ -460,12 +460,22 @@ export async function dispatchCampusMapNoteOutbox(
         noteId: campusMapNoteOutbox.noteId,
         eventId: campusMapNoteOutbox.eventId,
         recipientUserId: campusMapNoteOutbox.recipientUserId,
-        actorUserId: campusMapNoteEvents.actorUserId,
+        actorUserId: sql<
+          string | null
+        >`case when ${campusMapNoteVisibility.visibility} = 'public' and ${campusMapNoteEventVisibility.visibility} = 'public' then ${campusMapNoteEvents.actorUserId} else null end`,
       })
       .from(campusMapNoteOutbox)
       .innerJoin(
         campusMapNoteEvents,
         eq(campusMapNoteOutbox.eventId, campusMapNoteEvents.id),
+      )
+      .innerJoin(
+        campusMapNoteEventVisibility,
+        eq(campusMapNoteEventVisibility.eventId, campusMapNoteEvents.id),
+      )
+      .innerJoin(
+        campusMapNoteVisibility,
+        eq(campusMapNoteVisibility.noteId, campusMapNoteEvents.noteId),
       )
       .where(
         and(
