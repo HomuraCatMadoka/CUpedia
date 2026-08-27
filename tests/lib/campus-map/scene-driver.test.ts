@@ -528,4 +528,55 @@ describe("CampusMapSceneDriver", () => {
     expect(runtime.ports.focus).not.toHaveBeenCalled();
     expect(runtime.ports.sheet).not.toHaveBeenCalled();
   });
+
+  it("replaces a published task with its canonical Place without leaving a publishable Back entry", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "START_CREATE" });
+    const intentToken = runtime.driver.getIntentToken();
+    (catalog.facilities as Record<string, object>).publishedWater = {
+      buildingId: null,
+      floorId: null,
+      category: "water",
+      cameraTarget: "place-point",
+    };
+    vi.mocked(runtime.history.pushState).mockClear();
+    vi.mocked(runtime.history.replaceState).mockClear();
+
+    expect(
+      runtime.driver.openPublishedPlace("publishedWater", intentToken),
+    ).toMatchObject({ status: "applied" });
+
+    expect(runtime.driver.getSnapshot().session).toEqual({
+      mode: "browse",
+      scene: {
+        kind: "facility",
+        facilityId: "publishedWater",
+        snap: "peek",
+      },
+    });
+    expect(runtime.history.pushState).not.toHaveBeenCalled();
+    expect(runtime.history.replaceState).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a late publish handoff after the user navigates elsewhere", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "START_CREATE" });
+    const intentToken = runtime.driver.getIntentToken();
+    runtime.driver.dispatch({ type: "CANCEL_TASK" });
+    (catalog.facilities as Record<string, object>).lateWater = {
+      buildingId: null,
+      floorId: null,
+      category: "water",
+      cameraTarget: "place-point",
+    };
+
+    expect(runtime.driver.openPublishedPlace("lateWater", intentToken)).toEqual(
+      {
+        status: "superseded",
+      },
+    );
+    expect(runtime.driver.getSnapshot().session).not.toMatchObject({
+      scene: { facilityId: "lateWater" },
+    });
+  });
 });

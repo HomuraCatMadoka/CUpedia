@@ -159,6 +159,7 @@ export type CampusMapEditEvent =
       result: CampusMapPublishResult;
       conflictLocationDisplay?: CampusMapIndoorLocationDisplay | null;
     }
+  | { type: "PUBLISH_HANDOFF_COMPLETED"; idempotencyKey: string }
   | { type: "ACKNOWLEDGE_WARNINGS"; idempotencyKey: string }
   | { type: "AUTH_RETURNED" }
   | { type: "CONTRIBUTOR_SETUP_COMPLETED" }
@@ -513,7 +514,11 @@ export function transitionCampusMapEdit(
       ],
     };
   }
-  if (session.status === "publishing" && event.type !== "PUBLISH_RESULT") {
+  if (
+    session.status === "publishing" &&
+    event.type !== "PUBLISH_RESULT" &&
+    event.type !== "PUBLISH_HANDOFF_COMPLETED"
+  ) {
     return rejected(session);
   }
   if (
@@ -897,6 +902,20 @@ export function transitionCampusMapEdit(
         ...(target ? ([{ kind: "focus", target }] as const) : []),
         { kind: "announce", message: "发布资料需要修改" },
       ],
+    };
+  }
+
+  if (event.type === "PUBLISH_HANDOFF_COMPLETED") {
+    if (
+      session.status !== "publishing" ||
+      event.idempotencyKey !== session.draft.idempotencyKey
+    ) {
+      return rejected(session);
+    }
+    return {
+      accepted: true,
+      session: null,
+      commands: [{ kind: "clear-snapshot" }],
     };
   }
 
@@ -1521,7 +1540,5 @@ export function decodeCampusMapEditSnapshot(
   ) {
     session.conflict = { kind: "unavailable", reason: "location-labels" };
   }
-  if (session.status === "publishing")
-    session.status = "temporarily-unavailable";
   return { status: "restored", session };
 }

@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import {
   publishCampusMapChangeset,
+  reconcileCampusMapPublishReceipt,
   type CampusMapPublishCommand,
 } from "@/lib/campus-map/publish";
 import {
@@ -3083,6 +3084,26 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     const publicChangeset = await getCampusMapChangeset(first.changesetId);
     expect(publicChangeset).not.toHaveProperty("idempotencyKey");
     expect(publicChangeset).not.toHaveProperty("requestFingerprint");
+  });
+
+  it("reconciles a committed receipt and distinguishes an uncommitted key", async () => {
+    const actorId = await createActor();
+    const command = createCommand();
+    const published = await publishCampusMapChangeset(command, {
+      actorId,
+      clientIp: "203.0.113.31",
+    });
+    if (published.status !== "published") throw new Error("publish failed");
+
+    await expect(
+      reconcileCampusMapPublishReceipt(command.idempotencyKey, actorId),
+    ).resolves.toEqual({ status: "committed", receipt: published });
+    await expect(
+      reconcileCampusMapPublishReceipt(randomUUID(), actorId),
+    ).resolves.toEqual({ status: "not-committed" });
+    await expect(
+      reconcileCampusMapPublishReceipt(command.idempotencyKey, null),
+    ).resolves.toEqual({ status: "authentication-required" });
   });
 
   it("deduplicates concurrent create double-clicks without allocating a second Place", async () => {

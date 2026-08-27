@@ -11,6 +11,7 @@ import {
   decodeCampusMapEditSnapshot,
   encodeCampusMapEditSnapshot,
   isCampusMapEditDirty,
+  deriveCampusMapPublishCommand,
   transitionCampusMapEdit,
   type CampusMapEditDraft,
   type CampusMapEditEvent,
@@ -22,6 +23,7 @@ import type {
   CampusMapSceneDriver,
 } from "@/lib/campus-map/scene-driver";
 import type { CampusMapPublishResult } from "@/lib/campus-map/publish-contract";
+import type { CampusMapPublishReceiptOutcome } from "@/lib/campus-map/publish-receipt-consumer";
 
 const SNAPSHOT_KEY = "cupedia:campus-map:edit-session:v1";
 const CONFLICT_DISPLAY_TIMEOUT_MS = 1_500;
@@ -74,13 +76,14 @@ async function loadConflictLocationDisplay(target: {
 export function useCampusMapEditSessionOwner({
   driver,
   dispatch,
-  onPublished,
+  recoverPublish,
 }: {
   driver: CampusMapSceneDriver;
   dispatch(intent: CampusMapDriverIntent): void;
-  onPublished?(
-    receipt: Extract<CampusMapPublishResult, { status: "published" }>,
-  ): void | Promise<void>;
+  recoverPublish(
+    command: Parameters<typeof publishCampusMapEdit>[0],
+    transport?: Promise<CampusMapPublishResult>,
+  ): Promise<CampusMapPublishReceiptOutcome>;
 }) {
   const { requestContributorSetup } = useContributorSetup();
   const [session, setSession] = useState<CampusMapEditSession | null>(null);
@@ -92,6 +95,41 @@ export function useCampusMapEditSessionOwner({
   const mountedRef = useRef(false);
   const [announcement, setAnnouncement] = useState("");
   const [restoreNotice, setRestoreNotice] = useState("");
+
+  const applyPublishOutcome = useCallback(
+    async (idempotencyKey: string, outcome: CampusMapPublishReceiptOutcome) => {
+      if (
+        outcome.status === "applied" ||
+        outcome.status === "already-consumed"
+      ) {
+        dispatcherRef.current({
+          type: "PUBLISH_HANDOFF_COMPLETED",
+          idempotencyKey,
+        });
+        return;
+      }
+      const result =
+        outcome.status === "publish-result"
+          ? outcome.result
+          : {
+              status: "temporarily-unavailable" as const,
+              code: "publish-unavailable" as const,
+              retryable: true as const,
+            };
+      const draft = sessionRef.current?.draft;
+      const target = draft ? conflictDisplayTarget(result, draft) : null;
+      const conflictLocationDisplay = target
+        ? await loadConflictLocationDisplay(target)
+        : null;
+      dispatcherRef.current({
+        type: "PUBLISH_RESULT",
+        idempotencyKey,
+        result,
+        conflictLocationDisplay,
+      });
+    },
+    [],
+  );
 
   const applyEvent = useCallback(
     (event: CampusMapEditEvent) => {
@@ -132,36 +170,13 @@ export function useCampusMapEditSessionOwner({
           window.requestAnimationFrame(() => setAnnouncement(command.message));
         } else if (command.kind === "publish") {
           const idempotencyKey = command.command.idempotencyKey;
-          void publishCampusMapEdit(command.command).then(
-            async (result) => {
-              let conflictLocationDisplay: CampusMapIndoorLocationDisplay | null =
-                null;
-              const target = transition.session
-                ? conflictDisplayTarget(result, transition.session.draft)
-                : null;
-              if (target) {
-                conflictLocationDisplay =
-                  await loadConflictLocationDisplay(target);
-              }
-              dispatcherRef.current({
-                type: "PUBLISH_RESULT",
-                idempotencyKey,
-                result,
-                conflictLocationDisplay,
-              });
-              if (result.status === "published") {
-                void Promise.resolve(onPublished?.(result)).catch(() => {});
-              }
-            },
+          const transport = publishCampusMapEdit(command.command);
+          void recoverPublish(command.command, transport).then(
+            (outcome) => applyPublishOutcome(idempotencyKey, outcome),
             () =>
-              dispatcherRef.current({
-                type: "PUBLISH_RESULT",
-                idempotencyKey,
-                result: {
-                  status: "temporarily-unavailable",
-                  code: "publish-unavailable",
-                  retryable: true,
-                },
+              applyPublishOutcome(idempotencyKey, {
+                status: "recoverable",
+                reason: "reconciliation-unavailable",
               }),
           );
         } else if (command.kind === "schedule-rate-retry") {
@@ -188,7 +203,7 @@ export function useCampusMapEditSessionOwner({
         );
       }
     },
-    [dispatch, driver, onPublished],
+    [applyPublishOutcome, dispatch, driver, recoverPublish],
   );
 
   const dispatchEvent = useCallback(
@@ -362,8 +377,14 @@ export function useCampusMapEditSessionOwner({
         Math.min(next.retryAfter ?? 0, 86_400) * 1000,
       );
     }
+    if (next?.status === "publishing") {
+      const command = deriveCampusMapPublishCommand(next.draft);
+      void recoverPublish(command).then((outcome) =>
+        applyPublishOutcome(command.idempotencyKey, outcome),
+      );
+    }
     queueMicrotask(() => setAnnouncement("已恢复未发布的地图编辑草稿"));
-  }, [dispatch, driver]);
+  }, [applyPublishOutcome, dispatch, driver, recoverPublish]);
 
   useEffect(() => {
     if (!isCampusMapEditDirty(session)) return;

@@ -57,6 +57,7 @@ import type {
 } from "@/lib/campus-map/publish-contract";
 import { consumePublishRate } from "@/lib/campus-map/publish-rate-policy";
 import { isAllowedEmail } from "@/lib/email";
+import type { CampusMapPublishReconciliation } from "./publish-receipt-consumer";
 
 export type {
   CampusMapPublishChange,
@@ -100,6 +101,35 @@ export async function publishCampusMapChangeset(
     noOpUpdatePlaceIds: new Set(),
     retireFactPlaceIds: new Set(),
   });
+}
+
+/** Reads the private #718 idempotency record without starting a new publish. */
+export async function reconcileCampusMapPublishReceipt(
+  idempotencyKey: string,
+  actorId: string | null,
+): Promise<CampusMapPublishReconciliation> {
+  if (!actorId) return { status: "authentication-required" };
+  if (!isValidPublishIdempotencyKey(idempotencyKey)) {
+    return { status: "not-committed" };
+  }
+  const [request] = await db
+    .select({
+      status: campusMapPublishRequests.status,
+      result: campusMapPublishRequests.result,
+    })
+    .from(campusMapPublishRequests)
+    .where(
+      and(
+        eq(campusMapPublishRequests.actorIdSnapshot, actorId),
+        eq(campusMapPublishRequests.idempotencyKey, idempotencyKey),
+      ),
+    )
+    .limit(1);
+  if (!request) return { status: "not-committed" };
+  if (request.status === "published" && request.result !== null) {
+    return { status: "committed", receipt: request.result };
+  }
+  return { status: "unavailable" };
 }
 
 const CAMPUS_MAP_MERGE_FACT_FIELDS = [

@@ -33,6 +33,9 @@ vi.mock("@/components/auth/contributor-setup-provider", () => ({
 }));
 vi.mock("@/lib/campus-map/edit-actions", () => ({
   publishCampusMapEdit: vi.fn(),
+  reconcileCampusMapEditPublish: vi.fn(async () => ({
+    status: "not-committed",
+  })),
   loadCampusMapEditablePlace: vi.fn(async (placeId: string) => ({
     placeId,
     baseRevisionId: "72000000-0000-4000-8000-000000000005",
@@ -70,6 +73,7 @@ import { AmapCampusPrototype as AmapCampusPrototypeView } from "@/components/cam
 import {
   loadCampusMapEditablePlace,
   publishCampusMapEdit,
+  reconcileCampusMapEditPublish,
 } from "@/lib/campus-map/edit-actions";
 import {
   encodeCampusMapEditSnapshot,
@@ -97,6 +101,10 @@ function AmapCampusPrototype(
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.mocked(publishCampusMapEdit).mockReset();
+  vi.mocked(reconcileCampusMapEditPublish).mockReset();
+  vi.mocked(reconcileCampusMapEditPublish).mockResolvedValue({
+    status: "not-committed",
+  });
   mockRequestContributorSetup.mockReset();
   mockRequestContributorSetup.mockResolvedValue("complete");
   mockLoadBrowseProjection.mockReset();
@@ -327,11 +335,10 @@ describe("AmapCampusPrototype", () => {
         },
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
+    await screen.findByRole("heading", { name: "新发布饮水点" });
+    expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
     const search = screen.getByPlaceholderText("搜索建筑");
-    await waitFor(() =>
-      expect(search.closest("header")?.hasAttribute("inert")).toBe(false),
-    );
+    expect(search.closest("header")?.hasAttribute("inert")).toBe(false);
     await act(async () => {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
       window.dispatchEvent(
@@ -360,6 +367,69 @@ describe("AmapCampusPrototype", () => {
       await screen.findByRole("heading", { name: "新发布饮水点" }),
     ).not.toBeNull();
     expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
+  });
+
+  it("reconciles a publishing snapshot after remount without creating another publish", async () => {
+    const placeId = "30000000-0000-4000-8000-000000000021";
+    const idempotencyKey = "10000000-0000-4000-8000-000000000021";
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey,
+    }).session!;
+    const positioned = transitionCampusMapEdit(started, {
+      type: "CONFIRM_POSITION",
+      position: {
+        longitude: 114.208,
+        latitude: 22.42,
+        crs: "wgs84",
+        precision: "approximate",
+        method: "keyboard",
+      },
+    }).session!;
+    const publishing = transitionCampusMapEdit(positioned, {
+      type: "REQUEST_PUBLISH",
+      accessedOn: "2026-08-27",
+    }).session!;
+    const receipt = {
+      status: "published" as const,
+      changesetId: "50000000-0000-4000-8000-000000000021",
+      changes: [
+        {
+          placeId,
+          revisionId: "40000000-0000-4000-8000-000000000021",
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    };
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(publishing),
+    );
+    window.history.replaceState(
+      null,
+      "",
+      "/prototype/campus-map?v=1&task=create&anchor=map",
+    );
+    vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
+      status: "committed",
+      receipt,
+    });
+    mockLoadBrowseProjection.mockResolvedValueOnce(
+      publishedOutdoorProjection(placeId),
+    );
+
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    expect(
+      await screen.findByRole("heading", { name: "新发布饮水点" }),
+    ).toBeTruthy();
+    expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
+    expect(
+      window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
+    ).toBeNull();
+    expect(reconcileCampusMapEditPublish).toHaveBeenCalledWith(idempotencyKey);
+    expect(publishCampusMapEdit).not.toHaveBeenCalled();
   });
 
   it("restores standalone Current Place search results from formal data after refresh", async () => {
@@ -692,8 +762,6 @@ describe("AmapCampusPrototype", () => {
     });
 
     render(<AmapCampusPrototype initialSearch={window.location.search} />);
-    fireEvent.click(await screen.findByRole("button", { name: "安全重试" }));
-
     expect(await screen.findByText("最新：科学馆 · 1/F")).toBeTruthy();
     expect(document.body.textContent).not.toContain(buildingId);
     expect(document.body.textContent).not.toContain(floorId);

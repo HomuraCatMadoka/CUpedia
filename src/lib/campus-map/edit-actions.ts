@@ -4,7 +4,11 @@ import { headers } from "next/headers";
 
 import { getOptionalUser } from "@/lib/auth-guard";
 import { getCampusMapCurrentPlace } from "./fact-store";
-import { publishCampusMapChangeset } from "./publish";
+import {
+  publishCampusMapChangeset,
+  reconcileCampusMapPublishReceipt,
+} from "./publish";
+import type { CampusMapPublishReconciliation } from "./publish-receipt-consumer";
 import type { CampusMapIndoorLocationDisplay } from "./edit-session";
 import type {
   CampusMapPublishFactInput,
@@ -93,4 +97,19 @@ export async function publishCampusMapEdit(
     actorId: user?.id ?? null,
     clientIp: requestClientIp(requestHeaders),
   });
+}
+
+/** Reconciles the original command identity without creating another request. */
+export async function reconcileCampusMapEditPublish(
+  idempotencyKey: string,
+): Promise<CampusMapPublishReconciliation> {
+  const user = await getOptionalUser();
+  try {
+    return await reconcileCampusMapPublishReceipt(
+      idempotencyKey,
+      user?.id ?? null,
+    );
+  } catch {
+    return { status: "unavailable" };
+  }
 }
