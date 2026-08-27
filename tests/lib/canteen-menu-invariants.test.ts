@@ -194,4 +194,74 @@ describe("canteen production invariants", () => {
     ]);
     expect(report.sources[0].counts.inactive).toBe(1);
   });
+
+  it("compares snapshots with every row the public menu can return", () => {
+    const report = buildMenuInvariantReport({
+      evaluatedAt: new Date("2026-08-27T10:00:00Z"),
+      sources: [{ ...source, syncMealPeriods: [...source.syncMealPeriods] }],
+      items: [
+        {
+          id: "managed",
+          canteenId: "canteen-1",
+          menuSourceId: "source-1",
+          name: "餐蛋面",
+          normalizedName: "餐蛋面",
+          mealPeriods: ["lunch"],
+          isAvailable: true,
+        },
+        {
+          id: "legacy-manual",
+          canteenId: "canteen-1",
+          menuSourceId: null,
+          name: "餐蛋面",
+          normalizedName: "餐蛋面",
+          mealPeriods: ["breakfast"],
+          isAvailable: true,
+        },
+      ],
+      offerings: [
+        {
+          menuSourceId: "source-1",
+          menuItemId: "managed",
+          externalProductId: "product-1",
+        },
+      ],
+      observations: [
+        {
+          menuSourceId: "source-1",
+          mealPeriod: "lunch",
+          runId: "lunch-run",
+          observedAt: new Date("2026-08-27T03:20:00Z"),
+          externalProductIds: ["product-1"],
+        },
+        {
+          menuSourceId: "source-1",
+          mealPeriod: "dinner",
+          runId: "dinner-run",
+          observedAt: new Date("2026-08-27T09:20:00Z"),
+          externalProductIds: [],
+        },
+      ],
+      historyTotals: {
+        menuItems: 2,
+        comments: 0,
+        votes: 0,
+        identityTransitions: 0,
+      },
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.sources[0].unexpectedActiveItemIds).toEqual([
+      "legacy-manual",
+    ]);
+    expect(report.sources[0].duplicateCanonicalNames).toEqual([
+      {
+        normalizedName: "餐蛋面",
+        menuItemIds: ["legacy-manual", "managed"],
+      },
+    ]);
+    expect(report.sources[0].configuredOutActiveItems).toEqual([
+      { id: "legacy-manual", mealPeriods: ["breakfast"] },
+    ]);
+  });
 });

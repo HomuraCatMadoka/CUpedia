@@ -64,10 +64,10 @@ export function buildMenuInvariantReport(input: BuildMenuInvariantReportInput) {
   const sourceReports = input.sources
     .filter((source) => source.syncMealPeriods.length > 0)
     .map((source) => {
-      const sourceItems = input.items.filter(
-        (item) => item.menuSourceId === source.id,
+      const canteenItems = input.items.filter(
+        (item) => item.canteenId === source.canteenId,
       );
-      const activeItems = sourceItems.filter((item) => item.isAvailable);
+      const activeItems = canteenItems.filter((item) => item.isAvailable);
       const sourceOfferings = input.offerings.filter(
         (offering) => offering.menuSourceId === source.id,
       );
@@ -183,7 +183,7 @@ export function buildMenuInvariantReport(input: BuildMenuInvariantReportInput) {
         counts: {
           snapshotUnion: expectedActiveItemIds.length,
           active: activeItemIds.length,
-          inactive: sourceItems.length - activeItems.length,
+          inactive: canteenItems.length - activeItems.length,
         },
         duplicateExternalProductIds,
         unmappedExternalProductIds,
