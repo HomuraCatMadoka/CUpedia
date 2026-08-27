@@ -9,15 +9,40 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AmapCampusPrototype } from "@/components/campus-map/amap-campus-prototype";
+const { mockLoadBrowseProjection, mockLoadProviderPoiCard } = vi.hoisted(
+  () => ({
+    mockLoadBrowseProjection: vi.fn(),
+    mockLoadProviderPoiCard: vi.fn(),
+  }),
+);
+
+vi.mock("@/lib/campus-map/browse-actions", () => ({
+  loadCampusMapBrowseProjection: mockLoadBrowseProjection,
+  loadCampusMapAmapPoiCard: mockLoadProviderPoiCard,
+}));
+
+import { AmapCampusPrototype as AmapCampusPrototypeView } from "@/components/campus-map/amap-campus-prototype";
 import { AMAP_PROTOTYPE_FACILITIES } from "@/lib/campus-map/amap-prototype-catalog";
 import {
   encodeCampusMapEditSnapshot,
   transitionCampusMapEdit,
 } from "@/lib/campus-map/edit-session";
 import { installAmapRuntime } from "../helpers/amap-runtime";
+import { createAmapPrototypeBrowseFixture } from "../helpers/campus-map-browse-projection";
+
+function AmapCampusPrototype(
+  props: ComponentProps<typeof AmapCampusPrototypeView>,
+) {
+  return (
+    <AmapCampusPrototypeView
+      initialBrowseProjection={createAmapPrototypeBrowseFixture()}
+      {...props}
+    />
+  );
+}
 
 const mutableFacilityFixtures = AMAP_PROTOTYPE_FACILITIES as unknown as Array<
   (typeof AMAP_PROTOTYPE_FACILITIES)[number]
@@ -43,6 +68,50 @@ beforeEach(() => {
   window.sessionStorage.clear();
   window.history.replaceState(null, "", "/prototype/campus-map");
   restoreFacilityFixtures();
+  mockLoadBrowseProjection.mockReset();
+  mockLoadBrowseProjection.mockImplementation(async () =>
+    createAmapPrototypeBrowseFixture(),
+  );
+  mockLoadProviderPoiCard.mockReset();
+  mockLoadProviderPoiCard.mockImplementation(
+    async ({
+      providerObjectId,
+      name,
+      position,
+    }: {
+      providerObjectId: string | null;
+      name: string;
+      position: readonly [number, number];
+    }) => {
+      if (providerObjectId === "B0J2RXUQB6") {
+        return {
+          kind: "linked" as const,
+          title: "科学馆",
+          selectionTarget: {
+            kind: "building" as const,
+            buildingId: "science-centre",
+          },
+        };
+      }
+      if (providerObjectId === "test-wmy-poi") {
+        return {
+          kind: "linked" as const,
+          title: "伍何曼原楼",
+          selectionTarget: {
+            kind: "building" as const,
+            buildingId: "wmy",
+          },
+        };
+      }
+      return {
+        kind: "transient" as const,
+        externalId: providerObjectId ?? `${position[0]},${position[1]}`,
+        title: name,
+        sourceLabel: "高德地图地点" as const,
+        position,
+      };
+    },
+  );
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue({
@@ -67,6 +136,7 @@ afterEach(() => {
 });
 
 async function renderWithRuntime(options?: {
+  deferConvertFrom?: boolean;
   convertFromFails?: boolean;
   convertFromMutatesInput?: boolean;
   convertFromOffset?: { longitude: number; latitude: number };
@@ -83,7 +153,16 @@ async function renderWithRuntime(options?: {
   const runtime = installAmapRuntime(options);
   render(<AmapCampusPrototype />);
   await waitFor(() => expect(runtime.maps).toHaveLength(1));
-  return { runtime, map: runtime.maps[0]! };
+  const map = runtime.maps[0]!;
+  await waitFor(() =>
+    expect(runtime.coordinateConversionRequests).toHaveLength(1),
+  );
+  if (!options?.deferConvertFrom) {
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+  return { runtime, map };
 }
 
 describe("AmapCampusPrototype runtime effects", () => {
@@ -747,7 +826,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     );
     const push = vi.spyOn(window.history, "pushState");
     await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "打印机" }));
+    fireEvent.click(screen.getByRole("button", { name: "打印服务" }));
     expect(await screen.findByText("当前没有已收录地点")).not.toBeNull();
     push.mockClear();
 
@@ -807,6 +886,29 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(push).toHaveBeenCalledTimes(1);
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();
     expect(map.panTo).not.toHaveBeenCalled();
+  });
+
+  it("does not let a late coordinate projection override a newer linked hotspot", async () => {
+    const { runtime, map } = await renderWithRuntime({
+      deferConvertFrom: true,
+    });
+
+    await act(async () => {
+      map.emit("hotspotclick", {
+        id: "B0J2RXUQB6",
+        name: "ScienceCentre科学馆",
+        lnglat: { lng: 114.20801, lat: 22.41966 },
+      });
+    });
+    await screen.findByRole("heading", { name: "科学馆" });
+
+    await runtime.flushCoordinateConversions();
+    await runtime.flushAnimationFrames();
+
+    expect(window.location.search).toContain(
+      "scene=building&id=science-centre",
+    );
+    expect(map.setZoomAndCenter).not.toHaveBeenCalled();
   });
 
   it("does not dismiss a linked hotspot when its companion map click arrives later", async () => {
@@ -901,6 +1003,7 @@ describe("AmapCampusPrototype runtime effects", () => {
         .getContainer()
         .dispatchEvent(new Event("pointerdown", { bubbles: true }));
       map.emit("hotspotclick", {
+        id: "B0J2RXUQB6",
         name: "ScienceCentre 科学馆",
         lnglat: { lng: 114.20801, lat: 22.41966 },
       });
@@ -908,6 +1011,7 @@ describe("AmapCampusPrototype runtime effects", () => {
         .getContainer()
         .dispatchEvent(new Event("pointerdown", { bubbles: true }));
       map.emit("hotspotclick", {
+        id: "test-wmy-poi",
         name: "伍何曼原楼",
         lnglat: { lng: 114.21161, lat: 22.4167 },
       });
@@ -918,6 +1022,137 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(window.location.search).toContain("scene=building&id=wmy");
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();
     expect(map.panTo).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not let an older provider-mapping response replace the latest Building", async () => {
+    let resolveFirst!: (value: {
+      kind: "linked";
+      title: string;
+      selectionTarget: { kind: "building"; buildingId: string };
+    }) => void;
+    let resolveSecond!: (value: {
+      kind: "linked";
+      title: string;
+      selectionTarget: { kind: "building"; buildingId: string };
+    }) => void;
+    mockLoadProviderPoiCard
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (resolveFirst = resolve)),
+      )
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (resolveSecond = resolve)),
+      );
+    const { map } = await renderWithRuntime();
+
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", {
+        id: "B0J2RXUQB6",
+        name: "科学馆",
+        lnglat: { lng: 114.20801, lat: 22.41966 },
+      });
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", {
+        id: "test-wmy-poi",
+        name: "伍何曼原楼",
+        lnglat: { lng: 114.21161, lat: 22.4167 },
+      });
+    });
+    await act(async () =>
+      resolveSecond({
+        kind: "linked",
+        title: "伍何曼原楼",
+        selectionTarget: { kind: "building", buildingId: "wmy" },
+      }),
+    );
+    await screen.findByRole("heading", { name: "伍何曼原楼" });
+
+    await act(async () =>
+      resolveFirst({
+        kind: "linked",
+        title: "科学馆",
+        selectionTarget: {
+          kind: "building",
+          buildingId: "science-centre",
+        },
+      }),
+    );
+
+    expect(screen.getByRole("heading", { name: "伍何曼原楼" })).not.toBeNull();
+    expect(window.location.search).toContain("scene=building&id=wmy");
+  });
+
+  it("does not let a pending provider response replace a newer manual selection", async () => {
+    let resolveProvider!: (value: {
+      kind: "linked";
+      title: string;
+      selectionTarget: { kind: "building"; buildingId: string };
+    }) => void;
+    mockLoadProviderPoiCard.mockImplementationOnce(
+      () => new Promise((resolve) => (resolveProvider = resolve)),
+    );
+    const { map } = await renderWithRuntime();
+
+    await act(async () => {
+      map.emit("hotspotclick", {
+        id: "test-wmy-poi",
+        name: "伍何曼原楼",
+        lnglat: { lng: 114.21161, lat: 22.4167 },
+      });
+    });
+    const search = screen.getByPlaceholderText("搜索建筑");
+    fireEvent.change(search, { target: { value: "科学馆" } });
+    const scienceResult = await waitFor(() =>
+      document.querySelector<HTMLButtonElement>(
+        '[data-search-result="science-centre"]',
+      ),
+    );
+    fireEvent.click(scienceResult!);
+    await screen.findByRole("heading", { name: "科学馆" });
+
+    await act(async () =>
+      resolveProvider({
+        kind: "linked",
+        title: "伍何曼原楼",
+        selectionTarget: { kind: "building", buildingId: "wmy" },
+      }),
+    );
+
+    expect(screen.getByRole("heading", { name: "科学馆" })).not.toBeNull();
+    expect(window.location.search).toContain(
+      "scene=building&id=science-centre",
+    );
+  });
+
+  it("opens an explicitly mapped provider POI as the canonical Place", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000005";
+    mockLoadProviderPoiCard.mockResolvedValueOnce({
+      kind: "linked",
+      title: "饮水机",
+      selectionTarget: {
+        kind: "place",
+        placeId,
+        buildingId: "university-library",
+        floorId: "G",
+      },
+    });
+    const { runtime, map } = await renderWithRuntime();
+
+    await act(async () => {
+      map.emit("hotspotclick", {
+        id: "explicit-library-water",
+        name: "高德饮水点",
+        lnglat: { lng: 114.2049, lat: 22.4195 },
+      });
+    });
+
+    await screen.findByRole("heading", { name: "饮水机" });
+    expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
+    expect(runtime.infoWindows).toHaveLength(0);
   });
 
   it.each([
@@ -943,6 +1178,7 @@ describe("AmapCampusPrototype runtime effects", () => {
 
       await act(async () => {
         map.emit("hotspotclick", {
+          id: "B0J2RXUQB6",
           name: "ScienceCentre 科学馆",
           lnglat: { lng: 114.20801, lat: 22.41966 },
         });
@@ -968,6 +1204,7 @@ describe("AmapCampusPrototype runtime effects", () => {
 
     await act(async () => {
       map.emit("hotspotclick", {
+        id: "B0J2RXUQB6",
         name: "ScienceCentre 科学馆",
         lnglat: { lng: 114.20801, lat: 22.41966 },
       });
@@ -991,6 +1228,7 @@ describe("AmapCampusPrototype runtime effects", () => {
 
     await act(async () => {
       map.emit("hotspotclick", {
+        id: "B0J2RXUQB6",
         name: "ScienceCentre 科学馆",
         lnglat: { lng: 114.20801, lat: 22.41966 },
       });
@@ -1006,8 +1244,10 @@ describe("AmapCampusPrototype runtime effects", () => {
 
   it("fits cluster members without selecting the first facility", async () => {
     const { runtime, map } = await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
-    await screen.findByRole("heading", { name: "2 栋建筑有饮水机" });
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    await screen.findByRole("heading", {
+      name: "2 栋建筑 · 2 个饮水点",
+    });
     await waitFor(() => {
       expect(
         runtime.clusters.some((cluster) => cluster.data.length === 2),
@@ -1030,17 +1270,120 @@ describe("AmapCampusPrototype runtime effects", () => {
 
     expect(map.setBounds).toHaveBeenCalledTimes(1);
     expect(
-      screen.getByRole("heading", { name: "2 栋建筑有饮水机" }),
+      screen.getByRole("heading", {
+        name: "2 栋建筑 · 2 个饮水点",
+      }),
     ).not.toBeNull();
     expect(window.location.search).not.toContain("scene=facility");
+  });
+
+  it("fits co-located Places before opening their Building presence", async () => {
+    const scienceWater = originalFacilityFixtures.find(
+      (facility) =>
+        facility.buildingId === "science-centre" &&
+        facility.category === "water",
+    )!;
+    mutableFacilityFixtures.push({
+      ...scienceWater,
+      id: "71000000-0000-4000-8000-000000000006",
+      name: "东翼饮水机",
+    });
+
+    const { runtime, map } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    await screen.findByRole("heading", {
+      name: "2 栋建筑 · 3 个饮水点",
+    });
+
+    const cluster = await waitFor(() => {
+      const match = runtime.clusters.findLast(
+        (candidate) => candidate.data.length === 3,
+      );
+      expect(match).toBeDefined();
+      return match!;
+    });
+    const clusterMarker = cluster.renderCluster();
+    expect(clusterMarker.content).toContain('aria-label="3 个饮水点"');
+    expect(clusterMarker.content).toContain(">3</button>");
+
+    const sciencePresence = cluster.data.filter(
+      (item) => item.markerKey === "building:science-centre:water",
+    );
+    expect(sciencePresence).toHaveLength(2);
+    map.setBounds.mockClear();
+    await act(async () => {
+      cluster.emit("click", { clusterData: sciencePresence });
+    });
+    expect(map.setBounds).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "2 栋建筑 · 3 个饮水点" }),
+    ).not.toBeNull();
+  });
+
+  it("renders one interactive Building presence for co-located Places", async () => {
+    const scienceWater = originalFacilityFixtures.find(
+      (facility) =>
+        facility.buildingId === "science-centre" &&
+        facility.category === "water",
+    )!;
+    const secondPlaceId = "71000000-0000-4000-8000-000000000006";
+    mutableFacilityFixtures.push({
+      ...scienceWater,
+      id: secondPlaceId,
+      name: "东翼饮水机",
+    });
+
+    const { runtime } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    await screen.findByRole("heading", {
+      name: "2 栋建筑 · 3 个饮水点",
+    });
+
+    const scienceMarkers = await waitFor(() => {
+      const matches = runtime.markers.filter((marker) =>
+        [scienceWater.id, secondPlaceId].includes(
+          marker.getExtData()?.facilityId ?? "",
+        ),
+      );
+      expect(matches).toHaveLength(2);
+      return matches;
+    });
+    const primaryMarker = scienceMarkers.find(
+      (marker) => marker.getExtData()?.facilityId === scienceWater.id,
+    )!;
+    const countOnlyMarker = scienceMarkers.find(
+      (marker) => marker.getExtData()?.facilityId === secondPlaceId,
+    )!;
+
+    expect(primaryMarker.content).toContain('data-cupedia-marker="true"');
+    expect(primaryMarker.content).toContain(
+      'aria-label="科学馆有 2 个饮水点，建筑位置参考"',
+    );
+    expect(primaryMarker.handlers.get("click")).toHaveLength(1);
+    expect(countOnlyMarker.content).toContain('aria-hidden="true"');
+    expect(countOnlyMarker.content).not.toContain("data-cupedia-marker");
+    expect(countOnlyMarker.handlers.get("click") ?? []).toHaveLength(0);
+
+    await act(async () => {
+      primaryMarker.emit("click");
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "科学馆" }),
+    ).not.toBeNull();
+    expect(screen.getByText(scienceWater.name)).not.toBeNull();
+    expect(screen.getByText("东翼饮水机")).not.toBeNull();
   });
 
   it("projects the University Library water fixture at the library building anchor", async () => {
     const { runtime } = await renderWithRuntime({
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
-    await screen.findByRole("heading", { name: "2 栋建筑有饮水机" });
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    await screen.findByRole("heading", {
+      name: "2 栋建筑 · 2 个饮水点",
+    });
     await waitFor(() => {
       expect(
         runtime.clusters.some((cluster) =>
@@ -1067,7 +1410,7 @@ describe("AmapCampusPrototype runtime effects", () => {
   it("keeps one facility selection when a marker emits a companion map click", async () => {
     const push = vi.spyOn(window.history, "pushState");
     const { runtime, map } = await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
     await waitFor(() => {
       expect(
         runtime.markers.some(
@@ -1106,10 +1449,12 @@ describe("AmapCampusPrototype runtime effects", () => {
   it("keeps category results honest while the marker plugin is pending", async () => {
     await renderWithRuntime({ markerClusterStatus: "pending" });
 
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
     expect(
-      await screen.findByRole("heading", { name: "2 栋建筑有饮水机" }),
+      await screen.findByRole("heading", {
+        name: "2 栋建筑 · 2 个饮水点",
+      }),
     ).not.toBeNull();
     expect(screen.getByRole("status").textContent).toContain(
       "地图标记正在加载",
@@ -1119,12 +1464,14 @@ describe("AmapCampusPrototype runtime effects", () => {
   it("keeps the result list usable when the marker plugin fails", async () => {
     await renderWithRuntime({ markerClusterStatus: "plugin-error" });
 
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
     expect(
-      await screen.findByRole("heading", { name: "2 栋建筑有饮水机" }),
+      await screen.findByRole("heading", {
+        name: "2 栋建筑 · 2 个饮水点",
+      }),
     ).not.toBeNull();
-    expect(screen.getByRole("status").textContent).toContain(
+    expect((await screen.findByRole("status")).textContent).toContain(
       "地图标记加载失败，列表仍可使用",
     );
   });
@@ -1132,12 +1479,14 @@ describe("AmapCampusPrototype runtime effects", () => {
   it("keeps the result list usable when MarkerCluster construction fails", async () => {
     await renderWithRuntime({ markerClusterStatus: "constructor-error" });
 
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
     expect(
-      await screen.findByRole("heading", { name: "2 栋建筑有饮水机" }),
+      await screen.findByRole("heading", {
+        name: "2 栋建筑 · 2 个饮水点",
+      }),
     ).not.toBeNull();
-    expect(screen.getByRole("status").textContent).toContain(
+    expect((await screen.findByRole("status")).textContent).toContain(
       "地图标记加载失败，列表仍可使用",
     );
   });
@@ -1149,9 +1498,13 @@ describe("AmapCampusPrototype runtime effects", () => {
     map.setBounds.mockClear();
 
     fireEvent.click(screen.getByRole("button", { name: "洗手间" }));
-    await screen.findByRole("heading", { name: "2 栋建筑有洗手间" });
-    fireEvent.click(screen.getByRole("button", { name: "饮水机" }));
-    await screen.findByRole("heading", { name: "2 栋建筑有饮水机" });
+    await screen.findByRole("heading", {
+      name: "2 栋建筑 · 2 个洗手间",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    await screen.findByRole("heading", {
+      name: "2 栋建筑 · 2 个饮水点",
+    });
 
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();
     expect(map.panTo).not.toHaveBeenCalled();
@@ -1184,6 +1537,22 @@ describe("AmapCampusPrototype runtime effects", () => {
     });
     await runtime.flushAnimationFrames();
     expect(runtime.infoWindows[0]!.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not bind an exact provider name without an explicit POI mapping", async () => {
+    const { runtime, map } = await renderWithRuntime();
+
+    await act(async () => {
+      map.emit("hotspotclick", {
+        id: "unmapped-science-name",
+        name: "科学馆",
+        lnglat: { lng: 114.20801, lat: 22.41966 },
+      });
+    });
+
+    await waitFor(() => expect(runtime.infoWindows).toHaveLength(1));
+    expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
+    expect(window.location.search).toBe("?v=1");
   });
 
   it("keeps an unlinked provider InfoWindow open through its companion map click", async () => {
@@ -1257,6 +1626,7 @@ describe("AmapCampusPrototype runtime effects", () => {
         .getContainer()
         .dispatchEvent(new Event("pointerdown", { bubbles: true }));
       map.emit("hotspotclick", {
+        id: "B0J2RXUQB6",
         name: "ScienceCentre 科学馆",
         lnglat: { lng: 114.20801, lat: 22.41966 },
       });
@@ -1289,6 +1659,7 @@ describe("AmapCampusPrototype runtime effects", () => {
         .getContainer()
         .dispatchEvent(new Event("pointerdown", { bubbles: true }));
       map.emit("hotspotclick", {
+        id: "B0J2RXUQB6",
         name: "ScienceCentre 科学馆",
         lnglat: { lng: 114.20801, lat: 22.41966 },
       });
@@ -1356,7 +1727,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "展开地点卡片" }));
     map.setZoomAndCenter.mockClear();
     map.panTo.mockClear();
-    fireEvent.click(screen.getByRole("button", { name: "洗手间公众可达" }));
+    fireEvent.click(screen.getByRole("button", { name: /洗手间.*公众可达/ }));
     await screen.findByRole("heading", { name: "洗手间" });
     await runtime.flushAnimationFrames();
 
@@ -1368,6 +1739,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     const { runtime, map } = await renderWithRuntime();
     await act(async () => {
       map.emit("hotspotclick", {
+        id: "B0J2RXUQB6",
         name: "ScienceCentre 科学馆",
         lnglat: { lng: 114.20801, lat: 22.41966 },
       });
@@ -1389,6 +1761,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     const { runtime, map } = await renderWithRuntime();
     await act(async () => {
       map.emit("hotspotclick", {
+        id: "B0J2RXUQB6",
         name: "ScienceCentre 科学馆",
         lnglat: { lng: 114.20801, lat: 22.41966 },
       });
@@ -1425,6 +1798,7 @@ describe("AmapCampusPrototype runtime effects", () => {
 
     await act(async () => {
       map.emit("hotspotclick", {
+        id: "B0J2RXUQB6",
         name: "ScienceCentre 科学馆",
         lnglat: { lng: 114.20801, lat: 22.41966 },
       });
@@ -1441,6 +1815,7 @@ describe("AmapCampusPrototype runtime effects", () => {
 
     await act(async () => {
       map.emit("hotspotclick", {
+        id: "B0J2RXUQB6",
         name: "ScienceCentre 科学馆",
         lnglat: { lng: 114.20801, lat: 22.41966 },
       });

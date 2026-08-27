@@ -96,7 +96,6 @@ describe("resolveAmapHotspotTarget", () => {
     {
       buildingId: "science-centre",
       providerPoiIds: ["B0J2RXUQB6"],
-      providerNames: ["ScienceCentre 科学馆", "科学馆"],
     },
   ];
 
@@ -113,7 +112,7 @@ describe("resolveAmapHotspotTarget", () => {
     ).toEqual({ kind: "building", buildingId: "science-centre" });
   });
 
-  it("allows an exact normalized alias but never a nearby partial name", () => {
+  it("keeps both exact and nearby provider names transient without an explicit id mapping", () => {
     expect(
       resolveAmapHotspotTarget(
         {
@@ -122,7 +121,12 @@ describe("resolveAmapHotspotTarget", () => {
         },
         links,
       ),
-    ).toEqual({ kind: "building", buildingId: "science-centre" });
+    ).toEqual({
+      kind: "external",
+      providerId: "114.20801,22.41966",
+      name: "ScienceCentre 科学馆",
+      position: [114.20801, 22.41966],
+    });
     expect(
       resolveAmapHotspotTarget(
         {

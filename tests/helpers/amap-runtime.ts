@@ -7,6 +7,7 @@ type LngLat = { lng: number; lat: number };
 type Handler = (event: Record<string, unknown>) => void;
 
 export function installAmapRuntime(options?: {
+  deferConvertFrom?: boolean;
   convertFromFails?: boolean;
   convertFromMutatesInput?: boolean;
   convertFromOffset?: { longitude: number; latitude: number };
@@ -21,6 +22,7 @@ export function installAmapRuntime(options?: {
   placementAnchorPosition?: { longitude: number; latitude: number };
 }) {
   const rafQueue: FrameRequestCallback[] = [];
+  const coordinateConversionQueue: Array<() => void> = [];
   const infoWindowCloseQueue: Array<() => void> = [];
   const resizeObservers: Array<{ callback: ResizeObserverCallback }> = [];
 
@@ -194,6 +196,10 @@ export function installAmapRuntime(options?: {
       data: readonly Record<string, unknown>[],
       private readonly clusterOptions: {
         renderMarker?: (input: { marker: MockMarker }) => void;
+        renderClusterMarker?: (input: {
+          count: number;
+          marker: MockMarker;
+        }) => void;
       },
     ) {
       if (options?.markerClusterStatus === "constructor-error") {
@@ -219,6 +225,12 @@ export function installAmapRuntime(options?: {
 
     emit(event: string, payload: Record<string, unknown>) {
       for (const handler of this.handlers.get(event) ?? []) handler(payload);
+    }
+
+    renderCluster(count = this.data.length) {
+      const marker = new MockMarker();
+      this.clusterOptions.renderClusterMarker?.({ count, marker });
+      return marker;
     }
 
     setData(data: readonly Record<string, unknown>[]) {
@@ -286,6 +298,9 @@ export function installAmapRuntime(options?: {
       callback: (status: string, result: unknown) => void;
     }>,
     containerToLngLatRequests: [] as Array<{ x: number; y: number }>,
+    coordinateConversionRequests: [] as Array<
+      readonly (readonly [number, number])[]
+    >,
     mapRect: options?.mapRect ?? { top: 0, right: 720, bottom: 844, left: 0 },
     panelRect: options?.panelRect ?? {
       top: 596,
@@ -318,51 +333,59 @@ export function installAmapRuntime(options?: {
           result: { locations?: readonly LngLat[] },
         ) => void,
       ) {
-        if (options?.convertFromFails) {
-          callback("error", {});
+        runtime.coordinateConversionRequests.push(positions);
+        const respond = () => {
+          if (options?.convertFromFails) {
+            callback("error", {});
+            return;
+          }
+          const originalPositions = positions.map(
+            ([lng, lat]) => [lng, lat] as const,
+          );
+          const offset = options?.convertFromOffset ?? {
+            longitude: 0,
+            latitude: 0,
+          };
+          if (options?.convertFromMutatesInput) {
+            for (const position of positions) {
+              const mutable = position as unknown as {
+                0?: number;
+                1?: number;
+                lng?: number;
+                lat?: number;
+              };
+              mutable.lng = mutable[0];
+              mutable.lat = mutable[1];
+              delete mutable[0];
+              delete mutable[1];
+            }
+          }
+          callback("complete", {
+            locations: originalPositions.map(
+              ([lng, lat]) =>
+                new MockLngLat(lng + offset.longitude, lat + offset.latitude),
+            ),
+          });
+          if (options?.convertFromMutatesInput) {
+            positions.forEach((position, index) => {
+              const mutable = position as unknown as {
+                0?: number;
+                1?: number;
+                lng?: number;
+                lat?: number;
+              };
+              mutable[0] = originalPositions[index]![0];
+              mutable[1] = originalPositions[index]![1];
+              delete mutable.lng;
+              delete mutable.lat;
+            });
+          }
+        };
+        if (options?.deferConvertFrom) {
+          coordinateConversionQueue.push(respond);
           return;
         }
-        const originalPositions = positions.map(
-          ([lng, lat]) => [lng, lat] as const,
-        );
-        const offset = options?.convertFromOffset ?? {
-          longitude: 0,
-          latitude: 0,
-        };
-        if (options?.convertFromMutatesInput) {
-          for (const position of positions) {
-            const mutable = position as unknown as {
-              0?: number;
-              1?: number;
-              lng?: number;
-              lat?: number;
-            };
-            mutable.lng = mutable[0];
-            mutable.lat = mutable[1];
-            delete mutable[0];
-            delete mutable[1];
-          }
-        }
-        callback("complete", {
-          locations: originalPositions.map(
-            ([lng, lat]) =>
-              new MockLngLat(lng + offset.longitude, lat + offset.latitude),
-          ),
-        });
-        if (options?.convertFromMutatesInput) {
-          positions.forEach((position, index) => {
-            const mutable = position as unknown as {
-              0?: number;
-              1?: number;
-              lng?: number;
-              lat?: number;
-            };
-            mutable[0] = originalPositions[index]![0];
-            mutable[1] = originalPositions[index]![1];
-            delete mutable.lng;
-            delete mutable.lat;
-          });
-        }
+        respond();
       },
     },
     async flushAnimationFrames() {
@@ -372,6 +395,12 @@ export function installAmapRuntime(options?: {
           for (const callback of callbacks) callback(0);
           await Promise.resolve();
         }
+      });
+    },
+    async flushCoordinateConversions() {
+      await act(async () => {
+        for (const respond of coordinateConversionQueue.splice(0)) respond();
+        await Promise.resolve();
       });
     },
     async flushInfoWindowCloseEvents() {

@@ -96,7 +96,6 @@ type AmapHotspot = {
 type AmapHotspotLink = {
   buildingId: string;
   providerPoiIds: readonly string[];
-  providerNames: readonly string[];
 };
 
 export type AmapHotspotTarget =
@@ -108,17 +107,9 @@ export type AmapHotspotTarget =
       position: readonly [number, number];
     };
 
-function normalizedProviderName(value = "") {
-  return value
-    .normalize("NFKC")
-    .toLocaleLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "");
-}
-
 /**
- * Resolves only authoritative POI ids or exact normalized aliases. Nearby or
- * partial provider labels remain external instead of being silently upgraded
- * to a CUpedia building.
+ * Resolves only explicitly linked POI ids. Provider names and proximity are
+ * never enough to upgrade a transient provider object to a CUpedia entity.
  */
 export function resolveAmapHotspotTarget(
   hotspot: AmapHotspot,
@@ -128,16 +119,6 @@ export function resolveAmapHotspotTarget(
     ? links.find((link) => link.providerPoiIds.includes(hotspot.id!))
     : undefined;
   if (idMatch) return { kind: "building", buildingId: idMatch.buildingId };
-
-  const exactName = normalizedProviderName(hotspot.name);
-  const nameMatch = exactName
-    ? links.find((link) =>
-        link.providerNames.some(
-          (candidate) => normalizedProviderName(candidate) === exactName,
-        ),
-      )
-    : undefined;
-  if (nameMatch) return { kind: "building", buildingId: nameMatch.buildingId };
 
   return {
     kind: "external",

@@ -24,6 +24,7 @@ import {
   campusMapFloors,
   campusMapPlaceChanges,
   campusMapPlaces,
+  campusMapProviderMappings,
   campusMapProvenanceSources,
   campusMapRevisionProvenance,
   campusMapRevisionVisibility,
@@ -75,6 +76,33 @@ export interface CampusMapBuildingSummary {
   englishName: string | null;
   code: string | null;
 }
+
+export interface CampusMapBrowseBuildingRecord {
+  buildingId: string;
+  name: string;
+  englishName: string | null;
+  code: string | null;
+  aliases: readonly string[];
+  anchor: {
+    longitude: number;
+    latitude: number;
+    crs: "wgs84";
+  } | null;
+  floors: ReadonlyArray<{
+    floorId: string;
+    displayLabel: string;
+    sortOrder: number;
+  }>;
+}
+
+export type CampusMapSelectionTarget =
+  | { kind: "building"; buildingId: string }
+  | {
+      kind: "place";
+      placeId: string;
+      buildingId: string | null;
+      floorId: string | null;
+    };
 
 export interface CampusMapFloorSummary {
   id: string;
@@ -651,6 +679,132 @@ export async function getCampusMapCurrentPlace(
 
   const provenance = await loadProvenanceByRevision([row.revisionId]);
   return projectCurrentPlace(row, provenance.get(row.revisionId) ?? []);
+}
+
+/** Lists formal Building/Floor references without exposing provider identity. */
+export async function listCampusMapBrowseBuildings(): Promise<
+  CampusMapBrowseBuildingRecord[]
+> {
+  const rows = await db
+    .select({
+      buildingId: campusMapBuildings.id,
+      name: campusMapBuildings.name,
+      englishName: campusMapBuildings.englishName,
+      code: campusMapBuildings.code,
+      aliases: campusMapBuildings.aliases,
+      anchorLongitude: campusMapBuildings.anchorLongitude,
+      anchorLatitude: campusMapBuildings.anchorLatitude,
+      anchorCrs: campusMapBuildings.anchorCrs,
+      floorId: campusMapFloors.id,
+      floorDisplayLabel: campusMapFloors.displayLabel,
+      floorSortOrder: campusMapFloors.sortOrder,
+    })
+    .from(campusMapBuildings)
+    .leftJoin(
+      campusMapFloors,
+      eq(campusMapBuildings.id, campusMapFloors.buildingId),
+    )
+    .orderBy(
+      asc(campusMapBuildings.id),
+      asc(campusMapFloors.sortOrder),
+      asc(campusMapFloors.id),
+    );
+
+  const buildings = new Map<string, CampusMapBrowseBuildingRecord>();
+  for (const row of rows) {
+    let building = buildings.get(row.buildingId);
+    if (!building) {
+      const hasAnchor =
+        row.anchorLongitude !== null &&
+        row.anchorLatitude !== null &&
+        row.anchorCrs === "wgs84";
+      building = {
+        buildingId: row.buildingId,
+        name: row.name,
+        englishName: row.englishName,
+        code: row.code,
+        aliases: row.aliases,
+        anchor: hasAnchor
+          ? {
+              longitude: row.anchorLongitude!,
+              latitude: row.anchorLatitude!,
+              crs: "wgs84",
+            }
+          : null,
+        floors: [],
+      };
+      buildings.set(row.buildingId, building);
+    }
+    if (
+      row.floorId !== null &&
+      row.floorDisplayLabel !== null &&
+      row.floorSortOrder !== null
+    ) {
+      (building.floors as Array<(typeof building.floors)[number]>).push({
+        floorId: row.floorId,
+        displayLabel: row.floorDisplayLabel,
+        sortOrder: row.floorSortOrder,
+      });
+    }
+  }
+  return [...buildings.values()];
+}
+
+/** Resolves only an explicit provider mapping to a public canonical target. */
+export async function resolveCampusMapProviderSelection(
+  provider: string,
+  providerObjectId: string,
+): Promise<CampusMapSelectionTarget | null> {
+  if (
+    provider.length === 0 ||
+    provider !== provider.trim() ||
+    providerObjectId.length === 0 ||
+    providerObjectId !== providerObjectId.trim()
+  ) {
+    return null;
+  }
+  const [mapping] = await db
+    .select({
+      targetKind: campusMapProviderMappings.targetKind,
+      buildingId: campusMapProviderMappings.buildingId,
+      placeId: campusMapProviderMappings.placeId,
+    })
+    .from(campusMapProviderMappings)
+    .where(
+      and(
+        eq(campusMapProviderMappings.provider, provider),
+        eq(campusMapProviderMappings.providerObjectId, providerObjectId),
+      ),
+    )
+    .limit(1);
+  if (!mapping) return null;
+  if (mapping.targetKind === "building" && mapping.buildingId) {
+    return { kind: "building", buildingId: mapping.buildingId };
+  }
+  if (mapping.targetKind !== "place" || !mapping.placeId) return null;
+  const [place] = await db
+    .select({
+      placeId: campusMapCurrentFacts.placeId,
+      buildingId: campusMapCurrentFacts.buildingId,
+      floorId: campusMapCurrentFacts.floorId,
+    })
+    .from(campusMapCurrentFacts)
+    .innerJoin(
+      campusMapRevisionVisibility,
+      eq(
+        campusMapCurrentFacts.revisionId,
+        campusMapRevisionVisibility.revisionId,
+      ),
+    )
+    .where(
+      and(
+        eq(campusMapCurrentFacts.placeId, mapping.placeId),
+        eq(campusMapCurrentFacts.status, "active"),
+        eq(campusMapRevisionVisibility.visibility, "public"),
+      ),
+    )
+    .limit(1);
+  return place ? { kind: "place", ...place } : null;
 }
 
 /** Lists active facts through canonical dimensions; no provider identity leaks. */
