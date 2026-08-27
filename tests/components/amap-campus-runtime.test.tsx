@@ -32,6 +32,7 @@ import {
 } from "@/lib/campus-map/edit-session";
 import { installAmapRuntime } from "../helpers/amap-runtime";
 import { createAmapPrototypeBrowseFixture } from "../helpers/campus-map-browse-projection";
+import type { CampusMapBrowseProjection } from "@/lib/campus-map/browse-projection";
 
 function AmapCampusPrototype(
   props: ComponentProps<typeof AmapCampusPrototypeView>,
@@ -42,6 +43,94 @@ function AmapCampusPrototype(
       {...props}
     />
   );
+}
+
+function createNullablePlaceFixture(): CampusMapBrowseProjection {
+  const base = createAmapPrototypeBrowseFixture();
+  const template = base.places[0]!;
+  const building = base.buildings.find(
+    (candidate) => candidate.buildingId === template.buildingId,
+  )!;
+  const buildingOnly = {
+    ...template,
+    placeId: "building-only-water",
+    revisionId: "building-only-water-revision",
+    name: "大堂饮水点",
+    pinType: "water" as const,
+    buildingId: building.buildingId,
+    floorId: null,
+    floorLabel: null,
+    location: {
+      kind: "building" as const,
+      building: {
+        id: building.buildingId,
+        name: building.name,
+        englishName: building.englishName,
+        code: building.code,
+      },
+    },
+    selectionTarget: {
+      kind: "place" as const,
+      placeId: "building-only-water",
+      buildingId: building.buildingId,
+      floorId: null,
+    },
+  };
+  const outdoor = {
+    ...template,
+    placeId: "outdoor-water",
+    revisionId: "outdoor-water-revision",
+    name: "林荫饮水点",
+    pinType: "water" as const,
+    buildingId: null,
+    floorId: null,
+    floorLabel: null,
+    location: {
+      kind: "outdoor-point" as const,
+      point: {
+        longitude: 114.2078,
+        latitude: 22.4188,
+        crs: "wgs84" as const,
+        precision: "precise" as const,
+      },
+    },
+    selectionTarget: {
+      kind: "place" as const,
+      placeId: "outdoor-water",
+      buildingId: null,
+      floorId: null,
+    },
+  };
+  return {
+    ...base,
+    buildings: base.buildings.map((candidate) =>
+      candidate.buildingId === building.buildingId
+        ? {
+            ...candidate,
+            placeIds: [...candidate.placeIds, buildingOnly.placeId],
+          }
+        : candidate,
+    ),
+    places: [buildingOnly, outdoor, ...base.places],
+    markers: [
+      ...base.markers.map((marker) =>
+        marker.kind === "building-presence" &&
+        marker.buildingId === building.buildingId &&
+        marker.pinType === buildingOnly.pinType
+          ? {
+              ...marker,
+              placeIds: [...marker.placeIds, buildingOnly.placeId],
+            }
+          : marker,
+      ),
+      {
+        kind: "place",
+        placeId: outdoor.placeId,
+        pinType: outdoor.pinType,
+        position: outdoor.location.point,
+      },
+    ],
+  };
 }
 
 const mutableFacilityFixtures = AMAP_PROTOTYPE_FACILITIES as unknown as Array<
@@ -136,6 +225,8 @@ afterEach(() => {
 });
 
 async function renderWithRuntime(options?: {
+  projection?: CampusMapBrowseProjection;
+  initialSearch?: string;
   deferConvertFrom?: boolean;
   convertFromFails?: boolean;
   convertFromMutatesInput?: boolean;
@@ -150,8 +241,14 @@ async function renderWithRuntime(options?: {
   projectedPoint?: { x: number; y: number };
   placementAnchorPosition?: { longitude: number; latitude: number };
 }) {
-  const runtime = installAmapRuntime(options);
-  render(<AmapCampusPrototype />);
+  const { projection, initialSearch, ...runtimeOptions } = options ?? {};
+  const runtime = installAmapRuntime(runtimeOptions);
+  render(
+    <AmapCampusPrototype
+      initialBrowseProjection={projection ?? createAmapPrototypeBrowseFixture()}
+      initialSearch={initialSearch}
+    />,
+  );
   await waitFor(() => expect(runtime.maps).toHaveLength(1));
   const map = runtime.maps[0]!;
   await waitFor(() =>
@@ -1156,6 +1253,151 @@ describe("AmapCampusPrototype runtime effects", () => {
   });
 
   it.each([
+    ["search", "林荫饮水点", "outdoor-water"],
+    ["category", "大堂饮水点", "building-only-water"],
+  ])(
+    "opens a nullable-context Place from %s as one canonical scene",
+    async (entry, name, placeId) => {
+      const projection = createNullablePlaceFixture();
+      await renderWithRuntime({ projection });
+
+      if (entry === "search") {
+        fireEvent.change(screen.getByPlaceholderText("搜索建筑"), {
+          target: { value: name },
+        });
+      } else {
+        fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+      }
+      fireEvent.click(
+        await screen.findByRole("button", { name: new RegExp(name) }),
+      );
+
+      expect(await screen.findByRole("heading", { name })).not.toBeNull();
+      expect(window.location.search).toBe(
+        `?v=1&scene=facility&id=${placeId}&snap=peek`,
+      );
+      if (entry === "search") {
+        expect(
+          document.querySelector(`[data-search-result="${placeId}"]`),
+        ).toBeNull();
+      }
+    },
+  );
+
+  it("opens a building-only Place from a multi-Place Building marker directory", async () => {
+    const projection = createNullablePlaceFixture();
+    const buildingOnly = projection.places.find(
+      (place) => place.placeId === "building-only-water",
+    )!;
+    const buildingName = projection.buildings.find(
+      (building) => building.buildingId === buildingOnly.buildingId,
+    )!.name;
+    const { runtime } = await renderWithRuntime({ projection });
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+
+    const buildingPresence = await waitFor(() => {
+      const match = runtime.markers.findLast(
+        (marker) =>
+          marker.content.includes(buildingName) &&
+          marker.content.includes("建筑位置参考") &&
+          (marker.handlers.get("click") ?? []).length > 0,
+      );
+      expect(match).toBeDefined();
+      return match!;
+    });
+    await act(async () => buildingPresence.emit("click"));
+
+    const buildingOnlyButton = await screen.findByRole("button", {
+      name: /大堂饮水点/,
+    });
+    expect((buildingOnlyButton as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(buildingOnlyButton);
+
+    expect(
+      await screen.findByRole("heading", { name: "大堂饮水点" }),
+    ).not.toBeNull();
+    expect(window.location.search).toBe(
+      "?v=1&scene=facility&id=building-only-water&snap=peek",
+    );
+  });
+
+  it("opens an outdoor Place marker and focuses its projected public point", async () => {
+    const projection = createNullablePlaceFixture();
+    const { runtime } = await renderWithRuntime({
+      projection,
+      projectedPoint: { x: 360, y: 700 },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    const marker = await waitFor(() => {
+      const match = runtime.markers.findLast(
+        (candidate) =>
+          candidate.content.includes("林荫饮水点") &&
+          (candidate.handlers.get("click") ?? []).length > 0,
+      );
+      expect(match).toBeDefined();
+      return match!;
+    });
+
+    await act(async () => {
+      runtime.maps[0]!.getContainer().dispatchEvent(
+        new Event("pointerdown", { bubbles: true }),
+      );
+      marker.emit("click");
+    });
+    await runtime.flushAnimationFrames();
+
+    expect(window.location.search).toContain("scene=facility&id=outdoor-water");
+    expect(
+      await screen.findByRole("heading", { name: "林荫饮水点" }),
+    ).not.toBeNull();
+    expect(runtime.maps[0]!.panTo).toHaveBeenCalled();
+  });
+
+  it("opens a mapped outdoor provider target as the same canonical Place", async () => {
+    const projection = createNullablePlaceFixture();
+    mockLoadProviderPoiCard.mockResolvedValueOnce({
+      kind: "linked",
+      title: "林荫饮水点",
+      selectionTarget: {
+        kind: "place",
+        placeId: "outdoor-water",
+        buildingId: null,
+        floorId: null,
+      },
+    });
+    const { runtime } = await renderWithRuntime({ projection });
+
+    await act(async () => {
+      runtime.maps[0]!.emit("hotspotclick", {
+        id: "mapped-outdoor-water",
+        name: "高德饮水点",
+        lnglat: { lng: 114.2078, lat: 22.4188 },
+      });
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "林荫饮水点" }),
+    ).not.toBeNull();
+    expect(window.location.search).toContain("scene=facility&id=outdoor-water");
+    expect(runtime.infoWindows).toHaveLength(0);
+  });
+
+  it("restores an outdoor Place deep link after refresh", async () => {
+    const projection = createNullablePlaceFixture();
+    await renderWithRuntime({
+      projection,
+      initialSearch: "?v=1&scene=facility&id=outdoor-water&snap=peek",
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "林荫饮水点" }),
+    ).not.toBeNull();
+    expect(window.location.search).toBe(
+      "?v=1&scene=facility&id=outdoor-water&snap=peek",
+    );
+  });
+
+  it.each([
     { edge: "left", point: { x: 10, y: 400 }, target: { lng: 346, lat: 422 } },
     {
       edge: "right",
@@ -1306,8 +1548,13 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(clusterMarker.content).toContain('aria-label="3 个饮水点"');
     expect(clusterMarker.content).toContain(">3</button>");
 
+    const positionCounts = new Map<string, number>();
+    for (const item of cluster.data) {
+      const key = JSON.stringify(item.lnglat);
+      positionCounts.set(key, (positionCounts.get(key) ?? 0) + 1);
+    }
     const sciencePresence = cluster.data.filter(
-      (item) => item.markerKey === "building:science-centre:water",
+      (item) => (positionCounts.get(JSON.stringify(item.lnglat)) ?? 0) > 1,
     );
     expect(sciencePresence).toHaveLength(2);
     map.setBounds.mockClear();
@@ -1341,19 +1588,22 @@ describe("AmapCampusPrototype runtime effects", () => {
     });
 
     const scienceMarkers = await waitFor(() => {
-      const matches = runtime.markers.filter((marker) =>
-        [scienceWater.id, secondPlaceId].includes(
-          marker.getExtData()?.facilityId ?? "",
-        ),
+      const cluster = runtime.clusters.findLast(
+        (candidate) => candidate.data.length === 3,
+      );
+      const matches = (cluster?.singleMarkers ?? []).filter(
+        (marker) =>
+          marker.content.includes("科学馆有 2 个饮水点") ||
+          marker.content.includes('style="display:none"'),
       );
       expect(matches).toHaveLength(2);
       return matches;
     });
-    const primaryMarker = scienceMarkers.find(
-      (marker) => marker.getExtData()?.facilityId === scienceWater.id,
+    const primaryMarker = scienceMarkers.find((marker) =>
+      marker.content.includes("科学馆有 2 个饮水点"),
     )!;
-    const countOnlyMarker = scienceMarkers.find(
-      (marker) => marker.getExtData()?.facilityId === secondPlaceId,
+    const countOnlyMarker = scienceMarkers.find((marker) =>
+      marker.content.includes('style="display:none"'),
     )!;
 
     expect(primaryMarker.content).toContain('data-cupedia-marker="true"');
@@ -1389,22 +1639,13 @@ describe("AmapCampusPrototype runtime effects", () => {
         runtime.clusters.some((cluster) =>
           cluster.data.some(
             (item) =>
-              item.facilityId === "71000000-0000-4000-8000-000000000005",
+              Array.isArray(item.lnglat) &&
+              Math.abs(item.lnglat[0] - 114.21491129159927) < 1e-12 &&
+              Math.abs(item.lnglat[1] - 22.429498675716076) < 1e-12,
           ),
         ),
       ).toBe(true);
     });
-
-    const libraryWater = runtime.clusters
-      .flatMap((cluster) => [...cluster.data])
-      .find(
-        (item) => item.facilityId === "71000000-0000-4000-8000-000000000005",
-      );
-
-    expect(libraryWater?.lnglat).toEqual([
-      expect.closeTo(114.21491129159927, 12),
-      expect.closeTo(22.429498675716076, 12),
-    ]);
   });
 
   it("keeps one facility selection when a marker emits a companion map click", async () => {
@@ -1415,15 +1656,15 @@ describe("AmapCampusPrototype runtime effects", () => {
       expect(
         runtime.markers.some(
           (marker) =>
-            marker.getExtData()?.facilityId ===
-            "71000000-0000-4000-8000-000000000002",
+            marker.content.includes("科学馆") &&
+            (marker.handlers.get("click") ?? []).length > 0,
         ),
       ).toBe(true);
     });
     const marker = runtime.markers.findLast(
       (candidate) =>
-        candidate.getExtData()?.facilityId ===
-        "71000000-0000-4000-8000-000000000002",
+        candidate.content.includes("科学馆") &&
+        (candidate.handlers.get("click") ?? []).length > 0,
     )!;
 
     await act(async () => {

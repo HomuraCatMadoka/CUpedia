@@ -130,7 +130,7 @@ interface AMapEvent {
 
 interface AMapMarker {
   on(event: string, handler: () => void): void;
-  getExtData(): { markerKey?: string; facilityId?: string } | undefined;
+  getPosition(): AMapLngLat | null;
   setContent(content: string): void;
   setzIndex(zIndex: number): void;
 }
@@ -299,11 +299,19 @@ function canonicalInitialSearch(
   return `?${encodeCampusMapUrl(canonicalSessionFromLegacySearch(search, catalog), catalog)}`;
 }
 
+type ProjectedCampusMapSelection =
+  | Exclude<CampusMapState["selection"], { kind: "facility" }>
+  | { kind: "facility"; buildingId: string | null; facilityId: string };
+
+type ProjectedCampusMapState = Omit<CampusMapState, "selection"> & {
+  selection: ProjectedCampusMapSelection;
+};
+
 function projectedState(
   session: CampusMapSession,
   returnTo: CampusMapSession | null,
   catalog: CampusMapSceneCatalog,
-): CampusMapState {
+): ProjectedCampusMapState {
   if (session.mode !== "browse") {
     return {
       selection: { kind: "none" },
@@ -316,10 +324,10 @@ function projectedState(
   const returnScene = returnTo?.mode === "browse" ? returnTo.scene : null;
   const facility =
     scene.kind === "facility" ? catalog.facilities[scene.facilityId] : null;
-  const selection: CampusMapState["selection"] =
+  const selection: ProjectedCampusMapSelection =
     scene.kind === "building"
       ? { kind: "building", buildingId: scene.buildingId }
-      : scene.kind === "facility" && facility?.buildingId
+      : scene.kind === "facility" && facility
         ? {
             kind: "facility",
             facilityId: scene.facilityId,
@@ -408,7 +416,7 @@ function samePlacementPosition(
 }
 
 function buildingFor(
-  selection: CampusMapState["selection"],
+  selection: ProjectedCampusMapSelection,
   buildings: readonly Building[],
 ) {
   const buildingId =
@@ -423,7 +431,7 @@ function buildingFor(
 }
 
 function facilityFor(
-  selection: CampusMapState["selection"],
+  selection: ProjectedCampusMapSelection,
   facilities: readonly Facility[],
 ) {
   return selection.kind === "facility"
@@ -480,6 +488,12 @@ function browseMarkerKey(marker: CampusMapBrowseMarker) {
   return marker.kind === "place"
     ? `place:${marker.placeId}`
     : `building:${marker.buildingId}:${marker.pinType}`;
+}
+
+function amapPositionKey(position: AMapLngLat | Position) {
+  const longitude = "lng" in position ? position.lng : position[0];
+  const latitude = "lat" in position ? position.lat : position[1];
+  return `${longitude.toFixed(12)}:${latitude.toFixed(12)}`;
 }
 
 function browseMarkerView(
@@ -965,12 +979,22 @@ export function AmapCampusPrototype({
         );
         return;
       }
-      const building = buildingsRef.current.find(
-        (item) => item.buildingId === camera.buildingId,
-      );
-      const position = building ? positionFor(building) : null;
+      const building =
+        camera.kind === "focus"
+          ? buildingsRef.current.find(
+              (item) => item.buildingId === camera.buildingId,
+            )
+          : null;
+      const position =
+        camera.kind === "focus-place"
+          ? (amapPositionsRef.current[`place:${camera.placeId}`] ?? null)
+          : building
+            ? positionFor(building)
+            : null;
       if (position) {
         requestCamera(position, camera.reason, context);
+      } else {
+        pendingDriverCameraRef.current = { command: camera, context };
       }
     },
     [positionFor, requestCamera],
@@ -1104,8 +1128,12 @@ export function AmapCampusPrototype({
   );
   const session = driverSnapshot.session;
   const state = projectedState(session, driverSnapshot.returnTo, sceneCatalog);
-  const selectedBuilding = buildingFor(state.selection, buildings);
   const selectedFacility = facilityFor(state.selection, facilities);
+  const selectedBuilding = selectedFacility?.buildingId
+    ? (buildings.find(
+        (building) => building.buildingId === selectedFacility.buildingId,
+      ) ?? null)
+    : buildingFor(state.selection, buildings);
   const activeAmenity = knownAmenity(state.mapFilter.category);
   const facilityOrigin =
     driverSnapshot.returnTo?.mode === "browse" &&
@@ -1505,7 +1533,7 @@ export function AmapCampusPrototype({
               const facility = facilitiesRef.current.find(
                 (item) => item.placeId === target.placeId,
               );
-              if (facility?.buildingId && facility.floorId) {
+              if (facility) {
                 selectFacility(facility, "search");
                 return;
               }
@@ -1516,11 +1544,6 @@ export function AmapCampusPrototype({
                 : null;
               if (building) {
                 selectBuilding(building);
-                return;
-              }
-              if (facility) {
-                setQueryDraft(facility.name);
-                dispatch({ type: "SEARCH", query: facility.name });
                 return;
               }
               return;
@@ -1747,7 +1770,7 @@ export function AmapCampusPrototype({
     const markerByKey = new Map(
       projectedMarkers.map((marker) => [browseMarkerKey(marker), marker]),
     );
-    const data = projectedMarkers.flatMap((marker) => {
+    const markerTargets = projectedMarkers.flatMap((marker) => {
       const position =
         marker.kind === "place"
           ? amapPositionsRef.current[`place:${marker.placeId}`]
@@ -1756,13 +1779,23 @@ export function AmapCampusPrototype({
       if (!position) return [];
       const placeIds =
         marker.kind === "place" ? [marker.placeId] : marker.placeIds;
-      return placeIds.map((placeId) => ({
-        lnglat: position,
+      return placeIds.map((_, index) => ({
         markerKey,
-        facilityId: placeId,
-        extData: { markerKey, facilityId: placeId },
+        position,
+        showMarker: marker.kind === "place" || index === 0,
       }));
     });
+    const data = markerTargets.map(({ position }) => ({ lnglat: position }));
+    const markerTargetsByPosition = new Map<
+      string,
+      Array<(typeof markerTargets)[number]>
+    >();
+    for (const target of markerTargets) {
+      const key = amapPositionKey(target.position);
+      const targets = markerTargetsByPosition.get(key) ?? [];
+      targets.push(target);
+      markerTargetsByPosition.set(key, targets);
+    }
 
     if (
       clusterRef.current &&
@@ -1779,21 +1812,34 @@ export function AmapCampusPrototype({
     try {
       if (!clusterRef.current) {
         const style = amenityStyle(activeAmenity);
+        const markerTargetAssignments = new WeakMap<
+          AMapMarker,
+          (typeof markerTargets)[number]
+        >();
+        const nextMarkerTargetIndex = new Map<string, number>();
         const cluster = new window.AMap.MarkerCluster(map, data, {
           gridSize: 90,
           maxZoom: 18,
           averageCenter: true,
           renderMarker: ({ marker }: { marker: AMapMarker }) => {
-            const markerData = marker.getExtData();
-            const markerKey = markerData?.markerKey;
+            let markerTarget = markerTargetAssignments.get(marker);
+            if (!markerTarget) {
+              const position = marker.getPosition();
+              if (!position) return;
+              const positionKey = amapPositionKey(position);
+              const targets = markerTargetsByPosition.get(positionKey);
+              if (!targets?.length) return;
+              const targetIndex = nextMarkerTargetIndex.get(positionKey) ?? 0;
+              markerTarget = targets[targetIndex % targets.length];
+              nextMarkerTargetIndex.set(positionKey, targetIndex + 1);
+              markerTargetAssignments.set(marker, markerTarget);
+            }
+            const { markerKey, showMarker } = markerTarget;
             const projectedMarker = markerKey
               ? markerByKey.get(markerKey)
               : undefined;
             if (!markerKey || !projectedMarker) return;
-            if (
-              projectedMarker.kind === "building-presence" &&
-              markerData?.facilityId !== projectedMarker.placeIds[0]
-            ) {
+            if (!showMarker) {
               marker.setContent(
                 '<span aria-hidden="true" style="display:none"></span>',
               );
@@ -1822,7 +1868,7 @@ export function AmapCampusPrototype({
                             candidate.placeId === projectedMarker.placeIds[0],
                         )
                       : null;
-                  if (onlyPlace?.buildingId && onlyPlace.floorId) {
+                  if (onlyPlace) {
                     selectFacility(onlyPlace, "category");
                   } else if (building) {
                     selectBuilding(building);
@@ -1833,12 +1879,7 @@ export function AmapCampusPrototype({
                   (candidate) => candidate.placeId === projectedMarker.placeId,
                 );
                 if (!place) return;
-                if (place.buildingId && place.floorId) {
-                  selectFacility(place, "category");
-                } else {
-                  setQueryDraft(place.name);
-                  dispatch({ type: "SEARCH", query: place.name });
-                }
+                selectFacility(place, "category");
               });
             });
           },
@@ -1943,14 +1984,19 @@ export function AmapCampusPrototype({
   useEffect(() => {
     const mapElement = mapElementRef.current;
     const panel = panelRef.current;
-    if (!mapElement || !panel || (!selectedBuilding && !editSession)) return;
+    if (
+      !mapElement ||
+      !panel ||
+      (!selectedBuilding && !selectedFacility && !editSession)
+    )
+      return;
     const observer = new ResizeObserver(() => {
       driver.updateSheetGeometry(panel.hidden ? null : rect(panel));
     });
     observer.observe(mapElement);
     observer.observe(panel);
     return () => observer.disconnect();
-  }, [driver, editSession, selectedBuilding]);
+  }, [driver, editSession, selectedBuilding, selectedFacility]);
 
   useEffect(
     () => () => {
@@ -2159,20 +2205,6 @@ export function AmapCampusPrototype({
                       </span>
                     </>
                   );
-                  if (
-                    result.kind === "facility" &&
-                    (!result.facility.buildingId || !result.facility.floorId)
-                  ) {
-                    return (
-                      <div
-                        key={id}
-                        data-search-result={id}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-left"
-                      >
-                        {content}
-                      </div>
-                    );
-                  }
                   return (
                     <button
                       key={id}
@@ -2307,7 +2339,9 @@ export function AmapCampusPrototype({
         hidden={
           !editSession &&
           (state.selection.kind === "external" ||
-            (state.selection.kind === "none" && !state.mapFilter.category))
+            (state.selection.kind === "none" &&
+              !state.mapFilter.category &&
+              !selectedFacility))
         }
         aria-labelledby="campus-map-panel-title"
         className={cn(
@@ -2372,6 +2406,7 @@ export function AmapCampusPrototype({
           />
         ) : state.selection.kind === "none" &&
           state.mapFilter.category &&
+          !selectedFacility &&
           activeCategoryStyle ? (
           <div
             id="campus-map-panel-content"
@@ -2446,7 +2481,7 @@ export function AmapCampusPrototype({
                     </span>
                   </>
                 );
-                return facility.buildingId && facility.floorId ? (
+                return (
                   <button
                     key={facility.placeId}
                     data-return-result={facility.placeId}
@@ -2456,14 +2491,6 @@ export function AmapCampusPrototype({
                   >
                     {content}
                   </button>
-                ) : (
-                  <div
-                    key={facility.placeId}
-                    data-return-result={facility.placeId}
-                    className="flex min-h-16 w-full items-center gap-3 border-b border-black/8 py-3 text-left"
-                  >
-                    {content}
-                  </div>
                 );
               })}
               {categoryFacilities.length > 3 ? (
@@ -2496,7 +2523,7 @@ export function AmapCampusPrototype({
               ) : null}
             </div>
           </div>
-        ) : selectedBuilding ? (
+        ) : selectedBuilding || selectedFacility ? (
           <div
             id="campus-map-panel-content"
             className="flex h-[calc(100%-44px)] flex-col overscroll-contain md:h-full"
@@ -2517,7 +2544,7 @@ export function AmapCampusPrototype({
                 </button>
               ) : (
                 <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#174b38] text-sm font-bold text-white">
-                  {selectedBuilding.code ?? "校舍"}
+                  {selectedBuilding?.code ?? "地点"}
                 </span>
               )}
               <div className="min-w-0 flex-1">
@@ -2527,12 +2554,14 @@ export function AmapCampusPrototype({
                   tabIndex={-1}
                   className="truncate text-xl font-semibold tracking-[-0.02em] outline-none"
                 >
-                  {selectedFacility?.name ?? selectedBuilding.name}
+                  {selectedFacility?.name ?? selectedBuilding?.name}
                 </h2>
                 <p className="mt-1 truncate text-sm text-neutral-500">
                   {selectedFacility
-                    ? `${selectedBuilding.name} · ${floorLabel(selectedFacility.floorId, selectedFacility.floorLabel)}`
-                    : (selectedBuilding.englishName ?? "正式校舍资料")}
+                    ? selectedBuilding
+                      ? `${selectedBuilding.name} · ${floorLabel(selectedFacility.floorId, selectedFacility.floorLabel)}`
+                      : placeLocationLabel(selectedFacility)
+                    : (selectedBuilding?.englishName ?? "正式校舍资料")}
                 </p>
               </div>
               <button
@@ -2570,7 +2599,9 @@ export function AmapCampusPrototype({
                     dispatch({ type: "REFRAME", reason: "map-selection" })
                   }
                 >
-                  定位所属建筑
+                  {selectedFacility.location.kind === "outdoor-point"
+                    ? "定位地点"
+                    : "定位所属建筑"}
                 </button>
                 <button
                   type="button"
@@ -2593,7 +2624,7 @@ export function AmapCampusPrototype({
                   </dl>
                 ) : null}
               </div>
-            ) : (
+            ) : selectedBuilding ? (
               <>
                 <div
                   className={cn(
@@ -2659,7 +2690,6 @@ export function AmapCampusPrototype({
                             key={facility.placeId}
                             data-return-result={facility.placeId}
                             type="button"
-                            disabled={!facility.floorId}
                             className="flex w-full items-center gap-3 py-3 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346] disabled:cursor-default"
                             onClick={() => selectFacility(facility, "building")}
                           >
@@ -2692,7 +2722,7 @@ export function AmapCampusPrototype({
                   </div>
                 </div>
               </>
-            )}
+            ) : null}
           </div>
         ) : null}
       </section>

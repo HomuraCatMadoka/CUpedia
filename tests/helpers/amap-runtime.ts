@@ -173,8 +173,15 @@ export function installAmapRuntime(options?: {
       for (const handler of this.handlers.get(event) ?? []) handler();
     }
 
-    getExtData() {
-      return this.markerOptions.extData as { facilityId?: string } | undefined;
+    getPosition() {
+      const position = this.markerOptions.position as
+        | LngLat
+        | readonly [number, number]
+        | undefined;
+      if (!position) return null;
+      return "lng" in position
+        ? position
+        : new MockLngLat(position[0], position[1]);
     }
 
     setContent(content: string) {
@@ -189,6 +196,7 @@ export function installAmapRuntime(options?: {
   class MockMarkerCluster {
     readonly handlers = new Map<string, Handler[]>();
     data: readonly Record<string, unknown>[];
+    singleMarkers: MockMarker[] = [];
     readonly setMap = vi.fn();
 
     constructor(
@@ -211,8 +219,10 @@ export function installAmapRuntime(options?: {
     }
 
     private renderSingles() {
+      this.singleMarkers = [];
       for (const item of this.data) {
-        const marker = new MockMarker({ extData: item.extData });
+        const marker = new MockMarker({ position: item.lnglat });
+        this.singleMarkers.push(marker);
         this.clusterOptions.renderMarker?.({ marker });
       }
     }

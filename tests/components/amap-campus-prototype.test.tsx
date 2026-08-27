@@ -351,10 +351,15 @@ describe("AmapCampusPrototype", () => {
         document.querySelector(`[data-search-result="${placeId}"]`),
       ).not.toBeNull(),
     );
-    expect(screen.getByText("校内独立地点 · 新发布饮水点")).not.toBeNull();
+    const result = screen
+      .getByText("校内独立地点 · 新发布饮水点")
+      .closest("button");
+    expect(result).not.toBeNull();
+    fireEvent.click(result!);
     expect(
-      screen.getByText("校内独立地点 · 新发布饮水点").closest("button"),
-    ).toBeNull();
+      await screen.findByRole("heading", { name: "新发布饮水点" }),
+    ).not.toBeNull();
+    expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
   });
 
   it("restores standalone Current Place search results from formal data after refresh", async () => {

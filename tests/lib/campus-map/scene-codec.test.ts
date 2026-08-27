@@ -23,6 +23,19 @@ const catalog: CampusMapSceneCatalog = {
       buildingId: "science",
       floorId: "1",
       category: "water",
+      cameraTarget: "building-anchor",
+    },
+    lobbyWater: {
+      buildingId: "science",
+      floorId: null,
+      category: "water",
+      cameraTarget: "building-anchor",
+    },
+    courtyardWater: {
+      buildingId: null,
+      floorId: null,
+      category: "water",
+      cameraTarget: "place-point",
     },
   },
   contents: {
@@ -52,6 +65,23 @@ describe("Campus Map versioned scene codec", () => {
       session,
     });
   });
+
+  it.each(["fountain", "lobbyWater", "courtyardWater"])(
+    "restores %s from the same stable Place deep link after refresh",
+    (facilityId) => {
+      const session: CampusMapSession = {
+        mode: "browse",
+        scene: { kind: "facility", facilityId, snap: "peek" },
+      };
+      const url = encodeCampusMapUrl(session, catalog).toString();
+
+      expect(url).toBe(`v=1&scene=facility&id=${facilityId}&snap=peek`);
+      expect(decodeCampusMapUrl(url, catalog)).toEqual({
+        status: "decoded",
+        session,
+      });
+    },
+  );
 
   it.each(buildNonCanonicalCampusMapIdentityCases(catalog))(
     "falls back consistently for a non-canonical $label",

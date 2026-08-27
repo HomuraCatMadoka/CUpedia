@@ -6,6 +6,11 @@ export function createCampusMapSceneCatalog(
   projection: CampusMapBrowseProjection,
   categories: readonly string[],
 ): CampusMapSceneCatalog {
+  const buildingIdsWithCameraAnchor = new Set(
+    projection.buildings.flatMap((building) =>
+      building.anchor ? [building.buildingId] : [],
+    ),
+  );
   return {
     categories,
     buildings: Object.fromEntries(
@@ -15,20 +20,21 @@ export function createCampusMapSceneCatalog(
       ]),
     ),
     facilities: Object.fromEntries(
-      projection.places.flatMap((place) =>
-        place.buildingId && place.floorId
-          ? [
-              [
-                place.placeId,
-                {
-                  buildingId: place.buildingId,
-                  floorId: place.floorId,
-                  category: place.pinType,
-                },
-              ],
-            ]
-          : [],
-      ),
+      projection.places.map((place) => [
+        place.placeId,
+        {
+          buildingId: place.buildingId,
+          floorId: place.floorId,
+          category: place.pinType,
+          cameraTarget:
+            place.location.kind === "outdoor-point"
+              ? "place-point"
+              : place.buildingId &&
+                  buildingIdsWithCameraAnchor.has(place.buildingId)
+                ? "building-anchor"
+                : null,
+        },
+      ]),
     ),
     contents: {},
   };
@@ -63,6 +69,21 @@ export function createLegacyCampusMapCatalog(
   return {
     categories: catalog.categories,
     buildings: catalog.buildings,
-    facilities: catalog.facilities,
+    facilities: Object.fromEntries(
+      Object.entries(catalog.facilities).flatMap(([placeId, place]) =>
+        place?.buildingId && place.floorId
+          ? [
+              [
+                placeId,
+                {
+                  buildingId: place.buildingId,
+                  floorId: place.floorId,
+                  category: place.category,
+                },
+              ],
+            ]
+          : [],
+      ),
+    ),
   };
 }

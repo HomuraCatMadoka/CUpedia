@@ -22,6 +22,31 @@ const catalog: CampusMapSceneCatalog = {
       buildingId: "science",
       floorId: "1",
       category: "water",
+      cameraTarget: "building-anchor",
+    },
+    lobbyWater: {
+      buildingId: "science",
+      floorId: null,
+      category: "water",
+      cameraTarget: "building-anchor",
+    },
+    courtyardWater: {
+      buildingId: null,
+      floorId: null,
+      category: "water",
+      cameraTarget: "place-point",
+    },
+    locationPending: {
+      buildingId: null,
+      floorId: null,
+      category: "water",
+      cameraTarget: null,
+    },
+    scienceNoAnchor: {
+      buildingId: "science",
+      floorId: null,
+      category: "water",
+      cameraTarget: null,
     },
   },
   contents: {
@@ -162,6 +187,94 @@ describe("Campus Map canonical scene transition", () => {
       kind: "focus",
       buildingId: "science",
       reason: "facility-selection",
+    });
+  });
+
+  it.each([
+    [
+      "building-only Place",
+      "lobbyWater",
+      {
+        buildingId: "science",
+        floorId: null,
+        category: "water",
+      },
+      {
+        kind: "focus",
+        buildingId: "science",
+        reason: "facility-selection",
+      },
+    ],
+    [
+      "outdoor Place",
+      "courtyardWater",
+      { buildingId: null, floorId: null, category: "water" },
+      {
+        kind: "focus-place",
+        placeId: "courtyardWater",
+        reason: "facility-selection",
+      },
+    ],
+    [
+      "Place without a camera target",
+      "locationPending",
+      { buildingId: null, floorId: null, category: "water" },
+      { kind: "cancel" },
+    ],
+    [
+      "building-only Place without a camera anchor",
+      "scienceNoAnchor",
+      { buildingId: "science", floorId: null, category: "water" },
+      { kind: "cancel" },
+    ],
+  ])(
+    "opens a %s using stable placeId",
+    (_label, facilityId, context, camera) => {
+      const result = transitionCampusMapSession(
+        EMPTY_CAMPUS_MAP_SCENE_SESSION,
+        { type: "OPEN_FACILITY", facilityId, source: "map" },
+        catalog,
+      );
+
+      expect(result).toMatchObject({
+        status: "accepted",
+        session: {
+          mode: "browse",
+          scene: { kind: "facility", facilityId, snap: "peek" },
+        },
+        commands: { camera },
+      });
+      expect(resolveCampusMapScene(result.session, catalog)).toMatchObject({
+        status: "valid",
+        context,
+      });
+    },
+  );
+
+  it("treats a repeated outdoor Place intent as an explicit idempotent no-op", () => {
+    const session: CampusMapSession = {
+      mode: "browse",
+      scene: {
+        kind: "facility",
+        facilityId: "courtyardWater",
+        snap: "peek",
+      },
+    };
+
+    expect(
+      transitionCampusMapSession(
+        session,
+        {
+          type: "OPEN_FACILITY",
+          facilityId: "courtyardWater",
+          source: "search",
+        },
+        catalog,
+      ),
+    ).toEqual({
+      status: "accepted",
+      session,
+      commands: { history: null, camera: null, focus: null, overlay: null },
     });
   });
 

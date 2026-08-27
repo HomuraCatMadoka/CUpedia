@@ -62,6 +62,7 @@ export type CampusMapSessionCommand =
 
 export type CampusMapCameraCommand =
   | { kind: "focus"; buildingId: string; reason: CameraReason }
+  | { kind: "focus-place"; placeId: string; reason: CameraReason }
   | { kind: "cancel" };
 
 export type CampusMapOverlayCommand =
