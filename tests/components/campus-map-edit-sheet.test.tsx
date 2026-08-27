@@ -466,6 +466,34 @@ describe("Campus Map single-page edit Sheet", () => {
     );
   });
 
+  it("keeps a Map Note return target on the successful publish receipt", () => {
+    const session: CampusMapEditSession = {
+      status: "published",
+      draft: draft(),
+      receipt: { placeId, revisionId, changesetId },
+    };
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        returnContext={{
+          kind: "map-note",
+          noteId: "72000000-0000-4000-8000-000000000003",
+        }}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: "返回地图备注" }).getAttribute("href"),
+    ).toBe("/campus-map/notes/72000000-0000-4000-8000-000000000003");
+    expect(
+      screen
+        .getByRole("link", { name: "查看此次 Changeset" })
+        .getAttribute("href"),
+    ).toBe(`/campus-map/changesets/${changesetId}`);
+  });
+
   it("renders only server-issued warning identity and a fresh acknowledgement action", () => {
     const fingerprint = "a".repeat(64);
     const session: CampusMapEditSession = {

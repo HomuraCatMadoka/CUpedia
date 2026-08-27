@@ -109,6 +109,27 @@ _Avoid_: 临时故障；hard delete；重复 Place 合并
 治理动作；它保留版本链和审计占位，不等同事实纠错或停用。
 _Avoid_: 普通编辑删除历史；用 Redaction 隐藏产品错误
 
+**治理举报（Moderation report）**: 用户私下提交、指向 Changeset、Fact revision、Map Note、
+Note event 或贡献者的安全信号；举报人、证据和说明只对管理员可见，同一目标的多条举报汇入
+同一个 Moderation case。
+_Avoid_: 公开讨论；复制进 Changeset feed；把一条举报直接当作有罪裁决
+
+**治理案件（Moderation case）**: 管理员围绕一个稳定目标处理多条举报的工作单，以 revision/CAS
+推进 open、ignored、resolved 或 reopened；新举报会重新打开已经处理的案件。
+_Avoid_: Place 编辑申请；可覆盖举报原文；一个目标并行创建互不相知的案件
+
+**治理裁决（Moderation decision）**: 管理员执行隐藏、恢复公开、Redaction、撤销 Redaction、
+贡献限制或案件状态变化时追加的不可变记录，保存 actor snapshot、理由、目标及 before/after。
+_Avoid_: 用通用 audit log 替代；改写旧裁决；没有 decision ref 的高风险投影变化
+
+**贡献限制（Contributor block）**: 在指定起止时间内限制某个贡献者发布 Place facts、参与 Map
+Notes 或两者的管理员裁决；撤销只追加裁决和撤销 metadata，既有公开事实与署名保持不变。
+_Avoid_: 全站账号删除；抹除旧署名；只在页面加载时检查一次
+
+**安全占位（Safe placeholder）**: 内容被隐藏后在原 stable ID、deep link 与时间线位置返回的固定
+公开投影；不包含原文、证据或可识别作者，但让读者知道历史链没有被删除。
+_Avoid_: 404 假装记录从未存在；把原文藏在搜索索引、excerpt 或通知 metadata
+
 **重复候选（Duplicate candidate）**: 名称、Building、Floor、Pin type、来源或距离等信号
 产生的待人工判断关系，不是唯一约束。
 _Avoid_: 自动合并；认为同层只能有一个同类服务位置
@@ -116,6 +137,22 @@ _Avoid_: 自动合并；认为同层只能有一个同类服务位置
 **合并重定向（Merge redirect）**: 重复 Place 人工合并后，loser 保留为永久指向 survivor
 的 tombstone；两者来源、历史链接和 ID 均保留。
 _Avoid_: 删除或复用 loser ID；让旧 deep link 失效
+
+**地图备注（Map Note）**: 围绕一个 canonical Place、一个 WGS84 地图位置或两者提出的公开问题与
+补充上下文；它有独立生命周期，不能直接改变 Current fact。
+_Avoid_: Changeset discussion；事实草稿；评分评论；用 Note 关闭代替发布修正
+
+**备注事件（Note event）**: Map Note 时间线中的不可变 opening comment、comment、resolve 或
+reopen 记录；后续动作只追加事件，不覆盖较早内容。
+_Avoid_: 可编辑评论；原地改写状态历史；通用 audit log
+
+**解决说明（Resolution）**: 显式关闭 Map Note 时记录的结构化理由，可引用真正修正事实的
+Changeset；发布成功本身不会自动形成 Resolution。
+_Avoid_: 发布回执；审批结果；没有理由的关闭
+
+**备注订阅（Note subscription）**: User 是否接收某个 Map Note 后续事件提醒的独立偏好；作者与
+评论者默认订阅，取消订阅不删除其事件或署名。
+_Avoid_: Note 参与者身份；阅读状态；删除历史
 
 **公开事实（Current fact）**: active Current revision 形成的公开搜索与地图投影；retired
 Place 只保留 tombstone/deep link，Edit draft、供应商候选、讨论和评分均不属于地点事实。

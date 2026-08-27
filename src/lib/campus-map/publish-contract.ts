@@ -213,6 +213,7 @@ export type CampusMapPublishResult =
       code:
         | "actor-not-eligible"
         | "actor-banned"
+        | "contributor-blocked"
         | "profile-incomplete"
         | "role-not-eligible"
         | "admin-required";

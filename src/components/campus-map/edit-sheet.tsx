@@ -16,6 +16,7 @@ import {
 import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
+import type { CampusMapTaskReturnContext } from "@/lib/campus-map/scene-kernel";
 
 interface CampusMapEditSheetProps {
   session: CampusMapEditSession;
@@ -23,6 +24,7 @@ interface CampusMapEditSheetProps {
   placementPending?: boolean;
   placeContext?: AmapPlaceContextResult | { status: "loading" } | null;
   factSchema?: CampusMapFactSchema | null;
+  returnContext?: CampusMapTaskReturnContext;
   onEvent(event: CampusMapEditEvent): void;
 }
 
@@ -416,6 +418,7 @@ export function CampusMapEditSheet({
   placeContext = null,
   factSchema,
   onEvent,
+  returnContext,
 }: CampusMapEditSheetProps) {
   const fieldPrefix = useId();
   const [keyboardLongitude, setKeyboardLongitude] = useState(
@@ -479,6 +482,14 @@ export function CampusMapEditSheet({
         >
           查看 History
         </Link>
+        {returnContext?.kind === "map-note" ? (
+          <Link
+            className={secondaryClass}
+            href={`/campus-map/notes/${returnContext.noteId}`}
+          >
+            返回地图备注
+          </Link>
+        ) : null}
       </div>
     );
   }
@@ -704,6 +715,7 @@ export function CampusMapEditSheet({
     if (session.status === "forbidden") {
       const messages = {
         "actor-banned": "账号已被封禁，暂时不能发布地点资料。",
+        "contributor-blocked": "账号当前被限制参与校园地图贡献。",
         "profile-incomplete": "账号资料尚未完成，完成后才能发布地点资料。",
         "actor-not-eligible": "这个账号目前没有发布地点资料的资格。",
         "role-not-eligible": "当前账号角色没有发布地点资料的权限。",

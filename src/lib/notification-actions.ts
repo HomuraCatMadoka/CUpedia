@@ -4,7 +4,12 @@ import { and, count, desc, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import { notifications, users } from "@/db/schema";
+import type {
+  CampusMapNoteEventNotificationMetadata,
+  CourseReviewReplyNotificationMetadata,
+} from "@/db/schema";
 import { requireAuth } from "@/lib/auth-guard";
+import { deliverCampusMapNoteNotifications } from "@/lib/campus-map/map-notes";
 
 const PAGE_SIZE = 10;
 
@@ -12,7 +17,7 @@ export type NotificationView = {
   id: string;
   actorNickname: string;
   actorAvatarUrl: string | null;
-  courseCode: string;
+  message: string;
   createdAt: string;
   href: string;
   read: boolean;
@@ -25,6 +30,7 @@ export type NotificationPage = {
 
 export async function getUnreadNotificationCount(): Promise<number> {
   const user = await requireAuth();
+  await projectPendingCampusMapNoteNotifications();
   const [row] = await db
     .select({ value: count() })
     .from(notifications)
@@ -36,6 +42,7 @@ export async function getUnreadNotificationCount(): Promise<number> {
 
 export async function getNotifications(offset = 0): Promise<NotificationPage> {
   const user = await requireAuth();
+  await projectPendingCampusMapNoteNotifications();
   const safeOffset = Number.isFinite(offset)
     ? Math.max(0, Math.floor(offset))
     : 0;
@@ -58,21 +65,52 @@ export async function getNotifications(offset = 0): Promise<NotificationPage> {
 
   return {
     notifications: rows.slice(0, PAGE_SIZE).map((row) => {
-      const query = new URLSearchParams({
-        review: row.metadata.reviewId,
-        reply: row.metadata.replyId,
-      });
+      const destination = notificationDestination(
+        row.kind,
+        row.metadata,
+        row.actorNickname || "用户",
+      );
       return {
         id: row.id,
         actorNickname: row.actorNickname || "用户",
         actorAvatarUrl: row.actorAvatarUrl,
-        courseCode: row.metadata.courseCode,
+        message: destination.message,
         createdAt: row.createdAt.toISOString(),
-        href: `/courses/${encodeURIComponent(row.metadata.courseCode)}?${query.toString()}`,
+        href: destination.href,
         read: row.readAt !== null,
       };
     }),
     hasMore: rows.length > PAGE_SIZE,
+  };
+}
+
+async function projectPendingCampusMapNoteNotifications(): Promise<void> {
+  const result = await deliverCampusMapNoteNotifications(100);
+  if (result.failed > 0) {
+    throw new Error("地图备注通知暂时无法载入，请稍后重试");
+  }
+}
+
+function notificationDestination(
+  kind: (typeof notifications.$inferSelect)["kind"],
+  metadata: (typeof notifications.$inferSelect)["metadata"],
+  actorNickname: string,
+): { message: string; href: string } {
+  if (kind === "campus_map_note_event") {
+    const note = metadata as CampusMapNoteEventNotificationMetadata;
+    return {
+      message: `${actorNickname}更新了你订阅的地图备注`,
+      href: `/campus-map/notes/${encodeURIComponent(note.noteId)}#event-${encodeURIComponent(note.eventId)}`,
+    };
+  }
+  const reply = metadata as CourseReviewReplyNotificationMetadata;
+  const query = new URLSearchParams({
+    review: reply.reviewId,
+    reply: reply.replyId,
+  });
+  return {
+    message: `${actorNickname} 回复了你在 ${reply.courseCode} 的评论`,
+    href: `/courses/${encodeURIComponent(reply.courseCode)}?${query.toString()}`,
   };
 }
 

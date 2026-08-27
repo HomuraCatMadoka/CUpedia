@@ -533,6 +533,34 @@
       "when": 1787588998738,
       "tag": "0075_campus-map-schema-function-hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1787807417640,
+      "tag": "0076_campus-map-notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1787807418551,
+      "tag": "0077_campus-map-note-event-immutability",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1787815552938,
+      "tag": "0078_campus-map-moderation-governance",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1787817151331,
+      "tag": "0079_campus-map-moderation-ledger-guards",
+      "breakpoints": true
     }
   ]
 }

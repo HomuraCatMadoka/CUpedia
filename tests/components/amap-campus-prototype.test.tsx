@@ -1026,6 +1026,26 @@ describe("AmapCampusPrototype", () => {
     ).toBe(false);
   });
 
+  it("recovers a Note-origin Edit task directly from its refreshed URL", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000005";
+    const noteId = "72000000-0000-4000-8000-000000000003";
+    window.history.replaceState(
+      null,
+      "",
+      `/prototype/campus-map?v=1&task=edit&id=${placeId}&returnNote=${noteId}`,
+    );
+
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    expect(
+      await screen.findByRole("heading", { name: "修改设施" }),
+    ).toBeTruthy();
+    expect(loadCampusMapEditablePlace).toHaveBeenCalledWith(placeId);
+    expect(window.location.search).toBe(
+      `?v=1&task=edit&id=${placeId}&returnNote=${noteId}`,
+    );
+  });
+
   it("rejects a restored Edit draft for a different URL Place", async () => {
     const urlPlaceId = "71000000-0000-4000-8000-000000000005";
     const savedPlaceId = "71000000-0000-4000-8000-000000000002";

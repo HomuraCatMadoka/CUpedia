@@ -34,6 +34,18 @@ import {
   CAMPUS_MAP_TEMPORARY_STATUSES,
   CAMPUS_MAP_WHEELCHAIR_ACCESS,
 } from "@/lib/campus-map/controlled-values";
+import type {
+  CampusMapNoteCommandResult,
+  CampusMapNoteResolutionReason,
+  CampusMapNoteStatus,
+} from "@/lib/campus-map/map-notes-contract";
+import type {
+  CampusMapContributorBlockScope,
+  CampusMapModerationCaseStatus,
+  CampusMapModerationCommandResult,
+  CampusMapModerationTargetKind,
+  CampusMapReportSignal,
+} from "@/lib/campus-map/moderation-governance-contract";
 
 export {
   CAMPUS_MAP_AUDIENCES,
@@ -1249,13 +1261,23 @@ export const courseReviewReplies = pgTable(
   ],
 );
 
-export const NOTIFICATION_KINDS = ["course_review_reply"] as const;
+export const NOTIFICATION_KINDS = [
+  "course_review_reply",
+  "campus_map_note_event",
+] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 export type CourseReviewReplyNotificationMetadata = {
   courseCode: string;
   reviewId: string;
   replyId: string;
 };
+export type CampusMapNoteEventNotificationMetadata = {
+  noteId: string;
+  eventId: string;
+};
+export type NotificationMetadata =
+  | CourseReviewReplyNotificationMetadata
+  | CampusMapNoteEventNotificationMetadata;
 
 export const notifications = pgTable(
   "notifications",
@@ -1268,9 +1290,7 @@ export const notifications = pgTable(
       onDelete: "set null",
     }),
     kind: text("kind").$type<NotificationKind>().notNull(),
-    metadata: jsonb("metadata")
-      .$type<CourseReviewReplyNotificationMetadata>()
-      .notNull(),
+    metadata: jsonb("metadata").$type<NotificationMetadata>().notNull(),
     readAt: timestamp("read_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -1285,7 +1305,7 @@ export const notifications = pgTable(
     ),
     check(
       "notifications_kind_check",
-      sql`${table.kind} in ('course_review_reply')`,
+      sql`${table.kind} in ('course_review_reply', 'campus_map_note_event')`,
     ),
   ],
 );
@@ -2149,7 +2169,10 @@ export const campusMapRevisionVisibility = pgTable(
     revisionId: uuid("revision_id")
       .primaryKey()
       .references(() => campusMapFactRevisions.id, { onDelete: "restrict" }),
-    visibility: text("visibility").notNull().default("public"),
+    visibility: text("visibility")
+      .$type<"public" | "redacted">()
+      .notNull()
+      .default("public"),
     redactionRef: text("redaction_ref"),
     updatedBy: uuid("updated_by").references(() => users.id, {
       onDelete: "set null",
@@ -2398,6 +2421,590 @@ export const campusMapPublishRateLimits = pgTable(
     ),
     check(
       "campus_map_publish_rate_limits_attempt_count_check",
+      sql`${table.attemptCount} >= 0`,
+    ),
+  ],
+);
+
+// ── Campus Map Notes (#722) ──
+
+export const campusMapNotes = pgTable(
+  "campus_map_notes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    placeId: uuid("place_id").references(() => campusMapPlaces.id, {
+      onDelete: "restrict",
+    }),
+    longitude: doublePrecision("longitude"),
+    latitude: doublePrecision("latitude"),
+    status: text("status")
+      .$type<CampusMapNoteStatus>()
+      .notNull()
+      .default("open"),
+    revision: integer("revision").notNull().default(1),
+    authorUserId: uuid("author_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    authorIdSnapshot: uuid("author_id_snapshot").notNull(),
+    authorNicknameSnapshot: text("author_nickname_snapshot").notNull(),
+    searchDocument: text("search_document").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("campus_map_notes_place_updated_idx").on(
+      table.placeId,
+      table.updatedAt,
+      table.id,
+    ),
+    index("campus_map_notes_status_updated_idx").on(
+      table.status,
+      table.updatedAt,
+      table.id,
+    ),
+    index("campus_map_notes_author_updated_idx").on(
+      table.authorIdSnapshot,
+      table.updatedAt,
+      table.id,
+    ),
+    index("campus_map_notes_author_user_idx").on(table.authorUserId),
+    index("campus_map_notes_search_idx").using(
+      "gin",
+      sql`to_tsvector('simple', ${table.searchDocument})`,
+    ),
+    index("campus_map_notes_position_gist_idx")
+      .using("gist", sql`point(${table.longitude}, ${table.latitude})`)
+      .where(
+        sql`${table.longitude} is not null and ${table.latitude} is not null`,
+      ),
+    check(
+      "campus_map_notes_context_check",
+      sql`${table.placeId} is not null or (${table.longitude} is not null and ${table.latitude} is not null)`,
+    ),
+    check(
+      "campus_map_notes_position_check",
+      sql`(${table.longitude} is null) = (${table.latitude} is null)
+        and (
+          ${table.longitude} is null
+          or (${table.longitude} between -180 and 180 and ${table.latitude} between -90 and 90)
+        )`,
+    ),
+    check(
+      "campus_map_notes_status_check",
+      sql`${table.status} in ('open', 'closed', 'moderator-hidden')`,
+    ),
+    check("campus_map_notes_revision_check", sql`${table.revision} > 0`),
+  ],
+);
+
+export const campusMapNoteEvents = pgTable(
+  "campus_map_note_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    noteId: uuid("note_id")
+      .notNull()
+      .references(() => campusMapNotes.id, { onDelete: "restrict" }),
+    revision: integer("revision").notNull(),
+    kind: text("kind")
+      .$type<"opening-comment" | "comment" | "resolve" | "reopen">()
+      .notNull(),
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorIdSnapshot: uuid("actor_id_snapshot").notNull(),
+    actorNicknameSnapshot: text("actor_nickname_snapshot").notNull(),
+    comment: text("comment"),
+    resolutionReason:
+      text("resolution_reason").$type<CampusMapNoteResolutionReason>(),
+    resolvedByChangesetId: uuid("resolved_by_changeset_id").references(
+      () => campusMapChangesets.id,
+      { onDelete: "restrict" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("campus_map_note_events_note_revision_uq").on(
+      table.noteId,
+      table.revision,
+    ),
+    uniqueIndex("campus_map_note_events_opening_uq")
+      .on(table.noteId)
+      .where(sql`${table.kind} = 'opening-comment'`),
+    index("campus_map_note_events_note_created_idx").on(
+      table.noteId,
+      table.createdAt,
+      table.id,
+    ),
+    index("campus_map_note_events_actor_idx").on(table.actorUserId),
+    index("campus_map_note_events_changeset_idx").on(
+      table.resolvedByChangesetId,
+    ),
+    check("campus_map_note_events_revision_check", sql`${table.revision} > 0`),
+    check(
+      "campus_map_note_events_kind_check",
+      sql`${table.kind} in ('opening-comment', 'comment', 'resolve', 'reopen')`,
+    ),
+    check(
+      "campus_map_note_events_payload_check",
+      sql`(
+        ${table.kind} in ('opening-comment', 'comment', 'reopen')
+        and ${table.comment} is not null
+        and btrim(${table.comment}) <> ''
+        and ${table.resolutionReason} is null
+        and ${table.resolvedByChangesetId} is null
+      ) or (
+        ${table.kind} = 'resolve'
+        and ${table.resolutionReason} is not null
+        and (${table.comment} is null or btrim(${table.comment}) <> '')
+      )`,
+    ),
+    check(
+      "campus_map_note_events_resolution_reason_check",
+      sql`${table.resolutionReason} is null or ${table.resolutionReason} in ('fixed', 'not-an-issue', 'duplicate', 'insufficient-information', 'other')`,
+    ),
+  ],
+);
+
+export const campusMapNoteSubscriptions = pgTable(
+  "campus_map_note_subscriptions",
+  {
+    noteId: uuid("note_id")
+      .notNull()
+      .references(() => campusMapNotes.id, { onDelete: "restrict" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    subscribed: boolean("subscribed").notNull().default(true),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.noteId, table.userId] }),
+    index("campus_map_note_subscriptions_user_idx").on(
+      table.userId,
+      table.subscribed,
+    ),
+  ],
+);
+
+export const campusMapNoteOutbox = pgTable(
+  "campus_map_note_outbox",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    noteId: uuid("note_id")
+      .notNull()
+      .references(() => campusMapNotes.id, { onDelete: "restrict" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => campusMapNoteEvents.id, { onDelete: "restrict" }),
+    recipientUserId: uuid("recipient_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("pending"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    availableAt: timestamp("available_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("campus_map_note_outbox_event_recipient_uq").on(
+      table.eventId,
+      table.recipientUserId,
+    ),
+    index("campus_map_note_outbox_pending_idx").on(
+      table.status,
+      table.availableAt,
+      table.id,
+    ),
+    index("campus_map_note_outbox_note_idx").on(table.noteId),
+    index("campus_map_note_outbox_recipient_idx").on(table.recipientUserId),
+    check(
+      "campus_map_note_outbox_status_check",
+      sql`${table.status} in ('pending', 'processing', 'delivered', 'failed')`,
+    ),
+    check(
+      "campus_map_note_outbox_attempt_check",
+      sql`${table.attemptCount} >= 0`,
+    ),
+  ],
+);
+
+export const campusMapNoteRequests = pgTable(
+  "campus_map_note_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorIdSnapshot: uuid("actor_id_snapshot").notNull(),
+    idempotencyKey: uuid("idempotency_key").notNull(),
+    commandKind: text("command_kind").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    result: jsonb("result").$type<CampusMapNoteCommandResult>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("campus_map_note_requests_actor_key_uq").on(
+      table.actorIdSnapshot,
+      table.idempotencyKey,
+    ),
+    index("campus_map_note_requests_actor_user_idx").on(table.actorUserId),
+    check(
+      "campus_map_note_requests_kind_check",
+      sql`${table.commandKind} in ('create', 'comment', 'resolve', 'reopen')`,
+    ),
+  ],
+);
+
+export const campusMapNoteRateLimits = pgTable(
+  "campus_map_note_rate_limits",
+  {
+    scope: text("scope").notNull(),
+    subjectHash: text("subject_hash").notNull(),
+    windowKind: text("window_kind").notNull(),
+    windowStartedAt: timestamp("window_started_at", {
+      withTimezone: true,
+    }).notNull(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scope, table.subjectHash, table.windowKind] }),
+    index("campus_map_note_rate_limits_updated_idx").on(table.updatedAt),
+    check(
+      "campus_map_note_rate_limits_scope_check",
+      sql`${table.scope} in ('actor', 'ip')`,
+    ),
+    check(
+      "campus_map_note_rate_limits_window_check",
+      sql`${table.windowKind} in ('burst', 'sustained')`,
+    ),
+    check(
+      "campus_map_note_rate_limits_hash_check",
+      sql`char_length(${table.subjectHash}) = 64`,
+    ),
+    check(
+      "campus_map_note_rate_limits_attempt_check",
+      sql`${table.attemptCount} >= 0`,
+    ),
+  ],
+);
+
+// ── Campus Map ex-post moderation governance (#723) ──
+
+export const campusMapModerationCases = pgTable(
+  "campus_map_moderation_cases",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    targetKind: text("target_kind")
+      .$type<CampusMapModerationTargetKind>()
+      .notNull(),
+    targetId: uuid("target_id").notNull(),
+    status: text("status")
+      .$type<CampusMapModerationCaseStatus>()
+      .notNull()
+      .default("open"),
+    revision: integer("revision").notNull().default(1),
+    signals: text("signals").$type<CampusMapReportSignal[]>().array().notNull(),
+    reportCount: integer("report_count").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("campus_map_moderation_cases_target_uq").on(
+      table.targetKind,
+      table.targetId,
+    ),
+    index("campus_map_moderation_cases_queue_idx").on(
+      table.status,
+      table.updatedAt,
+      table.id,
+    ),
+    index("campus_map_moderation_cases_target_kind_idx").on(
+      table.targetKind,
+      table.updatedAt,
+    ),
+    index("campus_map_moderation_cases_signals_gin_idx").using(
+      "gin",
+      table.signals,
+    ),
+    check(
+      "campus_map_moderation_cases_target_kind_check",
+      sql`${table.targetKind} in ('changeset', 'revision', 'map-note', 'map-note-event', 'actor')`,
+    ),
+    check(
+      "campus_map_moderation_cases_status_check",
+      sql`${table.status} in ('open', 'ignored', 'resolved', 'reopened')`,
+    ),
+    check(
+      "campus_map_moderation_cases_revision_check",
+      sql`${table.revision} > 0 and ${table.reportCount} > 0 and cardinality(${table.signals}) > 0`,
+    ),
+  ],
+);
+
+export const campusMapReports = pgTable(
+  "campus_map_reports",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    caseId: uuid("case_id")
+      .notNull()
+      .references(() => campusMapModerationCases.id, { onDelete: "restrict" }),
+    reporterUserId: uuid("reporter_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reporterIdSnapshot: uuid("reporter_id_snapshot").notNull(),
+    reporterNicknameSnapshot: text("reporter_nickname_snapshot").notNull(),
+    signal: text("signal").$type<CampusMapReportSignal>().notNull(),
+    details: text("details").notNull(),
+    evidence: text("evidence"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("campus_map_reports_case_created_idx").on(
+      table.caseId,
+      table.createdAt,
+      table.id,
+    ),
+    index("campus_map_reports_reporter_idx").on(table.reporterUserId),
+    check(
+      "campus_map_reports_signal_check",
+      sql`${table.signal} in ('privacy', 'copyright', 'harassment', 'spam', 'vandalism', 'other')`,
+    ),
+    check(
+      "campus_map_reports_details_check",
+      sql`btrim(${table.details}) <> ''`,
+    ),
+  ],
+);
+
+export const campusMapModerationDecisions = pgTable(
+  "campus_map_moderation_decisions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    decisionRef: text("decision_ref").notNull().unique(),
+    commandKind: text("command_kind").notNull(),
+    caseId: uuid("case_id").references(() => campusMapModerationCases.id, {
+      onDelete: "restrict",
+    }),
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorIdSnapshot: uuid("actor_id_snapshot").notNull(),
+    actorNicknameSnapshot: text("actor_nickname_snapshot").notNull(),
+    reason: text("reason").notNull(),
+    targetKind: text("target_kind")
+      .$type<CampusMapModerationTargetKind>()
+      .notNull(),
+    targetId: uuid("target_id").notNull(),
+    before: jsonb("before").$type<Record<string, unknown>>().notNull(),
+    after: jsonb("after").$type<Record<string, unknown>>().notNull(),
+    internalNote: text("internal_note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("campus_map_moderation_decisions_case_idx").on(
+      table.caseId,
+      table.createdAt,
+      table.id,
+    ),
+    index("campus_map_moderation_decisions_target_idx").on(
+      table.targetKind,
+      table.targetId,
+      table.createdAt,
+    ),
+    index("campus_map_moderation_decisions_actor_idx").on(table.actorUserId),
+    check(
+      "campus_map_moderation_decisions_kind_check",
+      sql`${table.commandKind} in ('decide-case', 'hide-map-note', 'unhide-map-note', 'hide-map-note-event', 'unhide-map-note-event', 'redact-revision', 'revoke-revision-redaction', 'block-contributor', 'revoke-contributor-block')`,
+    ),
+    check(
+      "campus_map_moderation_decisions_target_kind_check",
+      sql`${table.targetKind} in ('changeset', 'revision', 'map-note', 'map-note-event', 'actor')`,
+    ),
+    check(
+      "campus_map_moderation_decisions_reason_check",
+      sql`btrim(${table.reason}) <> ''`,
+    ),
+  ],
+);
+
+export const campusMapNoteVisibility = pgTable(
+  "campus_map_note_visibility",
+  {
+    noteId: uuid("note_id")
+      .primaryKey()
+      .references(() => campusMapNotes.id, { onDelete: "restrict" }),
+    visibility: text("visibility")
+      .$type<"public" | "hidden">()
+      .notNull()
+      .default("public"),
+    decisionRef: text("decision_ref"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "campus_map_note_visibility_check",
+      sql`(${table.visibility} = 'public' and ${table.decisionRef} is null)
+        or (${table.visibility} = 'hidden' and ${table.decisionRef} is not null)`,
+    ),
+  ],
+);
+
+export const campusMapNoteEventVisibility = pgTable(
+  "campus_map_note_event_visibility",
+  {
+    eventId: uuid("event_id")
+      .primaryKey()
+      .references(() => campusMapNoteEvents.id, { onDelete: "restrict" }),
+    visibility: text("visibility")
+      .$type<"public" | "hidden">()
+      .notNull()
+      .default("public"),
+    decisionRef: text("decision_ref"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "campus_map_note_event_visibility_check",
+      sql`(${table.visibility} = 'public' and ${table.decisionRef} is null)
+        or (${table.visibility} = 'hidden' and ${table.decisionRef} is not null)`,
+    ),
+  ],
+);
+
+export const campusMapContributorBlocks = pgTable(
+  "campus_map_contributor_blocks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    contributorUserId: uuid("contributor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    contributorIdSnapshot: uuid("contributor_id_snapshot").notNull(),
+    scope: text("scope").$type<CampusMapContributorBlockScope>().notNull(),
+    reason: text("reason").notNull(),
+    createdByActorIdSnapshot: uuid("created_by_actor_id_snapshot").notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    needsAcknowledgement: boolean("needs_acknowledgement")
+      .notNull()
+      .default(false),
+    createdDecisionRef: text("created_decision_ref").notNull().unique(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedByActorIdSnapshot: uuid("revoked_by_actor_id_snapshot"),
+    revokedDecisionRef: text("revoked_decision_ref").unique(),
+    revokeReason: text("revoke_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("campus_map_contributor_blocks_active_idx").on(
+      table.contributorIdSnapshot,
+      table.scope,
+      table.startsAt,
+      table.endsAt,
+    ),
+    check(
+      "campus_map_contributor_blocks_scope_check",
+      sql`${table.scope} in ('publish', 'map-notes', 'all')`,
+    ),
+    check(
+      "campus_map_contributor_blocks_time_check",
+      sql`${table.endsAt} is null or ${table.endsAt} > ${table.startsAt}`,
+    ),
+    check(
+      "campus_map_contributor_blocks_revocation_check",
+      sql`(${table.revokedAt} is null and ${table.revokedByActorIdSnapshot} is null and ${table.revokedDecisionRef} is null and ${table.revokeReason} is null)
+        or (${table.revokedAt} is not null and ${table.revokedByActorIdSnapshot} is not null and ${table.revokedDecisionRef} is not null and btrim(${table.revokeReason}) <> '')`,
+    ),
+  ],
+);
+
+export const campusMapModerationRequests = pgTable(
+  "campus_map_moderation_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorIdSnapshot: uuid("actor_id_snapshot").notNull(),
+    idempotencyKey: uuid("idempotency_key").notNull(),
+    commandKind: text("command_kind").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    result: jsonb("result").$type<CampusMapModerationCommandResult>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("campus_map_moderation_requests_actor_key_uq").on(
+      table.actorIdSnapshot,
+      table.idempotencyKey,
+    ),
+    index("campus_map_moderation_requests_actor_idx").on(table.actorUserId),
+  ],
+);
+
+export const campusMapModerationRateLimits = pgTable(
+  "campus_map_moderation_rate_limits",
+  {
+    scope: text("scope").notNull(),
+    subjectHash: text("subject_hash").notNull(),
+    windowKind: text("window_kind").notNull(),
+    windowStartedAt: timestamp("window_started_at", {
+      withTimezone: true,
+    }).notNull(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scope, table.subjectHash, table.windowKind] }),
+    index("campus_map_moderation_rate_limits_updated_idx").on(table.updatedAt),
+    check(
+      "campus_map_moderation_rate_limits_scope_check",
+      sql`${table.scope} in ('actor', 'ip')`,
+    ),
+    check(
+      "campus_map_moderation_rate_limits_window_check",
+      sql`${table.windowKind} in ('burst', 'sustained')`,
+    ),
+    check(
+      "campus_map_moderation_rate_limits_hash_check",
+      sql`char_length(${table.subjectHash}) = 64`,
+    ),
+    check(
+      "campus_map_moderation_rate_limits_attempt_check",
       sql`${table.attemptCount} >= 0`,
     ),
   ],
