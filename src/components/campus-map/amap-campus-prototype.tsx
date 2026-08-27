@@ -82,7 +82,21 @@ import {
   createLegacyCampusMapCatalog,
   RefreshableCampusMapSceneCatalog,
 } from "@/lib/campus-map/browse-scene-catalog";
+import {
+  identifyCampusMapEditPublisher,
+  publishCampusMapEdit,
+  reconcileCampusMapEditPublish,
+} from "@/lib/campus-map/edit-actions";
 import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
+import {
+  CampusMapPublishReceiptConsumer,
+  bindBrowserCampusMapPublishActor,
+  readBrowserCampusMapPublishActor,
+  readBrowserCampusMapPublishReceiptState,
+  withBrowserCampusMapReceiptLock,
+  writeBrowserCampusMapPublishReceiptState,
+} from "@/lib/campus-map/publish-receipt-consumer";
+import type { CampusMapPublishCommand } from "@/lib/campus-map/publish-contract";
 import {
   CampusMapSceneDriver,
   type CampusMapDriverCameraCommand,
@@ -1145,14 +1159,61 @@ export function AmapCampusPrototype({
     (intent: CampusMapDriverIntent) => driver.dispatch(intent),
     [driver],
   );
-  const refreshAfterPublish = useCallback(
-    async (receipt: { changes: Array<{ placeId: string }> }) => {
-      const placeId = receipt.changes[0]?.placeId;
-      if (!placeId) return;
-      const result = await projectionStore.refresh({ placeId });
-      onPublishedProjectionRefreshed?.(result);
-    },
-    [onPublishedProjectionRefreshed, projectionStore],
+  const publishReceiptConsumer = useMemo(
+    () =>
+      new CampusMapPublishReceiptConsumer({
+        identifyActor: identifyCampusMapEditPublisher,
+        readActorBinding: readBrowserCampusMapPublishActor,
+        bindActor: bindBrowserCampusMapPublishActor,
+        reconcile: ({ command, actorId }) =>
+          reconcileCampusMapEditPublish(command, actorId),
+        retry: publishCampusMapEdit,
+        refresh: async ({ placeId }) => {
+          const result = await projectionStore.refresh({ placeId });
+          onPublishedProjectionRefreshed?.(result);
+          return result;
+        },
+        applyProjectionAndOpen: ({ placeId, intentToken }) => {
+          const projection = projectionStore.getSnapshot().projection;
+          if (!projection.places.some((place) => place.placeId === placeId)) {
+            return { status: "missing-target" };
+          }
+          driverCatalog.replace(
+            createCampusMapSceneCatalog(
+              projection,
+              CATEGORIES.map((category) => category.id),
+            ),
+          );
+          return driver.openPublishedPlace(placeId, intentToken);
+        },
+        isCanonicalPlaceOpen: (placeId) => {
+          const current = driver.getSnapshot().session;
+          return (
+            current.mode === "browse" &&
+            current.scene.kind === "facility" &&
+            current.scene.facilityId === placeId
+          );
+        },
+        readReceiptState: readBrowserCampusMapPublishReceiptState,
+        writeReceiptState: writeBrowserCampusMapPublishReceiptState,
+        withLock: withBrowserCampusMapReceiptLock,
+        timeoutMs: 1_500,
+      }),
+    [driver, driverCatalog, onPublishedProjectionRefreshed, projectionStore],
+  );
+  const recoverPublish = useCallback(
+    (
+      command: CampusMapPublishCommand,
+      transport?: (actorId: string) => ReturnType<typeof publishCampusMapEdit>,
+      onIdentityVerified?: () => void,
+    ) =>
+      publishReceiptConsumer.consume({
+        command,
+        intentToken: driver.getIntentToken(),
+        transport,
+        onIdentityVerified,
+      }),
+    [driver, publishReceiptConsumer],
   );
 
   const {
@@ -1165,7 +1226,7 @@ export function AmapCampusPrototype({
   } = useCampusMapEditSessionOwner({
     driver,
     dispatch,
-    onPublished: refreshAfterPublish,
+    recoverPublish,
   });
   const startAddAtPlacementAnchor = useCallback(() => {
     const map = mapRef.current;

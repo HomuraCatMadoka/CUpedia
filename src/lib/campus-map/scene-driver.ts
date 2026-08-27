@@ -150,6 +150,7 @@ function returnTargetFor(
 
 export class CampusMapSceneDriver {
   private currentDepth = 0;
+  private intentVersion = 0;
   private lastSheetRect: ScreenRect | null = null;
   private started = false;
   private suppressNextSheetReframe = false;
@@ -175,6 +176,8 @@ export class CampusMapSceneDriver {
   }
 
   getSnapshot = () => this.snapshot;
+
+  getIntentToken = () => this.intentVersion;
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -278,6 +281,42 @@ export class CampusMapSceneDriver {
   focusContributionForm() {
     this.bumpToken();
     this.ports.focus({ kind: "contribution-form" }, this.effectContext());
+  }
+
+  /** Completes a published task in-place after the shared catalog refresh. */
+  openPublishedPlace(placeId: string, intentToken: number) {
+    if (this.intentVersion !== intentToken) {
+      return { status: "superseded" as const };
+    }
+    if (
+      !Object.prototype.hasOwnProperty.call(this.catalog.facilities, placeId) ||
+      !this.catalog.facilities[placeId]
+    ) {
+      return { status: "missing-target" as const };
+    }
+    const target: CampusMapSession = {
+      mode: "browse",
+      scene: { kind: "facility", facilityId: placeId, snap: "peek" },
+    };
+    const resolved = resolveCampusMapSessionSemantics(target, this.catalog);
+    if (resolved.status !== "valid") {
+      return { status: "missing-target" as const };
+    }
+    this.commitTransition({
+      session: target,
+      returnTo: null,
+      commands: {
+        history: "replace",
+        camera: projectCampusMapSceneCameraCommand(
+          resolved.cameraTarget,
+          "facility-selection",
+        ) ?? { kind: "cancel" },
+        focus: resolved.focus,
+        overlay: { kind: "close-external" },
+      },
+      syncSheet: true,
+    });
+    return { status: "applied" as const };
   }
 
   updateSheetGeometry(nextRect: ScreenRect | null) {
@@ -429,6 +468,7 @@ export class CampusMapSceneDriver {
     syncSheet,
     bumpToken = true,
   }: CampusMapDriverCommit) {
+    this.intentVersion += 1;
     if (bumpToken) this.bumpToken();
     if (history === "back-or-push" && this.currentDepth > 0) {
       this.ports.history.back();

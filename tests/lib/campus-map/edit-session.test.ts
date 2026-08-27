@@ -1532,6 +1532,27 @@ describe("Campus Map edit session transition", () => {
     expect(duplicate.commands).toEqual([]);
   });
 
+  it("ends the edit task after the receipt consumer has opened the canonical Place", () => {
+    const dirty = transitionCampusMapEdit(editSession(), {
+      type: "CHANGE_FACT",
+      fact: { ...fact, name: "已交接的名称" },
+    }).session!;
+    const publishing = transitionCampusMapEdit(dirty, {
+      type: "REQUEST_PUBLISH",
+    }).session!;
+
+    expect(
+      transitionCampusMapEdit(publishing, {
+        type: "PUBLISH_HANDOFF_COMPLETED",
+        idempotencyKey: firstKey,
+      }),
+    ).toEqual({
+      accepted: true,
+      session: null,
+      commands: [{ kind: "clear-snapshot" }],
+    });
+  });
+
   it("keeps a publishing payload immutable until its matching result arrives", () => {
     const dirty = transitionCampusMapEdit(editSession(), {
       type: "CHANGE_FACT",

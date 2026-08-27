@@ -21,6 +21,12 @@ Facility identity or make the scene catalog the source of map facts.
 - The versioned URL codec is the only persistent scene seam. Browser history
   stores only a versioned ownership marker and navigation depth; Back/Forward
   restores the scene from the canonical URL.
+- `CampusMapSceneDriver.openPublishedPlace(placeId, intentToken)` is the
+  publish-only driver handoff. After the caller refreshes and replaces the
+  shared catalog, it validates the Place through the same semantic resolver,
+  rejects superseded tokens, and replaces the current task history entry with
+  the canonical Place. It is not a `RESTORE` event and never adds a task entry
+  that Back can reopen.
 
 `scene-semantics.ts` is an internal seam, not a second product API. Its single
 resolver owns session validity, catalog-derived context, restore focus,
