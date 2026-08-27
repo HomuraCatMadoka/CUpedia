@@ -434,7 +434,7 @@ describe("AmapCampusPrototype", () => {
     expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
   });
 
-  it("reconciles a publishing snapshot after remount without creating another publish", async () => {
+  it("reconciles a publishing snapshot after remount when its browser actor binding was lost", async () => {
     const placeId = "30000000-0000-4000-8000-000000000021";
     const idempotencyKey = "10000000-0000-4000-8000-000000000021";
     const started = transitionCampusMapEdit(null, {
@@ -470,10 +470,6 @@ describe("AmapCampusPrototype", () => {
     window.sessionStorage.setItem(
       "cupedia:campus-map:edit-session:v1",
       encodeCampusMapEditSnapshot(publishing),
-    );
-    bindBrowserCampusMapPublishActor(
-      idempotencyKey,
-      "60000000-0000-4000-8000-000000000001",
     );
     window.history.replaceState(
       null,

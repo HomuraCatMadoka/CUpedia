@@ -249,8 +249,9 @@ export class CampusMapPublishReceiptConsumer {
       actorIdentity.value.actorId,
       Boolean(input.transport || input.receipt),
     );
-    if (actorBinding) return actorBinding;
-    input.onIdentityVerified?.();
+    if (actorBinding.status === "recoverable") return actorBinding;
+    let actorBound = actorBinding.status === "bound";
+    if (actorBound) input.onIdentityVerified?.();
 
     let receipt = input.receipt;
     if (!receipt && input.transport) {
@@ -294,8 +295,23 @@ export class CampusMapPublishReceiptConsumer {
         return { status: "recoverable", reason: "identity-mismatch" };
       }
       if (reconciliation.value.status === "committed") {
+        if (!actorBound) {
+          const recoveredBinding = await this.ensureActorBinding(
+            identity,
+            actorIdentity.value.actorId,
+            true,
+          );
+          if (recoveredBinding.status === "recoverable") {
+            return recoveredBinding;
+          }
+          actorBound = true;
+          input.onIdentityVerified?.();
+        }
         receipt = reconciliation.value.receipt;
       } else {
+        if (!actorBound) {
+          return { status: "recoverable", reason: "identity-unavailable" };
+        }
         const retry = await this.bounded(
           this.dependencies.retry(input.command, actorIdentity.value.actorId),
         );
@@ -326,22 +342,22 @@ export class CampusMapPublishReceiptConsumer {
     identity: string,
     actorId: string,
     canCreate: boolean,
-  ): Promise<Extract<
-    CampusMapPublishReceiptOutcome,
-    { status: "recoverable" }
-  > | null> {
+  ): Promise<
+    | { status: "bound" | "unbound" }
+    | Extract<CampusMapPublishReceiptOutcome, { status: "recoverable" }>
+  > {
     try {
       return await this.dependencies.withLock(identity, async () => {
         const boundActor = this.dependencies.readActorBinding(identity);
         if (boundActor && boundActor !== actorId) {
           return { status: "recoverable", reason: "identity-mismatch" };
         }
-        if (boundActor) return null;
+        if (boundActor) return { status: "bound" } as const;
         if (!canCreate) {
-          return { status: "recoverable", reason: "identity-unavailable" };
+          return { status: "unbound" } as const;
         }
         return this.dependencies.bindActor(identity, actorId)
-          ? null
+          ? ({ status: "bound" } as const)
           : {
               status: "recoverable",
               reason: "receipt-state-unavailable",

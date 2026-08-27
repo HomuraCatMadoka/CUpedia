@@ -204,9 +204,29 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
     ).resolves.toMatchObject({ status: "applied", receipt });
   });
 
-  it("does not reconcile or retry a remount whose actor binding is missing", async () => {
+  it("recovers a committed remount whose browser actor binding is missing", async () => {
     const { consumer, dependencies } = harness({
       readActorBinding: vi.fn(() => null),
+    });
+
+    await expect(
+      consumer.consume({ command, intentToken: 3 }),
+    ).resolves.toEqual({ status: "applied", receipt });
+    expect(dependencies.reconcile).toHaveBeenCalledWith({
+      idempotencyKey: command.idempotencyKey,
+      actorId: "50000000-0000-4000-8000-000000000001",
+    });
+    expect(dependencies.bindActor).toHaveBeenCalledWith(
+      command.idempotencyKey,
+      "50000000-0000-4000-8000-000000000001",
+    );
+    expect(dependencies.retry).not.toHaveBeenCalled();
+  });
+
+  it("does not retry an uncommitted remount whose actor binding is missing", async () => {
+    const { consumer, dependencies } = harness({
+      readActorBinding: vi.fn(() => null),
+      reconcile: vi.fn(async () => ({ status: "not-committed" }) as const),
     });
 
     await expect(
@@ -215,7 +235,7 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
       status: "recoverable",
       reason: "identity-unavailable",
     });
-    expect(dependencies.reconcile).not.toHaveBeenCalled();
+    expect(dependencies.bindActor).not.toHaveBeenCalled();
     expect(dependencies.retry).not.toHaveBeenCalled();
   });
 
