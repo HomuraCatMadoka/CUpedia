@@ -41,11 +41,56 @@ report must be reviewed again.
 2. Capture a Supabase backup/PITR restore point.
 3. Run the production dry-run and attach its full output and fingerprint to
    #785. Confirm every survivor is the earliest `created_at` row.
-4. In one reviewed production change, set
-   `site_settings.canteen_menu_identity_evolution` to `enabled`.
+4. Enable the rollout only with the exact reviewed fingerprint:
+
+   ```bash
+   pnpm canteen:identity-enable -- \
+     --expected-fingerprint <reviewed-sha256> \
+     --confirm-enable
+   ```
+
+   The command takes row locks on every enabled source, refuses to run while a
+   live sync claim exists, recomputes the dry-run in the same serializable
+   transaction, and changes `site_settings.canteen_menu_identity_evolution`
+   only when the fingerprint is unchanged.
+
 5. Trigger one menu drain. Stop if any source returns a new safety error.
-6. Run the #785 invariants and a second dry-run. The second report must contain
-   zero merge groups.
+6. Run the #785 invariants and a second dry-run:
+
+   ```bash
+   pnpm canteen:menu-invariants -- --strict
+   pnpm canteen:identity-dry-run
+   ```
+
+   The second dry-run must contain zero merge groups. The invariant report must
+   have `ok: true`; for each enabled source it reports configured-period
+   freshness, snapshot-union/active/inactive counts, ambiguous or unmapped
+   provider IDs, duplicate active normalized names, configuration-out periods,
+   projection drift, source errors and live claims. Its top-level history totals
+   let the reviewer compare menu-item, comment, vote and transition counts with
+   the reviewed pre-activation plan.
+
+## Acceptance sequence
+
+1. Save the pre-activation dry-run JSON and invariant JSON on #785, together
+   with the backup/PITR evidence and exact application commit.
+2. Record the pre-activation total rows for menu items, comments, votes and
+   identity transitions. The dry-run already states expected retired UUIDs,
+   comment moves and vote deletions/moves.
+3. After activation and one successful drain, require:
+   - snapshot canonical union and public active UUIDs have no difference;
+   - every snapshot product ID has exactly one canonical target;
+   - no active normalized-name duplicate or configuration-out meal period;
+   - the second identity dry-run has zero groups;
+   - retired UUID rows remain present and inactive;
+   - comment totals are unchanged, and vote totals changed only by the reviewed
+     duplicate-vote deletion count;
+   - identity-transition rows explain every retired UUID.
+4. Check Cafe Tolo has no breakfast authority and inspect PINME `5203` and
+   iCHEF `UQftKWxU` by normalized name, not price or provider product ID.
+5. Repeat the strict invariant report after the next normal breakfast, lunch
+   and dinner windows. The public page must show the selected period's latest
+   successful time and warn when that HKT date is yesterday or older.
 
 ## Rollback and containment
 

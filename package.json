@@ -10,6 +10,8 @@
     "bootstrap": "tsx scripts/setup.ts",
     "db:migrate:deploy": "node --import tsx scripts/run-db-migrations.ts",
     "canteen:identity-dry-run": "node --import tsx scripts/canteen-menu-identity-dry-run.ts",
+    "canteen:identity-enable": "node --import tsx scripts/enable-canteen-menu-identity-evolution.ts",
+    "canteen:menu-invariants": "node --import tsx scripts/report-canteen-menu-invariants.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
