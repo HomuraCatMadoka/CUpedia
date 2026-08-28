@@ -20,6 +20,7 @@ import {
   courseRatings,
   courseReviews,
   courses,
+  professorPortraitAssets,
   staffAliases,
   staffOrganisationAffiliations,
   staffOrganisations,
@@ -33,11 +34,14 @@ import {
 } from "@/lib/professor-course-evidence";
 import {
   selectProfessorDepartmentSource,
-  selectProfessorImages,
   selectProfessorProfile,
   type ProfessorAppointmentKind,
   type ProfessorCardSource,
 } from "@/lib/professor-card-source";
+import {
+  toProfessorPortrait,
+  type ProfessorPortrait,
+} from "@/lib/professor-portrait-assets";
 import {
   rankProfessorCandidates,
   searchProfessorCandidates,
@@ -101,7 +105,7 @@ export type ProfessorDirectoryItem = {
   title: string | null;
   faculty: string | null;
   department: string | null;
-  imageUrls: string[];
+  portrait: ProfessorPortrait | null;
   profile: { kind: "department" | "research_portal"; url: string } | null;
   rating: number | null;
   ratingCount: number;
@@ -310,7 +314,7 @@ async function hydrateDirectoryItems(
 ): Promise<ProfessorDirectoryItem[]> {
   if (!corpus.length) return [];
   const personIds = corpus.map((item) => item.id);
-  const [sources, rows] = await Promise.all([
+  const [sources, rows, portraitAssets] = await Promise.all([
     db
       .select()
       .from(staffPersonSources)
@@ -327,14 +331,22 @@ async function hydrateDirectoryItems(
       })
       .from(staffPeople)
       .where(inArray(staffPeople.id, personIds)),
+    db
+      .select()
+      .from(professorPortraitAssets)
+      .where(inArray(professorPortraitAssets.personId, personIds)),
   ]);
   const sourceByPerson = groupSources(sources);
   const statsByPerson = new Map(rows.map((row) => [row.personId, row]));
+  const portraitsByPerson = new Map(
+    portraitAssets.map((asset) => [asset.personId, asset]),
+  );
 
   return corpus.map((item) => {
     const personSources = sourceByPerson.get(item.id) ?? [];
     const selected = selectProfessorDepartmentSource(personSources);
     const stats = statsByPerson.get(item.id);
+    const asset = portraitsByPerson.get(item.id);
     return {
       publicId: item.publicId,
       personId: item.id,
@@ -342,10 +354,7 @@ async function hydrateDirectoryItems(
       title: selected?.roleLabel ?? null,
       faculty: item.faculty,
       department: item.description,
-      imageUrls: selectProfessorImages(
-        personSources,
-        `/api/professor-portraits/${item.publicId}`,
-      ),
+      portrait: asset ? toProfessorPortrait(asset) : null,
       profile: selectProfessorProfile(
         stats?.researchPortalUrl ?? null,
         personSources,

@@ -74,7 +74,9 @@ describe("Supabase canteen menu scheduler migration #757", () => {
       "BEFORE INSERT OR UPDATE OF active",
     );
     expect(
-      migrationJournal.entries.slice(-5).map(({ idx, tag }) => ({ idx, tag })),
+      migrationJournal.entries
+        .filter(({ idx }) => idx >= 94 && idx <= 98)
+        .map(({ idx, tag }) => ({ idx, tag })),
     ).toEqual([
       { idx: 94, tag: "0094_supabase-canteen-menu-sync-cron" },
       { idx: 95, tag: "0095_harden-supabase-canteen-menu-sync-cron" },

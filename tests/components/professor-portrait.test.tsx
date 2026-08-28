@@ -2,52 +2,33 @@
  * @vitest-environment jsdom
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import type { ComponentProps } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { ProfessorPortrait } from "@/components/professors/professor-portrait";
 
-vi.mock("next/image", () => ({
-  default: ({
-    fill,
-    priority,
-    alt,
-    ...props
-  }: ComponentProps<"img"> & { fill?: boolean; priority?: boolean }) => (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      {...props}
-      alt={alt ?? ""}
-      data-fill={fill || undefined}
-      data-priority={priority || undefined}
-    />
-  ),
-}));
-
 afterEach(cleanup);
 
+const portrait = {
+  src256: "https://assets.example/professor-256.webp",
+  src384: "https://assets.example/professor-384.webp",
+  width256: 256,
+  height256: 256,
+  width384: 384,
+  height384: 384,
+};
+
 describe("ProfessorPortrait", () => {
-  it("tries the next official portrait before showing initials", () => {
-    render(
-      <ProfessorPortrait
-        imageUrls={[
-          "https://department.example/photo.jpg",
-          "/api/professor-portraits/person-id",
-          "https://portal.example/photo.jpg",
-        ]}
-        name="Dr. SUN Li"
-      />,
-    );
+  it("renders an owned responsive asset without the Next.js image endpoint", () => {
+    render(<ProfessorPortrait portrait={portrait} name="Dr. SUN Li" />);
 
-    fireEvent.error(screen.getByAltText("Dr. Sun Li 的官方头像"));
-    expect(
-      screen.getByAltText("Dr. Sun Li 的官方头像").getAttribute("src"),
-    ).toBe("/api/professor-portraits/person-id");
+    const image = screen.getByAltText("Dr. Sun Li 的官方头像");
+    expect(image.getAttribute("src")).toBe(portrait.src256);
+    expect(image.getAttribute("srcset")).toContain(portrait.src384);
+    expect(image.getAttribute("src")).not.toContain("/_next/image");
+  });
 
-    fireEvent.error(screen.getByAltText("Dr. Sun Li 的官方头像"));
-    expect(
-      screen.getByAltText("Dr. Sun Li 的官方头像").getAttribute("src"),
-    ).toBe("https://portal.example/photo.jpg");
+  it("shows initials when the owned asset cannot load", () => {
+    render(<ProfessorPortrait portrait={portrait} name="Dr. SUN Li" />);
 
     fireEvent.error(screen.getByAltText("Dr. Sun Li 的官方头像"));
     expect(
@@ -56,7 +37,7 @@ describe("ProfessorPortrait", () => {
   });
 
   it("shows initials that exclude the title and title-case the family name", () => {
-    render(<ProfessorPortrait imageUrls={[]} name="Professor CHAN Tai Man" />);
+    render(<ProfessorPortrait portrait={null} name="Professor CHAN Tai Man" />);
 
     expect(screen.getByText("CT")).toBeTruthy();
     expect(screen.queryByText("PC")).toBeNull();

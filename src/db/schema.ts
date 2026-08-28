@@ -1106,6 +1106,41 @@ export const staffPersonSources = pgTable(
   ],
 ).enableRLS();
 
+export const professorPortraitAssets = pgTable(
+  "professor_portrait_assets",
+  {
+    personId: text("person_id")
+      .primaryKey()
+      .references(() => staffPeople.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("pending"),
+    attemptedSourceFingerprint: text("attempted_source_fingerprint").notNull(),
+    sourceFingerprint: text("source_fingerprint"),
+    materializedSourceUrl: text("materialized_source_url"),
+    sourceEtag: text("source_etag"),
+    sourceLastModified: text("source_last_modified"),
+    contentHash: text("content_hash"),
+    webp256Key: text("webp_256_key"),
+    webp384Key: text("webp_384_key"),
+    width256: integer("width_256"),
+    height256: integer("height_256"),
+    width384: integer("width_384"),
+    height384: integer("height_384"),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    materializedAt: timestamp("materialized_at", { withTimezone: true }),
+    errorCode: text("error_code"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("professor_portrait_assets_status_idx").on(table.status),
+    check(
+      "professor_portrait_assets_status_check",
+      sql`${table.status} in ('pending', 'ready', 'failed')`,
+    ),
+  ],
+).enableRLS();
+
 export const staffDepartments = pgTable("staff_departments", {
   id: text("id").primaryKey(),
   faculty: text("faculty").notNull(),

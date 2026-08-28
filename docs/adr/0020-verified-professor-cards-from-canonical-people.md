@@ -1,6 +1,6 @@
 # ADR 0020：教授卡片复用 canonical person，并优先院系主页
 
-状态：Accepted
+状态：Partially superseded by ADR 0033（仅头像存储与交付方式）
 
 ## 决议
 

@@ -117,10 +117,7 @@ export default function ProfessorCardMockupPage() {
 
         <section className="mt-6 overflow-hidden rounded-xl border bg-card">
           <div className="grid gap-6 p-5 sm:grid-cols-[128px_1fr] sm:p-7">
-            <ProfessorPortrait
-              imageUrls={[professor.imageUrl]}
-              name={professor.name}
-            />
+            <ProfessorPortrait portrait={null} name={professor.name} />
 
             <div className="min-w-0">
               <h1 className="text-3xl font-semibold tracking-[-0.035em] text-balance sm:text-4xl">

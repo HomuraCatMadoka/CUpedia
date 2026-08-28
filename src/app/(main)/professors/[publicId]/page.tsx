@@ -67,7 +67,7 @@ export default async function ProfessorDetailPage({
 
         <section className="mt-8 grid gap-6 border-b pb-8 sm:grid-cols-[144px_1fr_auto] sm:items-center">
           <ProfessorPortrait
-            imageUrls={professor.imageUrls}
+            portrait={professor.portrait}
             name={professor.name}
           />
           <div className="min-w-0">
