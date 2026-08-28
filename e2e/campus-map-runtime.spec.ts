@@ -719,6 +719,16 @@ test("#649 cards remain usable at 390x844, 720x844, and 1280x800", async ({
     expect(cardBox!.y + cardBox!.height).toBeLessThanOrEqual(viewport.height);
     if (viewport.width >= 768) {
       expect(cardBox!.height).toBeLessThanOrEqual(520);
+      const searchBox = await page
+        .getByRole("textbox", { name: "搜索建筑或地点" })
+        .boundingBox();
+      const filterBox = await page
+        .getByRole("navigation", { name: "设施筛选" })
+        .boundingBox();
+      expect(searchBox).not.toBeNull();
+      expect(filterBox).not.toBeNull();
+      expect(searchBox!.x + searchBox!.width).toBeLessThanOrEqual(cardBox!.x);
+      expect(filterBox!.x + filterBox!.width).toBeLessThanOrEqual(cardBox!.x);
     } else {
       expect(cardBox!.height).toBeLessThanOrEqual(260);
       const buildingCta = card.getByRole("button", {
@@ -733,6 +743,10 @@ test("#649 cards remain usable at 390x844, 720x844, and 1280x800", async ({
       await expect(buildingCta.locator("..")).toHaveCSS(
         "padding-bottom",
         "32px",
+      );
+      await expect(buildingCta.locator("..")).toHaveCSS(
+        "margin-bottom",
+        "56px",
       );
     }
     expect(

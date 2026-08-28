@@ -2183,6 +2183,13 @@ export function CampusMapRuntime({
           : state.sheet.snap === "full"
             ? "72dvh"
             : "var(--campus-map-peek-height)";
+  const desktopSidePanelVisible = Boolean(
+    editSession ||
+    activeProviderTargetError ||
+    selectedBuilding ||
+    selectedFacility ||
+    activeAmenity,
+  );
 
   return (
     <main
@@ -2192,6 +2199,7 @@ export function CampusMapRuntime({
           "--campus-map-placement-anchor-y": `${MOBILE_PLACEMENT_ANCHOR_RATIO * 100}dvh`,
           "--campus-map-edit-sheet-height": "65dvh",
           "--campus-map-peek-height": "min(248px, 36dvh)",
+          "--campus-map-provider-control-clearance": "3.5rem",
           "--campus-map-safe-area-bottom": "env(safe-area-inset-bottom)",
         } as CSSProperties
       }
@@ -2267,6 +2275,7 @@ export function CampusMapRuntime({
         inert={editSession ? true : undefined}
         className={cn(
           "pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start gap-2 p-3 transition-opacity motion-reduce:transition-none md:p-4",
+          desktopSidePanelVisible && "md:right-[422px]",
           chromeHidden && "invisible pointer-events-none opacity-0",
           !editSession &&
             state.selection.kind !== "none" &&
@@ -2376,6 +2385,7 @@ export function CampusMapRuntime({
         inert={editSession ? true : undefined}
         className={cn(
           "pointer-events-none absolute inset-x-0 top-[68px] z-20 overflow-hidden px-3 transition-opacity motion-reduce:transition-none md:top-[76px] md:flex md:justify-center",
+          desktopSidePanelVisible && "md:right-[422px]",
           chromeHidden && "invisible pointer-events-none opacity-0",
           !editSession &&
             state.selection.kind !== "none" &&
@@ -2618,7 +2628,7 @@ export function CampusMapRuntime({
                   : "地图标记正在加载"}
               </p>
             ) : null}
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:pb-5">
+            <div className="mb-[var(--campus-map-provider-control-clearance)] min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:mb-0 md:pb-5">
               {(state.sheet.snap === "full"
                 ? categoryFacilities
                 : categoryFacilities.slice(0, 3)
@@ -2746,7 +2756,7 @@ export function CampusMapRuntime({
             </div>
 
             {selectedFacility ? (
-              <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:pb-5">
+              <div className="mb-[var(--campus-map-provider-control-clearance)] min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:mb-0 md:pb-5">
                 <div className="flex flex-wrap gap-2 pt-4">
                   <span className="rounded-lg bg-[#e7f1ec] px-2.5 py-1.5 text-sm font-medium text-[#174b38]">
                     {amenityStyle(selectedFacility.pinType).label}
@@ -2843,7 +2853,7 @@ export function CampusMapRuntime({
                     </button>
                   ))}
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-[max(1rem,var(--campus-map-safe-area-bottom))] md:p-5">
+                <div className="mb-[var(--campus-map-provider-control-clearance)] min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-[max(1rem,var(--campus-map-safe-area-bottom))] md:mb-0 md:p-5">
                   {state.sheet.snap !== "full" &&
                   selectedBuilding.placeIds.length > 0 ? (
                     <button
