@@ -62,6 +62,23 @@ export async function uploadAsset(
   return { key, url: `/api/wiki-assets/${key}` };
 }
 
+export async function putPublicObject(
+  key: string,
+  body: Buffer,
+  contentType: string,
+  cacheControl: string,
+): Promise<void> {
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+      CacheControl: cacheControl,
+    }),
+  );
+}
+
 export async function getObject(key: string) {
   return s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
 }

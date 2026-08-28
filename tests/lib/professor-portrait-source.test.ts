@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isAllowedProfessorPortraitUrl } from "@/lib/professor-portrait-source";
+import { isAllowedProfessorPortraitUrl } from "@/lib/professor-portrait-assets";
 
 describe("isAllowedProfessorPortraitUrl", () => {
   it("allows HTTPS CUHK and configured WordPress CDN images only", () => {

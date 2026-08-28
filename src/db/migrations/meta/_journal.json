@@ -694,6 +694,13 @@
       "when": 1787818572345,
       "tag": "0098_canteen-menu-identity-evolution",
       "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1787888844946,
+      "tag": "0099_professor-portrait-assets",
+      "breakpoints": true
     }
   ]
 }

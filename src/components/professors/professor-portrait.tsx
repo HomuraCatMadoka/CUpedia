@@ -1,27 +1,27 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 
 import {
   formatProfessorNameText,
   getProfessorInitials,
 } from "@/lib/professor-name-format";
+import type { ProfessorPortrait as ProfessorPortraitAsset } from "@/lib/professor-portrait-assets";
 
 /** 教授头像：优先展示官方照片，加载失败回退到占位首字母（不含职称）。 */
 export function ProfessorPortrait({
-  imageUrls,
+  portrait,
   name,
   variant = "portrait",
 }: {
-  imageUrls: readonly string[];
+  portrait: ProfessorPortraitAsset | null;
   name: string;
   variant?: "portrait" | "icon" | "directory";
 }) {
-  const [failedUrls, setFailedUrls] = useState<Set<string>>(() => new Set());
-  const imageUrl = imageUrls.find((url) => !failedUrls.has(url)) ?? null;
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const displayName = formatProfessorNameText(name);
   const initials = getProfessorInitials(name);
+  const failed = portrait !== null && failedSrc === portrait.src256;
 
   return (
     <div
@@ -33,7 +33,7 @@ export function ProfessorPortrait({
             : "relative aspect-[4/5] w-32 overflow-hidden rounded-xl bg-secondary sm:w-36"
       }
     >
-      {!imageUrl ? (
+      {!portrait || failed ? (
         <div
           role="img"
           aria-label={`${displayName} 的头像占位`}
@@ -42,11 +42,17 @@ export function ProfessorPortrait({
           {initials}
         </div>
       ) : (
-        <Image
-          src={imageUrl}
+        // These immutable WebP files are already resized in our object storage.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={portrait.src256}
+          srcSet={`${portrait.src256} 256w, ${portrait.src384} 384w`}
           alt={`${displayName} 的官方头像`}
-          fill
-          priority={variant === "portrait"}
+          width={portrait.width256}
+          height={portrait.height256}
+          loading={variant === "portrait" ? "eager" : "lazy"}
+          fetchPriority={variant === "portrait" ? "high" : "auto"}
+          decoding="async"
           sizes={
             variant === "icon"
               ? "56px"
@@ -54,11 +60,8 @@ export function ProfessorPortrait({
                 ? "(min-width: 640px) 128px, 80px"
                 : "(min-width: 640px) 144px, 128px"
           }
-          referrerPolicy="no-referrer"
-          onError={() =>
-            setFailedUrls((current) => new Set(current).add(imageUrl))
-          }
-          className="object-cover grayscale-[15%]"
+          onError={() => setFailedSrc(portrait.src256)}
+          className="size-full object-cover grayscale-[15%]"
         />
       )}
     </div>

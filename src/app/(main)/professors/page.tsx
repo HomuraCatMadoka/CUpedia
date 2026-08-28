@@ -144,7 +144,7 @@ export default async function ProfessorsPage({
                 >
                   <ProfessorPortrait
                     variant="directory"
-                    imageUrls={professor.imageUrls}
+                    portrait={professor.portrait}
                     name={professor.name}
                   />
                   <div className="mt-3 min-w-0 max-w-full sm:mt-4">
