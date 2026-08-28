@@ -1,9 +1,11 @@
 import { config } from "dotenv";
+import { pathToFileURL } from "node:url";
 
 import type {
   ProfessorAppointmentKind,
   ProfessorCardSource,
 } from "@/lib/professor-card-source";
+import { selectProfessorPortraitCandidates } from "@/lib/professor-portrait-assets";
 
 config({ path: ".env.local" });
 config({ path: ".env" });
@@ -56,6 +58,21 @@ async function runPool<T>(
   );
 }
 
+export function selectProfessorPortraitBackfillPeople<
+  T extends { personId: string },
+>(
+  people: T[],
+  sourcesByPerson: ReadonlyMap<string, ProfessorCardSource[]>,
+  limit: number | null,
+): T[] {
+  const eligible = people.filter(
+    ({ personId }) =>
+      selectProfessorPortraitCandidates(sourcesByPerson.get(personId) ?? [])
+        .length > 0,
+  );
+  return limit === null ? eligible : eligible.slice(0, limit);
+}
+
 async function main() {
   const options = readOptions(process.argv.slice(2));
   const [{ and, eq, inArray }, { db }, schema, assets] = await Promise.all([
@@ -84,28 +101,21 @@ async function main() {
       ),
     )
     .orderBy(courseInstructors.personId);
-  if (options.limit !== null) people = people.slice(0, options.limit);
-  const personIds = people.map((person) => person.personId);
-  if (personIds.length === 0) {
+  const allPersonIds = people.map((person) => person.personId);
+  if (allPersonIds.length === 0) {
     console.log("No matching professors.");
     return;
   }
 
-  const [sourceRows, existingRows] = await Promise.all([
-    db
-      .select()
-      .from(staffPersonSources)
-      .where(
-        and(
-          inArray(staffPersonSources.personId, personIds),
-          eq(staffPersonSources.isCurrent, true),
-        ),
+  const sourceRows = await db
+    .select()
+    .from(staffPersonSources)
+    .where(
+      and(
+        inArray(staffPersonSources.personId, allPersonIds),
+        eq(staffPersonSources.isCurrent, true),
       ),
-    db
-      .select()
-      .from(professorPortraitAssets)
-      .where(inArray(professorPortraitAssets.personId, personIds)),
-  ]);
+    );
   const sourcesByPerson = new Map<string, ProfessorCardSource[]>();
   for (const source of sourceRows) {
     const rows = sourcesByPerson.get(source.personId) ?? [];
@@ -121,6 +131,20 @@ async function main() {
     });
     sourcesByPerson.set(source.personId, rows);
   }
+  people = selectProfessorPortraitBackfillPeople(
+    people,
+    sourcesByPerson,
+    options.limit,
+  );
+  const personIds = people.map((person) => person.personId);
+  if (personIds.length === 0) {
+    console.log("No matching professors with portrait sources.");
+    return;
+  }
+  const existingRows = await db
+    .select()
+    .from(professorPortraitAssets)
+    .where(inArray(professorPortraitAssets.personId, personIds));
   const existingByPerson = new Map(
     existingRows.map((row) => [row.personId, row]),
   );
@@ -244,7 +268,9 @@ async function main() {
   if (counts.failed > 0) process.exitCode = 1;
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}
