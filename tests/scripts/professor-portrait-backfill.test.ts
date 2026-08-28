@@ -1,9 +1,13 @@
 import { readFileSync } from "node:fs";
+import { X509Certificate } from "node:crypto";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
-import { buildProfessorPortraitBackfillArgs } from "../../scripts/run-professor-portrait-backfill.mjs";
+import {
+  buildProfessorPortraitBackfillArgs,
+  normalizeProfessorPortraitDatabaseUrl,
+} from "../../scripts/run-professor-portrait-backfill.mjs";
 
 const workflowText = readFileSync(
   resolve(process.cwd(), ".github/workflows/professor-portrait-backfill.yml"),
@@ -59,10 +63,14 @@ describe("production professor portrait backfill workflow (ref #800)", () => {
       BACKFILL_LIMIT: "${{ inputs.limit }}",
       BACKFILL_CONCURRENCY: "${{ inputs.concurrency }}",
       DATABASE_URL: "${{ secrets.DATABASE_URL }}",
+      NODE_EXTRA_CA_CERTS:
+        "${{ github.workspace }}/certs/supabase-prod-ca-2021.crt",
     });
     expect(writeRun?.if).toBe("inputs.mode != 'dry-run'");
     expect(writeRun?.env).toMatchObject({
       DATABASE_URL: "${{ secrets.DATABASE_URL }}",
+      NODE_EXTRA_CA_CERTS:
+        "${{ github.workspace }}/certs/supabase-prod-ca-2021.crt",
       MINIO_ENDPOINT: "${{ secrets.MINIO_ENDPOINT }}",
       MINIO_REGION: "${{ secrets.MINIO_REGION }}",
       MINIO_ACCESS_KEY: "${{ secrets.MINIO_ACCESS_KEY }}",
@@ -71,6 +79,20 @@ describe("production professor portrait backfill workflow (ref #800)", () => {
       MINIO_PUBLIC_URL: "${{ secrets.MINIO_PUBLIC_URL }}",
     });
     expect(workflowText).not.toContain("schedule:");
+  });
+
+  it("trusts the pinned Supabase root CA for strict TLS verification", () => {
+    const certificate = new X509Certificate(
+      readFileSync(
+        resolve(process.cwd(), "certs/supabase-prod-ca-2021.crt"),
+        "utf8",
+      ),
+    );
+
+    expect(certificate.subject).toContain("CN=Supabase Root 2021 CA");
+    expect(certificate.fingerprint256).toBe(
+      "80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA",
+    );
   });
 
   it("routes execution through the validated runner", () => {
@@ -99,6 +121,21 @@ describe("production professor portrait backfill workflow (ref #800)", () => {
 });
 
 describe("professor portrait backfill arguments", () => {
+  it("pins Supabase pooler connections to strict TLS verification", () => {
+    expect(
+      normalizeProfessorPortraitDatabaseUrl(
+        "postgresql://postgres.example:secret@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require",
+      ),
+    ).toBe(
+      "postgresql://postgres.example:secret@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=verify-full",
+    );
+    expect(
+      normalizeProfessorPortraitDatabaseUrl(
+        "postgresql://postgres:postgres@localhost:5432/cupedia",
+      ),
+    ).toBe("postgresql://postgres:postgres@localhost:5432/cupedia");
+  });
+
   it("keeps dry-runs and canaries bounded", () => {
     expect(
       buildProfessorPortraitBackfillArgs({

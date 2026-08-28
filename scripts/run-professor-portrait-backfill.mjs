@@ -4,6 +4,15 @@ import { pathToFileURL } from "node:url";
 const MODES = new Set(["dry-run", "canary", "full"]);
 const CONCURRENCY = new Set(["1", "2", "4", "6"]);
 
+export function normalizeProfessorPortraitDatabaseUrl(value) {
+  if (!value) return value;
+  const url = new URL(value);
+  if (url.hostname.endsWith(".pooler.supabase.com")) {
+    url.searchParams.set("sslmode", "verify-full");
+  }
+  return url.toString();
+}
+
 export function buildProfessorPortraitBackfillArgs(input) {
   const mode = input.mode ?? "dry-run";
   const limit = input.limit ?? "10";
@@ -37,7 +46,10 @@ export function main(env = process.env) {
     concurrency: env.BACKFILL_CONCURRENCY,
   });
   const result = spawnSync("pnpm", args, {
-    env,
+    env: {
+      ...env,
+      DATABASE_URL: normalizeProfessorPortraitDatabaseUrl(env.DATABASE_URL),
+    },
     stdio: "inherit",
   });
   if (result.error) throw result.error;
