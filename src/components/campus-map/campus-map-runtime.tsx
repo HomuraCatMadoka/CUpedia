@@ -2208,7 +2208,7 @@ export function CampusMapRuntime({
       <p className="sr-only" aria-live="polite">
         {visiblePublishNotice ? null : editAnnouncement || editRestoreNotice}
       </p>
-      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-layer{clip-path:inset(0 0 ${mobileMapOcclusion} 0)!important}.amap-logo,.amap-copyright{bottom:calc(${mobileMapOcclusion} + 4px)!important}}`}</style>
+      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:calc(${mobileMapOcclusion} + 4px)!important}}`}</style>
       <div className="absolute inset-0">
         <div
           id="amap-campus-canvas"
