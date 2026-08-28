@@ -295,6 +295,20 @@ describe("Campus Map AMap runtime effects", () => {
     expect(document.querySelector("script[data-amap-campus]")).toBeNull();
   });
 
+  it("clips the provider canvas above a compact mobile card", async () => {
+    await renderWithRuntime({
+      initialSearch: "?v=1&scene=building&id=science-centre&snap=peek",
+    });
+
+    expect(
+      [...document.querySelectorAll("style")].some((style) =>
+        style.textContent?.includes(
+          ".amap-layer{clip-path:inset(0 0 var(--campus-map-peek-height) 0)!important}",
+        ),
+      ),
+    ).toBe(true);
+  });
+
   it("uses the latest AMap center context while keeping provider data transient", async () => {
     const { runtime, map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));

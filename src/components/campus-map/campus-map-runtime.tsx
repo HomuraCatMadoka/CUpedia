@@ -2173,6 +2173,16 @@ export function CampusMapRuntime({
     !selectedFacility &&
     selectedBuilding.placeIds.length === 0,
   );
+  const mobileMapOcclusion =
+    editSession?.status === "placing"
+      ? "48dvh"
+      : editSession
+        ? "var(--campus-map-edit-sheet-height)"
+        : state.selection.kind === "none" && !activeAmenity
+          ? "0px"
+          : state.sheet.snap === "full"
+            ? "72dvh"
+            : "var(--campus-map-peek-height)";
 
   return (
     <main
@@ -2198,7 +2208,7 @@ export function CampusMapRuntime({
       <p className="sr-only" aria-live="polite">
         {visiblePublishNotice ? null : editAnnouncement || editRestoreNotice}
       </p>
-      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${editSession?.status === "placing" ? "calc(48dvh + 4px)" : editSession ? "calc(var(--campus-map-edit-sheet-height) + 4px)" : state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "calc(var(--campus-map-peek-height) + 4px)"}!important}}`}</style>
+      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-layer{clip-path:inset(0 0 ${mobileMapOcclusion} 0)!important}.amap-logo,.amap-copyright{bottom:calc(${mobileMapOcclusion} + 4px)!important}}`}</style>
       <div className="absolute inset-0">
         <div
           id="amap-campus-canvas"
