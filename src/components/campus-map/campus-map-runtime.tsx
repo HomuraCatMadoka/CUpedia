@@ -2152,6 +2152,16 @@ export function CampusMapRuntime({
     : null;
   const categoryFacilities = categoryResults?.places ?? [];
   const categoryBuildingCount = categoryResults?.counts.buildings ?? 0;
+  const categoryOutdoorCount = categoryFacilities.filter(
+    (facility) => facility.location.kind === "outdoor-point",
+  ).length;
+  const categorySummary =
+    categoryOutdoorCount === categoryFacilities.length &&
+    categoryOutdoorCount > 0
+      ? `校园内已收录 ${categoryOutdoorCount} 个室外地点`
+      : categoryOutdoorCount > 0
+        ? `校园内已收录 ${categoryFacilities.length} 个地点：${categoryOutdoorCount} 个在室外，其余分布在 ${categoryBuildingCount} 栋建筑`
+        : `校园内已收录 ${categoryFacilities.length} 个地点，分布在 ${categoryBuildingCount} 栋建筑`;
   const activeCategoryStyle = activeAmenity
     ? amenityStyle(activeAmenity)
     : null;
@@ -2558,8 +2568,7 @@ export function CampusMapRuntime({
                   {activeCategoryStyle.label}
                 </h2>
                 <p className="mt-1 text-sm text-neutral-500">
-                  校园内已收录 {categoryFacilities.length} 个地点，分布在{" "}
-                  {categoryBuildingCount} 栋建筑
+                  {categorySummary}
                 </p>
               </div>
               <button

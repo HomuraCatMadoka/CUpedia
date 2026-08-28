@@ -131,11 +131,9 @@ export function decodeCampusMapHistoryMetadata(
   }
 }
 
-export function encodeCampusMapUrl(
-  session: CampusMapSession,
-  catalog: CampusMapSceneCatalog,
+function encodePersistableCampusMapUrl(
+  normalized: PersistableCampusMapSession,
 ) {
-  const normalized = normalizePersistentSession(session, catalog);
   const params = new URLSearchParams({
     v: String(CAMPUS_MAP_SCENE_CODEC_VERSION),
   });
@@ -187,6 +185,30 @@ export function encodeCampusMapUrl(
   params.set("id", scene.contentId);
   params.set("snap", scene.snap);
   return params;
+}
+
+export function encodeCampusMapUrl(
+  session: CampusMapSession,
+  catalog: CampusMapSceneCatalog,
+) {
+  return encodePersistableCampusMapUrl(
+    normalizePersistentSession(session, catalog),
+  );
+}
+
+export function encodeCampusMapFacilityHref(
+  facilityId: string,
+  snap: "peek" | "full" = "peek",
+) {
+  const session: PersistableCampusMapSession = isCanonicalCampusMapId(
+    facilityId,
+  )
+    ? {
+        mode: "browse",
+        scene: { kind: "facility", facilityId, snap },
+      }
+    : { mode: "browse", scene: { kind: "map" } };
+  return `/campus-map?${encodePersistableCampusMapUrl(session).toString()}`;
 }
 
 export function decodeCampusMapUrl(

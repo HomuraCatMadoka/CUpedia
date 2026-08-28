@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   decodeCampusMapUrl,
   decodeCampusMapHistoryMetadata,
+  encodeCampusMapFacilityHref,
   encodeCampusMapUrl,
   encodeCampusMapHistoryMetadata,
   normalizeCampusMapUrlSession,
@@ -49,6 +50,15 @@ const catalog: CampusMapSceneCatalog = {
 };
 
 describe("Campus Map versioned scene codec", () => {
+  it("owns canonical Place deep links used outside the runtime", () => {
+    expect(encodeCampusMapFacilityHref("courtyardWater", "peek")).toBe(
+      "/campus-map?v=1&scene=facility&id=courtyardWater&snap=peek",
+    );
+    expect(encodeCampusMapFacilityHref(" courtyardWater ", "full")).toBe(
+      "/campus-map?v=1",
+    );
+  });
+
   it("round-trips a canonical Map Note return context for refresh recovery", () => {
     const session: CampusMapSession = {
       mode: "task",

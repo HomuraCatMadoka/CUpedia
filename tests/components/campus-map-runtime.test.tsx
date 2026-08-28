@@ -313,6 +313,18 @@ function publishedOutdoorProjection(placeId: string) {
   return publishedOutdoorProjectionFor([{ id: placeId, name: "新发布饮水点" }]);
 }
 
+function mixedWaterProjection() {
+  const buildings = createCampusMapBrowseFixture();
+  const outdoor = publishedOutdoorProjection(
+    "30000000-0000-4000-8000-000000000021",
+  );
+  return {
+    ...buildings,
+    places: [...buildings.places, ...outdoor.places],
+    markers: [...buildings.markers, ...outdoor.markers],
+  };
+}
+
 describe("CampusMapRuntime", () => {
   it("rejects a malformed persisted publish receipt", () => {
     const idempotencyKey = "10000000-0000-4000-8000-000000000099";
@@ -1249,8 +1261,25 @@ describe("CampusMapRuntime", () => {
       />,
     );
 
+    expect(await screen.findByText("校园内已收录 1 个室外地点")).not.toBeNull();
+    expect(screen.queryByText(/0 栋建筑/)).toBeNull();
     expect(await screen.findByText("校内独立地点 · 室外位置")).not.toBeNull();
     expect(screen.queryByText("校内独立地点 · 建筑内")).toBeNull();
+  });
+
+  it("distinguishes outdoor Places from Building-contained category results", async () => {
+    render(
+      <CampusMapRuntime
+        initialSearch="?v=1&scene=category&id=water&snap=peek"
+        initialBrowseProjection={mixedWaterProjection()}
+      />,
+    );
+
+    expect(
+      await screen.findByText(
+        "校园内已收录 3 个地点：1 个在室外，其余分布在 2 栋建筑",
+      ),
+    ).not.toBeNull();
   });
 
   it("keeps the draft and does not publish when contributor setup is cancelled", async () => {

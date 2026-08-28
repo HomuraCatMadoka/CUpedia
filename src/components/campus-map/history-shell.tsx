@@ -8,6 +8,7 @@ import type {
   CampusMapPublicChangeset,
 } from "@/lib/campus-map/fact-store";
 import { CopyDeepLinkButton } from "@/components/campus-map/copy-deep-link-button";
+import { encodeCampusMapFacilityHref } from "@/lib/campus-map/scene-codec";
 
 const operationLabels = {
   create: "建立地点",
@@ -35,7 +36,7 @@ export function CampusMapHistoryPage({
   nextHref: string | null;
 }) {
   const name = head?.name ?? "地点";
-  const mapHref = `/campus-map?v=1&scene=facility&id=${encodeURIComponent(placeId)}&snap=peek`;
+  const mapHref = encodeCampusMapFacilityHref(placeId);
 
   return (
     <CampusMapReadShell
