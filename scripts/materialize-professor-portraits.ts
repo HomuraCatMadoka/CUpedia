@@ -58,14 +58,12 @@ async function runPool<T>(
 
 async function main() {
   const options = readOptions(process.argv.slice(2));
-  const [{ and, eq, inArray }, { db }, schema, assets, storage] =
-    await Promise.all([
-      import("drizzle-orm"),
-      import("@/db"),
-      import("@/db/schema"),
-      import("@/lib/professor-portrait-assets"),
-      import("@/lib/minio"),
-    ]);
+  const [{ and, eq, inArray }, { db }, schema, assets] = await Promise.all([
+    import("drizzle-orm"),
+    import("@/db"),
+    import("@/db/schema"),
+    import("@/lib/professor-portrait-assets"),
+  ]);
   const {
     courseInstructors,
     professorPortraitAssets,
@@ -156,6 +154,10 @@ async function main() {
     );
     return;
   }
+
+  // Dry-runs must remain database-only. Loading this module constructs the S3
+  // client, so defer it until the first operation that can write an object.
+  const storage = await import("@/lib/minio");
 
   await runPool(people, options.concurrency, async ({ personId }) => {
     const sources = sourcesByPerson.get(personId) ?? [];

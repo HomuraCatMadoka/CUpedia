@@ -1,0 +1,81 @@
+name: Production professor portrait backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Operation safety level
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - canary
+          - full
+      limit:
+        description: Dry-run size (canary is fixed at 10; ignored for full)
+        required: true
+        default: 10
+        type: number
+      concurrency:
+        description: Parallel portrait downloads
+        required: true
+        default: "2"
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "4"
+          - "6"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-professor-portrait-backfill
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    name: ${{ inputs.mode }} professor portraits
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run database-only dry-run
+        if: inputs.mode == 'dry-run'
+        env:
+          BACKFILL_MODE: ${{ inputs.mode }}
+          BACKFILL_LIMIT: ${{ inputs.limit }}
+          BACKFILL_CONCURRENCY: ${{ inputs.concurrency }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node scripts/run-professor-portrait-backfill.mjs
+
+      - name: Run production write backfill
+        if: inputs.mode != 'dry-run'
+        env:
+          BACKFILL_MODE: ${{ inputs.mode }}
+          BACKFILL_LIMIT: ${{ inputs.limit }}
+          BACKFILL_CONCURRENCY: ${{ inputs.concurrency }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_REGION: ${{ secrets.MINIO_REGION }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+          MINIO_BUCKET: ${{ secrets.MINIO_BUCKET }}
+          MINIO_PUBLIC_URL: ${{ secrets.MINIO_PUBLIC_URL }}
+        run: node scripts/run-professor-portrait-backfill.mjs
