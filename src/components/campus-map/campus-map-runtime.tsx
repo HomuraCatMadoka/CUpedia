@@ -2177,7 +2177,7 @@ export function CampusMapRuntime({
         </div>
       ) : null}
       <p className="sr-only" aria-live="polite">
-        {visiblePublishNotice?.message || editAnnouncement || editRestoreNotice}
+        {visiblePublishNotice ? null : editAnnouncement || editRestoreNotice}
       </p>
       <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${editSession?.status === "placing" ? "calc(48dvh + 4px)" : editSession ? "calc(var(--campus-map-edit-sheet-height) + 4px)" : state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}`}</style>
       <div className="absolute inset-0">
@@ -2273,7 +2273,7 @@ export function CampusMapRuntime({
               <button
                 type="button"
                 aria-label="清除搜索"
-                className="grid size-9 place-items-center rounded-full hover:bg-neutral-100"
+                className="grid size-11 place-items-center rounded-full hover:bg-neutral-100"
                 onClick={() => {
                   setQueryDraft("");
                   dispatch({ type: "SEARCH", query: "" });
@@ -2718,10 +2718,7 @@ export function CampusMapRuntime({
                     {amenityStyle(selectedFacility.pinType).label}
                   </span>
                   <span className="rounded-lg bg-[#e7f1ec] px-2.5 py-1.5 text-sm font-medium text-[#174b38]">
-                    {floorLabel(
-                      selectedFacility.floorId,
-                      selectedFacility.floorLabel,
-                    )}
+                    {placeLocationLabel(selectedFacility)}
                   </span>
                   <span className="rounded-lg bg-neutral-100 px-2.5 py-1.5 text-sm text-neutral-700">
                     {accessLabel(selectedFacility)}

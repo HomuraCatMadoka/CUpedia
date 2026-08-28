@@ -675,6 +675,14 @@ test("#649 cards remain usable at 390x844, 720x844, and 1280x800", async ({
     { width: 1280, height: 800 },
   ]) {
     await page.setViewportSize(viewport);
+    await page.goto("/campus-map");
+    await page.locator('input[placeholder="搜索建筑"]:visible').fill("正式");
+    const clearSearch = page.locator('button[aria-label="清除搜索"]:visible');
+    const clearSearchBox = await clearSearch.boundingBox();
+    expect(clearSearchBox).not.toBeNull();
+    expect(clearSearchBox!.width).toBeGreaterThanOrEqual(44);
+    expect(clearSearchBox!.height).toBeGreaterThanOrEqual(44);
+
     await page.goto(
       `/campus-map?v=1&scene=building&id=${browseIds.building}&snap=peek`,
     );

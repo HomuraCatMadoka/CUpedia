@@ -292,7 +292,10 @@ export class CampusMapSceneDriver {
       { type: "RESTORE", session: decoded.session },
       this.catalog,
     );
-    const restoreFocus = this.dismissFocus(result.session);
+    const restoreFocus = this.restoreFocus(
+      result.session,
+      result.commands.focus,
+    );
     const returnTo = this.returnTargetsByDepth.get(this.currentDepth) ?? null;
     this.commitTransition({
       session: result.session,
@@ -517,6 +520,29 @@ export class CampusMapSceneDriver {
     }
     const resolved = resolveCampusMapSessionSemantics(target, this.catalog);
     return resolved.status === "valid" ? resolved.focus : { kind: "map" };
+  }
+
+  private restoreFocus(
+    target: CampusMapSession,
+    fallback: CampusMapDriverFocusCommand | null,
+  ): CampusMapDriverFocusCommand | null {
+    const current = this.snapshot.session;
+    if (
+      current.mode !== "browse" ||
+      current.scene.kind !== "facility" ||
+      target.mode !== "browse"
+    ) {
+      return fallback;
+    }
+    const facility = this.catalog.facilities[current.scene.facilityId];
+    const triggerExists =
+      (target.scene.kind === "building" &&
+        facility?.buildingId === target.scene.buildingId) ||
+      (target.scene.kind === "category-results" &&
+        facility?.category === target.scene.category);
+    return triggerExists
+      ? { kind: "result", resultId: current.scene.facilityId }
+      : fallback;
   }
 
   private commitTransition({

@@ -433,6 +433,11 @@ describe("CampusMapRuntime", () => {
     expect(initialProjectionObserver).not.toHaveBeenCalled();
     await screen.findByRole("heading", { name: "新发布饮水点" });
     expect(screen.getByRole("status").textContent).toContain("地点已添加");
+    expect(
+      document.querySelector('[aria-live="polite"]')?.textContent,
+    ).not.toContain("地点已添加");
+    expect(screen.getAllByText("室外位置")).toHaveLength(2);
+    expect(screen.queryByText("建筑内")).toBeNull();
     expect(screen.queryByText("PUBLISHED")).toBeNull();
     expect(
       screen.queryByRole("link", { name: "查看此次 Changeset" }),
