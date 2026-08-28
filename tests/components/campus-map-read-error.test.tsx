@@ -37,8 +37,16 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "已合并地点的修订历史" }),
+      screen.getByRole("heading", { name: "已合并地点的编辑记录" }),
     ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "返回地图" }).getAttribute("href"),
+    ).toBe(
+      "/campus-map?v=1&scene=facility&id=00000000-0000-4000-8000-000000007192&snap=peek",
+    );
+    expect(
+      screen.getByRole("link", { name: "地点详情" }).getAttribute("href"),
+    ).toBe("/campus-map/places/00000000-0000-4000-8000-000000007192");
     expect(
       screen.getByRole("link", { name: "保留地点" }).getAttribute("href"),
     ).toBe(`/campus-map/places/${survivorId}`);
@@ -79,6 +87,10 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
     );
 
     expect(screen.getByText("建立饮水点")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "地点的编辑记录" }),
+    ).toBeTruthy();
+    expect(document.body.textContent).not.toContain("地点 00000000");
     expect(screen.getByText("来源摘要：现场观察")).toBeTruthy();
     expect(
       screen.getByText(

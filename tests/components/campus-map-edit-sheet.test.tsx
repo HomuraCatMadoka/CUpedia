@@ -601,13 +601,13 @@ describe("Campus Map single-page edit Sheet", () => {
     },
   );
 
-  it("shows only #719 Place, Changeset, and History links on the receipt", () => {
+  it("does not render the removed publish receipt page", () => {
     const session: CampusMapEditSession = {
       status: "published",
       draft: draft(),
       receipt: { placeId, revisionId, changesetId },
     };
-    render(
+    const { container } = render(
       <CampusMapEditSheet
         session={session}
         centerPosition={[114.2, 22.4]}
@@ -615,40 +615,9 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    expect(screen.getAllByRole("link").map((link) => link.textContent)).toEqual(
-      ["查看 Place", "查看此次 Changeset", "查看 History"],
-    );
-    expect(document.body.textContent).not.toMatch(
-      /discussion|Map Note|请求复核/i,
-    );
-  });
-
-  it("keeps a Map Note return target on the successful publish receipt", () => {
-    const session: CampusMapEditSession = {
-      status: "published",
-      draft: draft(),
-      receipt: { placeId, revisionId, changesetId },
-    };
-    render(
-      <CampusMapEditSheet
-        session={session}
-        centerPosition={[114.2, 22.4]}
-        returnContext={{
-          kind: "map-note",
-          noteId: "72000000-0000-4000-8000-000000000003",
-        }}
-        onEvent={vi.fn()}
-      />,
-    );
-
-    expect(
-      screen.getByRole("link", { name: "返回地图备注" }).getAttribute("href"),
-    ).toBe("/campus-map/notes/72000000-0000-4000-8000-000000000003");
-    expect(
-      screen
-        .getByRole("link", { name: "查看此次 Changeset" })
-        .getAttribute("href"),
-    ).toBe(`/campus-map/changesets/${changesetId}`);
+    expect(container.innerHTML).toBe("");
+    expect(screen.queryByText("PUBLISHED")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("renders only server-issued warning identity and a fresh acknowledgement action", () => {

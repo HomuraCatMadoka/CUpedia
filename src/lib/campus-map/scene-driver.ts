@@ -292,11 +292,12 @@ export class CampusMapSceneDriver {
       { type: "RESTORE", session: decoded.session },
       this.catalog,
     );
+    const restoreFocus = this.dismissFocus(result.session);
     const returnTo = this.returnTargetsByDepth.get(this.currentDepth) ?? null;
     this.commitTransition({
       session: result.session,
       returnTo,
-      commands: result.commands,
+      commands: { ...result.commands, focus: restoreFocus },
       syncSheet: true,
       incrementIntentVersion: pendingReturn === null,
     });

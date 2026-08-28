@@ -34,14 +34,21 @@ export function CampusMapHistoryPage({
   items: CampusMapPlaceHistoryItem[];
   nextHref: string | null;
 }) {
-  const name = head?.name ?? `地点 ${shortId(placeId)}`;
+  const name = head?.name ?? "地点";
+  const mapHref = `/campus-map?v=1&scene=facility&id=${encodeURIComponent(placeId)}&snap=peek`;
 
   return (
     <CampusMapReadShell
-      eyebrow="PLACE HISTORY"
-      title={`${name}的修订历史`}
-      description="每次公开修改都会保留为不可变修订。旧链接不会随名称或状态变化。"
-      actions={<CopyDeepLinkButton />}
+      eyebrow="校园地图"
+      title={`${name}的编辑记录`}
+      description="查看这个地点过去的公开修改。"
+      actions={
+        <div className="flex flex-wrap gap-2">
+          <ReadLink href={mapHref}>返回地图</ReadLink>
+          <ReadLink href={`/campus-map/places/${placeId}`}>地点详情</ReadLink>
+          <CopyDeepLinkButton />
+        </div>
+      }
     >
       {head?.status === "retired" ? (
         <Notice>这个地点已停用；过去的公开修订仍可读取。</Notice>

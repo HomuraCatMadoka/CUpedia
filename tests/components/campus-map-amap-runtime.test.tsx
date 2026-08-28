@@ -1614,9 +1614,7 @@ describe("Campus Map AMap runtime effects", () => {
   it("fits cluster members without selecting the first facility", async () => {
     const { runtime, map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByRole("heading", {
-      name: "2 栋建筑 · 2 个饮水点",
-    });
+    await screen.findByText("校园内已收录 2 个地点，分布在 2 栋建筑");
     await waitFor(() => {
       expect(
         runtime.clusters.some((cluster) => cluster.data.length === 2),
@@ -1638,11 +1636,7 @@ describe("Campus Map AMap runtime effects", () => {
     });
 
     expect(map.setBounds).toHaveBeenCalledTimes(1);
-    expect(
-      screen.getByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水点",
-      }),
-    ).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "饮水点" })).not.toBeNull();
     expect(window.location.search).not.toContain("scene=facility");
   });
 
@@ -1660,9 +1654,7 @@ describe("Campus Map AMap runtime effects", () => {
 
     const { runtime, map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByRole("heading", {
-      name: "2 栋建筑 · 3 个饮水点",
-    });
+    await screen.findByText("校园内已收录 3 个地点，分布在 2 栋建筑");
 
     const cluster = await waitFor(() => {
       const match = runtime.clusters.findLast(
@@ -1690,9 +1682,7 @@ describe("Campus Map AMap runtime effects", () => {
     });
     expect(map.setBounds).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
-    expect(
-      screen.getByRole("heading", { name: "2 栋建筑 · 3 个饮水点" }),
-    ).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "饮水点" })).not.toBeNull();
   });
 
   it("renders one interactive Building presence for co-located Places", async () => {
@@ -1710,9 +1700,7 @@ describe("Campus Map AMap runtime effects", () => {
 
     const { runtime } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByRole("heading", {
-      name: "2 栋建筑 · 3 个饮水点",
-    });
+    await screen.findByText("校园内已收录 3 个地点，分布在 2 栋建筑");
 
     const scienceMarkers = await waitFor(() => {
       const cluster = runtime.clusters.findLast(
@@ -1758,9 +1746,7 @@ describe("Campus Map AMap runtime effects", () => {
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByRole("heading", {
-      name: "2 栋建筑 · 2 个饮水点",
-    });
+    await screen.findByText("校园内已收录 2 个地点，分布在 2 栋建筑");
     await waitFor(() => {
       expect(
         runtime.clusters.some((cluster) =>
@@ -1820,9 +1806,7 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
     expect(
-      await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水点",
-      }),
+      await screen.findByRole("heading", { name: "饮水点" }),
     ).not.toBeNull();
     expect(screen.getByRole("status").textContent).toContain(
       "地图标记正在加载",
@@ -1835,9 +1819,7 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
     expect(
-      await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水点",
-      }),
+      await screen.findByRole("heading", { name: "饮水点" }),
     ).not.toBeNull();
     expect((await screen.findByRole("status")).textContent).toContain(
       "地图标记加载失败，列表仍可使用",
@@ -1850,9 +1832,7 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
     expect(
-      await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水点",
-      }),
+      await screen.findByRole("heading", { name: "饮水点" }),
     ).not.toBeNull();
     expect((await screen.findByRole("status")).textContent).toContain(
       "地图标记加载失败，列表仍可使用",
@@ -1866,13 +1846,9 @@ describe("Campus Map AMap runtime effects", () => {
     map.setBounds.mockClear();
 
     fireEvent.click(screen.getByRole("button", { name: "洗手间" }));
-    await screen.findByRole("heading", {
-      name: "2 栋建筑 · 2 个洗手间",
-    });
+    await screen.findByRole("heading", { name: "洗手间" });
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByRole("heading", {
-      name: "2 栋建筑 · 2 个饮水点",
-    });
+    await screen.findByRole("heading", { name: "饮水点" });
 
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();
     expect(map.panTo).not.toHaveBeenCalled();

@@ -196,9 +196,11 @@ async function selectScienceCentre() {
 function formalCurrentFactsProjection() {
   const buildingId = "10000000-0000-4000-8000-000000000010";
   const floorId = "20000000-0000-4000-8000-000000000010";
+  const secondFloorId = "20000000-0000-4000-8000-000000000011";
   const currentPlace = (
     placeId: string,
     name: string,
+    floor: { id: string; label: string; sortOrder: number },
   ): CampusMapCurrentPlace => ({
     id: placeId,
     revisionId: placeId.replace("30000000", "40000000"),
@@ -222,7 +224,11 @@ function formalCurrentFactsProjection() {
         englishName: "Ho Sin-Hang Engineering Building",
         code: "ERB",
       },
-      floor: { id: floorId, displayLabel: "1/F", sortOrder: 1 },
+      floor: {
+        id: floor.id,
+        displayLabel: floor.label,
+        sortOrder: floor.sortOrder,
+      },
     },
     observedAt: null,
     verifiedAt: null,
@@ -242,12 +248,23 @@ function formalCurrentFactsProjection() {
           latitude: 22.4181,
           crs: "wgs84",
         },
-        floors: [{ floorId, displayLabel: "1/F", sortOrder: 1 }],
+        floors: [
+          { floorId, displayLabel: "1/F", sortOrder: 1 },
+          { floorId: secondFloorId, displayLabel: "2/F", sortOrder: 2 },
+        ],
       },
     ],
     places: [
-      currentPlace("30000000-0000-4000-8000-000000000010", "东翼洗手间"),
-      currentPlace("30000000-0000-4000-8000-000000000011", "西翼洗手间"),
+      currentPlace("30000000-0000-4000-8000-000000000010", "东翼洗手间", {
+        id: floorId,
+        label: "1/F",
+        sortOrder: 1,
+      }),
+      currentPlace("30000000-0000-4000-8000-000000000011", "西翼洗手间", {
+        id: secondFloorId,
+        label: "2/F",
+        sortOrder: 2,
+      }),
     ],
   });
 }
@@ -339,8 +356,14 @@ describe("CampusMapRuntime", () => {
     );
     fireEvent.click(buildingResult!);
     await screen.findByRole("heading", { name: "何善衡工程学大楼" });
+
+    expect(screen.getByText("2 个校内地点")).not.toBeNull();
+    expect(screen.getByText("Ho Sin-Hang Engineering Building")).not.toBeNull();
+    expect(screen.queryByText(/Current facts/i)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "展开地点卡片" }));
 
+    expect(screen.getByRole("heading", { name: "1/F" })).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "2/F" })).not.toBeNull();
     expect(screen.getByRole("button", { name: /东翼洗手间/ })).not.toBeNull();
     expect(screen.getByRole("button", { name: /西翼洗手间/ })).not.toBeNull();
   });
@@ -409,6 +432,11 @@ describe("CampusMapRuntime", () => {
     );
     expect(initialProjectionObserver).not.toHaveBeenCalled();
     await screen.findByRole("heading", { name: "新发布饮水点" });
+    expect(screen.getByRole("status").textContent).toContain("地点已添加");
+    expect(screen.queryByText("PUBLISHED")).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: "查看此次 Changeset" }),
+    ).toBeNull();
     expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
     const search = screen.getByPlaceholderText("搜索建筑");
     expect(search.closest("header")?.hasAttribute("inert")).toBe(false);
@@ -1871,7 +1899,7 @@ describe("CampusMapRuntime", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个洗手间",
+        name: "洗手间",
       }),
     ).not.toBeNull();
     expect(window.location.search).toContain("scene=category&id=toilet");
@@ -1890,7 +1918,7 @@ describe("CampusMapRuntime", () => {
     });
     expect(
       await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个洗手间",
+        name: "洗手间",
       }),
     ).not.toBeNull();
   });
@@ -1902,7 +1930,7 @@ describe("CampusMapRuntime", () => {
       <CampusMapRuntime initialSearch="?v=1&scene=category&id=toilet&snap=peek" />,
     );
     await screen.findByRole("heading", {
-      name: "2 栋建筑 · 2 个洗手间",
+      name: "洗手间",
     });
     const pushesBefore = push.mock.calls.length;
     const replacesBefore = replace.mock.calls.length;
@@ -1911,7 +1939,7 @@ describe("CampusMapRuntime", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水点",
+        name: "饮水点",
       }),
     ).not.toBeNull();
     expect(push.mock.calls.length).toBe(pushesBefore);
@@ -2056,6 +2084,11 @@ describe("CampusMapRuntime", () => {
     expect(history.getAttribute("href")).toBe(
       "/campus-map/places/71000000-0000-4000-8000-000000000005/history",
     );
+    expect(
+      screen.getByRole("region", { name: "饮水机" }).textContent,
+    ).toContain("饮水点");
+    expect(screen.queryByText(/Current fact/i)).toBeNull();
+    expect(screen.queryByText(/2026/)).toBeNull();
   });
 
   it("degrades a removed legacy query to the canonical map scene", async () => {
@@ -2076,7 +2109,7 @@ describe("CampusMapRuntime", () => {
       name: /洗手间.*公众可达/,
     });
     expect(floor.parentElement?.className).toContain("hidden");
-    expect(facility.parentElement?.className).toContain("hidden");
+    expect(facility.closest(".hidden")).not.toBeNull();
   });
 
   it("opens a browsable result sheet when a facility category is selected", async () => {
@@ -2086,9 +2119,13 @@ describe("CampusMapRuntime", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水点",
+        name: "饮水点",
       }),
     ).not.toBeNull();
+    expect(
+      screen.getByText("校园内已收录 2 个地点，分布在 2 栋建筑"),
+    ).not.toBeNull();
+    expect(screen.queryByText(/Current facts/i)).toBeNull();
     expect(
       screen.getByRole("button", { name: /科学馆 · 1\/F/ }),
     ).not.toBeNull();
@@ -2118,7 +2155,7 @@ describe("CampusMapRuntime", () => {
     });
     expect(
       await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水点",
+        name: "饮水点",
       }),
     ).not.toBeNull();
   });

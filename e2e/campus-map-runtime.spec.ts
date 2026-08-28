@@ -339,7 +339,7 @@ test("Campus Map and its AMap config require authentication", async ({
   await expect(page.getByText("地点资料已发布")).toHaveCount(0);
 });
 
-test("formal Campus Map keeps canonical Place identity through Back, Forward, and refresh", async ({
+test("#649 core 2/5 search opens one Place card and refresh keeps canonical identity", async ({
   page,
 }) => {
   await page.goto("/campus-map");
@@ -356,6 +356,10 @@ test("formal Campus Map keeps canonical Place identity through Back, Forward, an
   await expect(
     page.getByRole("heading", { name: "正式测试饮水点" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "正式测试饮水点" }),
+  ).toContainText("饮水点");
+  await expect(page.getByText(/Current fact/i)).toHaveCount(0);
 
   await page.goBack();
   await expect(page).toHaveURL(/scene=search/);
@@ -375,7 +379,7 @@ test("formal Campus Map keeps canonical Place identity through Back, Forward, an
   ).toHaveAttribute("href", `/campus-map/places/${browseIds.place}/history`);
 });
 
-test("browser history restores Building, category, Place, edit task, and invalid deep links", async ({
+test("#649 core 1/5 Building expands into Place and Back restores the Building card", async ({
   page,
 }) => {
   const buildingUrl = `/campus-map?v=1&scene=building&id=${browseIds.building}&snap=peek`;
@@ -385,11 +389,15 @@ test("browser history restores Building, category, Place, edit task, and invalid
 
   await page.goto(buildingUrl);
   await expect(page.getByRole("heading", { name: "正式测试楼" })).toBeVisible();
+  await expect(page.getByText("1 个校内地点")).toBeVisible();
   await page.getByRole("button", { name: /正式测试饮水点/ }).click();
   await expect(page).toHaveURL(placeUrl);
   await page.goBack();
   await expect(page).toHaveURL(buildingUrl);
   await expect(page.getByRole("heading", { name: "正式测试楼" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /正式测试饮水点/ }),
+  ).toBeFocused();
   await page.goForward();
   await expect(page).toHaveURL(placeUrl);
 
@@ -459,7 +467,7 @@ test("one provider callback produces one canonical effect and a map gesture clos
   );
 });
 
-test("mapped Place and unmapped provider POI keep canonical and transient identity", async ({
+test("#649 core 3/5 mapped and unmapped provider POIs never duplicate cards", async ({
   page,
 }) => {
   await page.goto("/campus-map");
@@ -498,12 +506,14 @@ test("mapped Place and unmapped provider POI keep canonical and transient identi
   await expect(page).toHaveURL(/\/campus-map\?v=1$/);
   await expect(page.getByText("高德地图地点")).toBeVisible();
   await expect(page.getByText("未映射高德参考点")).toBeVisible();
+  await expect(page.getByRole("button", { name: "建议修改" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "查看编辑记录" })).toHaveCount(0);
   expect(await page.evaluate(() => window.history.length)).toBe(
     historyBeforeTransient,
   );
 });
 
-test("a delayed provider callback cannot replace a newer Place intent", async ({
+test("#649 core 5/5 a rapid newer Place intent wins over a delayed provider result", async ({
   page,
 }) => {
   let delayedProviderRequest = false;
@@ -606,7 +616,7 @@ test("three peek/full rounds and ResizeObserver callbacks do not accumulate came
   expect(targetAfterResize[1]).toBeCloseTo(targetBeforeResize[1], 5);
 });
 
-test("publish handoff opens one searchable Place and Back never restores the completed form", async ({
+test("#649 core 4/5 publish handoff shows one success prompt and never restores the form", async ({
   page,
 }) => {
   const publishedName = "打印站";
@@ -626,8 +636,11 @@ test("publish handoff opens one searchable Place and Back never restores the com
   await expect(
     page.getByRole("heading", { name: publishedName }),
   ).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("地点已添加");
+  await expect(page.getByText("PUBLISHED")).toHaveCount(0);
 
   await page.goBack();
+  await expect(page.getByRole("status")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "添加校内设施" })).toHaveCount(
     0,
   );
@@ -641,6 +654,7 @@ test("publish handoff opens one searchable Place and Back never restores the com
   await expect(
     page.getByRole("heading", { name: publishedName }),
   ).toBeVisible();
+  await expect(page.getByRole("status")).toHaveCount(0);
 
   await page.getByPlaceholder("搜索建筑").fill(publishedName);
   const publishedResult = page.locator(`[data-search-result="${placeId}"]`);
@@ -649,4 +663,54 @@ test("publish handoff opens one searchable Place and Back never restores the com
   await expect(page).toHaveURL(
     new RegExp(`/campus-map\\?v=1&scene=facility&id=${placeId}&snap=peek$`),
   );
+});
+
+test("#649 cards remain usable at 390x844, 720x844, and 1280x800", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 720, height: 844 },
+    { width: 1280, height: 800 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto(
+      `/campus-map?v=1&scene=building&id=${browseIds.building}&snap=peek`,
+    );
+    const card = page.getByRole("region", { name: "正式测试楼" });
+    await expect(card).toBeVisible();
+    await expect(card.getByText("1 个校内地点")).toBeVisible();
+
+    const cardBox = await card.boundingBox();
+    expect(cardBox).not.toBeNull();
+    expect(cardBox!.x).toBeGreaterThanOrEqual(0);
+    expect(cardBox!.x + cardBox!.width).toBeLessThanOrEqual(viewport.width);
+    expect(cardBox!.y + cardBox!.height).toBeLessThanOrEqual(viewport.height);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(viewport.width);
+
+    const attribution = page.locator(".amap-copyright");
+    await expect(attribution).toBeVisible();
+    if (viewport.width < 768) {
+      const attributionBox = await attribution.boundingBox();
+      expect(attributionBox).not.toBeNull();
+      expect(attributionBox!.y + attributionBox!.height).toBeLessThanOrEqual(
+        cardBox!.y,
+      );
+    }
+
+    if (viewport.width < 768) {
+      await page.getByRole("button", { name: "展开地点卡片" }).click();
+    }
+    const place = page.getByRole("button", { name: /正式测试饮水点/ });
+    await expect(place).toBeVisible();
+    await place.focus();
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("heading", { name: "正式测试饮水点" }),
+    ).toBeFocused();
+    await expect(page.getByRole("button", { name: "建议修改" })).toBeVisible();
+  }
 });

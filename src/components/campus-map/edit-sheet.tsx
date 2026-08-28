@@ -16,7 +16,6 @@ import {
 import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
-import type { CampusMapTaskReturnContext } from "@/lib/campus-map/scene-kernel";
 
 interface CampusMapEditSheetProps {
   session: CampusMapEditSession;
@@ -25,7 +24,6 @@ interface CampusMapEditSheetProps {
   placeContext?: AmapPlaceContextResult | { status: "loading" } | null;
   factSchema?: CampusMapFactSchema | null;
   buildings?: readonly CampusMapBrowseBuilding[];
-  returnContext?: CampusMapTaskReturnContext;
   onEvent(event: CampusMapEditEvent): void;
 }
 
@@ -413,7 +411,6 @@ export function CampusMapEditSheet({
   factSchema,
   buildings = [],
   onEvent,
-  returnContext,
 }: CampusMapEditSheetProps) {
   const fieldPrefix = useId();
   const [keyboardLongitude, setKeyboardLongitude] = useState(
@@ -443,50 +440,7 @@ export function CampusMapEditSheet({
     conflictSelection.key === conflictKey ? conflictSelection.fields : [];
 
   if (session.status === "published" && session.receipt) {
-    const receipt = session.receipt;
-    return (
-      <div className="grid gap-3 p-5" aria-live="polite">
-        <p className="text-xs font-bold tracking-[0.14em] text-[#567166]">
-          PUBLISHED
-        </p>
-        <h2
-          id="campus-map-panel-title"
-          tabIndex={-1}
-          className="rounded-sm text-xl font-semibold text-balance focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-        >
-          地点资料已公开
-        </h2>
-        <p className="text-sm text-neutral-600">
-          此次发布已生成不可改写的公开记录。
-        </p>
-        <Link
-          className={secondaryClass}
-          href={`/campus-map/places/${receipt.placeId}`}
-        >
-          查看 Place
-        </Link>
-        <Link
-          className={secondaryClass}
-          href={`/campus-map/changesets/${receipt.changesetId}`}
-        >
-          查看此次 Changeset
-        </Link>
-        <Link
-          className={secondaryClass}
-          href={`/campus-map/places/${receipt.placeId}/history`}
-        >
-          查看 History
-        </Link>
-        {returnContext?.kind === "map-note" ? (
-          <Link
-            className={secondaryClass}
-            href={`/campus-map/notes/${returnContext.noteId}`}
-          >
-            返回地图备注
-          </Link>
-        ) : null}
-      </div>
-    );
+    return null;
   }
 
   if (

@@ -196,8 +196,12 @@ for (const viewport of [
     await page.getByRole("link", { name: /History/ }).click();
 
     await expect(
-      page.getByRole("heading", { name: "历史测试饮水点的修订历史" }),
+      page.getByRole("heading", { name: "历史测试饮水点的编辑记录" }),
     ).toBeVisible();
+    await expect(page.getByRole("link", { name: "返回地图" })).toHaveAttribute(
+      "href",
+      `/campus-map?v=1&scene=facility&id=${ids.place}&snap=peek`,
+    );
     await expect(page.getByText("地点已停用", { exact: true })).toBeVisible();
     await expect(page.getByText("来源摘要：现场复核")).toBeVisible();
     expect(

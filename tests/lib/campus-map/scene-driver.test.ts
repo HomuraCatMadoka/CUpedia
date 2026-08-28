@@ -566,6 +566,32 @@ describe("CampusMapSceneDriver", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it("restores focus to the Place trigger when Back returns to a Building", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "science",
+      source: "map",
+    });
+    runtime.driver.dispatch({
+      type: "OPEN_FACILITY",
+      facilityId: "fountain",
+      source: "building",
+    });
+    vi.mocked(runtime.ports.focus).mockClear();
+
+    runtime.driver.restore("?v=1&scene=building&id=science&snap=peek", {
+      campusMapScene: true,
+      version: 1,
+      depth: 1,
+    });
+
+    expect(runtime.ports.focus).toHaveBeenCalledWith(
+      { kind: "result", resultId: "fountain" },
+      expect.any(Object),
+    );
+  });
+
   it("clears transient provider state on restore and rejects its late response", () => {
     const runtime = harness();
     const staleToken = runtime.driver.getSnapshot().transitionToken;
