@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import type { CampusMapBrowseProjection } from "@/lib/campus-map/browse-projection";
 import { CampusMapBrowseProjectionStore } from "@/lib/campus-map/browse-projection-store";
+import type { CampusMapSceneCatalog } from "@/lib/campus-map/scene-kernel";
 
 const EMPTY_PROJECTION: CampusMapBrowseProjection = {
   buildings: [],
@@ -10,7 +11,58 @@ const EMPTY_PROJECTION: CampusMapBrowseProjection = {
   markers: [],
 };
 
-describe("Campus Map browse projection refresh (#647)", () => {
+describe("Campus Map browse projection refresh", () => {
+  it("publishes a refreshed projection and scene catalog as one generation", async () => {
+    const buildingId = "10000000-0000-4000-8000-000000000001";
+    const refreshedProjection: CampusMapBrowseProjection = {
+      ...EMPTY_PROJECTION,
+      buildings: [
+        {
+          buildingId,
+          name: "同步建筑",
+          englishName: null,
+          code: null,
+          aliases: [],
+          anchor: null,
+          floors: [],
+          placeIds: [],
+          selectionTarget: { kind: "building", buildingId },
+        },
+      ],
+    };
+    const store = new CampusMapBrowseProjectionStore(
+      EMPTY_PROJECTION,
+      async () => refreshedProjection,
+      ["water"],
+    );
+    const stableCatalog = store.getSceneCatalog();
+    expectTypeOf(stableCatalog).toEqualTypeOf<CampusMapSceneCatalog>();
+    const readyGenerations: Array<{
+      projectionHasBuilding: boolean;
+      catalogHasBuilding: boolean;
+    }> = [];
+    store.subscribe(() => {
+      const snapshot = store.getSnapshot();
+      if (snapshot.status !== "ready") return;
+      readyGenerations.push({
+        projectionHasBuilding: snapshot.projection.buildings.some(
+          (building) => building.buildingId === buildingId,
+        ),
+        catalogHasBuilding: Object.hasOwn(
+          store.getSceneCatalog().buildings,
+          buildingId,
+        ),
+      });
+    });
+
+    await expect(store.refresh()).resolves.toMatchObject({ status: "applied" });
+
+    expect(store.getSceneCatalog()).toBe(stableCatalog);
+    expect(readyGenerations).toEqual([
+      { projectionHasBuilding: true, catalogHasBuilding: true },
+    ]);
+  });
+
   it("refetches after a publish receipt and returns its canonical Place target", async () => {
     const placeId = "30000000-0000-4000-8000-000000000009";
     const publishedProjection: CampusMapBrowseProjection = {

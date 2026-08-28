@@ -96,6 +96,126 @@ function harness(initialSearch = "?v=1", clearStartEffects = true) {
 }
 
 describe("CampusMapSceneDriver", () => {
+  it("owns a transient provider-target error without writing canonical history", () => {
+    const runtime = harness();
+    const intentToken = runtime.driver.getSnapshot().transitionToken;
+
+    expect(
+      runtime.driver.dispatch({
+        type: "REPORT_PROVIDER_TARGET_UNAVAILABLE",
+        title: "高德正式地点",
+        intentToken,
+      }),
+    ).toMatchObject({ status: "committed" });
+
+    expect(runtime.driver.getSnapshot()).toMatchObject({
+      session: { mode: "browse", scene: { kind: "map" } },
+      transientPanel: {
+        kind: "provider-target-unavailable",
+        title: "高德正式地点",
+        snap: "peek",
+      },
+    });
+    expect(runtime.history.pushState).not.toHaveBeenCalled();
+    expect(runtime.history.replaceState).not.toHaveBeenCalled();
+    expect(runtime.ports.sheet).toHaveBeenCalledOnce();
+    expect(runtime.ports.sheet).toHaveBeenCalledWith(
+      { kind: "show", snap: "peek" },
+      expect.any(Object),
+    );
+  });
+
+  it("dismisses a transient provider-target error and rejects its stale owner", () => {
+    const runtime = harness();
+    const intentToken = runtime.driver.getSnapshot().transitionToken;
+    runtime.driver.dispatch({
+      type: "REPORT_PROVIDER_TARGET_UNAVAILABLE",
+      title: "过期高德地点",
+      intentToken,
+    });
+    vi.mocked(runtime.ports.sheet).mockClear();
+
+    expect(
+      runtime.driver.dispatch({ type: "DISMISS_TRANSIENT_PANEL" }),
+    ).toMatchObject({ status: "committed" });
+    expect(runtime.driver.getSnapshot().transientPanel).toBeNull();
+    expect(runtime.history.pushState).not.toHaveBeenCalled();
+    expect(runtime.history.replaceState).not.toHaveBeenCalled();
+    expect(runtime.ports.sheet).toHaveBeenCalledWith(
+      { kind: "hide" },
+      expect.any(Object),
+    );
+
+    expect(
+      runtime.driver.dispatch({
+        type: "REPORT_PROVIDER_TARGET_UNAVAILABLE",
+        title: "过期高德地点",
+        intentToken,
+      }),
+    ).toEqual({ status: "superseded" });
+    expect(runtime.driver.getSnapshot().transientPanel).toBeNull();
+  });
+
+  it("lets generic dismiss close only the transient panel", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "science",
+      source: "map",
+    });
+    runtime.driver.dispatch({
+      type: "SET_SNAP",
+      snap: "full",
+    });
+    runtime.driver.dispatch({
+      type: "REPORT_PROVIDER_TARGET_UNAVAILABLE",
+      title: "高德正式地点",
+      intentToken: runtime.driver.getSnapshot().transitionToken,
+    });
+    vi.mocked(runtime.ports.sheet).mockClear();
+
+    runtime.driver.dispatch({ type: "DISMISS" });
+
+    expect(runtime.driver.getSnapshot()).toMatchObject({
+      session: {
+        mode: "browse",
+        scene: {
+          kind: "building",
+          buildingId: "science",
+          snap: "full",
+        },
+      },
+      transientPanel: null,
+    });
+    expect(runtime.ports.sheet).toHaveBeenCalledWith(
+      { kind: "show", snap: "full" },
+      expect.any(Object),
+    );
+  });
+
+  it("clears a transient provider-target error on newer canonical navigation", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({
+      type: "REPORT_PROVIDER_TARGET_UNAVAILABLE",
+      title: "高德正式地点",
+      intentToken: runtime.driver.getSnapshot().transitionToken,
+    });
+
+    runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "science",
+      source: "map",
+    });
+
+    expect(runtime.driver.getSnapshot()).toMatchObject({
+      session: {
+        mode: "browse",
+        scene: { kind: "building", buildingId: "science" },
+      },
+      transientPanel: null,
+    });
+  });
+
   it("projects a deep link through one complete start transition", () => {
     const runtime = harness("?v=1&scene=facility&id=fountain&snap=peek", false);
 
@@ -444,6 +564,37 @@ describe("CampusMapSceneDriver", () => {
     });
     expect(push).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("clears transient provider state on restore and rejects its late response", () => {
+    const runtime = harness();
+    const staleToken = runtime.driver.getSnapshot().transitionToken;
+    runtime.driver.dispatch({
+      type: "REPORT_PROVIDER_TARGET_UNAVAILABLE",
+      title: "高德正式地点",
+      intentToken: staleToken,
+    });
+
+    runtime.driver.restore("?v=1&scene=building&id=library&snap=peek", {
+      campusMapScene: true,
+      version: 1,
+      depth: 0,
+    });
+
+    expect(runtime.driver.getSnapshot()).toMatchObject({
+      session: {
+        mode: "browse",
+        scene: { kind: "building", buildingId: "library" },
+      },
+      transientPanel: null,
+    });
+    expect(
+      runtime.driver.dispatch({
+        type: "REPORT_PROVIDER_TARGET_UNAVAILABLE",
+        title: "过期高德地点",
+        intentToken: staleToken,
+      }),
+    ).toEqual({ status: "superseded" });
   });
 
   it("replays a replacement task after an earlier task's Back completes", () => {

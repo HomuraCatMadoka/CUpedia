@@ -39,7 +39,7 @@ export function createCampusMapSceneCatalog(
   };
 }
 
-/** Keeps the driver's single catalog object current after a publish refresh. */
+/** Keeps one shared runtime catalog object current across projection refreshes. */
 export class RefreshableCampusMapSceneCatalog implements CampusMapSceneCatalog {
   categories: CampusMapSceneCatalog["categories"];
   buildings: CampusMapSceneCatalog["buildings"];

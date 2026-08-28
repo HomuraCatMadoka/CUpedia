@@ -1,6 +1,10 @@
-// ref #646
+// refs #646, #799
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
+import {
+  commandCampusMapProviderMapping,
+  type CampusMapProviderMappingTarget,
+} from "@/lib/campus-map/provider-mapping-registry";
 import { loginWithPassword } from "./helpers/auth";
 import {
   emitAmapEvent,
@@ -17,147 +21,268 @@ const browseIds = {
   change: "00000000-0000-4000-8000-000000006485",
   revision: "00000000-0000-4000-8000-000000006486",
   actor: "00000000-0000-4000-8000-000000006487",
+  provenance: "00000000-0000-4000-8000-000000006488",
 } as const;
 const eligibleEmail = "1155000648@link.cuhk.edu.hk";
 const mappedBuildingProviderId = "qa-648-building";
+const mappedPlaceProviderId = "qa-799-place";
+const unmappedProviderId = "qa-799-transient";
+const providerMappingFixtures = [
+  {
+    identity: {
+      provider: "amap",
+      providerObjectId: mappedBuildingProviderId,
+    },
+    target: {
+      kind: "building",
+      buildingId: browseIds.building,
+    } satisfies CampusMapProviderMappingTarget,
+    bindKey: "00000000-0000-4000-8000-000000006491",
+    unlinkKey: "00000000-0000-4000-8000-000000006493",
+  },
+  {
+    identity: {
+      provider: "amap",
+      providerObjectId: mappedPlaceProviderId,
+    },
+    target: {
+      kind: "place",
+      placeId: browseIds.place,
+    } satisfies CampusMapProviderMappingTarget,
+    bindKey: "00000000-0000-4000-8000-000000006492",
+    unlinkKey: "00000000-0000-4000-8000-000000006494",
+  },
+] as const;
 
-async function withBrowseFixture(action: "apply" | "cleanup") {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
+async function commandProviderMappingFixtures(
+  action: "bind" | "unlink",
+  client: Client,
+) {
+  const actor = await client.query<{ id: string }>(
+    "select id from users where email = 'admin@test.com' limit 1",
+  );
+  const actorId = actor.rows[0]?.id;
+  if (!actorId) throw new Error("E2E provider mapping admin is missing");
+
+  for (const fixture of providerMappingFixtures) {
+    const result = await commandCampusMapProviderMapping(
+      action === "bind"
+        ? {
+            kind: "bind",
+            idempotencyKey: fixture.bindKey,
+            identity: fixture.identity,
+            target: fixture.target,
+            reason: "Prepare the Campus Map runtime E2E fixture",
+            provenanceId: browseIds.provenance,
+          }
+        : {
+            kind: "unlink",
+            idempotencyKey: fixture.unlinkKey,
+            identity: fixture.identity,
+            previousTarget: fixture.target,
+            reason: "Clean up the Campus Map runtime E2E fixture",
+            provenanceId: browseIds.provenance,
+          },
+      { actorId },
+    );
+    const acceptedOutcomes =
+      action === "bind" ? ["bound", "unchanged"] : ["unlinked", "unchanged"];
+    if (
+      result.status !== "mapped" ||
+      !acceptedOutcomes.includes(result.outcome)
+    ) {
+      throw new Error(
+        `E2E provider mapping ${action} failed: ${JSON.stringify(result)}`,
+      );
+    }
+  }
+}
+
+const browseFactCleanup = [
+  {
+    statement: "delete from campus_map_current_facts where place_id = $1",
+    id: browseIds.place,
+  },
+  {
+    statement: "delete from campus_map_current_revisions where place_id = $1",
+    id: browseIds.place,
+  },
+  {
+    statement:
+      "delete from campus_map_revision_visibility where revision_id = $1",
+    id: browseIds.revision,
+  },
+  {
+    statement: "delete from campus_map_fact_revisions where id = $1",
+    id: browseIds.revision,
+  },
+  {
+    statement: "delete from campus_map_place_changes where id = $1",
+    id: browseIds.change,
+  },
+  {
+    statement: "delete from campus_map_changesets where id = $1",
+    id: browseIds.changeset,
+  },
+  {
+    statement: "delete from campus_map_places where id = $1",
+    id: browseIds.place,
+  },
+  {
+    statement: "delete from campus_map_floors where id = $1",
+    id: browseIds.floor,
+  },
+  {
+    statement: "delete from campus_map_buildings where id = $1",
+    id: browseIds.building,
+  },
+] as const;
+
+async function cleanupBrowseFixtureData(client: Client) {
+  await client.query(
+    "delete from campus_map_provider_mapping_requests where idempotency_key = any($1::uuid[])",
+    [
+      providerMappingFixtures.flatMap((fixture) => [
+        fixture.bindKey,
+        fixture.unlinkKey,
+      ]),
+    ],
+  );
+  await client.query(
+    "delete from campus_map_provider_mapping_events where provider = 'amap' and provider_object_id = any($1::text[])",
+    [
+      providerMappingFixtures.map(
+        (fixture) => fixture.identity.providerObjectId,
+      ),
+    ],
+  );
+  for (const cleanup of browseFactCleanup) {
+    await client.query(cleanup.statement, [cleanup.id]);
+  }
+  await client.query("delete from campus_map_fact_schemas where version = 648");
+  await client.query(
+    "delete from campus_map_provenance_sources where id = $1",
+    [browseIds.provenance],
+  );
+  await client.query(
+    "update users set email = 'user@test.com' where email = $1",
+    [eligibleEmail],
+  );
+}
+
+async function applyBrowseFixtureData(client: Client) {
+  await client.query(
+    "update users set email = $1 where email = 'user@test.com'",
+    [eligibleEmail],
+  );
+  await client.query(
+    `insert into campus_map_fact_schemas (version, status, definition, display_metadata)
+     values (648, 'draft', '{"fields":{},"pinTypes":{}}', '{}')
+     on conflict (version) do nothing`,
+  );
+  await client.query(
+    `insert into campus_map_buildings
+       (id, name, english_name, code, aliases, anchor_longitude, anchor_latitude, anchor_crs)
+     values ($1, '正式测试楼', 'Canonical Test Building', 'QA648',
+       array['测试楼'], 114.2072, 22.4191, 'wgs84') on conflict do nothing`,
+    [browseIds.building],
+  );
+  await client.query(
+    `insert into campus_map_floors (id, building_id, display_label, sort_order)
+     values ($1, $2, 'G/F', 0) on conflict do nothing`,
+    [browseIds.floor, browseIds.building],
+  );
+  await client.query(
+    `insert into campus_map_provenance_sources
+       (id, source_kind, source_ref, accessed_on, rights_status)
+     values ($1, 'provider-candidate', 'test:issue-799-runtime',
+       '2026-08-28', 'restricted') on conflict do nothing`,
+    [browseIds.provenance],
+  );
+  await client.query(
+    "insert into campus_map_places (id) values ($1) on conflict do nothing",
+    [browseIds.place],
+  );
+  await client.query(
+    `insert into campus_map_changesets
+       (id, actor_id_snapshot, actor_nickname_snapshot, comment, source_summary,
+        client_name, client_version, affected_count, created_count, published_at)
+     values ($1, $2, 'E2E 地图贡献者', '建立正式 runtime fixture', 'E2E fixture',
+       'e2e', '1', 1, 1, '2026-08-28T00:00:00Z') on conflict do nothing`,
+    [browseIds.changeset, browseIds.actor],
+  );
+  await client.query(
+    `insert into campus_map_place_changes (id, changeset_id, place_id, operation, field_diff)
+     values ($1, $2, $3, 'create', '{}') on conflict do nothing`,
+    [browseIds.change, browseIds.changeset, browseIds.place],
+  );
+  await client.query(
+    `insert into campus_map_fact_revisions
+       (id, place_id, changeset_id, place_change_id, fact_schema_version,
+        field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
+        name, building_id, floor_id, pin_type, location_kind, created_at)
+     values ($1, $2, $3, $4, 648, '{}', 'active', $5, 'E2E 地图贡献者',
+       '正式测试饮水点', $6, $7, 'water', 'floor', '2026-08-28T00:00:00Z')
+     on conflict do nothing`,
+    [
+      browseIds.revision,
+      browseIds.place,
+      browseIds.changeset,
+      browseIds.change,
+      browseIds.actor,
+      browseIds.building,
+      browseIds.floor,
+    ],
+  );
+  await client.query(
+    "insert into campus_map_revision_visibility (revision_id) values ($1) on conflict do nothing",
+    [browseIds.revision],
+  );
+  await client.query(
+    `insert into campus_map_current_revisions (place_id, revision_id, status)
+     values ($1, $2, 'active') on conflict do nothing`,
+    [browseIds.place, browseIds.revision],
+  );
+  await client.query(
+    `insert into campus_map_current_facts
+       (place_id, revision_id, fact_schema_version, name, building_id, floor_id,
+        pin_type, location_kind, published_at)
+     values ($1, $2, 648, '正式测试饮水点', $3, $4, 'water', 'floor',
+       '2026-08-28T00:00:00Z') on conflict do nothing`,
+    [browseIds.place, browseIds.revision, browseIds.building, browseIds.floor],
+  );
+}
+
+async function writeBrowseFixtureData(
+  client: Client,
+  action: "apply" | "cleanup",
+) {
+  await client.query("begin");
   try {
-    await client.query("begin");
     await client.query("set local session_replication_role = replica");
-    if (action === "cleanup") {
-      await client.query(
-        "delete from campus_map_provider_mappings where provider = 'amap' and provider_object_id = $1",
-        [mappedBuildingProviderId],
-      );
-      for (const statement of [
-        "delete from campus_map_current_facts where place_id = $1",
-        "delete from campus_map_current_revisions where place_id = $1",
-        "delete from campus_map_revision_visibility where revision_id = $1",
-        "delete from campus_map_fact_revisions where id = $1",
-        "delete from campus_map_place_changes where id = $1",
-        "delete from campus_map_changesets where id = $1",
-        "delete from campus_map_places where id = $1",
-        "delete from campus_map_floors where id = $1",
-        "delete from campus_map_buildings where id = $1",
-      ]) {
-        const id =
-          statement.includes("revision_visibility") ||
-          statement.includes("fact_revisions")
-            ? browseIds.revision
-            : statement.includes("place_changes")
-              ? browseIds.change
-              : statement.includes("changesets")
-                ? browseIds.changeset
-                : statement.includes("floors")
-                  ? browseIds.floor
-                  : statement.includes("buildings")
-                    ? browseIds.building
-                    : browseIds.place;
-        await client.query(statement, [id]);
-      }
-      await client.query(
-        "delete from campus_map_fact_schemas where version = 648",
-      );
-      await client.query(
-        "update users set email = 'user@test.com' where email = $1",
-        [eligibleEmail],
-      );
+    if (action === "apply") {
+      await applyBrowseFixtureData(client);
     } else {
-      await client.query(
-        "update users set email = $1 where email = 'user@test.com'",
-        [eligibleEmail],
-      );
-      await client.query(
-        `insert into campus_map_fact_schemas (version, status, definition, display_metadata)
-         values (648, 'draft', '{"fields":{},"pinTypes":{}}', '{}')
-         on conflict (version) do nothing`,
-      );
-      await client.query(
-        `insert into campus_map_buildings
-           (id, name, english_name, code, aliases, anchor_longitude, anchor_latitude, anchor_crs)
-         values ($1, '正式测试楼', 'Canonical Test Building', 'QA648',
-           array['测试楼'], 114.2072, 22.4191, 'wgs84') on conflict do nothing`,
-        [browseIds.building],
-      );
-      await client.query(
-        `insert into campus_map_floors (id, building_id, display_label, sort_order)
-         values ($1, $2, 'G/F', 0) on conflict do nothing`,
-        [browseIds.floor, browseIds.building],
-      );
-      await client.query(
-        `insert into campus_map_provider_mappings
-           (provider, provider_object_id, target_kind, building_id)
-         values ('amap', $1, 'building', $2)
-         on conflict (provider, provider_object_id) do update
-         set target_kind = 'building', building_id = excluded.building_id,
-             place_id = null, provenance_id = null`,
-        [mappedBuildingProviderId, browseIds.building],
-      );
-      await client.query(
-        "insert into campus_map_places (id) values ($1) on conflict do nothing",
-        [browseIds.place],
-      );
-      await client.query(
-        `insert into campus_map_changesets
-           (id, actor_id_snapshot, actor_nickname_snapshot, comment, source_summary,
-            client_name, client_version, affected_count, created_count, published_at)
-         values ($1, $2, 'E2E 地图贡献者', '建立正式 runtime fixture', 'E2E fixture',
-           'e2e', '1', 1, 1, '2026-08-28T00:00:00Z') on conflict do nothing`,
-        [browseIds.changeset, browseIds.actor],
-      );
-      await client.query(
-        `insert into campus_map_place_changes (id, changeset_id, place_id, operation, field_diff)
-         values ($1, $2, $3, 'create', '{}') on conflict do nothing`,
-        [browseIds.change, browseIds.changeset, browseIds.place],
-      );
-      await client.query(
-        `insert into campus_map_fact_revisions
-           (id, place_id, changeset_id, place_change_id, fact_schema_version,
-            field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
-            name, building_id, floor_id, pin_type, location_kind, created_at)
-         values ($1, $2, $3, $4, 648, '{}', 'active', $5, 'E2E 地图贡献者',
-           '正式测试饮水点', $6, $7, 'water', 'floor', '2026-08-28T00:00:00Z')
-         on conflict do nothing`,
-        [
-          browseIds.revision,
-          browseIds.place,
-          browseIds.changeset,
-          browseIds.change,
-          browseIds.actor,
-          browseIds.building,
-          browseIds.floor,
-        ],
-      );
-      await client.query(
-        "insert into campus_map_revision_visibility (revision_id) values ($1) on conflict do nothing",
-        [browseIds.revision],
-      );
-      await client.query(
-        `insert into campus_map_current_revisions (place_id, revision_id, status)
-         values ($1, $2, 'active') on conflict do nothing`,
-        [browseIds.place, browseIds.revision],
-      );
-      await client.query(
-        `insert into campus_map_current_facts
-           (place_id, revision_id, fact_schema_version, name, building_id, floor_id,
-            pin_type, location_kind, published_at)
-         values ($1, $2, 648, '正式测试饮水点', $3, $4, 'water', 'floor',
-           '2026-08-28T00:00:00Z') on conflict do nothing`,
-        [
-          browseIds.place,
-          browseIds.revision,
-          browseIds.building,
-          browseIds.floor,
-        ],
-      );
+      await cleanupBrowseFixtureData(client);
     }
     await client.query("commit");
   } catch (error) {
     await client.query("rollback");
     throw error;
+  }
+}
+
+async function withBrowseFixture(action: "apply" | "cleanup") {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    if (action === "cleanup") {
+      await commandProviderMappingFixtures("unlink", client);
+    }
+    await writeBrowseFixtureData(client, action);
+    if (action === "apply") {
+      await commandProviderMappingFixtures("bind", client);
+    }
   } finally {
     await client.end();
   }
@@ -331,6 +456,50 @@ test("one provider callback produces one canonical effect and a map gesture clos
   );
   expect(await page.evaluate(() => window.history.length)).toBe(
     historyBefore + 1,
+  );
+});
+
+test("mapped Place and unmapped provider POI keep canonical and transient identity", async ({
+  page,
+}) => {
+  await page.goto("/campus-map");
+
+  await emitAmapEvent(page, "hotspotclick", {
+    id: mappedPlaceProviderId,
+    name: "高德测试饮水点",
+    lnglat: { lng: 114.2072, lat: 22.4191 },
+  });
+
+  await expect(page).toHaveURL(
+    new RegExp(
+      `/campus-map\\?v=1&scene=facility&id=${browseIds.place}&snap=peek$`,
+    ),
+  );
+  await expect(
+    page.getByRole("heading", { name: "正式测试饮水点" }),
+  ).toBeVisible();
+  await expect(page.getByText("高德地图地点")).toHaveCount(0);
+
+  await page.locator("#amap-campus-canvas").dispatchEvent("pointerdown");
+  await emitAmapEvent(page, "click", {
+    lnglat: { lng: 114.2073, lat: 22.4192 },
+  });
+  await expect(page).toHaveURL(/\/campus-map\?v=1$/);
+  const historyBeforeTransient = await page.evaluate(
+    () => window.history.length,
+  );
+
+  await emitAmapEvent(page, "hotspotclick", {
+    id: unmappedProviderId,
+    name: "未映射高德参考点",
+    lnglat: { lng: 114.2074, lat: 22.4193 },
+  });
+
+  await expect(page).toHaveURL(/\/campus-map\?v=1$/);
+  await expect(page.getByText("高德地图地点")).toBeVisible();
+  await expect(page.getByText("未映射高德参考点")).toBeVisible();
+  expect(await page.evaluate(() => window.history.length)).toBe(
+    historyBeforeTransient,
   );
 });
 

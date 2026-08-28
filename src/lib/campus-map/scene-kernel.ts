@@ -67,11 +67,11 @@ export type CampusMapSession =
   | { mode: "task"; task: CampusMapContributionTask };
 
 export interface CampusMapSceneCatalog {
-  categories: readonly string[];
-  buildings: Readonly<
+  readonly categories: readonly string[];
+  readonly buildings: Readonly<
     Record<string, { floorIds: readonly string[] } | undefined>
   >;
-  facilities: Readonly<
+  readonly facilities: Readonly<
     Record<
       string,
       | {
@@ -83,7 +83,7 @@ export interface CampusMapSceneCatalog {
       | undefined
     >
   >;
-  contents: Readonly<
+  readonly contents: Readonly<
     Record<
       string,
       | {

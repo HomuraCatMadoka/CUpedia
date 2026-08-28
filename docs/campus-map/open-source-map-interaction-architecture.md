@@ -109,7 +109,7 @@ transition(scene, command, catalog): {
 
 ### D. UI 只做 projection
 
-Panel、category list、facility card 都只从 `CampusMapScene`/derived view model 渲染；按钮只 dispatch command。panel snap 或 viewport orientation 改变可产生 layout command/camera intent，但不暗中改变 selection 或 zoom。
+Panel、category list、facility card 都只从 `CampusMapScene`/derived view model 渲染；provider target 读取失败等短暂 Panel 也由 driver snapshot 持有，不另建 React selection owner。按钮只 dispatch command。panel snap 或 viewport orientation 改变可产生 layout command/camera intent，但不暗中改变 selection 或 zoom。
 
 ## 明确不要采用
 
