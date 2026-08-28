@@ -21,12 +21,21 @@ Facility identity or make the scene catalog the source of map facts.
 - The versioned URL codec is the only persistent scene seam. Browser history
   stores only a versioned ownership marker and navigation depth; Back/Forward
   restores the scene from the canonical URL.
+- `CampusMapBrowseProjectionStore` owns one stable scene-catalog object and
+  exposes only its read-only view to the URL codec, driver, and UI projection.
+  A successful refresh replaces that catalog before publishing the matching
+  projection snapshot, so readers cannot observe facts and navigation identity
+  from different generations.
 - `CampusMapSceneDriver.openPublishedPlace(placeId, intentToken)` is the
   publish-only driver handoff. After the caller refreshes and replaces the
   shared catalog, it validates the Place through the same semantic resolver,
   rejects superseded tokens, and replaces the current task history entry with
   the canonical Place. It is not a `RESTORE` event and never adds a task entry
   that Back can reopen.
+- Provider-target lookup failures are driver-owned transient Panel state with
+  their own `peek` snap, not a scene or a second React selection owner. They
+  write no URL/history entry, accept only the intent token that requested them,
+  and are cleared by dismiss or a newer canonical navigation.
 
 `scene-semantics.ts` is an internal seam, not a second product API. Its single
 resolver owns session validity, catalog-derived context, restore focus,
@@ -125,3 +134,6 @@ returnable while switching result filters replaces the current entry.
     catalog, relationship, session, and task-anchor ID is canonical only when it
     is a non-empty string equal to its trimmed value. Non-canonical identities
     are rejected or fall back; codecs never trim them into a different identity.
+11. Runtime facts and catalog identity advance as one projection-store
+    generation. Components must not copy the catalog or manually synchronize a
+    second driver catalog after refresh.

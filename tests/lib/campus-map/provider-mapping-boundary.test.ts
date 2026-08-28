@@ -32,9 +32,13 @@ describe("Campus Map provider mapping boundary", () => {
 
     const sourceFiles = (
       await Promise.all(
-        ["src/app", "src/components", "src/lib/campus-map", "scripts"].map(
-          (path) => listSourceFiles(resolve(root, path)),
-        ),
+        [
+          "src/app",
+          "src/components",
+          "src/lib/campus-map",
+          "scripts",
+          "e2e",
+        ].map((path) => listSourceFiles(resolve(root, path))),
       )
     )
       .flat()

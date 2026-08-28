@@ -1343,7 +1343,11 @@ describe("Campus Map AMap runtime effects", () => {
       title: place.name,
       selectionTarget: place.selectionTarget,
     });
-    const { map } = await renderWithRuntime({ projection: initial });
+    const initialSearch = `?v=1&scene=building&id=${building.buildingId}&snap=full`;
+    const { map } = await renderWithRuntime({
+      projection: initial,
+      initialSearch,
+    });
 
     await act(async () => {
       map.emit("hotspotclick", {
@@ -1359,25 +1363,20 @@ describe("Campus Map AMap runtime effects", () => {
       }),
     ).not.toBeNull();
     expect(screen.getByText(place.name)).not.toBeNull();
-    expect(window.location.search).toBe("?v=1");
+    expect(window.location.search).toBe(initialSearch);
+    const errorPanel = screen.getByRole("alert").closest("section");
+    expect(errorPanel?.className).toContain("h-[min(248px,36dvh)]");
+    expect(errorPanel?.className).not.toContain("h-[72dvh]");
+    expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
 
-    await act(async () => {
-      window.history.replaceState(
-        window.history.state,
-        "",
-        `/campus-map?v=1&scene=building&id=${building.buildingId}&snap=peek`,
-      );
-      window.dispatchEvent(
-        new PopStateEvent("popstate", { state: window.history.state }),
-      );
-    });
+    fireEvent.keyDown(window, { key: "Escape" });
 
-    expect(
-      await screen.findByRole("heading", { name: building.name }),
-    ).not.toBeNull();
-    expect(
-      screen.queryByRole("heading", { name: "地点资料暂时无法载入" }),
-    ).toBeNull();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("heading", { name: "地点资料暂时无法载入" }),
+      ).toBeNull(),
+    );
+    expect(screen.getByRole("heading", { name: building.name })).not.toBeNull();
   });
 
   it.each([

@@ -29,7 +29,7 @@ describe("formal Campus Map route", () => {
     mocks.getFactSchema.mockResolvedValue(null);
   });
 
-  it("authenticates and renders the canonical runtime at a refreshable URL", async () => {
+  it("requires authentication before rendering the provider-backed canonical runtime", async () => {
     const element = await CampusMapPage({
       searchParams: Promise.resolve({
         v: "1",
