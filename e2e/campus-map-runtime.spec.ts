@@ -389,7 +389,7 @@ test("#649 core 1/5 Building expands into Place and Back restores the Building c
 
   await page.goto(buildingUrl);
   await expect(page.getByRole("heading", { name: "正式测试楼" })).toBeVisible();
-  await expect(page.getByText("1 个校内地点")).toBeVisible();
+  await expect(page.getByText("1 个校内地点", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: /正式测试饮水点/ }).click();
   await expect(page).toHaveURL(placeUrl);
   await page.goBack();
@@ -688,13 +688,21 @@ test("#649 cards remain usable at 390x844, 720x844, and 1280x800", async ({
     );
     const card = page.getByRole("region", { name: "正式测试楼" });
     await expect(card).toBeVisible();
-    await expect(card.getByText("1 个校内地点")).toBeVisible();
+    await expect(card.getByText("1 个校内地点", { exact: true })).toBeVisible();
 
     const cardBox = await card.boundingBox();
     expect(cardBox).not.toBeNull();
     expect(cardBox!.x).toBeGreaterThanOrEqual(0);
     expect(cardBox!.x + cardBox!.width).toBeLessThanOrEqual(viewport.width);
     expect(cardBox!.y + cardBox!.height).toBeLessThanOrEqual(viewport.height);
+    if (viewport.width >= 768) {
+      expect(cardBox!.height).toBeLessThanOrEqual(520);
+    } else {
+      expect(cardBox!.height).toBeLessThanOrEqual(260);
+      await expect(
+        card.getByRole("button", { name: "查看 1 个校内地点" }),
+      ).toBeVisible();
+    }
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(viewport.width);

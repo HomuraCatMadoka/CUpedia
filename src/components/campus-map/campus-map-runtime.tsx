@@ -2454,14 +2454,14 @@ export function CampusMapRuntime({
         aria-labelledby="campus-map-panel-title"
         className={cn(
           "absolute z-30 overflow-hidden overscroll-contain border-black/10 bg-white shadow-[0_12px_40px_rgba(23,33,28,.24)]",
-          "inset-x-0 bottom-0 rounded-t-2xl border-t md:inset-y-4 md:right-4 md:left-auto md:w-[390px] md:rounded-2xl md:border",
+          "inset-x-0 bottom-0 rounded-t-2xl border-t md:right-4 md:left-auto md:w-[390px] md:rounded-2xl md:border",
           editSession?.status === "placing"
             ? "h-[48dvh] max-h-[65dvh] md:inset-y-4 md:h-auto md:max-h-[calc(100dvh-32px)]"
             : editSession
-              ? "h-[var(--campus-map-edit-sheet-height)] md:h-auto"
+              ? "h-[var(--campus-map-edit-sheet-height)] md:inset-y-4 md:h-auto"
               : panelSnap === "full"
-                ? "h-[72dvh] md:h-auto"
-                : "h-[min(248px,36dvh)] md:h-auto md:max-h-[calc(100%-32px)]",
+                ? "h-[72dvh] md:top-4 md:bottom-auto md:h-auto md:max-h-[calc(100dvh-32px)]"
+                : "h-[min(248px,36dvh)] md:top-4 md:bottom-auto md:h-auto md:max-h-[calc(100dvh-32px)]",
         )}
       >
         {!editSession && !activeProviderTargetError ? (
@@ -2658,7 +2658,7 @@ export function CampusMapRuntime({
         ) : selectedBuilding || selectedFacility ? (
           <div
             id="campus-map-panel-content"
-            className="flex h-[calc(100%-44px)] flex-col overscroll-contain md:h-full"
+            className="flex h-[calc(100%-44px)] flex-col overscroll-contain md:h-auto md:max-h-[calc(100dvh-32px)]"
           >
             <div className="flex items-start gap-3 border-b border-black/10 p-4 md:p-5">
               {selectedFacility ? (
@@ -2736,23 +2736,29 @@ export function CampusMapRuntime({
                 >
                   建议修改
                 </button>
-                <button
-                  type="button"
-                  className="mt-3 min-h-11 w-full rounded-xl border border-[#174b38] px-4 text-sm font-semibold text-[#174b38]"
-                  onClick={() =>
-                    dispatch({ type: "REFRAME", reason: "map-selection" })
-                  }
+                <div
+                  role="group"
+                  aria-label="地点次要操作"
+                  className="mt-2 grid grid-cols-2 gap-2"
                 >
-                  {selectedFacility.location.kind === "outdoor-point"
-                    ? "定位地点"
-                    : "定位所属建筑"}
-                </button>
-                <Link
-                  href={`/campus-map/places/${selectedFacility.placeId}/history`}
-                  className="mt-3 flex min-h-11 w-full items-center justify-center rounded-xl border border-black/15 px-4 text-sm font-semibold text-neutral-700"
-                >
-                  查看编辑记录
-                </Link>
+                  <button
+                    type="button"
+                    className="min-h-11 rounded-xl border border-[#174b38] px-3 text-sm font-semibold text-[#174b38]"
+                    onClick={() =>
+                      dispatch({ type: "REFRAME", reason: "map-selection" })
+                    }
+                  >
+                    {selectedFacility.location.kind === "outdoor-point"
+                      ? "定位地点"
+                      : "定位所属建筑"}
+                  </button>
+                  <Link
+                    href={`/campus-map/places/${selectedFacility.placeId}/history`}
+                    className="flex min-h-11 items-center justify-center rounded-xl border border-black/15 px-3 text-center text-sm font-semibold text-neutral-700"
+                  >
+                    查看编辑记录
+                  </Link>
+                </div>
               </div>
             ) : selectedBuilding ? (
               <>
@@ -2804,7 +2810,25 @@ export function CampusMapRuntime({
                   ))}
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
-                  <h3 className="text-sm font-semibold">建筑内设施</h3>
+                  {state.sheet.snap !== "full" ? (
+                    <button
+                      type="button"
+                      className="flex min-h-11 w-full items-center justify-center rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white md:hidden"
+                      onClick={() =>
+                        dispatch({ type: "SET_SNAP", snap: "full" })
+                      }
+                    >
+                      查看 {selectedBuilding.placeIds.length} 个校内地点
+                    </button>
+                  ) : null}
+                  <h3
+                    className={cn(
+                      "text-sm font-semibold",
+                      state.sheet.snap !== "full" && "hidden md:block",
+                    )}
+                  >
+                    建筑内设施
+                  </h3>
                   <div
                     className={cn(
                       "mt-3 divide-y divide-black/8",

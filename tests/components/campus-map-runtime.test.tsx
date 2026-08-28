@@ -360,6 +360,9 @@ describe("CampusMapRuntime", () => {
     expect(screen.getByText("2 个校内地点")).not.toBeNull();
     expect(screen.getByText("Ho Sin-Hang Engineering Building")).not.toBeNull();
     expect(screen.queryByText(/Current facts/i)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "查看 2 个校内地点" }),
+    ).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "展开地点卡片" }));
 
     expect(screen.getByRole("heading", { name: "1/F" })).not.toBeNull();
@@ -2089,6 +2092,7 @@ describe("CampusMapRuntime", () => {
     expect(history.getAttribute("href")).toBe(
       "/campus-map/places/71000000-0000-4000-8000-000000000005/history",
     );
+    expect(screen.getByRole("group", { name: "地点次要操作" })).not.toBeNull();
     expect(
       screen.getByRole("region", { name: "饮水机" }).textContent,
     ).toContain("饮水点");
