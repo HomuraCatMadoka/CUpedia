@@ -1528,6 +1528,8 @@ export function CampusMapRuntime({
       zoom: 17.2,
       zooms: [14, 20],
       viewMode: "2D",
+      rotateEnable: false,
+      pitchEnable: false,
       mapStyle: "amap://styles/normal",
       showLabel: true,
       isHotspot: true,

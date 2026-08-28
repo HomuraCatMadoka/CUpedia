@@ -63,7 +63,12 @@ export function installAmapRuntime(options?: {
 
     constructor(
       readonly containerId: string,
-      mapOptions: { zoom?: number; center?: readonly [number, number] },
+      readonly mapOptions: {
+        zoom?: number;
+        center?: readonly [number, number];
+        rotateEnable?: boolean;
+        pitchEnable?: boolean;
+      },
     ) {
       this.zoom = mapOptions.zoom ?? 17.2;
       if (mapOptions.center) {

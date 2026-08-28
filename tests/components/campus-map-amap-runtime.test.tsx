@@ -288,6 +288,10 @@ describe("Campus Map AMap runtime effects", () => {
     const { runtime } = await renderWithRuntime();
 
     expect(runtime.maps).toHaveLength(1);
+    expect(runtime.maps[0]?.mapOptions).toMatchObject({
+      rotateEnable: false,
+      pitchEnable: false,
+    });
     expect(document.querySelector("script[data-amap-campus]")).toBeNull();
   });
 
