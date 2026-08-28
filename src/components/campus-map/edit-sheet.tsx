@@ -1055,7 +1055,7 @@ export function CampusMapEditSheet({
             {!isPlacing ? (
               <button
                 type="button"
-                className="min-h-10 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                className="min-h-11 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
                 onClick={() =>
                   onEvent({ type: "START_REPOSITION", ...freshAttempt() })
                 }

@@ -2166,6 +2166,11 @@ export function CampusMapRuntime({
     ? amenityStyle(activeAmenity)
     : null;
   const chromeHidden = Boolean(editSession) || state.sheet.snap === "full";
+  const selectedBuildingIsEmpty = Boolean(
+    selectedBuilding &&
+    !selectedFacility &&
+    selectedBuilding.placeIds.length === 0,
+  );
 
   return (
     <main
@@ -2174,13 +2179,15 @@ export function CampusMapRuntime({
         {
           "--campus-map-placement-anchor-y": `${MOBILE_PLACEMENT_ANCHOR_RATIO * 100}dvh`,
           "--campus-map-edit-sheet-height": "65dvh",
+          "--campus-map-peek-height": "min(248px, 36dvh)",
+          "--campus-map-safe-area-bottom": "env(safe-area-inset-bottom)",
         } as CSSProperties
       }
     >
       {visiblePublishNotice ? (
         <div
           role="status"
-          className="pointer-events-none absolute top-[76px] left-1/2 z-40 flex min-h-11 max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-2 rounded-xl bg-[#174b38] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(23,75,56,.28)] motion-reduce:transition-none md:top-4"
+          className="pointer-events-none absolute bottom-[calc(var(--campus-map-peek-height)+12px)] left-1/2 z-40 flex min-h-11 max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-2 rounded-xl bg-[#174b38] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(23,75,56,.28)] motion-reduce:transition-none md:top-4 md:bottom-auto md:left-4 md:translate-x-0"
         >
           <CheckCircle2Icon aria-hidden="true" className="size-5 shrink-0" />
           <span>{visiblePublishNotice.message}</span>
@@ -2189,7 +2196,7 @@ export function CampusMapRuntime({
       <p className="sr-only" aria-live="polite">
         {visiblePublishNotice ? null : editAnnouncement || editRestoreNotice}
       </p>
-      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${editSession?.status === "placing" ? "calc(48dvh + 4px)" : editSession ? "calc(var(--campus-map-edit-sheet-height) + 4px)" : state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}`}</style>
+      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${editSession?.status === "placing" ? "calc(48dvh + 4px)" : editSession ? "calc(var(--campus-map-edit-sheet-height) + 4px)" : state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "calc(var(--campus-map-peek-height) + 4px)"}!important}}`}</style>
       <div className="absolute inset-0">
         <div
           id="amap-campus-canvas"
@@ -2247,7 +2254,7 @@ export function CampusMapRuntime({
         aria-hidden={editSession ? true : undefined}
         inert={editSession ? true : undefined}
         className={cn(
-          "pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start gap-2 p-3 transition-opacity md:p-4",
+          "pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start gap-2 p-3 transition-opacity motion-reduce:transition-none md:p-4",
           chromeHidden && "invisible pointer-events-none opacity-0",
           !editSession &&
             state.selection.kind !== "none" &&
@@ -2267,9 +2274,11 @@ export function CampusMapRuntime({
               aria-hidden="true"
               className="size-5 text-neutral-500"
             />
-            <span className="sr-only">搜索建筑</span>
+            <span className="sr-only">搜索建筑或地点</span>
             <input
               ref={searchInputRef}
+              name="campus-map-search"
+              autoComplete="off"
               value={queryDraft}
               onChange={(event) => {
                 const query = event.currentTarget.value;
@@ -2277,7 +2286,7 @@ export function CampusMapRuntime({
                 dispatch({ type: "SEARCH", query });
               }}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
-              placeholder="搜索建筑"
+              placeholder="搜索建筑或地点…"
             />
             {queryDraft ? (
               <button
@@ -2354,7 +2363,7 @@ export function CampusMapRuntime({
         aria-hidden={editSession ? true : undefined}
         inert={editSession ? true : undefined}
         className={cn(
-          "pointer-events-none absolute inset-x-0 top-[68px] z-20 overflow-hidden px-3 transition-opacity md:top-[76px] md:flex md:justify-center",
+          "pointer-events-none absolute inset-x-0 top-[68px] z-20 overflow-hidden px-3 transition-opacity motion-reduce:transition-none md:top-[76px] md:flex md:justify-center",
           chromeHidden && "invisible pointer-events-none opacity-0",
           !editSession &&
             state.selection.kind !== "none" &&
@@ -2471,10 +2480,12 @@ export function CampusMapRuntime({
               ? "h-[var(--campus-map-edit-sheet-height)] md:inset-y-4 md:h-auto"
               : panelSnap === "full"
                 ? "h-[72dvh] md:top-4 md:bottom-auto md:h-auto md:max-h-[calc(100dvh-32px)]"
-                : "h-[min(248px,36dvh)] md:top-4 md:bottom-auto md:h-auto md:max-h-[calc(100dvh-32px)]",
+                : "h-[var(--campus-map-peek-height)] md:top-4 md:bottom-auto md:h-auto md:max-h-[calc(100dvh-32px)]",
         )}
       >
-        {!editSession && !activeProviderTargetError ? (
+        {!editSession &&
+        !activeProviderTargetError &&
+        !selectedBuildingIsEmpty ? (
           <button
             type="button"
             aria-label={
@@ -2595,7 +2606,7 @@ export function CampusMapRuntime({
                   : "地图标记正在加载"}
               </p>
             ) : null}
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:pb-5">
               {(state.sheet.snap === "full"
                 ? categoryFacilities
                 : categoryFacilities.slice(0, 3)
@@ -2693,7 +2704,7 @@ export function CampusMapRuntime({
                   id="campus-map-panel-title"
                   ref={panelTitleRef}
                   tabIndex={-1}
-                  className="truncate text-xl font-semibold tracking-[-0.02em] outline-none"
+                  className="truncate rounded-sm text-xl font-semibold tracking-[-0.02em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
                 >
                   {selectedFacility?.name ?? selectedBuilding?.name}
                 </h2>
@@ -2706,7 +2717,9 @@ export function CampusMapRuntime({
                 </p>
                 {selectedBuilding && !selectedFacility ? (
                   <p className="mt-1 text-sm font-medium text-[#174b38]">
-                    {selectedBuilding.placeIds.length} 个校内地点
+                    {selectedBuilding.placeIds.length
+                      ? `${selectedBuilding.placeIds.length} 个校内地点`
+                      : "暂未收录校内地点"}
                   </p>
                 ) : null}
               </div>
@@ -2721,7 +2734,7 @@ export function CampusMapRuntime({
             </div>
 
             {selectedFacility ? (
-              <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:pb-5">
                 <div className="flex flex-wrap gap-2 pt-4">
                   <span className="rounded-lg bg-[#e7f1ec] px-2.5 py-1.5 text-sm font-medium text-[#174b38]">
                     {amenityStyle(selectedFacility.pinType).label}
@@ -2740,7 +2753,7 @@ export function CampusMapRuntime({
                 ) : null}
                 <button
                   type="button"
-                  className="mt-3 min-h-11 w-full rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white"
+                  className="mt-3 min-h-11 w-full touch-manipulation rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white hover:bg-[#123d2e] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 motion-reduce:transform-none"
                   onClick={() => startEdit(selectedFacility)}
                 >
                   建议修改
@@ -2752,7 +2765,7 @@ export function CampusMapRuntime({
                 >
                   <button
                     type="button"
-                    className="min-h-11 rounded-xl border border-[#174b38] px-3 text-sm font-semibold text-[#174b38]"
+                    className="min-h-11 touch-manipulation rounded-xl border border-[#174b38] px-3 text-sm font-semibold text-[#174b38] hover:bg-[#edf5f1] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none"
                     onClick={() =>
                       dispatch({ type: "REFRAME", reason: "map-selection" })
                     }
@@ -2763,7 +2776,7 @@ export function CampusMapRuntime({
                   </button>
                   <Link
                     href={`/campus-map/places/${selectedFacility.placeId}/history`}
-                    className="flex min-h-11 items-center justify-center rounded-xl border border-black/15 px-3 text-center text-sm font-semibold text-neutral-700"
+                    className="flex min-h-11 touch-manipulation items-center justify-center rounded-xl border border-black/15 px-3 text-center text-sm font-semibold text-neutral-700 hover:bg-neutral-50 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none"
                   >
                     查看编辑记录
                   </Link>
@@ -2818,8 +2831,9 @@ export function CampusMapRuntime({
                     </button>
                   ))}
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
-                  {state.sheet.snap !== "full" ? (
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-[max(1rem,var(--campus-map-safe-area-bottom))] md:p-5">
+                  {state.sheet.snap !== "full" &&
+                  selectedBuilding.placeIds.length > 0 ? (
                     <button
                       type="button"
                       className="flex min-h-11 w-full items-center justify-center rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white md:hidden"

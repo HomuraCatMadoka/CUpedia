@@ -128,7 +128,8 @@ describe("Campus Map single-page edit Sheet", () => {
 
     expect(screen.getByRole("heading", { name: "添加校内设施" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "设施类型" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "修改位置" })).toBeTruthy();
+    const reposition = screen.getByRole("button", { name: "修改位置" });
+    expect(reposition.className).toContain("min-h-11");
     expect(
       screen.queryByRole("textbox", { name: "设施名称或编号" }),
     ).toBeNull();

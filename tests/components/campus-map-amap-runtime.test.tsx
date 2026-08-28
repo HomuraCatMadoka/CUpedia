@@ -1201,7 +1201,7 @@ describe("Campus Map AMap runtime effects", () => {
         lnglat: { lng: 114.21161, lat: 22.4167 },
       });
     });
-    const search = screen.getByPlaceholderText("搜索建筑");
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
     fireEvent.change(search, { target: { value: "科学馆" } });
     const scienceResult = await waitFor(() =>
       document.querySelector<HTMLButtonElement>(
@@ -1365,7 +1365,9 @@ describe("Campus Map AMap runtime effects", () => {
     expect(screen.getByText(place.name)).not.toBeNull();
     expect(window.location.search).toBe(initialSearch);
     const errorPanel = screen.getByRole("alert").closest("section");
-    expect(errorPanel?.className).toContain("h-[min(248px,36dvh)]");
+    expect(errorPanel?.className).toContain(
+      "h-[var(--campus-map-peek-height)]",
+    );
     expect(errorPanel?.className).not.toContain("h-[72dvh]");
     expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
 
@@ -1389,7 +1391,7 @@ describe("Campus Map AMap runtime effects", () => {
       await renderWithRuntime({ projection });
 
       if (entry === "search") {
-        fireEvent.change(screen.getByPlaceholderText("搜索建筑"), {
+        fireEvent.change(screen.getByPlaceholderText("搜索建筑或地点…"), {
           target: { value: name },
         });
       } else {
@@ -2053,7 +2055,7 @@ describe("Campus Map AMap runtime effects", () => {
     map.setZoomAndCenter.mockClear();
     map.panTo.mockClear();
 
-    fireEvent.input(screen.getByPlaceholderText("搜索建筑"), {
+    fireEvent.input(screen.getByPlaceholderText("搜索建筑或地点…"), {
       target: { value: "科学馆" },
     });
     fireEvent.click(await screen.findByRole("button", { name: /科学馆/ }));

@@ -185,7 +185,7 @@ afterEach(async () => {
 });
 
 async function selectScienceCentre() {
-  const search = screen.getByPlaceholderText("搜索建筑");
+  const search = screen.getByPlaceholderText("搜索建筑或地点…");
   fireEvent.change(search, { target: { value: "科学馆" } });
   fireEvent.submit(search.closest("form")!);
   const result = await screen.findByRole("button", { name: /科学馆/ });
@@ -266,6 +266,27 @@ function formalCurrentFactsProjection() {
         sortOrder: 2,
       }),
     ],
+  });
+}
+
+function emptyBuildingProjection() {
+  return projectCampusMapBrowse({
+    buildings: [
+      {
+        buildingId: "10000000-0000-4000-8000-000000000012",
+        name: "空置测试楼",
+        englishName: "Empty Test Building",
+        code: "EMPTY",
+        aliases: [],
+        anchor: {
+          longitude: 114.2101,
+          latitude: 22.4181,
+          crs: "wgs84",
+        },
+        floors: [],
+      },
+    ],
+    places: [],
   });
 }
 
@@ -353,13 +374,24 @@ describe("CampusMapRuntime", () => {
     expect(screen.queryByRole("button", { name: "打印机" })).toBeNull();
   });
 
+  it("describes the combined Building and Place search interface", () => {
+    render(<CampusMapRuntime />);
+
+    const search = screen.getByRole("textbox", {
+      name: "搜索建筑或地点",
+    });
+    expect(search.getAttribute("placeholder")).toBe("搜索建筑或地点…");
+    expect(search.getAttribute("name")).toBe("campus-map-search");
+    expect(search.getAttribute("autocomplete")).toBe("off");
+  });
+
   it("searches formal Current facts and lists same-type Places separately in the Building card", async () => {
     render(
       <CampusMapRuntime
         initialBrowseProjection={formalCurrentFactsProjection()}
       />,
     );
-    const search = screen.getByPlaceholderText("搜索建筑");
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
     fireEvent.change(search, { target: { value: "何善衡工程学大楼" } });
     const buildingResult = await waitFor(() =>
       document.querySelector(
@@ -367,9 +399,12 @@ describe("CampusMapRuntime", () => {
       ),
     );
     fireEvent.click(buildingResult!);
-    await screen.findByRole("heading", { name: "何善衡工程学大楼" });
+    const buildingHeading = await screen.findByRole("heading", {
+      name: "何善衡工程学大楼",
+    });
 
     expect(screen.getByText("2 个校内地点")).not.toBeNull();
+    expect(buildingHeading.className).toContain("focus-visible:ring-2");
     expect(screen.getByText("Ho Sin-Hang Engineering Building")).not.toBeNull();
     expect(screen.queryByText(/Current facts/i)).toBeNull();
     expect(
@@ -381,6 +416,43 @@ describe("CampusMapRuntime", () => {
     expect(screen.getByRole("heading", { name: "2/F" })).not.toBeNull();
     expect(screen.getByRole("button", { name: /东翼洗手间/ })).not.toBeNull();
     expect(screen.getByRole("button", { name: /西翼洗手间/ })).not.toBeNull();
+  });
+
+  it("keeps an empty Building card informative without offering a zero-item expansion", async () => {
+    render(
+      <CampusMapRuntime initialBrowseProjection={emptyBuildingProjection()} />,
+    );
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
+    fireEvent.change(search, { target: { value: "空置测试楼" } });
+    fireEvent.click(await screen.findByRole("button", { name: /空置测试楼/ }));
+
+    expect(
+      await screen.findByRole("heading", { name: "空置测试楼" }),
+    ).not.toBeNull();
+    expect(screen.getByText("暂未收录校内地点")).not.toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "查看 0 个校内地点" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
+  });
+
+  it("gives every Place action consistent keyboard and pointer feedback", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000005";
+    render(
+      <CampusMapRuntime
+        initialSearch={`?v=1&scene=facility&id=${placeId}&snap=peek`}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "饮水机" });
+    for (const control of [
+      screen.getByRole("button", { name: "建议修改" }),
+      screen.getByRole("button", { name: "定位所属建筑" }),
+      screen.getByRole("link", { name: "查看编辑记录" }),
+    ]) {
+      expect(control.className).toContain("focus-visible:ring-2");
+      expect(control.className).toContain("active:translate-y-px");
+    }
   });
 
   it("refetches Current facts after publish so a standalone Place is searchable", async () => {
@@ -458,7 +530,7 @@ describe("CampusMapRuntime", () => {
       screen.queryByRole("link", { name: "查看此次 Changeset" }),
     ).toBeNull();
     expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
-    const search = screen.getByPlaceholderText("搜索建筑");
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
     expect(search.closest("header")?.hasAttribute("inert")).toBe(false);
     await act(async () => {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
@@ -467,7 +539,7 @@ describe("CampusMapRuntime", () => {
       );
       await Promise.resolve();
     });
-    const activeSearch = screen.getByPlaceholderText("搜索建筑");
+    const activeSearch = screen.getByPlaceholderText("搜索建筑或地点…");
     fireEvent.change(activeSearch, { target: { value: "新发布饮水点" } });
     fireEvent.submit(activeSearch.closest("form")!);
 
@@ -1729,7 +1801,7 @@ describe("CampusMapRuntime", () => {
   it("removes hidden map chrome from keyboard and screen-reader navigation during editing", async () => {
     render(<CampusMapRuntime />);
     const searchHeader = screen
-      .getByPlaceholderText("搜索建筑")
+      .getByPlaceholderText("搜索建筑或地点…")
       .closest("header");
     const filterNav = screen.getByRole("navigation", { name: "设施筛选" });
     const addButton = screen.getByRole("button", { name: "添加地点" });
@@ -2012,7 +2084,7 @@ describe("CampusMapRuntime", () => {
 
   it("closes with Escape and restores focus to the search result trigger", async () => {
     render(<CampusMapRuntime />);
-    const search = screen.getByPlaceholderText("搜索建筑");
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
     fireEvent.change(search, { target: { value: "科学馆" } });
     fireEvent.submit(search.closest("form")!);
     const result = await screen.findByRole("button", { name: /科学馆/ });
@@ -2056,7 +2128,7 @@ describe("CampusMapRuntime", () => {
 
   it("shows search results while typing instead of requiring a hidden submit step", async () => {
     render(<CampusMapRuntime />);
-    const search = screen.getByPlaceholderText("搜索建筑");
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
 
     fireEvent.input(search, { target: { value: "科学馆" } });
 
@@ -2067,7 +2139,7 @@ describe("CampusMapRuntime", () => {
 
   it("preserves a typed word separator for multi-token facility search", async () => {
     render(<CampusMapRuntime initialSearch="?v=1" />);
-    const search = screen.getByPlaceholderText("搜索建筑");
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
 
     fireEvent.change(search, { target: { value: "大学图书馆" } });
     fireEvent.change(search, { target: { value: "大学图书馆 " } });
@@ -2081,7 +2153,7 @@ describe("CampusMapRuntime", () => {
 
   it("dismisses search results with Escape", async () => {
     render(<CampusMapRuntime initialSearch="?v=1" />);
-    const search = screen.getByPlaceholderText("搜索建筑");
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
     fireEvent.change(search, { target: { value: "科学馆" } });
     expect(
       await screen.findByRole("button", { name: /科学馆/ }),
@@ -2095,7 +2167,7 @@ describe("CampusMapRuntime", () => {
 
   it("opens a facility search result at the same canonical facility URL", async () => {
     render(<CampusMapRuntime />);
-    const search = screen.getByPlaceholderText("搜索建筑");
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
 
     fireEvent.change(search, { target: { value: "大学图书馆 饮水机" } });
     fireEvent.click(
@@ -2164,9 +2236,13 @@ describe("CampusMapRuntime", () => {
       screen.getByText("校园内已收录 2 个地点，分布在 2 栋建筑"),
     ).not.toBeNull();
     expect(screen.queryByText(/Current facts/i)).toBeNull();
+    const firstCategoryResult = screen.getByRole("button", {
+      name: /科学馆 · 1\/F/,
+    });
+    expect(firstCategoryResult).not.toBeNull();
     expect(
-      screen.getByRole("button", { name: /科学馆 · 1\/F/ }),
-    ).not.toBeNull();
+      firstCategoryResult.closest(".overflow-y-auto")?.className,
+    ).toContain("pb-[max(1.25rem,var(--campus-map-safe-area-bottom))]");
     expect(
       screen.getByRole("button", { name: /大学图书馆 · G\/F/ }),
     ).not.toBeNull();

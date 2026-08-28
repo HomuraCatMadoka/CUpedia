@@ -343,7 +343,7 @@ test("#649 core 2/5 search opens one Place card and refresh keeps canonical iden
   page,
 }) => {
   await page.goto("/campus-map");
-  const search = page.getByPlaceholder("搜索建筑");
+  const search = page.getByPlaceholder("搜索建筑或地点…");
   await search.fill("正式测试饮水点");
   await page
     .getByRole("button", { name: /正式测试楼.*正式测试饮水点/ })
@@ -536,7 +536,7 @@ test("#649 core 5/5 a rapid newer Place intent wins over a delayed provider resu
     name: "高德正式测试楼",
     lnglat: { lng: 114.2072, lat: 22.4191 },
   });
-  await page.getByPlaceholder("搜索建筑").fill("正式测试饮水点");
+  await page.getByPlaceholder("搜索建筑或地点…").fill("正式测试饮水点");
   await page
     .getByRole("button", { name: /正式测试楼.*正式测试饮水点/ })
     .click();
@@ -638,6 +638,20 @@ test("#649 core 4/5 publish handoff shows one success prompt and never restores 
   ).toBeVisible();
   await expect(page.getByRole("status")).toContainText("地点已添加");
   await expect(page.getByText("PUBLISHED")).toHaveCount(0);
+  const publishNoticeBox = await page.getByRole("status").boundingBox();
+  const searchBox = await page
+    .getByRole("textbox", {
+      name: "搜索建筑或地点",
+    })
+    .boundingBox();
+  expect(publishNoticeBox).not.toBeNull();
+  expect(searchBox).not.toBeNull();
+  expect(
+    publishNoticeBox!.x + publishNoticeBox!.width <= searchBox!.x ||
+      searchBox!.x + searchBox!.width <= publishNoticeBox!.x ||
+      publishNoticeBox!.y + publishNoticeBox!.height <= searchBox!.y ||
+      searchBox!.y + searchBox!.height <= publishNoticeBox!.y,
+  ).toBe(true);
 
   await page.goBack();
   await expect(page.getByRole("status")).toHaveCount(0);
@@ -656,7 +670,7 @@ test("#649 core 4/5 publish handoff shows one success prompt and never restores 
   ).toBeVisible();
   await expect(page.getByRole("status")).toHaveCount(0);
 
-  await page.getByPlaceholder("搜索建筑").fill(publishedName);
+  await page.getByPlaceholder("搜索建筑或地点…").fill(publishedName);
   const publishedResult = page.locator(`[data-search-result="${placeId}"]`);
   await expect(publishedResult).toBeVisible();
   await publishedResult.click();
@@ -676,7 +690,15 @@ test("#649 cards remain usable at 390x844, 720x844, and 1280x800", async ({
   ]) {
     await page.setViewportSize(viewport);
     await page.goto("/campus-map");
-    await page.locator('input[placeholder="搜索建筑"]:visible').fill("正式");
+    await expect(
+      page.locator('header:has(input[placeholder="搜索建筑或地点…"])').first(),
+    ).toHaveCSS("transition-property", "none");
+    await expect(
+      page.getByRole("navigation", { name: "设施筛选" }).first().locator(".."),
+    ).toHaveCSS("transition-property", "none");
+    await page
+      .locator('input[placeholder="搜索建筑或地点…"]:visible')
+      .fill("正式");
     const clearSearch = page.locator('button[aria-label="清除搜索"]:visible');
     const clearSearchBox = await clearSearch.boundingBox();
     expect(clearSearchBox).not.toBeNull();
@@ -699,9 +721,19 @@ test("#649 cards remain usable at 390x844, 720x844, and 1280x800", async ({
       expect(cardBox!.height).toBeLessThanOrEqual(520);
     } else {
       expect(cardBox!.height).toBeLessThanOrEqual(260);
-      await expect(
-        card.getByRole("button", { name: "查看 1 个校内地点" }),
-      ).toBeVisible();
+      const buildingCta = card.getByRole("button", {
+        name: "查看 1 个校内地点",
+      });
+      await expect(buildingCta).toBeVisible();
+      await buildingCta.evaluate((element) => {
+        element
+          .closest("main")
+          ?.style.setProperty("--campus-map-safe-area-bottom", "32px");
+      });
+      await expect(buildingCta.locator("..")).toHaveCSS(
+        "padding-bottom",
+        "32px",
+      );
     }
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
@@ -727,6 +759,18 @@ test("#649 cards remain usable at 390x844, 720x844, and 1280x800", async ({
     await expect(
       page.getByRole("heading", { name: "正式测试饮水点" }),
     ).toBeFocused();
-    await expect(page.getByRole("button", { name: "建议修改" })).toBeVisible();
+    const suggestEdit = page.getByRole("button", { name: "建议修改" });
+    await expect(suggestEdit).toBeVisible();
+    if (viewport.width < 768) {
+      await suggestEdit.evaluate((element) => {
+        element
+          .closest("main")
+          ?.style.setProperty("--campus-map-safe-area-bottom", "32px");
+      });
+      await expect(suggestEdit.locator("..")).toHaveCSS(
+        "padding-bottom",
+        "32px",
+      );
+    }
   }
 });
