@@ -64,8 +64,11 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(
       screen.queryByRole("textbox", { name: "设施名称或编号" }),
     ).toBeNull();
-    expect(screen.getByText("科学馆")).toBeTruthy();
-    expect(screen.getByText("高德参考 · 香港中文大学中央大道")).toBeTruthy();
+    expect(
+      screen.getByText("114.210100, 22.419800 · WGS84 · 约略").className,
+    ).toContain("font-semibold");
+    expect(screen.getByText("高德地图地点：科学馆")).toBeTruthy();
+    expect(screen.getByText("高德地图参考：香港中文大学中央大道")).toBeTruthy();
     expect(screen.queryByRole("radio", { name: "饮水点" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
@@ -371,15 +374,15 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    expect(screen.getByText("邵逸夫堂")).toBeTruthy();
-    expect(screen.getByText("高德参考 · 附近地点")).toBeTruthy();
+    expect(screen.getByText("高德地图地点：邵逸夫堂")).toBeTruthy();
+    expect(screen.queryByText(/附近地点/)).toBeNull();
   });
 
   it.each([
-    ["rate-limited", "地址查询较频繁，仍可使用此位置"],
-    ["transient-error", "暂时无法识别地址，仍可使用此位置"],
-    ["permanent-error", "地址服务不可用，仍可使用此位置"],
-    ["empty", "高德未找到附近地点，仍可使用此位置"],
+    ["rate-limited", "高德地图查询较频繁，仍可使用此位置"],
+    ["transient-error", "暂时无法查询高德地图参考，仍可使用此位置"],
+    ["permanent-error", "高德地图参考不可用，仍可使用此位置"],
+    ["empty", "高德地图未找到附近地点，仍可使用此位置"],
   ] as const)("keeps the candidate usable after %s", (status, message) => {
     render(
       <CampusMapEditSheet
@@ -925,7 +928,7 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     expect(
-      screen.getByText("移动地图或轻点地图标签，选择新的设施位置。"),
+      screen.getByText("拖动地图或轻点地点名称，选择新的设施位置。"),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "使用此位置" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "确认新位置" })).toBeNull();

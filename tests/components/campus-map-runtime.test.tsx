@@ -415,14 +415,11 @@ describe("CampusMapRuntime", () => {
     });
 
     expect(buildingHeading.className).toContain("focus-visible:outline-none");
-    expect(buildingHeading.className).not.toContain("focus-visible:ring-2");
-    expect(buildingHeading.parentElement?.className).toContain(
+    expect(buildingHeading.className).toContain("focus-visible:ring-2");
+    expect(buildingHeading.parentElement?.className).not.toContain(
       "has-[:focus-visible]:before:bg-[#176346]",
     );
-    expect(buildingHeading.parentElement?.className).not.toContain(
-      "has-[:focus-visible]:ring-2",
-    );
-    expect(screen.queryByText("Ho Sin-Hang Engineering Building")).toBeNull();
+    expect(screen.getByText("Ho Sin-Hang Engineering Building")).not.toBeNull();
     expect(screen.queryByText(/Current facts/i)).toBeNull();
     expect(screen.getByText("洗手间 2 处")).not.toBeNull();
     const facilityTypeSummary = screen.getByRole("list", {
@@ -1567,11 +1564,16 @@ describe("CampusMapRuntime", () => {
       await screen.findByRole("heading", { name: "选择设施位置" }),
     ).toBeTruthy();
     expect(
-      screen.getByText(
-        "拖动地图对准设施，或轻点地图名称直接选择；建筑只作位置参考。",
-      ),
+      screen.getByText("拖动地图或轻点地点名称，选择设施位置。"),
     ).toBeTruthy();
-    expect(screen.getByText("地图坐标")).toBeTruthy();
+    expect(screen.getByText(/WGS84 · 约略/).className).toContain(
+      "font-semibold",
+    );
+    expect(
+      screen
+        .getByRole("main")
+        .style.getPropertyValue("--campus-map-panel-height"),
+    ).toBe("min(336px, 48dvh)");
     expect(
       screen.queryByRole("textbox", { name: "设施名称或编号" }),
     ).toBeNull();
@@ -2319,10 +2321,72 @@ describe("CampusMapRuntime", () => {
     expect(
       firstCategoryResult.closest(".overflow-y-auto")?.className,
     ).not.toContain("mb-[var(--campus-map-provider-control-clearance)]");
-    fireEvent.click(screen.getByRole("button", { name: "查看全部 2 处设施" }));
     expect(
       screen.getByRole("button", { name: /大学图书馆 · G\/F/ }),
     ).not.toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "查看全部 2 处设施" }),
+    ).toBeNull();
+    expect(
+      screen
+        .getByRole("main")
+        .style.getPropertyValue("--campus-map-panel-height"),
+    ).toBe("min(236px, 44dvh)");
+    const categoryHeading = screen.getByRole("heading", { name: "饮水点" });
+    expect(categoryHeading.className).toContain("focus-visible:ring-2");
+    expect(categoryHeading.parentElement?.className).not.toContain(
+      "has-[:focus-visible]:before:bg-[#176346]",
+    );
+  });
+
+  it("shows three category results before offering the full list", async () => {
+    const projection = createCampusMapBrowseFixture();
+    const waterPlace = projection.places.find(
+      (place) => place.pinType === "water",
+    );
+    if (!waterPlace) throw new Error("water fixture missing");
+    const extraPlaces = [
+      {
+        ...waterPlace,
+        placeId: "71000000-0000-4000-8000-000000000006",
+        name: "东门饮水机",
+        selectionTarget: {
+          ...waterPlace.selectionTarget,
+          placeId: "71000000-0000-4000-8000-000000000006",
+        },
+      },
+      {
+        ...waterPlace,
+        placeId: "71000000-0000-4000-8000-000000000007",
+        name: "西门饮水机",
+        selectionTarget: {
+          ...waterPlace.selectionTarget,
+          placeId: "71000000-0000-4000-8000-000000000007",
+        },
+      },
+    ];
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={{
+          ...projection,
+          places: [...projection.places, ...extraPlaces],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+
+    expect(
+      await screen.findByRole("button", { name: /东门饮水机/ }),
+    ).not.toBeNull();
+    expect(screen.queryByRole("button", { name: /西门饮水机/ })).toBeNull();
+    expect(
+      screen
+        .getByRole("main")
+        .style.getPropertyValue("--campus-map-panel-height"),
+    ).toBe("min(352px, 44dvh)");
+    fireEvent.click(screen.getByRole("button", { name: "查看全部 4 处设施" }));
+    expect(screen.getByRole("button", { name: /西门饮水机/ })).not.toBeNull();
   });
 
   it("restores navigation from browser history state", async () => {

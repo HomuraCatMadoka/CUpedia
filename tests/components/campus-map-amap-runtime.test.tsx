@@ -323,7 +323,7 @@ describe("Campus Map AMap runtime effects", () => {
         pois: [{ id: "new-poi", name: "新位置", distance: "8" }],
       },
     });
-    expect(await screen.findByText("新位置")).not.toBeNull();
+    expect(await screen.findByText("高德地图地点：新位置")).not.toBeNull();
     await runtime.resolveGeocode(0, "complete", {
       regeocode: {
         formattedAddress: "旧位置一",
@@ -336,12 +336,12 @@ describe("Campus Map AMap runtime effects", () => {
         pois: [{ id: "old-poi-2", name: "旧位置二" }],
       },
     });
-    expect(screen.getByText("新位置")).not.toBeNull();
+    expect(screen.getByText("高德地图地点：新位置")).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
     expect(await screen.findByText("新位置")).not.toBeNull();
     expect(screen.getByText(/114\.212000, 22\.422000/)).not.toBeNull();
-    expect(screen.queryByText(/高德参考.*香港中文大学新位置/)).toBeNull();
+    expect(screen.queryByText(/高德地图参考.*香港中文大学新位置/)).toBeNull();
     const restored = JSON.parse(
       window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
     );
@@ -379,10 +379,10 @@ describe("Campus Map AMap runtime effects", () => {
       },
     });
 
-    expect(await screen.findByText("科学馆附近")).not.toBeNull();
+    expect(await screen.findByText("附近建筑：科学馆")).not.toBeNull();
     expect(screen.getByText(/114\.208010, 22\.419660/)).not.toBeNull();
     expect(
-      screen.getByText(/高德参考.*香港特别行政区沙田区中央道香港中文大学/),
+      screen.getByText(/高德地图参考.*香港特别行政区沙田区中央道香港中文大学/),
     ).not.toBeNull();
   });
 
@@ -402,12 +402,12 @@ describe("Campus Map AMap runtime effects", () => {
       },
     });
 
-    expect(screen.getByText(/轻点地图名称直接选择/)).not.toBeNull();
+    expect(screen.getByText(/轻点地点名称/)).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
 
     expect(await screen.findByText("科学馆附近")).not.toBeNull();
     expect(screen.getByText(/114\.208010, 22\.419660/)).not.toBeNull();
-    expect(screen.queryByText(/高德参考/)).toBeNull();
+    expect(screen.queryByText(/高德地图参考/)).toBeNull();
     expect(screen.getByRole("radio", { name: "饮水点" })).not.toBeNull();
     expect(
       screen.queryByRole("textbox", { name: "设施名称或编号" }),
@@ -439,8 +439,8 @@ describe("Campus Map AMap runtime effects", () => {
     });
     await runtime.flushAnimationFrames();
 
-    expect(screen.getByText("邵逸夫堂")).not.toBeNull();
-    expect(screen.getByText("高德参考 · 已选中地图标签")).not.toBeNull();
+    expect(screen.getByText("高德地图地点：邵逸夫堂")).not.toBeNull();
+    expect(screen.queryByText(/已选中地图标签/)).toBeNull();
     expect(map.setZoomAndCenter).toHaveBeenCalledWith(
       map.getZoom(),
       expect.objectContaining({
@@ -453,7 +453,7 @@ describe("Campus Map AMap runtime effects", () => {
     expect(map.panBy).toHaveBeenCalledWith(0, 844 * 0.26 - 844 / 2, 0);
 
     await act(async () => map.emit("moveend", {}));
-    expect(screen.getByText("邵逸夫堂")).not.toBeNull();
+    expect(screen.getByText("高德地图地点：邵逸夫堂")).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
 
     expect(await screen.findByText("邵逸夫堂")).not.toBeNull();
@@ -484,7 +484,7 @@ describe("Campus Map AMap runtime effects", () => {
         lnglat: { lng: map.center.lng, lat: map.center.lat },
       });
     });
-    expect(screen.getByText("邵逸夫堂")).not.toBeNull();
+    expect(screen.getByText("高德地图地点：邵逸夫堂")).not.toBeNull();
 
     await act(async () => {
       map.emit("dragstart", {});
@@ -499,8 +499,8 @@ describe("Campus Map AMap runtime effects", () => {
       },
     });
 
-    expect(await screen.findByText("地图坐标")).not.toBeNull();
-    expect(screen.queryByText("邵逸夫堂")).toBeNull();
+    expect(await screen.findByText(/WGS84 · 约略/)).not.toBeNull();
+    expect(screen.queryByText(/邵逸夫堂/)).toBeNull();
   });
 
   it("routes keyboard placement through the existing camera and focus owner", async () => {
@@ -812,15 +812,18 @@ describe("Campus Map AMap runtime effects", () => {
     });
     const pin = document.querySelector("[data-campus-map-center-pin]");
     expect(pin?.getAttribute("data-moving")).toBe("false");
-    expect(screen.getByText("地图坐标")).not.toBeNull();
-    expect(screen.getByText("高德参考 · 香港中文大学中央校园")).not.toBeNull();
+    expect(screen.getByText(/WGS84 · 约略/)).not.toBeNull();
+    expect(screen.queryByText(/高德地图地点/)).toBeNull();
+    expect(
+      screen.getByText("高德地图参考：香港中文大学中央校园"),
+    ).not.toBeNull();
 
     await act(async () => map.emit("movestart", {}));
     expect(pin?.getAttribute("data-moving")).toBe("true");
     const pending = screen.getByRole("button", { name: "正在确定位置…" });
     expect((pending as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(pending);
-    expect(screen.getByText(/轻点地图名称直接选择/)).not.toBeNull();
+    expect(screen.getByText(/轻点地点名称/)).not.toBeNull();
 
     await act(async () => {
       map.center = { lng: 114.211, lat: 22.421 };
@@ -1887,6 +1890,16 @@ describe("Campus Map AMap runtime effects", () => {
       "md:w-[390px]",
     );
     expect(screen.getByText("高德地图地点")).not.toBeNull();
+    expect(providerHeading.className).toContain("focus-visible:ring-2");
+    expect(providerHeading.className).toContain("truncate");
+    expect(providerHeading.parentElement?.className).not.toContain(
+      "has-[:focus-visible]:before:bg-[#176346]",
+    );
+    expect(
+      providerHeading
+        .closest("main")
+        ?.style.getPropertyValue("--campus-map-panel-height"),
+    ).toBe("120px");
     expect(screen.queryByRole("button", { name: "建议修改" })).toBeNull();
     expect(screen.queryByRole("link", { name: "查看编辑记录" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();

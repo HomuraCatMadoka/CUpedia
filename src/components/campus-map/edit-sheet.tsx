@@ -563,24 +563,26 @@ export function CampusMapEditSheet({
   );
   const placementLabel =
     resolvedContext?.label && resolvedContext.label !== "地图中心位置"
-      ? resolvedContext.label
-      : (nearbyPlacementLabel ?? "地图坐标");
+      ? `高德地图地点：${resolvedContext.label}`
+      : nearbyPlacementLabel
+        ? `附近建筑：${nearbyPlacementLabel.replace(/附近$/u, "")}`
+        : null;
   const placementDescription = describeOutdoorPosition(placementPosition);
   const placementReference = resolvedContext
-    ? resolvedContext.distanceMeters === 0 && !resolvedContext.address
-      ? "高德参考 · 已选中地图标签"
-      : `高德参考 · ${resolvedContext.address ?? "附近地点"}`
+    ? resolvedContext.address
+      ? `高德地图参考：${resolvedContext.address}`
+      : null
     : placeContext?.status === "loading"
-      ? "正在确定位置…"
+      ? "正在查询高德地图参考…"
       : placeContext?.status === "rate-limited"
-        ? "地址查询较频繁，仍可使用此位置"
+        ? "高德地图查询较频繁，仍可使用此位置"
         : placeContext?.status === "transient-error"
-          ? "暂时无法识别地址，仍可使用此位置"
+          ? "暂时无法查询高德地图参考，仍可使用此位置"
           : placeContext?.status === "permanent-error"
-            ? "地址服务不可用，仍可使用此位置"
+            ? "高德地图参考不可用，仍可使用此位置"
             : placeContext?.status === "empty"
-              ? "高德未找到附近地点，仍可使用此位置"
-              : "移动地图，让图钉对准地点";
+              ? "高德地图未找到附近地点，仍可使用此位置"
+              : null;
   const lockedOutdoorLabel =
     !isPlacing &&
     fact.location?.kind === "outdoor-point" &&
@@ -983,8 +985,8 @@ export function CampusMapEditSheet({
         <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm">
           {isPlacing
             ? draft.mode === "add"
-              ? "拖动地图对准设施，或轻点地图名称直接选择；建筑只作位置参考。"
-              : "移动地图或轻点地图标签，选择新的设施位置。"
+              ? "拖动地图或轻点地点名称，选择设施位置。"
+              : "拖动地图或轻点地点名称，选择新的设施位置。"
             : draft.mode === "add"
               ? "位置已确定。选择设施类型后即可发布。"
               : "确认设施类型和位置后即可发布修改。"}
@@ -1022,35 +1024,46 @@ export function CampusMapEditSheet({
               className="mt-0.5 size-5 shrink-0 text-[#176346]"
             />
             <div className="min-w-0 flex-1">
-              <p className="font-semibold" aria-live="polite">
-                {isPlacing
-                  ? placementLabel
-                  : (lockedOutdoorLabel ??
-                    friendlyLocationLabel(
-                      fact,
-                      draft.locationDisplay,
-                      buildings,
-                    ))}
-              </p>
-              <p
-                className={cn(
-                  "mt-0.5 text-xs text-neutral-600",
-                  !isPlacing && "truncate",
-                )}
-                aria-live="polite"
-              >
-                {isPlacing
-                  ? placementDescription
-                  : describeLocation(fact, draft.locationDisplay)}
-              </p>
               {isPlacing ? (
-                <p
-                  className="mt-0.5 text-xs text-neutral-500"
-                  aria-live="polite"
-                >
-                  {placementReference}
-                </p>
-              ) : null}
+                <>
+                  <p className="font-semibold" aria-live="polite">
+                    {placementDescription}
+                  </p>
+                  {placementLabel ? (
+                    <p
+                      className="mt-0.5 text-xs text-neutral-600"
+                      aria-live="polite"
+                    >
+                      {placementLabel}
+                    </p>
+                  ) : null}
+                  {placementReference ? (
+                    <p
+                      className="mt-0.5 text-xs text-neutral-500"
+                      aria-live="polite"
+                    >
+                      {placementReference}
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold" aria-live="polite">
+                    {lockedOutdoorLabel ??
+                      friendlyLocationLabel(
+                        fact,
+                        draft.locationDisplay,
+                        buildings,
+                      )}
+                  </p>
+                  <p
+                    className="mt-0.5 truncate text-xs text-neutral-600"
+                    aria-live="polite"
+                  >
+                    {describeLocation(fact, draft.locationDisplay)}
+                  </p>
+                </>
+              )}
             </div>
             {!isPlacing ? (
               <button

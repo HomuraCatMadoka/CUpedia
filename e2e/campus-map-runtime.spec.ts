@@ -401,6 +401,7 @@ test("Building expands into Place and Back restores the Building card", async ({
   await page.goto(buildingUrl);
   await expect(page.getByRole("heading", { name: "正式测试楼" })).toBeVisible();
   const buildingCard = page.getByRole("region", { name: "正式测试楼" }).first();
+  await expect(buildingCard.getByText("Canonical Test Building")).toBeVisible();
   await expect(
     buildingCard.getByText("饮水点 1 处", { exact: true }),
   ).toBeVisible();
@@ -432,6 +433,9 @@ test("Building expands into Place and Back restores the Building card", async ({
   await page.goto("/campus-map");
   await page.getByRole("button", { name: "饮水点" }).click();
   await expect(page).toHaveURL(/scene=category&id=water&snap=peek$/);
+  await expect(
+    page.getByRole("button", { name: "查看全部 1 处设施" }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: /正式测试饮水点/ }).click();
   await expect(page).toHaveURL(placeUrl);
   await page.goBack();
@@ -498,6 +502,7 @@ test("one provider callback produces one canonical effect and a map gesture clos
 test("mapped and unmapped provider POIs never duplicate cards", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/campus-map");
 
   await emitAmapEvent(page, "hotspotclick", {
@@ -541,6 +546,9 @@ test("mapped and unmapped provider POIs never duplicate cards", async ({
   });
   await expect(providerCard).toBeVisible();
   await expect(providerHeading).toBeFocused();
+  const providerCardBox = await providerCard.boundingBox();
+  expect(providerCardBox).not.toBeNull();
+  expect(providerCardBox!.height).toBeLessThanOrEqual(120);
   await expect(page.getByRole("button", { name: "建议修改" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "查看编辑记录" })).toHaveCount(0);
   expect(await page.evaluate(() => window.history.length)).toBe(

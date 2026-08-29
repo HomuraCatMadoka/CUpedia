@@ -39,10 +39,18 @@ test("Campus Map editing keeps its primary action inside a 390px-high viewport",
 test("Campus Map editing keeps only the essential controls in a compact mobile viewport", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 545, height: 688 });
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/campus-map");
 
   await page.getByRole("button", { name: "添加地点" }).click();
+  const placingSheet = page.getByRole("region", { name: "选择设施位置" });
+  const placingSheetBox = await placingSheet.boundingBox();
+  expect(placingSheetBox).not.toBeNull();
+  expect(placingSheetBox!.height).toBeLessThanOrEqual(336);
+  await expect(page.getByText(/WGS84 · 约略/).first()).toHaveCSS(
+    "font-weight",
+    "600",
+  );
   await page.getByRole("button", { name: "使用此位置" }).click();
 
   const sheet = page.getByRole("region", { name: "添加校内设施" });

@@ -251,6 +251,16 @@ const CATEGORIES = CAMPUS_MAP_EDIT_SCHEMA.presets.map((preset) => ({
   ...CATEGORY_PRESENTATION[preset.pinType],
 }));
 
+const CATEGORY_PEEK_RESULT_LIMIT = 3;
+
+function categoryPeekPanelHeight(resultCount: number) {
+  if (resultCount > CATEGORY_PEEK_RESULT_LIMIT) {
+    return "min(352px, 44dvh)";
+  }
+  const contentHeight = Math.max(208, 124 + resultCount * 56);
+  return `min(${contentHeight}px, 44dvh)`;
+}
+
 function canonicalInitialSearch(
   search: string,
   catalog: CampusMapSceneCatalog,
@@ -2174,15 +2184,17 @@ export function CampusMapRuntime({
   const browsePeekHeight = activeProviderTargetError
     ? "var(--campus-map-peek-height)"
     : selectedProviderPoi
-      ? "min(184px, 30dvh)"
+      ? "120px"
       : selectedFacility
         ? "min(300px, 40dvh)"
         : selectedBuilding && selectedBuilding.placeIds.length > 0
           ? "min(304px, 40dvh)"
-          : "var(--campus-map-peek-height)";
+          : activeAmenity
+            ? categoryPeekPanelHeight(categoryFacilities.length)
+            : "var(--campus-map-peek-height)";
   const mobilePanelHeight =
     editSession?.status === "placing"
-      ? "48dvh"
+      ? "min(336px, 48dvh)"
       : editSession
         ? "var(--campus-map-edit-sheet-height)"
         : panelSnap === "full" && canExpandBrowseCard
@@ -2608,17 +2620,17 @@ export function CampusMapRuntime({
         ) : selectedProviderPoi ? (
           <div
             id="campus-map-panel-content"
-            className="flex h-[calc(100%-32px)] items-start gap-3 px-5 pb-5 md:h-auto md:p-5"
+            className="flex h-[calc(100%-32px)] items-start gap-3 px-4 pb-[max(1rem,var(--campus-map-safe-area-bottom))] md:h-auto md:p-5"
           >
             <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#e7f1ec] text-[#174b38]">
               <MapPinIcon aria-hidden="true" className="size-5" />
             </span>
-            <div className="relative min-w-0 flex-1 before:absolute before:inset-y-0 before:-left-2 before:w-0.5 before:rounded-full before:content-[''] has-[:focus-visible]:before:bg-[#176346]">
+            <div className="min-w-0 flex-1">
               <h2
                 id="campus-map-panel-title"
                 ref={panelTitleRef}
                 tabIndex={-1}
-                className="text-xl font-semibold tracking-[-0.02em] focus-visible:outline-none"
+                className="truncate rounded-sm text-xl font-semibold tracking-[-0.02em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
               >
                 {selectedProviderPoi.name}
               </h2>
@@ -2643,17 +2655,20 @@ export function CampusMapRuntime({
           >
             <div className="flex items-center gap-3 border-b border-black/10 px-5 pb-4">
               <span
-                className="grid size-11 shrink-0 place-items-center rounded-full text-white"
-                style={{ background: activeCategoryStyle.color }}
+                className="grid size-11 shrink-0 place-items-center rounded-xl"
+                style={{
+                  background: `${activeCategoryStyle.color}18`,
+                  color: activeCategoryStyle.color,
+                }}
               >
                 <activeCategoryStyle.icon className="size-5" />
               </span>
-              <div className="relative min-w-0 flex-1 before:absolute before:inset-y-0 before:-left-2 before:w-0.5 before:rounded-full before:content-[''] has-[:focus-visible]:before:bg-[#176346]">
+              <div className="min-w-0 flex-1">
                 <h2
                   id="campus-map-panel-title"
                   ref={panelTitleRef}
                   tabIndex={-1}
-                  className="text-xl font-semibold focus-visible:outline-none"
+                  className="rounded-sm text-xl font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
                 >
                   {activeCategoryStyle.label}
                 </h2>
@@ -2688,7 +2703,7 @@ export function CampusMapRuntime({
             <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:pb-5">
               {(state.sheet.snap === "full"
                 ? categoryFacilities
-                : categoryFacilities.slice(0, 1)
+                : categoryFacilities.slice(0, CATEGORY_PEEK_RESULT_LIMIT)
               ).map((facility) => {
                 const building = buildings.find(
                   (item) => item.buildingId === facility.buildingId,
@@ -2716,7 +2731,7 @@ export function CampusMapRuntime({
                   </button>
                 );
               })}
-              {categoryFacilities.length > 1 ? (
+              {categoryFacilities.length > CATEGORY_PEEK_RESULT_LIMIT ? (
                 <button
                   type="button"
                   aria-label={
@@ -2778,12 +2793,12 @@ export function CampusMapRuntime({
                   {selectedBuilding?.code ?? "地点"}
                 </span>
               )}
-              <div className="relative min-w-0 flex-1 before:absolute before:inset-y-0 before:-left-2 before:w-0.5 before:rounded-full before:content-[''] has-[:focus-visible]:before:bg-[#176346]">
+              <div className="min-w-0 flex-1">
                 <h2
                   id="campus-map-panel-title"
                   ref={panelTitleRef}
                   tabIndex={-1}
-                  className="truncate text-xl font-semibold tracking-[-0.02em] focus-visible:outline-none"
+                  className="truncate rounded-sm text-xl font-semibold tracking-[-0.02em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
                 >
                   {selectedFacility?.name ?? selectedBuilding?.name}
                 </h2>
@@ -2794,11 +2809,18 @@ export function CampusMapRuntime({
                       : placeLocationLabel(selectedFacility)}
                   </p>
                 ) : selectedBuilding ? (
-                  <p className="mt-1 truncate text-sm font-medium text-[#174b38]">
-                    {selectedBuilding.placeIds.length > 0
-                      ? buildingFacilitySummaryLabel ||
-                        `${selectedBuilding.placeIds.length} 处设施`
-                      : "暂未收录设施"}
+                  <p className="mt-1 flex min-w-0 items-center gap-1.5 text-sm">
+                    {selectedBuilding.englishName ? (
+                      <span className="truncate text-neutral-500">
+                        {selectedBuilding.englishName}
+                      </span>
+                    ) : null}
+                    <span className="shrink-0 font-medium text-[#174b38]">
+                      {selectedBuilding.placeIds.length > 0
+                        ? buildingFacilitySummaryLabel ||
+                          `${selectedBuilding.placeIds.length} 处设施`
+                        : "暂未收录设施"}
+                    </span>
                   </p>
                 ) : null}
               </div>
