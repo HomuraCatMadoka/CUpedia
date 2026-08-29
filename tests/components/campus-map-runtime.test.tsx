@@ -417,6 +417,9 @@ describe("CampusMapRuntime", () => {
     expect(buildingHeading.className).toContain("focus-visible:outline-none");
     expect(buildingHeading.className).not.toContain("focus-visible:ring-2");
     expect(buildingHeading.parentElement?.className).toContain(
+      "has-[:focus-visible]:before:bg-[#176346]",
+    );
+    expect(buildingHeading.parentElement?.className).not.toContain(
       "has-[:focus-visible]:ring-2",
     );
     expect(screen.queryByText("Ho Sin-Hang Engineering Building")).toBeNull();

@@ -2632,7 +2632,7 @@ export function CampusMapRuntime({
               >
                 <activeCategoryStyle.icon className="size-5" />
               </span>
-              <div className="min-w-0 flex-1 rounded-lg has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#176346] has-[:focus-visible]:ring-offset-2">
+              <div className="relative min-w-0 flex-1 before:absolute before:inset-y-0 before:-left-2 before:w-0.5 before:rounded-full before:content-[''] has-[:focus-visible]:before:bg-[#176346]">
                 <h2
                   id="campus-map-panel-title"
                   ref={panelTitleRef}
@@ -2752,7 +2752,7 @@ export function CampusMapRuntime({
                   {selectedBuilding?.code ?? "地点"}
                 </span>
               )}
-              <div className="min-w-0 flex-1 rounded-lg has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#176346] has-[:focus-visible]:ring-offset-2">
+              <div className="relative min-w-0 flex-1 before:absolute before:inset-y-0 before:-left-2 before:w-0.5 before:rounded-full before:content-[''] has-[:focus-visible]:before:bg-[#176346]">
                 <h2
                   id="campus-map-panel-title"
                   ref={panelTitleRef}
