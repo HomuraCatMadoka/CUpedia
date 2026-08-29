@@ -267,6 +267,7 @@ describe("Campus Map AMap runtime effects", () => {
     const { runtime } = await renderWithRuntime({
       deferConvertFrom: true,
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+      placementAnchorPosition: { longitude: 114.22, latitude: 22.43 },
     });
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
@@ -291,7 +292,8 @@ describe("Campus Map AMap runtime effects", () => {
         ).disabled,
       ).toBe(false),
     );
-    expect(screen.getByText(/114\.207200, 22\.419100/)).not.toBeNull();
+    expect(runtime.containerToLngLatRequests).toHaveLength(1);
+    expect(screen.getByText(/114\.210000, 22\.420000/)).not.toBeNull();
   });
 
   it("uses the visible centre pin rather than the occluded map centre for mobile Add", async () => {

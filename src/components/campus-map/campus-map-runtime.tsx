@@ -547,14 +547,14 @@ function publishedPlaceNotice(
   const place = projection.places.find(
     (candidate) => candidate.placeId === placeId,
   );
-  if (!place?.buildingId) return "地点已添加";
+  if (!place?.buildingId) return "地点已发布";
   const building = projection.buildings.find(
     (candidate) => candidate.buildingId === place.buildingId,
   );
-  if (!building) return "地点已添加";
+  if (!building) return "地点已发布";
   return place.floorId
-    ? `已添加到 ${building.name} · ${floorLabel(place.floorId, place.floorLabel)}`
-    : `已添加到 ${building.name}`;
+    ? `地点已发布 · ${building.name} · ${floorLabel(place.floorId, place.floorLabel)}`
+    : `地点已发布 · ${building.name}`;
 }
 
 function groupBuildingFacilities(
@@ -1215,39 +1215,51 @@ export function CampusMapRuntime({
     dispatch,
     recoverPublish,
   });
-  const startAddAtPlacementAnchor = useCallback(() => {
-    let initialPlacement = {
-      longitude: centerPosition[0],
-      latitude: centerPosition[1],
-      crs: "wgs84" as const,
-      precision: "approximate" as const,
-      method: "pointer" as const,
-    };
+  const readVisiblePlacementAnchor = useCallback((offset: Position) => {
     const map = mapRef.current;
     const mapElement = mapElementRef.current;
     const AMap = typeof window === "undefined" ? undefined : window.AMap;
-    if (coordinateVersion > 0 && map && mapElement && AMap) {
-      const providerPosition = placementAnchorLngLat(map, mapElement, AMap);
-      const offset = amapOffsetRef.current;
-      initialPlacement = {
-        ...initialPlacement,
-        longitude: providerPosition.lng - offset[0],
-        latitude: providerPosition.lat - offset[1],
-      };
-      setCenterPosition([
-        initialPlacement.longitude,
-        initialPlacement.latitude,
-      ]);
-      setProviderCenterPosition([providerPosition.lng, providerPosition.lat]);
+    if (!map || !mapElement || !AMap) return null;
+    const providerPosition = placementAnchorLngLat(map, mapElement, AMap);
+    return {
+      providerPosition: [
+        providerPosition.lng,
+        providerPosition.lat,
+      ] as Position,
+      wgs84Position: [
+        providerPosition.lng - offset[0],
+        providerPosition.lat - offset[1],
+      ] as Position,
+    };
+  }, []);
+  const startAddAtPlacementAnchor = useCallback(() => {
+    const anchor =
+      coordinateVersion > 0
+        ? readVisiblePlacementAnchor(amapOffsetRef.current)
+        : null;
+    if (anchor) {
+      setCenterPosition(anchor.wgs84Position);
+      setProviderCenterPosition(anchor.providerPosition);
     }
     startAdd();
-    if (coordinateVersion > 0) {
+    if (anchor) {
       dispatchEditEvent({
         type: "UPDATE_PLACEMENT_CANDIDATE",
-        position: initialPlacement,
+        position: {
+          longitude: anchor.wgs84Position[0],
+          latitude: anchor.wgs84Position[1],
+          crs: "wgs84",
+          precision: "approximate",
+          method: "pointer",
+        },
       });
     }
-  }, [centerPosition, coordinateVersion, dispatchEditEvent, startAdd]);
+  }, [
+    coordinateVersion,
+    dispatchEditEvent,
+    readVisiblePlacementAnchor,
+    startAdd,
+  ]);
   useEffect(() => {
     if (!publishNotice) return;
     const timeout = window.setTimeout(() => setPublishNotice(null), 4_000);
@@ -1824,7 +1836,13 @@ export function CampusMapRuntime({
         amapOffsetRef.current = projection.offset;
         amapPositionsRef.current = converted;
         setAmapOffset(projection.offset);
-        if (projectionStillOwnsScene) {
+        if (editSessionPlacingRef.current) {
+          const anchor = readVisiblePlacementAnchor(projection.offset);
+          if (anchor) {
+            setCenterPosition(anchor.wgs84Position);
+            setProviderCenterPosition(anchor.providerPosition);
+          }
+        } else if (projectionStillOwnsScene) {
           setCenterPosition(CAMPUS_CENTER);
           setProviderCenterPosition(projection.center);
         }
@@ -1843,7 +1861,13 @@ export function CampusMapRuntime({
           map.setZoomAndCenter(17.2, projection.center, true, 0);
         }
       });
-  }, [browseProjection, driver, executeDriverCamera, mapReady]);
+  }, [
+    browseProjection,
+    driver,
+    executeDriverCamera,
+    mapReady,
+    readVisiblePlacementAnchor,
+  ]);
 
   useEffect(() => {
     if (

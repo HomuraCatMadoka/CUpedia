@@ -565,10 +565,10 @@ describe("CampusMapRuntime", () => {
     expect(initialProjectionObserver).not.toHaveBeenCalled();
     await screen.findByRole("heading", { name: "新发布饮水点" });
     const publishStatus = screen.getByRole("status");
-    expect(publishStatus.textContent).toContain("地点已添加");
+    expect(publishStatus.textContent).toContain("地点已发布");
     expect(
       document.querySelector('[aria-live="polite"]')?.textContent,
-    ).not.toContain("地点已添加");
+    ).not.toContain("地点已发布");
     expect(screen.getAllByText("室外位置")).toHaveLength(1);
     expect(screen.queryByText("建筑内")).toBeNull();
     expect(screen.queryByText("PUBLISHED")).toBeNull();
@@ -1641,6 +1641,39 @@ describe("CampusMapRuntime", () => {
     expect(
       screen.getByRole("button", { name: "发布修改" }).hasAttribute("disabled"),
     ).toBe(false);
+  });
+
+  it("uses neutral success feedback after publishing an existing Place edit", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000005";
+    window.history.replaceState(
+      null,
+      "",
+      `/campus-map?v=1&scene=facility&id=${placeId}&snap=peek`,
+    );
+    vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
+      status: "published",
+      changesetId: "50000000-0000-4000-8000-000000000030",
+      changes: [
+        {
+          placeId,
+          revisionId: "40000000-0000-4000-8000-000000000030",
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    });
+
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
+
+    await screen.findByRole("heading", { name: "饮水机" });
+    fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
+    await screen.findByRole("heading", { name: "修改设施" });
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布修改" }));
+
+    const publishStatus = await screen.findByRole("status");
+    expect(publishStatus.textContent).toContain("地点已发布");
+    expect(publishStatus.textContent).not.toContain("添加");
   });
 
   it("recovers a Note-origin Edit task directly from its refreshed URL", async () => {

@@ -686,7 +686,7 @@ test("publish handoff shows one success prompt and never restores the form", asy
   await expect(
     page.getByRole("heading", { name: publishedName }),
   ).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("地点已添加");
+  await expect(page.getByRole("status")).toContainText("地点已发布");
   await expect(page.getByText("PUBLISHED")).toHaveCount(0);
   const publishNoticeBox = await page.getByRole("status").boundingBox();
   const publishedCardBox = await page
