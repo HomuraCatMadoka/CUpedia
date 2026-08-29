@@ -1190,13 +1190,8 @@ describe("Campus Map canonical scene transition", () => {
         accepted(external, {
           history: null,
           camera: { kind: "cancel" },
-          focus: { kind: "map" },
-          overlay: {
-            kind: "open-external",
-            externalId: "external-2",
-            name: "External 2",
-            position: [114.21, 22.41],
-          },
+          focus: { kind: "heading" },
+          overlay: null,
         }),
       );
     }

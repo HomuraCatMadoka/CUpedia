@@ -143,14 +143,7 @@ export type CampusMapCameraCommand =
   | { kind: "focus-place"; placeId: string; reason: CameraReason }
   | { kind: "cancel" };
 
-export type CampusMapOverlayCommand =
-  | {
-      kind: "open-external";
-      externalId: string;
-      name: string;
-      position: readonly [number, number];
-    }
-  | { kind: "close-external" };
+export type CampusMapOverlayCommand = { kind: "close-external" };
 
 export type CampusMapSceneCommands = {
   history: "push" | "replace" | "back-or-push" | null;
@@ -583,13 +576,8 @@ export function transitionCampusMapSession(
       commands: {
         history: historyCommandFor("transient"),
         camera: { kind: "cancel" },
-        focus: { kind: "map" },
-        overlay: {
-          kind: "open-external",
-          externalId: providerPoiId,
-          name,
-          position: event.position,
-        },
+        focus: { kind: "heading" },
+        overlay: null,
       },
     };
   }

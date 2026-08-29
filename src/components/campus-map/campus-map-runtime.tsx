@@ -1069,13 +1069,6 @@ export function CampusMapRuntime({
                 preventScroll: true,
               });
             } else if (focus.kind === "map") {
-              const currentSession = sceneDriver.getSnapshot().session;
-              if (
-                currentSession.mode === "browse" &&
-                currentSession.scene.kind === "provider-poi"
-              ) {
-                return;
-              }
               mapElementRef.current?.focus({ preventScroll: true });
             } else if (focus.kind === "edit-field") {
               const target = Array.from(
@@ -1087,12 +1080,7 @@ export function CampusMapRuntime({
           });
         });
       },
-      overlay: (overlay) => {
-        if (overlay.kind === "close-external") return;
-        browserWindow?.requestAnimationFrame(() => {
-          panelTitleRef.current?.focus({ preventScroll: true });
-        });
-      },
+      overlay: () => {},
       sheet: (sheet, context) => {
         if (sheet.kind === "hide") {
           sceneDriver.updateSheetGeometry(null);

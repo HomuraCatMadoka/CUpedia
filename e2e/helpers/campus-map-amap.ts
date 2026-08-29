@@ -324,39 +324,6 @@ export async function installFakeCampusMapAmap(page: Page) {
       }
     }
 
-    class FakeInfoWindow {
-      private content: Node | null = null;
-      private container: HTMLElement | null = null;
-      private readonly handlers = new Map<string, Array<() => void>>();
-
-      on(event: string, handler: () => void) {
-        const handlers = this.handlers.get(event) ?? [];
-        handlers.push(handler);
-        this.handlers.set(event, handlers);
-      }
-
-      setContent(content: Node) {
-        this.content = content;
-      }
-
-      open(map: FakeMap) {
-        this.close(false);
-        const container = document.createElement("div");
-        container.dataset.amapInfoWindow = "true";
-        if (this.content) container.append(this.content);
-        map.getContainer().append(container);
-        this.container = container;
-      }
-
-      close(notify = true) {
-        this.container?.remove();
-        this.container = null;
-        if (notify) {
-          for (const handler of this.handlers.get("close") ?? []) handler();
-        }
-      }
-    }
-
     Object.defineProperty(window, "AMap", {
       configurable: true,
       value: {
@@ -364,7 +331,6 @@ export async function installFakeCampusMapAmap(page: Page) {
         Marker: FakeMarker,
         MarkerCluster: FakeMarkerCluster,
         Geocoder: FakeGeocoder,
-        InfoWindow: FakeInfoWindow,
         LngLat: FakeLngLat,
         Pixel: FakePixel,
         Bounds: class {

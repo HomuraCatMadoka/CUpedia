@@ -441,7 +441,6 @@ describe("Campus Map AMap runtime effects", () => {
 
     expect(screen.getByText("邵逸夫堂")).not.toBeNull();
     expect(screen.getByText("高德参考 · 已选中地图标签")).not.toBeNull();
-    expect(runtime.infoWindows).toHaveLength(0);
     expect(map.setZoomAndCenter).toHaveBeenCalledWith(
       map.getZoom(),
       expect.objectContaining({
@@ -1243,7 +1242,7 @@ describe("Campus Map AMap runtime effects", () => {
         floorId: "G",
       },
     });
-    const { runtime, map } = await renderWithRuntime();
+    const { map } = await renderWithRuntime();
 
     await act(async () => {
       map.emit("hotspotclick", {
@@ -1255,7 +1254,6 @@ describe("Campus Map AMap runtime effects", () => {
 
     await screen.findByRole("heading", { name: "饮水机" });
     expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
-    expect(runtime.infoWindows).toHaveLength(0);
   });
 
   it("refreshes a stale projection before opening a newly mapped canonical Place", async () => {
@@ -1273,7 +1271,7 @@ describe("Campus Map AMap runtime effects", () => {
       title: place.name,
       selectionTarget: place.selectionTarget,
     });
-    const { runtime, map } = await renderWithRuntime({ projection: initial });
+    const { map } = await renderWithRuntime({ projection: initial });
 
     await act(async () => {
       map.emit("hotspotclick", {
@@ -1291,7 +1289,6 @@ describe("Campus Map AMap runtime effects", () => {
       `scene=facility&id=${place.placeId}`,
     );
     expect(window.location.search).not.toContain("scene=building");
-    expect(runtime.infoWindows).toHaveLength(0);
   });
 
   it("refreshes a stale projection before opening a newly mapped canonical Building", async () => {
@@ -1523,7 +1520,6 @@ describe("Campus Map AMap runtime effects", () => {
       await screen.findByRole("heading", { name: "林荫饮水点" }),
     ).not.toBeNull();
     expect(window.location.search).toContain("scene=facility&id=outdoor-water");
-    expect(runtime.infoWindows).toHaveLength(0);
   });
 
   it("restores an outdoor Place deep link after refresh", async () => {
@@ -1883,7 +1879,6 @@ describe("Campus Map AMap runtime effects", () => {
       });
     });
 
-    expect(runtime.infoWindows).toHaveLength(0);
     expect(window.location.search).toBe("?v=1");
     const providerHeading = await screen.findByRole("heading", {
       name: "科学馆东座",
@@ -1908,7 +1903,7 @@ describe("Campus Map AMap runtime effects", () => {
   });
 
   it("does not bind an exact provider name without an explicit POI mapping", async () => {
-    const { runtime, map } = await renderWithRuntime();
+    const { map } = await renderWithRuntime();
 
     await act(async () => {
       map.emit("hotspotclick", {
@@ -1918,7 +1913,6 @@ describe("Campus Map AMap runtime effects", () => {
       });
     });
 
-    expect(runtime.infoWindows).toHaveLength(0);
     expect(
       await screen.findByRole("heading", { name: "科学馆" }),
     ).not.toBeNull();
@@ -1943,7 +1937,6 @@ describe("Campus Map AMap runtime effects", () => {
     });
     await runtime.flushAnimationFrames();
 
-    expect(runtime.infoWindows).toHaveLength(0);
     expect(screen.getByRole("heading", { name: "科学馆东座" })).not.toBeNull();
     expect(window.location.search).toBe("?v=1");
   });
