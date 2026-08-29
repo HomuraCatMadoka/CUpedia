@@ -474,6 +474,104 @@ describe("CampusMapRuntime", () => {
     expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
   });
 
+  it("shows refresh and read-error states for a Building that was previously empty", async () => {
+    const buildingId = "10000000-0000-4000-8000-000000000012";
+    const placeId = "30000000-0000-4000-8000-000000000029";
+    const idempotencyKey = "10000000-0000-4000-8000-000000000029";
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey,
+    }).session!;
+    const positioned = transitionCampusMapEdit(started, {
+      type: "CONFIRM_POSITION",
+      position: {
+        longitude: 114.208,
+        latitude: 22.42,
+        crs: "wgs84",
+        precision: "approximate",
+        method: "keyboard",
+      },
+    }).session!;
+    const publishing = transitionCampusMapEdit(positioned, {
+      type: "REQUEST_PUBLISH",
+      accessedOn: "2026-08-27",
+    }).session!;
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(publishing),
+    );
+    window.history.replaceState(
+      null,
+      "",
+      "/campus-map?v=1&task=create&anchor=map",
+    );
+    vi.mocked(reconcileCampusMapEditPublish).mockResolvedValueOnce({
+      status: "committed",
+      receipt: {
+        status: "published",
+        changesetId: "50000000-0000-4000-8000-000000000029",
+        changes: [
+          {
+            placeId,
+            revisionId: "40000000-0000-4000-8000-000000000029",
+          },
+        ],
+        warnings: [],
+        suggestions: [],
+      },
+    });
+    let rejectRefresh!: (reason?: unknown) => void;
+    mockLoadBrowseProjection.mockReturnValueOnce(
+      new Promise<ReturnType<typeof emptyBuildingProjection>>(
+        (_resolve, reject) => {
+          rejectRefresh = reject;
+        },
+      ),
+    );
+
+    render(
+      <CampusMapRuntime
+        initialSearch={window.location.search}
+        initialBrowseProjection={emptyBuildingProjection()}
+      />,
+    );
+    await waitFor(() =>
+      expect(mockLoadBrowseProjection).toHaveBeenCalledOnce(),
+    );
+
+    await act(async () => {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `/campus-map?v=1&scene=building&id=${buildingId}&snap=peek`,
+      );
+      window.dispatchEvent(
+        new PopStateEvent("popstate", { state: window.history.state }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "空置测试楼" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain(
+      "正在读取楼内设施",
+    );
+    expect(screen.queryByText("暂未收录设施")).toBeNull();
+    expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
+
+    await act(async () => {
+      rejectRefresh(new Error("temporary read failure"));
+      await Promise.resolve();
+    });
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "无法读取楼内设施",
+    );
+    expect(screen.getByRole("button", { name: "重新读取" })).toBeTruthy();
+    expect(screen.queryByText("暂未收录设施")).toBeNull();
+  });
+
   it("exposes every Place action as an accessible control", async () => {
     const placeId = "71000000-0000-4000-8000-000000000005";
     render(

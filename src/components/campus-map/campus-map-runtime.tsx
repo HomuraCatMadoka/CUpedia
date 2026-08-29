@@ -2215,8 +2215,14 @@ export function CampusMapRuntime({
   const activeCategoryStyle = activeAmenity
     ? amenityStyle(activeAmenity)
     : null;
+  const selectedBuildingHasFacilities = Boolean(
+    selectedBuilding &&
+    !selectedFacility &&
+    buildingOverviewDirectory?.status === "ready" &&
+    buildingOverviewDirectory.places.length > 0,
+  );
   const canExpandBrowseCard = Boolean(
-    !selectedFacility && (selectedBuilding || activeCategoryStyle),
+    !selectedFacility && (selectedBuildingHasFacilities || activeCategoryStyle),
   );
   const chromeHidden =
     Boolean(editSession) ||
@@ -2224,7 +2230,10 @@ export function CampusMapRuntime({
   const selectedBuildingIsEmpty = Boolean(
     selectedBuilding &&
     !selectedFacility &&
-    selectedBuilding.placeIds.length === 0,
+    buildingOverviewDirectory?.status === "empty",
+  );
+  const selectedBuildingCardIsStatic = Boolean(
+    selectedBuilding && !selectedFacility && !selectedBuildingHasFacilities,
   );
   const panelHidden = Boolean(
     !editSession &&
@@ -2250,7 +2259,7 @@ export function CampusMapRuntime({
     mobilePanelLayout = { kind: "facility" };
   } else if (selectedBuildingIsEmpty) {
     mobilePanelLayout = { kind: "empty-building" };
-  } else if (selectedBuilding && selectedBuilding.placeIds.length > 0) {
+  } else if (selectedBuilding) {
     mobilePanelLayout = { kind: "building" };
   } else if (activeAmenity) {
     mobilePanelLayout = {
@@ -2814,7 +2823,7 @@ export function CampusMapRuntime({
             id="campus-map-panel-content"
             className={cn(
               "flex flex-col overscroll-contain md:h-auto md:max-h-[calc(100dvh-32px)]",
-              selectedFacility || selectedBuildingIsEmpty
+              selectedFacility || selectedBuildingCardIsStatic
                 ? "h-full"
                 : "h-[calc(100%-44px)]",
             )}
@@ -2869,10 +2878,14 @@ export function CampusMapRuntime({
                       </span>
                     ) : null}
                     <span className="shrink-0 font-medium text-[#174b38]">
-                      {selectedBuilding.placeIds.length > 0
-                        ? buildingFacilitySummaryLabel ||
-                          `${selectedBuilding.placeIds.length} 处设施`
-                        : "暂未收录设施"}
+                      {buildingOverviewDirectory?.status === "loading"
+                        ? "正在读取设施"
+                        : buildingOverviewDirectory?.status === "error"
+                          ? "设施暂不可用"
+                          : buildingOverviewDirectory?.status === "ready"
+                            ? buildingFacilitySummaryLabel ||
+                              `${buildingOverviewDirectory.places.length} 处设施`
+                            : "暂未收录设施"}
                     </span>
                   </p>
                 ) : null}
@@ -2932,7 +2945,8 @@ export function CampusMapRuntime({
               </div>
             ) : selectedBuilding ? (
               <>
-                {buildingFacilitySummary.length > 0 ? (
+                {buildingOverviewDirectory?.status === "ready" &&
+                buildingFacilitySummary.length > 0 ? (
                   <ul
                     aria-label="楼内设施"
                     className="flex shrink-0 gap-2 overflow-x-auto border-b border-black/8 px-4 py-3 [scrollbar-width:none] md:px-5 [&::-webkit-scrollbar]:hidden"
@@ -2958,101 +2972,108 @@ export function CampusMapRuntime({
                     })}
                   </ul>
                 ) : null}
-                <div
-                  className={cn(
-                    "gap-2 overflow-x-auto border-b border-black/8 px-4 py-3 md:px-5",
-                    state.sheet.snap === "full" ? "flex" : "hidden md:flex",
-                  )}
-                >
-                  <button
-                    type="button"
+                {buildingOverviewDirectory?.status === "ready" ? (
+                  <div
                     className={cn(
-                      "min-h-11 shrink-0 rounded-full px-3 text-sm",
-                      !state.buildingContext.floorId
-                        ? "bg-[#174b38] text-white"
-                        : "bg-neutral-100",
+                      "gap-2 overflow-x-auto border-b border-black/8 px-4 py-3 md:px-5",
+                      state.sheet.snap === "full" ? "flex" : "hidden md:flex",
                     )}
-                    onClick={() =>
-                      dispatch({
-                        type: "SET_BUILDING_FLOOR",
-                        floorId: null,
-                      })
-                    }
                   >
-                    全部楼层
-                  </button>
-                  {selectedBuilding.floors.map((floor) => (
                     <button
-                      key={floor.floorId}
                       type="button"
-                      aria-pressed={
-                        state.buildingContext.floorId === floor.floorId
-                      }
                       className={cn(
                         "min-h-11 shrink-0 rounded-full px-3 text-sm",
-                        state.buildingContext.floorId === floor.floorId
+                        !state.buildingContext.floorId
                           ? "bg-[#174b38] text-white"
                           : "bg-neutral-100",
                       )}
                       onClick={() =>
                         dispatch({
                           type: "SET_BUILDING_FLOOR",
-                          floorId: floor.floorId,
+                          floorId: null,
                         })
                       }
                     >
-                      {floor.displayLabel}
+                      全部楼层
                     </button>
-                  ))}
-                </div>
-                <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-[max(1rem,var(--campus-map-safe-area-bottom))] md:p-5">
-                  {state.sheet.snap !== "full" &&
-                  selectedBuilding.placeIds.length > 0 ? (
-                    <div className="md:hidden">
-                      {buildingPreviewFacility ? (
-                        <button
-                          type="button"
-                          data-building-preview={
-                            buildingPreviewFacility.placeId
-                          }
-                          data-return-result={buildingPreviewFacility.placeId}
-                          aria-label={`查看设施：${buildingPreviewFacility.name}，${placeLocationLabel(buildingPreviewFacility)}`}
-                          className="flex min-h-14 w-full items-center border-b border-black/8 py-2 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
-                          onClick={() =>
-                            selectFacility(buildingPreviewFacility, "building")
-                          }
-                        >
-                          <span className="min-w-0 flex-1">
-                            <strong className="block truncate text-sm">
-                              {buildingPreviewFacility.name}
-                            </strong>
-                            <span className="mt-0.5 block truncate text-xs text-neutral-500">
-                              {metadataLabel(
-                                placeLocationLabel(buildingPreviewFacility),
-                                amenityStyle(buildingPreviewFacility.pinType)
-                                  .label,
-                              )}
-                            </span>
-                          </span>
-                        </button>
-                      ) : null}
+                    {selectedBuilding.floors.map((floor) => (
                       <button
+                        key={floor.floorId}
                         type="button"
-                        aria-label="查看全部楼内设施"
-                        className="mt-2 flex min-h-11 w-full items-center justify-center rounded-xl bg-neutral-100 px-4 text-sm font-medium hover:bg-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                        aria-pressed={
+                          state.buildingContext.floorId === floor.floorId
+                        }
+                        className={cn(
+                          "min-h-11 shrink-0 rounded-full px-3 text-sm",
+                          state.buildingContext.floorId === floor.floorId
+                            ? "bg-[#174b38] text-white"
+                            : "bg-neutral-100",
+                        )}
                         onClick={() =>
-                          dispatch({ type: "SET_SNAP", snap: "full" })
+                          dispatch({
+                            type: "SET_BUILDING_FLOOR",
+                            floorId: floor.floorId,
+                          })
                         }
                       >
-                        查看全部
+                        {floor.displayLabel}
                       </button>
-                    </div>
-                  ) : null}
-                  {selectedBuilding.placeIds.length > 0 ? (
+                    ))}
+                  </div>
+                ) : null}
+                {!selectedBuildingIsEmpty ? (
+                  <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-[max(1rem,var(--campus-map-safe-area-bottom))] md:p-5">
+                    {state.sheet.snap !== "full" &&
+                    buildingOverviewDirectory?.status === "ready" ? (
+                      <div className="md:hidden">
+                        {buildingPreviewFacility ? (
+                          <button
+                            type="button"
+                            data-building-preview={
+                              buildingPreviewFacility.placeId
+                            }
+                            data-return-result={buildingPreviewFacility.placeId}
+                            aria-label={`查看设施：${buildingPreviewFacility.name}，${placeLocationLabel(buildingPreviewFacility)}`}
+                            className="flex min-h-14 w-full items-center border-b border-black/8 py-2 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
+                            onClick={() =>
+                              selectFacility(
+                                buildingPreviewFacility,
+                                "building",
+                              )
+                            }
+                          >
+                            <span className="min-w-0 flex-1">
+                              <strong className="block truncate text-sm">
+                                {buildingPreviewFacility.name}
+                              </strong>
+                              <span className="mt-0.5 block truncate text-xs text-neutral-500">
+                                {metadataLabel(
+                                  placeLocationLabel(buildingPreviewFacility),
+                                  amenityStyle(buildingPreviewFacility.pinType)
+                                    .label,
+                                )}
+                              </span>
+                            </span>
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          aria-label="查看全部楼内设施"
+                          className="mt-2 flex min-h-11 w-full items-center justify-center rounded-xl bg-neutral-100 px-4 text-sm font-medium hover:bg-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                          onClick={() =>
+                            dispatch({ type: "SET_SNAP", snap: "full" })
+                          }
+                        >
+                          查看全部
+                        </button>
+                      </div>
+                    ) : null}
                     <div
                       className={cn(
                         "divide-y divide-black/8",
-                        state.sheet.snap !== "full" && "hidden md:block",
+                        state.sheet.snap !== "full" &&
+                          buildingDirectory?.status === "ready" &&
+                          "hidden md:block",
                       )}
                     >
                       {buildingDirectory?.status === "loading" ? (
@@ -3070,7 +3091,7 @@ export function CampusMapRuntime({
                           <p>无法读取楼内设施</p>
                           <button
                             type="button"
-                            className="mt-3 min-h-11 rounded-xl border border-black/15 px-4 font-semibold"
+                            className="mt-3 min-h-11 rounded-xl border border-black/15 px-4 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
                             onClick={() => void projectionStore.refresh()}
                           >
                             重新读取
@@ -3129,8 +3150,8 @@ export function CampusMapRuntime({
                         </p>
                       )}
                     </div>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
               </>
             ) : null}
           </div>
