@@ -51,10 +51,13 @@ const catalog: CampusMapSceneCatalog = {
 
 describe("Campus Map versioned scene codec", () => {
   it("owns canonical Place deep links used outside the runtime", () => {
-    expect(encodeCampusMapFacilityHref("courtyardWater")).toBe(
+    expect(encodeCampusMapFacilityHref("courtyardWater", catalog)).toBe(
       "/campus-map?v=1&scene=facility&id=courtyardWater&snap=peek",
     );
-    expect(encodeCampusMapFacilityHref(" courtyardWater ")).toBe(
+    expect(encodeCampusMapFacilityHref(" courtyardWater ", catalog)).toBe(
+      "/campus-map?v=1",
+    );
+    expect(encodeCampusMapFacilityHref("retiredPlace", catalog)).toBe(
       "/campus-map?v=1",
     );
   });

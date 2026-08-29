@@ -588,6 +588,28 @@ describe("CampusMapSceneDriver", () => {
     );
   });
 
+  it("restores focus to the Place trigger when Back returns to search results", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "SEARCH", query: "science fountain" });
+    runtime.driver.dispatch({
+      type: "OPEN_FACILITY",
+      facilityId: "fountain",
+      source: "search",
+    });
+    vi.mocked(runtime.ports.focus).mockClear();
+
+    runtime.driver.restore("?v=1&scene=search&q=science+fountain&snap=peek", {
+      campusMapScene: true,
+      version: 1,
+      depth: 0,
+    });
+
+    expect(runtime.ports.focus).toHaveBeenCalledWith(
+      { kind: "result", resultId: "fountain" },
+      expect.any(Object),
+    );
+  });
+
   it("keeps the kernel focus when the restored Building has no matching Place trigger", () => {
     const runtime = harness();
     runtime.driver.dispatch({ type: "OPEN_CATEGORY", category: "water" });

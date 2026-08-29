@@ -241,8 +241,8 @@ Browse
   driver 执行，发布仍只由 #718 `publishCampusMapChangeset` 执行。
 - Back 返回任务前 scene；X/Escape 在 dirty 时允许继续编辑或丢弃。刷新、快速 Place 切换、地图
   手势与认证回跳不能覆盖已锁定 placement 或别的 Place draft。
-- 发布成功清除 draft；receipt 只进入 #719 的 Place、此次 Changeset 与 Place History。Back 不得
-  恢复可重复发布表单。
+- 发布成功清除 draft 并直接打开 canonical Place；界面只播报一次“发布成功”，Place 卡仅保留一个
+  “查看编辑记录”入口。不得展示独立发布回执，也不得由 Back 或刷新重复播报或恢复表单。
 - publish receipt consumer 的 typed outcome 只在 edit session 投影为用户可理解的反馈：
   `reconciliation-unavailable`、`handoff-failed`、`projection-failed`、`missing-target` 和
   `receipt-state-unavailable` 表示原发布结果尚未确认，只允许调用同一个 consumer 检查原命令；
@@ -269,7 +269,7 @@ Browse
 11. Merge loser 永久 redirect，restore/revert 不能复活；
 12. 被封禁用户不能重试旧草稿发布，既有署名历史仍存在；
 13. Back、X、Escape、刷新、登录回跳、快速 marker 切换与地图手势不丢错草稿；
-14. 发布回执、Changeset history、discussion 和错误提示具备键盘与读屏反馈；
+14. 发布后的一次成功提示、Changeset history、discussion 和错误提示具备键盘与读屏反馈；
 15. 两个相似 create 可以各自直接发布为不同 Place，duplicate warning 不自动合并；管理员后续
     merge 时保留 loser redirect 与双方历史。
 

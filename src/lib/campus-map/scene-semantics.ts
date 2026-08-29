@@ -172,6 +172,7 @@ export function projectCampusMapRestoreFocus(
   const facility = findFacility(catalog, source.scene.facilityId);
   const targetScene = target.session.scene;
   const restoresTrigger =
+    targetScene.kind === "search-results" ||
     (targetScene.kind === "building" &&
       facility?.buildingId === targetScene.buildingId) ||
     (targetScene.kind === "category-results" &&

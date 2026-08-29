@@ -420,6 +420,22 @@ function knownAmenity(value: string | null) {
   return CATEGORIES.find((item) => item.id === value)?.id ?? null;
 }
 
+function facilityBackLabel(
+  facility: Facility,
+  returnTo: CampusMapSession | null,
+) {
+  const returnScene = returnTo?.mode === "browse" ? returnTo.scene : null;
+  if (returnScene?.kind === "search-results") return "返回搜索结果";
+  if (returnScene?.kind === "category-results") {
+    const category = knownAmenity(returnScene.category);
+    return category
+      ? `返回${amenityStyle(category).label}列表`
+      : "返回设施列表";
+  }
+  if (returnScene?.kind === "building") return "返回建筑";
+  return facility.buildingId ? "返回建筑" : "返回地图";
+}
+
 function accessLabel(facility: Facility) {
   if (facility.access.temporaryStatus === "temporarily-closed") {
     return "暂时停用";
@@ -538,6 +554,50 @@ function placeLocationLabel(place: Facility) {
     case "floor":
       return place.location.floor.displayLabel;
   }
+}
+
+function FacilityResultButton({
+  facility,
+  metadata,
+  variant,
+  onSelect,
+}: {
+  facility: Facility;
+  metadata: string;
+  variant: "category" | "building";
+  onSelect: () => void;
+}) {
+  const style = amenityStyle(facility.pinType);
+  const Icon = style.icon;
+  const showsIcon = variant === "building";
+  return (
+    <button
+      data-return-result={facility.placeId}
+      type="button"
+      className={cn(
+        "flex w-full items-center text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]",
+        showsIcon
+          ? "min-h-16 gap-3 py-3"
+          : "min-h-14 border-b border-black/8 py-2",
+      )}
+      onClick={onSelect}
+    >
+      {showsIcon ? (
+        <span
+          className="grid size-9 shrink-0 place-items-center rounded-full text-white"
+          style={{ background: style.color }}
+        >
+          <Icon aria-hidden="true" className="size-4" />
+        </span>
+      ) : null}
+      <span className="min-w-0 flex-1">
+        <strong className="block truncate text-sm">{facility.name}</strong>
+        <span className="mt-0.5 block truncate text-xs text-neutral-500">
+          {metadata}
+        </span>
+      </span>
+    </button>
+  );
 }
 
 function publishedPlaceNotice(
@@ -1142,11 +1202,9 @@ export function CampusMapRuntime({
       ) ?? null)
     : buildingFor(state.selection, buildings);
   const activeAmenity = knownAmenity(state.mapFilter.category);
-  const facilityOrigin =
-    driverSnapshot.returnTo?.mode === "browse" &&
-    driverSnapshot.returnTo.scene.kind === "category-results"
-      ? "category"
-      : "map";
+  const selectedFacilityBackLabel = selectedFacility
+    ? facilityBackLabel(selectedFacility, driverSnapshot.returnTo)
+    : "返回地图";
 
   const dispatch = useCallback(
     (intent: CampusMapDriverIntent) => {
@@ -2839,26 +2897,17 @@ export function CampusMapRuntime({
                   (item) => item.buildingId === facility.buildingId,
                 );
                 return (
-                  <button
+                  <FacilityResultButton
                     key={facility.placeId}
-                    data-return-result={facility.placeId}
-                    type="button"
-                    className="flex min-h-14 w-full items-center border-b border-black/8 py-2 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
-                    onClick={() => selectFacility(facility, "category")}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <strong className="block truncate text-sm">
-                        {facility.name}
-                      </strong>
-                      <span className="mt-0.5 block truncate text-xs text-neutral-500">
-                        {metadataLabel(
-                          building?.name,
-                          placeLocationLabel(facility),
-                          accessLabel(facility),
-                        )}
-                      </span>
-                    </span>
-                  </button>
+                    facility={facility}
+                    metadata={metadataLabel(
+                      building?.name,
+                      placeLocationLabel(facility),
+                      accessLabel(facility),
+                    )}
+                    variant="category"
+                    onSelect={() => selectFacility(facility, "category")}
+                  />
                 );
               })}
               {hasMoreCategoryFacilities ? (
@@ -2913,11 +2962,7 @@ export function CampusMapRuntime({
               {selectedFacility ? (
                 <button
                   type="button"
-                  aria-label={
-                    facilityOrigin === "category"
-                      ? `返回${amenityStyle(selectedFacility.pinType).label}列表`
-                      : "返回建筑"
-                  }
+                  aria-label={selectedFacilityBackLabel}
                   className="grid size-11 shrink-0 place-items-center rounded-full hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
                   onClick={navigateEntityBack}
                 >
@@ -3194,39 +3239,19 @@ export function CampusMapRuntime({
                             </h4>
                             <div className="divide-y divide-black/8">
                               {group.places.map((facility) => {
-                                const style = amenityStyle(facility.pinType);
-                                const Icon = style.icon;
                                 return (
-                                  <button
+                                  <FacilityResultButton
                                     key={facility.placeId}
-                                    data-return-result={facility.placeId}
-                                    type="button"
-                                    className="flex min-h-16 w-full items-center gap-3 py-3 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
-                                    onClick={() =>
+                                    facility={facility}
+                                    metadata={metadataLabel(
+                                      amenityStyle(facility.pinType).label,
+                                      accessLabel(facility),
+                                    )}
+                                    variant="building"
+                                    onSelect={() =>
                                       selectFacility(facility, "building")
                                     }
-                                  >
-                                    <span
-                                      className="grid size-9 shrink-0 place-items-center rounded-full text-white"
-                                      style={{ background: style.color }}
-                                    >
-                                      <Icon
-                                        aria-hidden="true"
-                                        className="size-4"
-                                      />
-                                    </span>
-                                    <span className="min-w-0 flex-1">
-                                      <strong className="block truncate text-sm">
-                                        {facility.name}
-                                      </strong>
-                                      <span className="text-xs text-neutral-500">
-                                        {metadataLabel(
-                                          amenityStyle(facility.pinType).label,
-                                          accessLabel(facility),
-                                        )}
-                                      </span>
-                                    </span>
-                                  </button>
+                                  />
                                 );
                               })}
                             </div>

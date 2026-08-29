@@ -25,6 +25,7 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
     render(
       <CampusMapHistoryPage
         placeId="00000000-0000-4000-8000-000000007192"
+        mapHref="/campus-map?v=1"
         head={{
           revisionId: "00000000-0000-4000-8000-000000007198",
           status: "merged",
@@ -41,9 +42,7 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
     ).toBeTruthy();
     expect(
       screen.getByRole("link", { name: "返回地图" }).getAttribute("href"),
-    ).toBe(
-      "/campus-map?v=1&scene=facility&id=00000000-0000-4000-8000-000000007192&snap=peek",
-    );
+    ).toBe("/campus-map?v=1");
     expect(
       screen.getByRole("link", { name: "地点详情" }).getAttribute("href"),
     ).toBe("/campus-map/places/00000000-0000-4000-8000-000000007192");
@@ -60,6 +59,7 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
     render(
       <CampusMapHistoryPage
         placeId="00000000-0000-4000-8000-000000007192"
+        mapHref="/campus-map?v=1"
         head={null}
         items={[
           {

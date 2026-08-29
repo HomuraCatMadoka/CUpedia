@@ -196,16 +196,18 @@ export function encodeCampusMapUrl(
   );
 }
 
-export function encodeCampusMapFacilityHref(facilityId: string) {
-  const session: PersistableCampusMapSession = isCanonicalCampusMapId(
-    facilityId,
-  )
-    ? {
-        mode: "browse",
-        scene: { kind: "facility", facilityId, snap: "peek" },
-      }
-    : { mode: "browse", scene: { kind: "map" } };
-  return `/campus-map?${encodePersistableCampusMapUrl(session).toString()}`;
+export function encodeCampusMapFacilityHref(
+  facilityId: string,
+  catalog: CampusMapSceneCatalog,
+) {
+  const params = encodeCampusMapUrl(
+    {
+      mode: "browse",
+      scene: { kind: "facility", facilityId, snap: "peek" },
+    },
+    catalog,
+  );
+  return `/campus-map?${params.toString()}`;
 }
 
 export function decodeCampusMapUrl(

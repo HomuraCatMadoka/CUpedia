@@ -2433,6 +2433,22 @@ describe("CampusMapRuntime", () => {
     expect(window.location.search).toBe(
       "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
+    expect(screen.getByRole("button", { name: "返回搜索结果" })).not.toBeNull();
+  });
+
+  it("labels the direct outdoor Place fallback as returning to the map", async () => {
+    const placeId = "30000000-0000-4000-8000-000000000020";
+    render(
+      <CampusMapRuntime
+        initialSearch={`?v=1&scene=facility&id=${placeId}&snap=peek`}
+        initialBrowseProjection={publishedOutdoorProjection(placeId)}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "新发布饮水点" });
+    fireEvent.click(screen.getByRole("button", { name: "返回地图" }));
+
+    await waitFor(() => expect(window.location.search).toBe("?v=1"));
   });
 
   it("links the selected canonical Place to its public history", async () => {
