@@ -416,6 +416,19 @@ test("Building expands into Place and Back restores the Building card", async ({
   await page.goForward();
   await expect(page).toHaveURL(placeUrl);
 
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(buildingUrl);
+  const desktopBuildingResult = page.locator(
+    `[data-return-result="${browseIds.place}"]:visible`,
+  );
+  await desktopBuildingResult.click();
+  await expect(page).toHaveURL(placeUrl);
+  await page.goBack();
+  await expect(page).toHaveURL(buildingUrl);
+  await expect(desktopBuildingResult).toBeFocused();
+  await page.goForward();
+  await expect(page).toHaveURL(placeUrl);
+
   await page.goto("/campus-map");
   await page.getByRole("button", { name: "饮水点" }).click();
   await expect(page).toHaveURL(/scene=category&id=water&snap=peek$/);

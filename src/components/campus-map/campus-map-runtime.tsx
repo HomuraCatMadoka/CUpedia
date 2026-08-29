@@ -1071,11 +1071,17 @@ export function CampusMapRuntime({
             } else if (focus.kind === "search-input") {
               searchInputRef.current?.focus({ preventScroll: true });
             } else if (focus.kind === "result") {
-              document
-                .querySelector<HTMLElement>(
+              const resultCandidates = Array.from(
+                document.querySelectorAll<HTMLElement>(
                   `[data-search-result="${focus.resultId}"], [data-return-result="${focus.resultId}"]`,
-                )
-                ?.focus({ preventScroll: true });
+                ),
+              );
+              const visibleResult = resultCandidates.find(
+                (candidate) => candidate.getClientRects().length > 0,
+              );
+              (visibleResult ?? resultCandidates[0])?.focus({
+                preventScroll: true,
+              });
             } else if (focus.kind === "map") {
               const currentSession = sceneDriver.getSnapshot().session;
               if (

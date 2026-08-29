@@ -352,6 +352,8 @@ export function resolveCampusMapSessionSemantics(
     contributionAnchor: entity.buildingId
       ? { kind: "building", buildingId: entity.buildingId }
       : { kind: "map" },
-    persistence: persistentBrowse(scene),
+    persistence: persistentBrowse(
+      scene.kind === "facility" ? { ...scene, snap: "peek" } : scene,
+    ),
   };
 }

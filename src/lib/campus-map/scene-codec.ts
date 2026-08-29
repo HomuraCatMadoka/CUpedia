@@ -69,16 +69,10 @@ function normalizePersistentSession(
   catalog: CampusMapSceneCatalog,
 ): PersistableCampusMapSession {
   const resolved = resolveCampusMapSessionSemantics(session, catalog);
-  const persistent =
-    resolved.status === "valid" && resolved.persistence.kind === "persistent"
-      ? resolved.persistence.session
-      : ({ mode: "browse", scene: { kind: "map" } } as const);
-  return persistent.mode === "browse" && persistent.scene.kind === "facility"
-    ? {
-        mode: "browse",
-        scene: { ...persistent.scene, snap: "peek" },
-      }
-    : persistent;
+  return resolved.status === "valid" &&
+    resolved.persistence.kind === "persistent"
+    ? resolved.persistence.session
+    : { mode: "browse", scene: { kind: "map" } };
 }
 
 export function normalizeCampusMapUrlSession(
