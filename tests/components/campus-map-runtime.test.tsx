@@ -430,12 +430,12 @@ describe("CampusMapRuntime", () => {
     expect(document.activeElement).toBe(buildingHeading);
     expect(screen.getByText("Ho Sin-Hang Engineering Building")).not.toBeNull();
     expect(screen.queryByText(/Current facts/i)).toBeNull();
-    expect(screen.getByText("洗手间 2 处")).not.toBeNull();
     const facilityTypeSummary = screen.getByRole("list", {
       name: "楼内设施",
     });
     expect(facilityTypeSummary.textContent).toContain("洗手间");
     expect(facilityTypeSummary.textContent).toContain("2 处");
+    expect(screen.queryByText("2 处设施")).toBeNull();
     const buildingPreview = await waitFor(() =>
       document.querySelector("[data-building-preview]"),
     );
@@ -634,7 +634,7 @@ describe("CampusMapRuntime", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "饮水点" }));
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
@@ -667,7 +667,7 @@ describe("CampusMapRuntime", () => {
     expect(
       document.querySelector('[aria-live="polite"]')?.textContent,
     ).not.toContain("地点已发布");
-    expect(screen.getAllByText("室外位置")).toHaveLength(1);
+    expect(screen.getByText("饮水点 · 室外位置")).not.toBeNull();
     expect(screen.queryByText("建筑内")).toBeNull();
     expect(screen.queryByText("PUBLISHED")).toBeNull();
     expect(
@@ -836,7 +836,7 @@ describe("CampusMapRuntime", () => {
     expect(window.location.search).not.toContain(`id=${placeId}`);
     expect(mockLoadBrowseProjection).not.toHaveBeenCalled();
     expect(publishCampusMapEdit).not.toHaveBeenCalled();
-    expect(screen.queryByRole("heading", { name: "添加校内设施" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "新增设施" })).toBeNull();
   });
 
   it("keeps newer B navigation when A publish handoff is superseded", async () => {
@@ -1018,7 +1018,7 @@ describe("CampusMapRuntime", () => {
     window.dispatchEvent(
       new PopStateEvent("popstate", { state: window.history.state }),
     );
-    fireEvent.click(await screen.findByRole("button", { name: "添加地点" }));
+    fireEvent.click(await screen.findByRole("button", { name: "新增设施" }));
     await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "打印服务" }));
     const replacementSnapshot = window.sessionStorage.getItem(
@@ -1042,7 +1042,7 @@ describe("CampusMapRuntime", () => {
   it("drops queued edit focus and announcements after newer navigation", async () => {
     render(<CampusMapRuntime />);
 
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     const queuedFrames: FrameRequestCallback[] = [];
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
       queuedFrames.push(callback);
@@ -1258,7 +1258,7 @@ describe("CampusMapRuntime", () => {
     );
     expect(reconcileCampusMapEditPublish).not.toHaveBeenCalled();
     expect(publishCampusMapEdit).not.toHaveBeenCalled();
-    expect(screen.queryByRole("heading", { name: "添加校内设施" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "新增设施" })).toBeNull();
   });
 
   it("shows an identity mismatch without revealing the restored draft", async () => {
@@ -1477,12 +1477,9 @@ describe("CampusMapRuntime", () => {
       />,
     );
 
-    expect(await screen.findByText("1 处设施")).not.toBeNull();
-    await waitFor(() =>
-      expect(document.activeElement).toBe(
-        screen.getByRole("heading", { name: "饮水点" }),
-      ),
-    );
+    const heading = await screen.findByRole("heading", { name: "饮水点" });
+    expect(heading.textContent).toBe("饮水点 · 1 处");
+    await waitFor(() => expect(document.activeElement).toBe(heading));
     expect(screen.queryByText(/0 栋建筑/)).toBeNull();
     expect(await screen.findByText("新发布饮水点")).not.toBeNull();
     expect(screen.getByText("室外位置")).not.toBeNull();
@@ -1497,7 +1494,9 @@ describe("CampusMapRuntime", () => {
       />,
     );
 
-    expect(await screen.findByText("3 处设施")).not.toBeNull();
+    expect(
+      (await screen.findByRole("heading", { name: "饮水点" })).textContent,
+    ).toBe("饮水点 · 3 处");
     expect(screen.queryByText(/校园内已收录/)).toBeNull();
     expect(document.querySelectorAll("[data-return-result] svg")).toHaveLength(
       0,
@@ -1508,14 +1507,14 @@ describe("CampusMapRuntime", () => {
     mockRequestContributorSetup.mockResolvedValueOnce("cancelled");
     render(<CampusMapRuntime />);
 
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
 
     await waitFor(() => expect(mockRequestContributorSetup).toHaveBeenCalled());
     expect(publishCampusMapEdit).not.toHaveBeenCalled();
-    expect(screen.getByRole("heading", { name: "添加校内设施" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "新增设施" })).toBeTruthy();
     expect(
       (screen.getByRole("radio", { name: "洗手间" }) as HTMLInputElement)
         .checked,
@@ -1530,7 +1529,7 @@ describe("CampusMapRuntime", () => {
     });
     render(<CampusMapRuntime />);
 
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
@@ -1550,7 +1549,7 @@ describe("CampusMapRuntime", () => {
     });
     render(<CampusMapRuntime />);
 
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
@@ -1596,7 +1595,7 @@ describe("CampusMapRuntime", () => {
     );
     render(<CampusMapRuntime />);
 
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
@@ -1604,7 +1603,7 @@ describe("CampusMapRuntime", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
     fireEvent.click(await screen.findByRole("button", { name: "放弃草稿" }));
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "打印服务" }));
 
@@ -1621,14 +1620,14 @@ describe("CampusMapRuntime", () => {
     const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
     render(<CampusMapRuntime />);
 
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
     fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
     fireEvent.click(await screen.findByRole("button", { name: "放弃草稿" }));
     expect(back).toHaveBeenCalledOnce();
 
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "打印服务" }));
 
@@ -1652,7 +1651,7 @@ describe("CampusMapRuntime", () => {
   it("uses one Add session for keyboard placement and dirty close", async () => {
     render(<CampusMapRuntime />);
 
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     expect(
       await screen.findByRole("heading", { name: "选择设施位置" }),
     ).toBeTruthy();
@@ -1672,10 +1671,10 @@ describe("CampusMapRuntime", () => {
 
     await confirmPlacementWithKeyboard();
     expect(
-      await screen.findByRole("heading", { name: "添加校内设施" }),
+      await screen.findByRole("heading", { name: "新增设施" }),
     ).toBeTruthy();
     expect(document.activeElement).toBe(
-      screen.getByRole("heading", { name: "添加校内设施" }),
+      screen.getByRole("heading", { name: "新增设施" }),
     );
     expect(screen.getByText("地图坐标")).toBeTruthy();
     expect(screen.getByRole("button", { name: "修改位置" })).toBeTruthy();
@@ -1688,7 +1687,7 @@ describe("CampusMapRuntime", () => {
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
     expect(
-      await screen.findByRole("heading", { name: "添加校内设施" }),
+      await screen.findByRole("heading", { name: "新增设施" }),
     ).toBeTruthy();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(
@@ -1698,7 +1697,7 @@ describe("CampusMapRuntime", () => {
 
   it("keeps a dirty Add draft when browser Back is cancelled", async () => {
     render(<CampusMapRuntime />);
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await confirmPlacementWithKeyboard();
     await screen.findByRole("group", { name: "设施类型" });
 
@@ -1985,7 +1984,7 @@ describe("CampusMapRuntime", () => {
       .getByPlaceholderText("搜索建筑或地点…")
       .closest("header");
     const filterNav = screen.getByRole("navigation", { name: "设施筛选" });
-    const addButton = screen.getByRole("button", { name: "添加地点" });
+    const addButton = screen.getByRole("button", { name: "新增设施" });
     const mapControls = addButton.parentElement;
 
     fireEvent.click(addButton);
@@ -2123,12 +2122,24 @@ describe("CampusMapRuntime", () => {
     );
 
     const floor = screen.getByRole("button", { name: "LG/F" });
+    expect(
+      screen
+        .getByRole("button", { name: "全部楼层" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(floor.getAttribute("aria-pressed")).toBe("false");
     floor.focus();
     fireEvent.click(floor);
     expect(push).toHaveBeenCalledTimes(1);
     expect(replace).toHaveBeenCalled();
     expect(window.location.search).toContain("floor=LG");
     expect(document.activeElement).toBe(floor);
+    expect(
+      screen
+        .getByRole("button", { name: "全部楼层" })
+        .getAttribute("aria-pressed"),
+    ).toBe("false");
+    expect(floor.getAttribute("aria-pressed")).toBe("true");
 
     fireEvent.click(screen.getByRole("button", { name: /洗手间.*公众可达/ }));
     await screen.findByRole("heading", { name: "洗手间" });
@@ -2156,6 +2167,68 @@ describe("CampusMapRuntime", () => {
     expect(window.location.search).toContain(
       "scene=facility&id=71000000-0000-4000-8000-000000000001",
     );
+  });
+
+  it("restores focus for a Place id that contains CSS selector characters", async () => {
+    const sourcePlaceId = "71000000-0000-4000-8000-000000000001";
+    const specialPlaceId = 'place-with-"quote"]';
+    const projection = createCampusMapBrowseFixture();
+    const withSpecialPlaceId = {
+      ...projection,
+      buildings: projection.buildings.map((building) => ({
+        ...building,
+        placeIds: building.placeIds.map((placeId) =>
+          placeId === sourcePlaceId ? specialPlaceId : placeId,
+        ),
+      })),
+      places: projection.places.map((place) =>
+        place.placeId === sourcePlaceId
+          ? {
+              ...place,
+              placeId: specialPlaceId,
+              selectionTarget: {
+                ...place.selectionTarget,
+                placeId: specialPlaceId,
+              },
+            }
+          : place,
+      ),
+      markers: projection.markers.map((marker) =>
+        marker.kind === "place" && marker.placeId === sourcePlaceId
+          ? { ...marker, placeId: specialPlaceId }
+          : marker.kind === "building-presence"
+            ? {
+                ...marker,
+                placeIds: marker.placeIds.map((placeId) =>
+                  placeId === sourcePlaceId ? specialPlaceId : placeId,
+                ),
+              }
+            : marker,
+      ),
+    };
+    render(
+      <CampusMapRuntime
+        initialSearch="?v=1&scene=building&id=science-centre&snap=peek"
+        initialBrowseProjection={withSpecialPlaceId}
+      />,
+    );
+
+    const result = await waitFor(() =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>("[data-return-result]"),
+      ).find((candidate) => candidate.dataset.returnResult === specialPlaceId),
+    );
+    fireEvent.click(result!);
+    await screen.findByRole("heading", { name: "洗手间" });
+
+    fireEvent.click(screen.getByRole("button", { name: "返回建筑" }));
+    await screen.findByRole("heading", { name: "科学馆" });
+    await waitFor(() => {
+      const restoredResult = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-return-result]"),
+      ).find((candidate) => candidate.dataset.returnResult === specialPlaceId);
+      expect(document.activeElement).toBe(restoredResult);
+    });
   });
 
   it("canonicalizes a mismatched facility deep link to its real building", async () => {
@@ -2399,8 +2472,7 @@ describe("CampusMapRuntime", () => {
     render(<CampusMapRuntime />);
     await selectScienceCentre();
 
-    expect(screen.getByText("2 处设施")).not.toBeNull();
-    expect(screen.queryByText("洗手间 1 处 · 饮水点 1 处")).toBeNull();
+    expect(screen.queryByText("2 处设施")).toBeNull();
     const facilityTypes = screen.getByRole("list", { name: "楼内设施" });
     expect(facilityTypes.textContent).toContain("洗手间");
     expect(facilityTypes.textContent).toContain("饮水点");
@@ -2411,12 +2483,18 @@ describe("CampusMapRuntime", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
-    expect(
-      await screen.findByRole("heading", {
-        name: "饮水点",
-      }),
-    ).not.toBeNull();
-    expect(screen.getByText("2 处设施")).not.toBeNull();
+    const heading = await screen.findByRole("heading", {
+      name: "饮水点",
+    });
+    expect(heading.textContent).toBe("饮水点 · 2 处");
+    expect(heading.getAttribute("aria-describedby")).toBe(
+      "campus-map-category-count",
+    );
+    const accessibleCount = document.getElementById(
+      "campus-map-category-count",
+    );
+    expect(accessibleCount?.textContent).toBe("2 处设施");
+    expect(accessibleCount?.classList.contains("sr-only")).toBe(true);
     expect(screen.queryByText(/Current facts/i)).toBeNull();
     const firstCategoryResult = screen.getByRole("button", {
       name: /科学馆 · 1\/F/,

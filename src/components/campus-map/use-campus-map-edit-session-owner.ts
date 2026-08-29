@@ -18,6 +18,7 @@ import {
   type CampusMapEditEvent,
   type CampusMapIndoorLocationDisplay,
   type CampusMapEditSession,
+  type CampusMapPlacement,
 } from "@/lib/campus-map/edit-session";
 import type {
   CampusMapDriverIntent,
@@ -369,6 +370,18 @@ export function useCampusMapEditSessionOwner({
     });
   }, [dispatchEvent]);
 
+  const startAddAtPosition = useCallback(
+    (position: CampusMapPlacement) => {
+      editLoadTokenRef.current += 1;
+      dispatchEvent({
+        type: "START_ADD_AT_POSITION",
+        idempotencyKey: window.crypto.randomUUID(),
+        position,
+      });
+    },
+    [dispatchEvent],
+  );
+
   const startEdit = useCallback(
     async (placeId: string) => {
       const token = ++editLoadTokenRef.current;
@@ -580,6 +593,7 @@ export function useCampusMapEditSessionOwner({
     session,
     dispatchEvent,
     startAdd,
+    startAddAtPosition,
     startEdit,
     announcement,
     restoreNotice,

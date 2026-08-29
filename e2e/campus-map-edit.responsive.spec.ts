@@ -1,4 +1,4 @@
-// ref #646
+// ref #646, #649
 import { expect, test } from "@playwright/test";
 import { loginWithPassword } from "./helpers/auth";
 import { installFakeCampusMapAmap } from "./helpers/campus-map-amap";
@@ -14,12 +14,13 @@ test("Campus Map editing keeps its primary action inside a 390px-high viewport",
   await page.setViewportSize({ width: 720, height: 390 });
   await page.goto("/campus-map");
 
-  await page.getByRole("button", { name: "添加地点" }).click();
+  await page.getByRole("button", { name: "新增设施" }).click();
   const confirmPosition = page.getByRole("button", { name: "使用此位置" });
   await expect(confirmPosition).toBeEnabled();
   await confirmPosition.click();
 
-  const sheet = page.getByRole("region", { name: "添加校内设施" });
+  const sheet = page.getByRole("region", { name: "新增设施" });
+  const facilityType = page.getByRole("group", { name: "设施类型" });
   const publish = page.getByRole("button", { name: "发布设施" });
   await expect(sheet).toBeVisible();
   await expect(publish).toBeVisible();
@@ -32,6 +33,18 @@ test("Campus Map editing keeps its primary action inside a 390px-high viewport",
   expect(sheetBox!.y + sheetBox!.height).toBeLessThanOrEqual(390);
   expect(publishBox!.y + publishBox!.height).toBeLessThanOrEqual(390);
   expect(
+    await facilityType
+      .locator("label")
+      .evaluateAll(
+        (labels) =>
+          new Set(
+            labels.map((label) =>
+              Math.round(label.getBoundingClientRect().top),
+            ),
+          ).size,
+      ),
+  ).toBe(1);
+  expect(
     await page.evaluate(() => document.documentElement.scrollHeight),
   ).toBeLessThanOrEqual(390);
 });
@@ -42,7 +55,7 @@ test("Campus Map editing keeps only the essential controls in a compact mobile v
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/campus-map");
 
-  await page.getByRole("button", { name: "添加地点" }).click();
+  await page.getByRole("button", { name: "新增设施" }).click();
   const placingSheet = page.getByRole("region", { name: "选择设施位置" });
   const placingSheetBox = await placingSheet.boundingBox();
   expect(placingSheetBox).not.toBeNull();
@@ -53,7 +66,7 @@ test("Campus Map editing keeps only the essential controls in a compact mobile v
   );
   await page.getByRole("button", { name: "使用此位置" }).click();
 
-  const sheet = page.getByRole("region", { name: "添加校内设施" });
+  const sheet = page.getByRole("region", { name: "新增设施" });
   const facilityType = page.getByRole("group", { name: "设施类型" });
   const publish = page.getByRole("button", { name: "发布设施" });
   const attribution = page.locator(".amap-copyright");
@@ -71,6 +84,20 @@ test("Campus Map editing keeps only the essential controls in a compact mobile v
       facilityType.getByText(label, { exact: true }),
     ).toBeInViewport();
   }
+  const choices = await facilityType.locator("label").all();
+  const choiceBoxes = await Promise.all(
+    choices.map((choice) => choice.boundingBox()),
+  );
+  expect(new Set(choiceBoxes.map((box) => Math.round(box?.y ?? -1))).size).toBe(
+    2,
+  );
+  for (const box of choiceBoxes) {
+    expect(box).not.toBeNull();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+  }
+  await expect(
+    page.getByText("位置已确定。选择设施类型后即可发布。"),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("textbox", { name: "设施名称或编号" }),
   ).toHaveCount(0);
@@ -94,10 +121,10 @@ test("Campus Map editing supports the keyboard placement and dirty-close path", 
   await page.setViewportSize({ width: 390, height: 720 });
   await page.goto("/campus-map");
 
-  await page.getByRole("button", { name: "添加地点" }).click();
+  await page.getByRole("button", { name: "新增设施" }).click();
   await page.getByRole("button", { name: "使用此位置" }).click();
 
-  const sheet = page.getByRole("region", { name: "添加校内设施" });
+  const sheet = page.getByRole("region", { name: "新增设施" });
   const facilityType = page.getByRole("group", { name: "设施类型" });
   const publish = page.getByRole("button", { name: "发布设施" });
   const sheetBox = await sheet.boundingBox();
@@ -130,9 +157,7 @@ test("Campus Map editing supports the keyboard placement and dirty-close path", 
   await useCoordinates.focus();
   await page.keyboard.press("Enter");
 
-  await expect(
-    page.getByRole("heading", { name: "添加校内设施" }),
-  ).toBeFocused();
+  await expect(page.getByRole("heading", { name: "新增设施" })).toBeFocused();
   await page.getByRole("radio", { name: "洗手间" }).press("Space");
   await page.keyboard.press("Escape");
   await expect(

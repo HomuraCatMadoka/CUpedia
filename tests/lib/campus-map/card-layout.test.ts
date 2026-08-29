@@ -9,12 +9,11 @@ describe("Campus Map card layout policy", () => {
   it.each([
     [{ kind: "placing" } as const, "min(336px, 48dvh)"],
     [{ kind: "edit" } as const, "var(--campus-map-edit-sheet-height)"],
-    [{ kind: "expanded" } as const, "72dvh"],
     [{ kind: "provider-error" } as const, "var(--campus-map-peek-height)"],
     [{ kind: "provider-poi" } as const, "120px"],
     [{ kind: "empty-building" } as const, "136px"],
-    [{ kind: "facility" } as const, "min(300px, 40dvh)"],
-    [{ kind: "building" } as const, "min(340px, 42dvh)"],
+    [{ kind: "facility" } as const, "min(264px, 35dvh)"],
+    [{ kind: "building" } as const, "min(312px, 39dvh)"],
     [{ kind: "default" } as const, "var(--campus-map-peek-height)"],
   ])("projects the %s panel height", (layout, expected) => {
     expect(campusMapMobilePanelHeight(layout)).toBe(expected);
@@ -39,5 +38,26 @@ describe("Campus Map card layout policy", () => {
         resultCount: CAMPUS_MAP_CATEGORY_PEEK_RESULT_LIMIT + 1,
       }),
     ).toBe("min(352px, 44dvh)");
+  });
+
+  it("derives a full Building sheet from its projected rows and groups", () => {
+    expect(
+      campusMapMobilePanelHeight({
+        kind: "expanded",
+        content: "building",
+        resultCount: 2,
+        groupCount: 2,
+      }),
+    ).toBe("min(476px, 62dvh)");
+  });
+
+  it("derives a full category sheet from its projected rows", () => {
+    expect(
+      campusMapMobilePanelHeight({
+        kind: "expanded",
+        content: "category",
+        resultCount: 7,
+      }),
+    ).toBe("min(532px, 62dvh)");
   });
 });

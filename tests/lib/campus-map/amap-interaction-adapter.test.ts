@@ -35,6 +35,19 @@ describe("AmapInteractionAdapter", () => {
     expect(commands).toEqual(["open-provider"]);
   });
 
+  it("lets a long-press claim the pointer cycle before its companion click", () => {
+    const settlement = manualSettlement();
+    const adapter = new AmapInteractionAdapter(settlement.schedule);
+    const commands: string[] = [];
+
+    adapter.beginPointerGesture();
+    adapter.dispatchExclusiveAction(() => commands.push("start-add"));
+    adapter.dispatchMapClick(() => commands.push("dismiss-entity"));
+    settlement.flush();
+
+    expect(commands).toEqual(["start-add"]);
+  });
+
   it("emits one command when map click arrives before its provider target", () => {
     const settlement = manualSettlement();
     const adapter = new AmapInteractionAdapter(settlement.schedule);

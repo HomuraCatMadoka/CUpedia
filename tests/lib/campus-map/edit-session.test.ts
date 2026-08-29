@@ -186,6 +186,40 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
+  it("starts Add at one WGS84 point with one scene and camera transition", () => {
+    const position = {
+      longitude: 114.215,
+      latitude: 22.425,
+      crs: "wgs84" as const,
+      precision: "approximate" as const,
+      method: "pointer" as const,
+    };
+
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD_AT_POSITION",
+      idempotencyKey: firstKey,
+      position,
+    });
+
+    expect(started).toMatchObject({
+      accepted: true,
+      session: {
+        status: "placing",
+        draft: { placementCandidate: position },
+      },
+      commands: [
+        { kind: "scene", intent: "start-create" },
+        { kind: "persist-snapshot" },
+        {
+          kind: "camera",
+          intent: "recenter-placement",
+          position: [114.215, 22.425],
+        },
+      ],
+    });
+    expect(isCampusMapEditDirty(started.session)).toBe(false);
+  });
+
   it("keeps the same placing session while the user fills in place details", () => {
     const started = transitionCampusMapEdit(null, {
       type: "START_ADD",

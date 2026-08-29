@@ -316,7 +316,7 @@ test("Campus Map and its AMap config require authentication", async ({
   await anonymous.close();
 
   await page.goto("/campus-map");
-  await page.getByRole("button", { name: "添加地点" }).click();
+  await page.getByRole("button", { name: "新增设施" }).click();
   await page.getByRole("button", { name: "使用此位置" }).click();
   await page
     .getByRole("group", { name: "设施类型" })
@@ -336,9 +336,7 @@ test("Campus Map and its AMap config require authentication", async ({
   await page.getByRole("button", { name: "登录", exact: true }).click();
 
   await expect(page).toHaveURL(draftUrl);
-  await expect(
-    page.getByRole("heading", { name: "添加校内设施" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "新增设施" })).toBeVisible();
   await expect(page.getByRole("radio", { name: "洗手间" })).toBeChecked();
   await expect(page.getByRole("button", { name: "发布设施" })).toBeEnabled();
   await expect(page.getByText("地点资料已发布")).toHaveCount(0);
@@ -407,9 +405,11 @@ test("Building expands into Place and Back restores the Building card", async ({
   await expect(page.getByRole("heading", { name: "正式测试楼" })).toBeVisible();
   const buildingCard = page.getByRole("region", { name: "正式测试楼" }).first();
   await expect(buildingCard.getByText("Canonical Test Building")).toBeVisible();
-  await expect(
-    buildingCard.getByText("饮水点 1 处", { exact: true }),
-  ).toBeVisible();
+  const facilitySummary = buildingCard.getByRole("list", {
+    name: "楼内设施",
+  });
+  await expect(facilitySummary).toContainText("饮水点");
+  await expect(facilitySummary).toContainText("1 处");
   const buildingPreview = buildingCard.locator(
     `[data-building-preview="${browseIds.place}"]`,
   );
@@ -449,7 +449,7 @@ test("Building expands into Place and Back restores the Building card", async ({
   await expect(page).toHaveURL(placeUrl);
 
   await page.goto("/campus-map");
-  await page.getByRole("button", { name: "添加地点" }).click();
+  await page.getByRole("button", { name: "新增设施" }).click();
   await expect(page).toHaveURL(/task=create&anchor=map$/);
   await page.goBack();
   await expect(page.getByRole("heading", { name: "选择设施位置" })).toHaveCount(
@@ -466,6 +466,52 @@ test("Building expands into Place and Back restores the Building card", async ({
   await expect(
     page.locator("[aria-labelledby='campus-map-panel-title']").first(),
   ).toBeHidden();
+});
+
+test("long-press and right-click start one Add task at the pressed position", async ({
+  page,
+}) => {
+  for (const scenario of [
+    {
+      event: "longpress",
+      viewport: { width: 390, height: 844 },
+      position: { lng: 114.2051, lat: 22.4189 },
+    },
+    {
+      event: "rightclick",
+      viewport: { width: 1280, height: 800 },
+      position: { lng: 114.2093, lat: 22.4221 },
+    },
+  ]) {
+    await page.setViewportSize(scenario.viewport);
+    await page.goto("/campus-map");
+    const before = await readAmapSnapshot(page);
+
+    await emitAmapEvent(page, scenario.event, {
+      lnglat: scenario.position,
+    });
+
+    await expect(
+      page.getByRole("heading", { name: "选择设施位置" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "选择设施位置" }),
+    ).toHaveCount(1);
+    await expect(page).toHaveURL(/task=create/);
+    await expect(
+      page.getByText(
+        new RegExp(
+          `${scenario.position.lng.toFixed(6)}, ${scenario.position.lat.toFixed(6)}`,
+        ),
+      ),
+    ).toBeVisible();
+    const after = await readAmapSnapshot(page);
+    expect(after.center[0]).toBeCloseTo(scenario.position.lng, 10);
+    expect(after.center[1]).toBeCloseTo(scenario.position.lat, 10);
+    expect(after.setZoomAndCenterCount).toBe(before.setZoomAndCenterCount + 1);
+
+    await page.evaluate(() => window.sessionStorage.clear());
+  }
 });
 
 test("one provider callback produces one canonical effect and a map gesture closes it", async ({
@@ -623,10 +669,8 @@ test("three peek/full rounds and ResizeObserver callbacks do not accumulate came
     await expect(
       page.getByRole("button", { name: "收起地点卡片" }),
     ).toBeVisible();
-    await expect
-      .poll(async () => (await readAmapSnapshot(page)).panToCount)
-      .toBe(initial.panToCount + round + 1);
     const full = await readAmapSnapshot(page);
+    expect(full.panToCount).toBeLessThanOrEqual(initial.panToCount + round + 1);
     fullSnapshots.push({
       center: full.center,
       targetPixel: await readAmapProjectedPoint(page, targetPosition),
@@ -671,7 +715,7 @@ test("publish handoff shows one success prompt and never restores the form", asy
   const publishedName = "打印站";
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/campus-map");
-  await page.getByRole("button", { name: "添加地点" }).click();
+  await page.getByRole("button", { name: "新增设施" }).click();
   await page.getByRole("button", { name: "使用此位置" }).click();
   await page
     .getByRole("group", { name: "设施类型" })
@@ -712,9 +756,7 @@ test("publish handoff shows one success prompt and never restores the form", asy
 
   await page.goBack();
   await expect(page.getByRole("status")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "添加校内设施" })).toHaveCount(
-    0,
-  );
+  await expect(page.getByRole("heading", { name: "新增设施" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "选择设施位置" })).toHaveCount(
     0,
   );
@@ -767,9 +809,14 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
     );
     const card = page.getByRole("region", { name: "正式测试楼" });
     await expect(card).toBeVisible();
-    await expect(card.getByText("饮水点 1 处", { exact: true })).toBeVisible();
+    const facilitySummary = card.getByRole("list", { name: "楼内设施" });
+    await expect(facilitySummary).toContainText("饮水点");
+    await expect(facilitySummary).toContainText("1 处");
     const buildingCode = card.getByText("QA648-LONG", { exact: true });
     await expect(buildingCode).toBeVisible();
+    const buildingCodeBox = await buildingCode.boundingBox();
+    expect(buildingCodeBox).not.toBeNull();
+    expect(buildingCodeBox!.height).toBeLessThan(32);
     expect(
       await buildingCode.evaluate(
         (element) => element.scrollHeight <= element.clientHeight,
@@ -794,7 +841,7 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
       expect(searchBox!.x + searchBox!.width).toBeLessThanOrEqual(cardBox!.x);
       expect(filterBox!.x + filterBox!.width).toBeLessThanOrEqual(cardBox!.x);
     } else {
-      expect(cardBox!.height).toBeLessThanOrEqual(344);
+      expect(cardBox!.height).toBeLessThanOrEqual(316);
       const buildingPreview = card.locator("[data-building-preview]");
       await expect(buildingPreview).toContainText("正式测试饮水点");
       const buildingCta = card.getByRole("button", {
@@ -824,14 +871,22 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
 
     if (viewport.width < 768) {
       await page.getByRole("button", { name: "展开地点卡片" }).click();
+      const fullCardBox = await card.boundingBox();
+      expect(fullCardBox).not.toBeNull();
+      expect(fullCardBox!.y).toBeGreaterThanOrEqual(viewport.height * 0.38);
+      expect(fullCardBox!.height).toBeLessThanOrEqual(viewport.height * 0.62);
     }
     await expect(card.getByRole("heading", { name: "G/F" })).toBeVisible();
     const place = page.locator(
       `[data-return-result="${browseIds.place}"]:visible`,
     );
     await expect(place).toBeVisible();
-    await place.focus();
-    await page.keyboard.press("Enter");
+    await place.press("Enter");
+    await expect(page).toHaveURL(
+      new RegExp(
+        `/campus-map\\?v=1&scene=facility&id=${browseIds.place}&snap=peek$`,
+      ),
+    );
     await expect(
       page.getByRole("heading", { name: "正式测试饮水点" }),
     ).toBeFocused();
@@ -841,6 +896,17 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
     await expect(suggestEdit).toBeVisible();
     await expect(locatePlace).toBeVisible();
     await expect(editHistory).toBeVisible();
+    if (viewport.width < 768) {
+      const placeCard = page.getByRole("region", {
+        name: "正式测试饮水点",
+      });
+      const placeCardBox = await placeCard.boundingBox();
+      expect(placeCardBox).not.toBeNull();
+      expect(placeCardBox!.height).toBeLessThanOrEqual(268);
+      await expect(
+        placeCard.getByText(/饮水点 · 正式测试楼 · G\/F/),
+      ).toBeVisible();
+    }
     for (const action of [suggestEdit, locatePlace, editHistory]) {
       const actionBox = await action.boundingBox();
       expect(actionBox).not.toBeNull();

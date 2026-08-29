@@ -979,18 +979,16 @@ export function CampusMapEditSheet({
               ? "选择设施位置"
               : "修改设施位置"
             : draft.mode === "add"
-              ? "添加校内设施"
+              ? "新增设施"
               : "修改设施"}
         </h2>
-        <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm">
-          {isPlacing
-            ? draft.mode === "add"
+        {isPlacing ? (
+          <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm">
+            {draft.mode === "add"
               ? "拖动地图或轻点地点名称，选择设施位置。"
-              : "拖动地图或轻点地点名称，选择新的设施位置。"
-            : draft.mode === "add"
-              ? "位置已确定。选择设施类型后即可发布。"
-              : "确认设施类型和位置后即可发布修改。"}
-        </p>
+              : "拖动地图或轻点地点名称，选择新的设施位置。"}
+          </p>
+        ) : null}
       </div>
       <div
         className={cn(
@@ -1086,7 +1084,7 @@ export function CampusMapEditSheet({
             className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
           >
             <legend className="mb-1.5 text-sm font-medium">设施类型</legend>
-            <div className="grid grid-cols-5 gap-1.5 md:gap-2">
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5 md:gap-2">
               {CAMPUS_MAP_EDIT_SCHEMA.presets.map((item) => (
                 <label
                   key={item.pinType}

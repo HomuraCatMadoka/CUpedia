@@ -129,7 +129,10 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "添加校内设施" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "新增设施" })).toBeTruthy();
+    expect(
+      screen.queryByText("位置已确定。选择设施类型后即可发布。"),
+    ).toBeNull();
     expect(screen.getByRole("group", { name: "设施类型" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "修改位置" })).toBeTruthy();
     expect(
@@ -271,7 +274,7 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    const heading = screen.getByRole("heading", { name: "添加校内设施" });
+    const heading = screen.getByRole("heading", { name: "新增设施" });
     heading.focus();
     expect(document.activeElement).toBe(heading);
     expect(heading.getAttribute("tabindex")).toBe("-1");

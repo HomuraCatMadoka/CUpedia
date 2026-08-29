@@ -142,6 +142,11 @@ export type CampusMapEditCommand =
 export type CampusMapEditEvent =
   | { type: "START_ADD"; idempotencyKey: string }
   | {
+      type: "START_ADD_AT_POSITION";
+      idempotencyKey: string;
+      position: CampusMapPlacement;
+    }
+  | {
       type: "START_EDIT";
       placeId: string;
       baseRevisionId: string;
@@ -505,14 +510,19 @@ export function transitionCampusMapEdit(
   session: CampusMapEditSession | null,
   event: CampusMapEditEvent,
 ): CampusMapEditTransition {
-  if (event.type === "START_ADD") {
+  if (event.type === "START_ADD" || event.type === "START_ADD_AT_POSITION") {
     if (session) return rejected(session);
+    const placementCandidate =
+      event.type === "START_ADD_AT_POSITION" ? clone(event.position) : null;
     const next: CampusMapEditSession = {
       status: "placing",
-      draft: createCampusMapEditDraft({
-        mode: "add",
-        idempotencyKey: event.idempotencyKey,
-      }),
+      draft: {
+        ...createCampusMapEditDraft({
+          mode: "add",
+          idempotencyKey: event.idempotencyKey,
+        }),
+        placementCandidate,
+      },
     };
     return {
       accepted: true,
@@ -520,6 +530,18 @@ export function transitionCampusMapEdit(
       commands: [
         { kind: "scene", intent: "start-create" },
         { kind: "persist-snapshot" },
+        ...(placementCandidate
+          ? [
+              {
+                kind: "camera" as const,
+                intent: "recenter-placement" as const,
+                position: [
+                  placementCandidate.longitude,
+                  placementCandidate.latitude,
+                ] as const,
+              },
+            ]
+          : []),
       ],
     };
   }
