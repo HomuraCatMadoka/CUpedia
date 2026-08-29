@@ -51,15 +51,30 @@ const catalog: CampusMapSceneCatalog = {
 
 describe("Campus Map versioned scene codec", () => {
   it("owns canonical Place deep links used outside the runtime", () => {
-    expect(encodeCampusMapFacilityHref("courtyardWater", catalog)).toBe(
-      "/campus-map?v=1&scene=facility&id=courtyardWater&snap=peek",
-    );
-    expect(encodeCampusMapFacilityHref(" courtyardWater ", catalog)).toBe(
-      "/campus-map?v=1",
-    );
-    expect(encodeCampusMapFacilityHref("retiredPlace", catalog)).toBe(
-      "/campus-map?v=1",
-    );
+    expect(
+      encodeCampusMapFacilityHref("courtyardWater", {
+        status: "active",
+        visibility: "public",
+      }),
+    ).toBe("/campus-map?v=1&scene=facility&id=courtyardWater&snap=peek");
+    expect(
+      encodeCampusMapFacilityHref(" courtyardWater ", {
+        status: "active",
+        visibility: "public",
+      }),
+    ).toBe("/campus-map?v=1");
+    expect(
+      encodeCampusMapFacilityHref("retiredPlace", {
+        status: "retired",
+        visibility: "public",
+      }),
+    ).toBe("/campus-map?v=1");
+    expect(
+      encodeCampusMapFacilityHref("redactedPlace", {
+        status: "active",
+        visibility: "redacted",
+      }),
+    ).toBe("/campus-map?v=1");
   });
 
   it("round-trips a canonical Map Note return context for refresh recovery", () => {

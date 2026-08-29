@@ -735,6 +735,11 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
 
     try {
       const history = await getCampusMapPlaceHistory(ids.place);
+      expect(history.head).toMatchObject({
+        status: "active",
+        visibility: "redacted",
+        name: null,
+      });
       expect(history.items[0]?.content).toEqual({ visibility: "redacted" });
       expect(history.items[0]?.fieldDiff).toBeNull();
       expect(history.items[0]).not.toHaveProperty("content.fact");

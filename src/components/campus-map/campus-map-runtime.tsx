@@ -421,10 +421,7 @@ function knownAmenity(value: string | null) {
   return CATEGORIES.find((item) => item.id === value)?.id ?? null;
 }
 
-function facilityBackLabel(
-  facility: Facility,
-  returnTo: CampusMapSession | null,
-) {
+function facilityBackLabel(returnTo: CampusMapSession | null) {
   const returnScene = returnTo?.mode === "browse" ? returnTo.scene : null;
   if (returnScene?.kind === "search-results") return "返回搜索结果";
   if (returnScene?.kind === "category-results") {
@@ -1154,6 +1151,20 @@ export function CampusMapRuntime({
               } else {
                 focusSceneTarget(focus.fallback);
               }
+            } else if (focus.kind === "category-filter") {
+              const filter = Array.from(
+                document.querySelectorAll<HTMLElement>(
+                  "[data-category-filter]",
+                ),
+              ).find(
+                (candidate) =>
+                  candidate.dataset.categoryFilter === focus.category,
+              );
+              if (filter) {
+                filter.focus({ preventScroll: true });
+              } else {
+                focusSceneTarget(focus.fallback);
+              }
             } else if (focus.kind === "edit-field") {
               const target = Array.from(
                 document.querySelectorAll<HTMLElement>("[data-edit-field]"),
@@ -1214,7 +1225,7 @@ export function CampusMapRuntime({
     : buildingFor(state.selection, buildings);
   const activeAmenity = knownAmenity(state.mapFilter.category);
   const selectedFacilityBackLabel = selectedFacility
-    ? facilityBackLabel(selectedFacility, driverSnapshot.returnTo)
+    ? facilityBackLabel(driverSnapshot.returnTo)
     : "返回地图";
 
   const dispatch = useCallback(
@@ -2649,6 +2660,7 @@ export function CampusMapRuntime({
               <button
                 key={category.id}
                 type="button"
+                data-category-filter={category.id}
                 aria-pressed={active}
                 className={cn(
                   "flex h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[13px] font-medium shadow-[0_2px_10px_rgba(23,33,28,.14)] transition-[background-color,border-color,color,transform] active:scale-[0.98] md:gap-2 md:text-sm motion-reduce:transform-none",

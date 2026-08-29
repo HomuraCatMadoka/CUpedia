@@ -196,7 +196,6 @@ beforeEach(() => {
         kind: "transient" as const,
         externalId: providerObjectId ?? `${position[0]},${position[1]}`,
         title: name,
-        sourceLabel: "高德地图地点" as const,
         position,
       };
     },

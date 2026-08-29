@@ -113,11 +113,11 @@ export function useCampusMapEditSessionOwner({
   const mountedRef = useRef(false);
   const [announcement, setAnnouncement] = useState("");
   const [restoreNotice, setRestoreNotice] = useState("");
-  const clearStalePublishingAnnouncement = useCallback(
-    (idempotencyKey: string) => {
+  const clearPublishAnnouncement = useCallback(
+    (idempotencyKey: string, mode: "publishing-only" | "all") => {
       const intentToken = driver.getIntentToken();
       const clear = (current: string) =>
-        current === "正在发布地点资料" ? "" : current;
+        mode === "all" || current === "正在发布地点资料" ? "" : current;
       setAnnouncement(clear);
       window.requestAnimationFrame(() => {
         const current = sessionRef.current;
@@ -143,9 +143,9 @@ export function useCampusMapEditSessionOwner({
         setSession(null);
       }
       removeSnapshotForPublish(idempotencyKey);
-      clearStalePublishingAnnouncement(idempotencyKey);
+      clearPublishAnnouncement(idempotencyKey, "publishing-only");
     },
-    [clearStalePublishingAnnouncement],
+    [clearPublishAnnouncement],
   );
 
   const applyPublishOutcome = useCallback(
@@ -181,6 +181,7 @@ export function useCampusMapEditSessionOwner({
           type: "PUBLISH_HANDOFF_COMPLETED",
           idempotencyKey,
         });
+        clearPublishAnnouncement(idempotencyKey, "all");
         return;
       }
       if (outcome.status === "recoverable") {
@@ -211,7 +212,7 @@ export function useCampusMapEditSessionOwner({
         conflictLocationDisplay,
       });
     },
-    [dispatch, driver, releaseSupersededPublish],
+    [clearPublishAnnouncement, dispatch, driver, releaseSupersededPublish],
   );
 
   const applyEvent = useCallback(
@@ -562,7 +563,6 @@ export function useCampusMapEditSessionOwner({
     }
   }, [
     applyPublishOutcome,
-    clearStalePublishingAnnouncement,
     dispatch,
     driver,
     recoverPublish,

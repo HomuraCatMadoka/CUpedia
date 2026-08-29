@@ -153,7 +153,6 @@ describe("AMap browse projection adapter (#647)", () => {
       kind: "transient",
       externalId: poi.providerObjectId,
       title: "高德科学馆",
-      sourceLabel: "高德地图地点",
       position: poi.position,
     });
   });
@@ -166,7 +165,7 @@ describe("AMap browse projection adapter (#647)", () => {
         buildingId: null,
         floorId: null,
       }),
-    ).toMatchObject({ kind: "transient", sourceLabel: "高德地图地点" });
+    ).toMatchObject({ kind: "transient", title: "高德科学馆" });
   });
 
   it("owns provider lookup races outside React", async () => {

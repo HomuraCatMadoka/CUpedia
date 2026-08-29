@@ -48,7 +48,6 @@ export type CampusMapAmapPoiCard =
       kind: "transient";
       externalId: string;
       title: string;
-      sourceLabel: "高德地图地点";
       position: CampusMapAmapPosition;
     };
 
@@ -178,7 +177,6 @@ export function createTransientCampusMapAmapPoiCard(
     kind: "transient",
     externalId: providerObjectId ?? `${input.position[0]},${input.position[1]}`,
     title: input.name.trim() || "高德地图地点",
-    sourceLabel: "高德地图地点",
     position: [input.position[0], input.position[1]],
   };
 }

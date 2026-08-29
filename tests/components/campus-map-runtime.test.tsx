@@ -690,6 +690,10 @@ describe("CampusMapRuntime", () => {
     await waitFor(() =>
       expect(window.location.search).toContain("scene=search"),
     );
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(
+      document.querySelector('[aria-live="polite"]')?.textContent,
+    ).not.toContain("正在发布地点资料");
     await waitFor(() =>
       expect(
         document.querySelector(`[data-search-result="${placeId}"]`),
@@ -2576,6 +2580,26 @@ describe("CampusMapRuntime", () => {
     expect(
       screen.queryByRole("button", { name: "查看全部 2 处设施" }),
     ).toBeNull();
+  });
+
+  it("returns focus to the category filter when its card is dismissed", async () => {
+    render(<CampusMapRuntime />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "饮水点", pressed: false }),
+    );
+    await screen.findByRole("heading", { name: "饮水点" });
+    const activeFilter = screen.getByRole("button", {
+      name: "饮水点",
+      pressed: true,
+    });
+
+    fireEvent.click(activeFilter);
+
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "饮水点" })).toBeNull(),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(activeFilter));
   });
 
   it("shows three category results before offering the full list", async () => {

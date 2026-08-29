@@ -6,9 +6,6 @@ import {
   CampusMapReadInputError,
   getCampusMapPlaceHistory,
 } from "@/lib/campus-map/fact-store";
-import { loadCampusMapBrowseProjection } from "@/lib/campus-map/browse-actions";
-import { createCampusMapSceneCatalog } from "@/lib/campus-map/browse-scene-catalog";
-import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
 import { encodeCampusMapFacilityHref } from "@/lib/campus-map/scene-codec";
 import { notFound } from "next/navigation";
 
@@ -38,15 +35,10 @@ export default async function CampusMapPlaceHistoryRoute({
     );
   }
   if (!history.placeExists) notFound();
-  const projection = await loadCampusMapBrowseProjection();
-  const sceneCatalog = createCampusMapSceneCatalog(
-    projection,
-    CAMPUS_MAP_EDIT_SCHEMA.presets.map((preset) => preset.pinType),
-  );
   return (
     <CampusMapHistoryPage
       placeId={placeId}
-      mapHref={encodeCampusMapFacilityHref(placeId, sceneCatalog)}
+      mapHref={encodeCampusMapFacilityHref(placeId, history.head)}
       head={history.head}
       items={history.items}
       nextHref={

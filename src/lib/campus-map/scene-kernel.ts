@@ -1,7 +1,7 @@
 import type { CameraReason } from "./camera-policy";
 import {
+  projectCampusMapReturnFocus,
   projectCampusMapSceneCameraCommand,
-  projectCampusMapRestoreFocus,
   resolveCampusMapSessionSemantics,
 } from "./scene-semantics";
 
@@ -143,6 +143,11 @@ export type CampusMapFocusCommand =
       kind: "result";
       resultId: string;
       fallback: CampusMapFocusTarget;
+    }
+  | {
+      kind: "category-filter";
+      category: string;
+      fallback: CampusMapFocusTarget;
     };
 
 export type CampusMapSheetSnap = "hidden" | "peek" | "full";
@@ -269,7 +274,7 @@ export function transitionCampusMapSession(
             ) ?? { kind: "cancel" })
           : { kind: "cancel" },
         focus: restored
-          ? projectCampusMapRestoreFocus(session, restored, catalog)
+          ? projectCampusMapReturnFocus(session, restored, catalog)
           : { kind: "map" },
       },
     };

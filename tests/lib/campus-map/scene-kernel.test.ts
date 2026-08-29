@@ -1289,7 +1289,14 @@ describe("Campus Map canonical scene transition", () => {
         accepted(sources.map, {
           history: null,
           camera: { kind: "cancel" },
-          focus: { kind: "map" },
+          focus:
+            source === "category"
+              ? {
+                  kind: "category-filter",
+                  category: "water",
+                  fallback: { kind: "map" },
+                }
+              : { kind: "map" },
         }),
       );
     }

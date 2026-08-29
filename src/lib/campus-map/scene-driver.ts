@@ -16,6 +16,7 @@ import {
   type CampusMapSession,
 } from "./scene-kernel";
 import {
+  projectCampusMapReturnFocus,
   projectCampusMapSceneCameraCommand,
   resolveCampusMapSessionSemantics,
 } from "./scene-semantics";
@@ -482,29 +483,14 @@ export class CampusMapSceneDriver {
   }
 
   private dismissFocus(target: CampusMapSession): CampusMapDriverFocusCommand {
-    const current = this.snapshot.session;
     const resolved = resolveCampusMapSessionSemantics(target, this.catalog);
-    const fallback =
-      resolved.status === "valid" ? resolved.focus : ({ kind: "map" } as const);
-    if (current.mode === "browse" && target.mode === "browse") {
-      const resultId =
-        current.scene.kind === "building"
-          ? current.scene.buildingId
-          : current.scene.kind === "facility"
-            ? current.scene.facilityId
-            : current.scene.kind === "content"
-              ? current.scene.contentId
-              : null;
-      if (
-        resultId &&
-        (target.scene.kind === "search-results" ||
-          target.scene.kind === "category-results" ||
-          target.scene.kind === "building")
-      ) {
-        return { kind: "result", resultId, fallback };
-      }
-    }
-    return fallback;
+    return resolved.status === "valid"
+      ? projectCampusMapReturnFocus(
+          this.snapshot.session,
+          resolved,
+          this.catalog,
+        )
+      : { kind: "map" };
   }
 
   private commitTransition({

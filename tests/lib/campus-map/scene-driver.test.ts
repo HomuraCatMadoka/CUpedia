@@ -337,6 +337,23 @@ describe("CampusMapSceneDriver", () => {
     expect(runtime.search).toBe("?v=1&scene=category&id=toilet&snap=peek");
   });
 
+  it("returns focus to the category filter when its card is dismissed", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "OPEN_CATEGORY", category: "water" });
+    vi.mocked(runtime.ports.focus).mockClear();
+
+    runtime.driver.dispatch({ type: "DISMISS" });
+
+    expect(runtime.ports.focus).toHaveBeenCalledWith(
+      {
+        kind: "category-filter",
+        category: "water",
+        fallback: { kind: "map" },
+      },
+      expect.any(Object),
+    );
+  });
+
   it("uses the real predecessor for Back and a building fallback for a direct facility deep link", () => {
     const fromMap = harness();
     fromMap.driver.dispatch({
@@ -627,6 +644,32 @@ describe("CampusMapSceneDriver", () => {
       {
         kind: "result",
         resultId: "fountain",
+        fallback: { kind: "search-input" },
+      },
+      expect.any(Object),
+    );
+  });
+
+  it("restores focus to the Building trigger when Back returns to search results", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "SEARCH", query: "science" });
+    runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "science",
+      source: "search",
+    });
+    vi.mocked(runtime.ports.focus).mockClear();
+
+    runtime.driver.restore("?v=1&scene=search&q=science&snap=peek", {
+      campusMapScene: true,
+      version: 1,
+      depth: 0,
+    });
+
+    expect(runtime.ports.focus).toHaveBeenCalledWith(
+      {
+        kind: "result",
+        resultId: "science",
         fallback: { kind: "search-input" },
       },
       expect.any(Object),

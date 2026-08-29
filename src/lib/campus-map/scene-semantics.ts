@@ -157,21 +157,51 @@ function findFacility(catalog: CampusMapSceneCatalog, facilityId: string) {
   };
 }
 
-export function projectCampusMapRestoreFocus(
+export function projectCampusMapReturnFocus(
   source: CampusMapSession,
   target: ValidCampusMapSessionSemantics,
   catalog: CampusMapSceneCatalog,
 ): CampusMapFocusCommand {
-  if (
-    source.mode !== "browse" ||
-    source.scene.kind !== "facility" ||
-    target.session.mode !== "browse"
-  ) {
+  if (source.mode !== "browse" || target.session.mode !== "browse") {
     return target.focus;
   }
 
-  const facility = findFacility(catalog, source.scene.facilityId);
+  const sourceScene = source.scene;
   const targetScene = target.session.scene;
+  if (sourceScene.kind === "category-results" && targetScene.kind === "map") {
+    return {
+      kind: "category-filter",
+      category: sourceScene.category,
+      fallback: target.focus,
+    };
+  }
+  if (
+    sourceScene.kind === "building" &&
+    (targetScene.kind === "search-results" ||
+      targetScene.kind === "category-results" ||
+      targetScene.kind === "building")
+  ) {
+    return {
+      kind: "result",
+      resultId: sourceScene.buildingId,
+      fallback: target.focus,
+    };
+  }
+  if (
+    sourceScene.kind === "content" &&
+    (targetScene.kind === "search-results" ||
+      targetScene.kind === "category-results" ||
+      targetScene.kind === "building")
+  ) {
+    return {
+      kind: "result",
+      resultId: sourceScene.contentId,
+      fallback: target.focus,
+    };
+  }
+  if (sourceScene.kind !== "facility") return target.focus;
+
+  const facility = findFacility(catalog, sourceScene.facilityId);
   const restoresTrigger =
     targetScene.kind === "search-results" ||
     (targetScene.kind === "building" &&
@@ -182,7 +212,7 @@ export function projectCampusMapRestoreFocus(
   return restoresTrigger
     ? {
         kind: "result",
-        resultId: source.scene.facilityId,
+        resultId: sourceScene.facilityId,
         fallback: target.focus,
       }
     : target.focus;

@@ -29,6 +29,7 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
         head={{
           revisionId: "00000000-0000-4000-8000-000000007198",
           status: "merged",
+          visibility: "public",
           mergedIntoPlaceId: survivorId,
           name: "已合并地点",
         }}

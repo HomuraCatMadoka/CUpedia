@@ -210,6 +210,7 @@ export interface CampusMapPlaceHistoryItem {
 export interface CampusMapPlaceHistoryHead {
   revisionId: string;
   status: CampusMapRevisionStatus;
+  visibility: "public" | "redacted";
   mergedIntoPlaceId: string | null;
   name: string | null;
 }
@@ -1092,6 +1093,7 @@ export async function getCampusMapPlaceHistory(
       ? {
           revisionId: headRow.revisionId,
           status: headRow.status,
+          visibility: headRow.visibility === "public" ? "public" : "redacted",
           mergedIntoPlaceId: headRow.mergedIntoPlaceId,
           name: headRow.visibility === "public" ? headRow.name : null,
         }
