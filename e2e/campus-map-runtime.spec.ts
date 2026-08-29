@@ -399,9 +399,7 @@ test("Building expands into Place and Back restores the Building card", async ({
 
   await page.goto(buildingUrl);
   await expect(page.getByRole("heading", { name: "正式测试楼" })).toBeVisible();
-  await expect(
-    page.getByText("楼内设施 · 饮水点 1", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("饮水点 1 处", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: /正式测试饮水点/ }).click();
   await expect(page).toHaveURL(placeUrl);
   await page.goBack();
@@ -728,9 +726,7 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
     );
     const card = page.getByRole("region", { name: "正式测试楼" });
     await expect(card).toBeVisible();
-    await expect(
-      card.getByText("楼内设施 · 饮水点 1", { exact: true }),
-    ).toBeVisible();
+    await expect(card.getByText("饮水点 1 处", { exact: true })).toBeVisible();
 
     const cardBox = await card.boundingBox();
     expect(cardBox).not.toBeNull();
@@ -750,24 +746,21 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
       expect(searchBox!.x + searchBox!.width).toBeLessThanOrEqual(cardBox!.x);
       expect(filterBox!.x + filterBox!.width).toBeLessThanOrEqual(cardBox!.x);
     } else {
-      expect(cardBox!.height).toBeLessThanOrEqual(260);
+      expect(cardBox!.height).toBeLessThanOrEqual(310);
+      const buildingPreview = card.locator("[data-building-preview]");
+      await expect(buildingPreview).toContainText("正式测试饮水点");
       const buildingCta = card.getByRole("button", {
-        name: "查看全部设施",
+        name: "查看全部楼内设施",
       });
       await expect(buildingCta).toBeVisible();
+      const buildingScroll = buildingCta.locator("..").locator("..");
       await buildingCta.evaluate((element) => {
         element
           .closest("main")
           ?.style.setProperty("--campus-map-safe-area-bottom", "32px");
       });
-      await expect(buildingCta.locator("..")).toHaveCSS(
-        "padding-bottom",
-        "32px",
-      );
-      await expect(buildingCta.locator("..")).toHaveCSS(
-        "margin-bottom",
-        "56px",
-      );
+      await expect(buildingScroll).toHaveCSS("padding-bottom", "32px");
+      await expect(buildingScroll).toHaveCSS("margin-bottom", "0px");
     }
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
@@ -794,7 +787,18 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
       page.getByRole("heading", { name: "正式测试饮水点" }),
     ).toBeFocused();
     const suggestEdit = page.getByRole("button", { name: "建议修改" });
+    const locatePlace = page.getByRole("button", { name: "定位所属建筑" });
+    const editHistory = page.getByRole("link", { name: "查看编辑记录" });
     await expect(suggestEdit).toBeVisible();
+    await expect(locatePlace).toBeVisible();
+    await expect(editHistory).toBeVisible();
+    for (const action of [suggestEdit, locatePlace, editHistory]) {
+      const actionBox = await action.boundingBox();
+      expect(actionBox).not.toBeNull();
+      expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(
+        viewport.height,
+      );
+    }
     if (viewport.width < 768) {
       await suggestEdit.evaluate((element) => {
         element

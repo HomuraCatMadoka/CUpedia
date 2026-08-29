@@ -424,9 +424,14 @@ describe("CampusMapRuntime", () => {
     );
     expect(screen.queryByText("Ho Sin-Hang Engineering Building")).toBeNull();
     expect(screen.queryByText(/Current facts/i)).toBeNull();
-    expect(screen.getByText("楼内设施 · 洗手间 2")).not.toBeNull();
+    expect(screen.getByText("洗手间 2 处")).not.toBeNull();
+    const buildingPreview = await waitFor(() =>
+      document.querySelector("[data-building-preview]"),
+    );
+    expect(buildingPreview?.textContent).toContain("东翼洗手间");
+    expect(buildingPreview?.textContent).toContain("1/F");
     const buildingCta = screen.getByRole("button", {
-      name: "查看全部设施",
+      name: "查看全部楼内设施",
     });
     expect(buildingCta).not.toBeNull();
     expect(buildingCta.closest(".overflow-y-auto")?.className).not.toContain(

@@ -2184,9 +2184,13 @@ export function CampusMapRuntime({
     buildingOverviewDirectory?.places ?? [],
   );
   const buildingFacilitySummaryLabel = buildingFacilitySummary
-    .map((summary) => `${summary.label} ${summary.count}`)
+    .map((summary) => `${summary.label} ${summary.count} 处`)
     .join(" · ");
   const buildingFacilities = buildingDirectory?.places ?? [];
+  const buildingPreviewFacility =
+    buildingOverviewDirectory?.status === "ready"
+      ? (buildingOverviewDirectory.places[0] ?? null)
+      : null;
   const buildingFacilityGroups = selectedBuilding
     ? groupBuildingFacilities(selectedBuilding, buildingFacilities)
     : [];
@@ -2212,6 +2216,13 @@ export function CampusMapRuntime({
         !state.mapFilter.category &&
         !selectedFacility)),
   );
+  const browsePeekHeight = activeProviderTargetError
+    ? "var(--campus-map-peek-height)"
+    : selectedFacility
+      ? "min(344px, 44dvh)"
+      : selectedBuilding && selectedBuilding.placeIds.length > 0
+        ? "min(304px, 40dvh)"
+        : "var(--campus-map-peek-height)";
   const mobilePanelHeight =
     editSession?.status === "placing"
       ? "48dvh"
@@ -2219,7 +2230,7 @@ export function CampusMapRuntime({
         ? "var(--campus-map-edit-sheet-height)"
         : panelSnap === "full"
           ? "72dvh"
-          : "var(--campus-map-peek-height)";
+          : browsePeekHeight;
   const mobileMapOcclusion = panelHidden
     ? "0px"
     : "var(--campus-map-panel-height)";
@@ -2700,6 +2711,11 @@ export function CampusMapRuntime({
               {categoryFacilities.length > 1 ? (
                 <button
                   type="button"
+                  aria-label={
+                    state.sheet.snap === "full"
+                      ? "收起设施列表"
+                      : `查看全部 ${categoryFacilities.length} 处设施`
+                  }
                   className="mt-2 min-h-11 w-full rounded-xl bg-neutral-100 text-sm font-medium hover:bg-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
                   onClick={() =>
                     dispatch({
@@ -2708,9 +2724,7 @@ export function CampusMapRuntime({
                     })
                   }
                 >
-                  {state.sheet.snap === "full"
-                    ? "收起列表"
-                    : `查看全部 ${categoryFacilities.length} 处设施`}
+                  {state.sheet.snap === "full" ? "收起" : "查看全部"}
                 </button>
               ) : null}
               {!categoryFacilities.length ? (
@@ -2769,7 +2783,8 @@ export function CampusMapRuntime({
                 ) : selectedBuilding ? (
                   <p className="mt-1 truncate text-sm font-medium text-[#174b38]">
                     {selectedBuilding.placeIds.length > 0
-                      ? `楼内设施 · ${buildingFacilitySummaryLabel || `${selectedBuilding.placeIds.length} 项`}`
+                      ? buildingFacilitySummaryLabel ||
+                        `${selectedBuilding.placeIds.length} 处设施`
                       : "暂未收录设施"}
                   </p>
                 ) : null}
@@ -2879,15 +2894,44 @@ export function CampusMapRuntime({
                 <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-[max(1rem,var(--campus-map-safe-area-bottom))] md:p-5">
                   {state.sheet.snap !== "full" &&
                   selectedBuilding.placeIds.length > 0 ? (
-                    <button
-                      type="button"
-                      className="flex min-h-11 w-full items-center justify-center rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white hover:bg-[#123d2e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 md:hidden"
-                      onClick={() =>
-                        dispatch({ type: "SET_SNAP", snap: "full" })
-                      }
-                    >
-                      查看全部设施
-                    </button>
+                    <div className="md:hidden">
+                      {buildingPreviewFacility ? (
+                        <button
+                          type="button"
+                          data-building-preview={
+                            buildingPreviewFacility.placeId
+                          }
+                          aria-label={`查看设施：${buildingPreviewFacility.name}，${placeLocationLabel(buildingPreviewFacility)}`}
+                          className="flex min-h-14 w-full items-center border-b border-black/8 py-2 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
+                          onClick={() =>
+                            selectFacility(buildingPreviewFacility, "building")
+                          }
+                        >
+                          <span className="min-w-0 flex-1">
+                            <strong className="block truncate text-sm">
+                              {buildingPreviewFacility.name}
+                            </strong>
+                            <span className="mt-0.5 block text-xs text-neutral-500">
+                              {metadataLabel(
+                                placeLocationLabel(buildingPreviewFacility),
+                                amenityStyle(buildingPreviewFacility.pinType)
+                                  .label,
+                              )}
+                            </span>
+                          </span>
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        aria-label="查看全部楼内设施"
+                        className="mt-2 flex min-h-11 w-full items-center justify-center rounded-xl bg-neutral-100 px-4 text-sm font-medium hover:bg-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                        onClick={() =>
+                          dispatch({ type: "SET_SNAP", snap: "full" })
+                        }
+                      >
+                        查看全部
+                      </button>
+                    </div>
                   ) : null}
                   {selectedBuilding.placeIds.length > 0 ? (
                     <div
