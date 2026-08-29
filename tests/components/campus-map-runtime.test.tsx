@@ -2355,7 +2355,7 @@ describe("CampusMapRuntime", () => {
     await screen.findByRole("heading", { name: "洗手间" });
     const before = push.mock.calls.length;
 
-    fireEvent.click(screen.getByRole("button", { name: "返回建筑" }));
+    fireEvent.click(screen.getByRole("button", { name: "返回" }));
 
     expect(
       await screen.findByRole("heading", { name: "伍何曼原楼" }),
