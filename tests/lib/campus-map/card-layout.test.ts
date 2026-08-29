@@ -48,7 +48,7 @@ describe("Campus Map card layout policy", () => {
         resultCount: 2,
         groupCount: 2,
       }),
-    ).toBe("min(476px, 62dvh)");
+    ).toBe("min(460px, 62dvh)");
   });
 
   it("derives a full category sheet from its projected rows", () => {

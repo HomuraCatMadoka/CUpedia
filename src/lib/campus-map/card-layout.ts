@@ -29,7 +29,7 @@ export function campusMapMobilePanelHeight(
     case "expanded": {
       const contentHeight =
         layout.content === "building"
-          ? 316 + layout.resultCount * 64 + layout.groupCount * 16
+          ? 300 + layout.resultCount * 64 + layout.groupCount * 16
           : 140 + layout.resultCount * 56;
       return `min(${contentHeight}px, 62dvh)`;
     }
