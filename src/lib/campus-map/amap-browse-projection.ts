@@ -249,22 +249,3 @@ export class CampusMapAmapPoiCardResolver {
       : { status: "superseded" };
   }
 }
-
-export function createCampusMapAmapPoiCardContent(
-  ownerDocument: Pick<Document, "createElement">,
-  card: Extract<CampusMapAmapPoiCard, { kind: "transient" }>,
-) {
-  const content = ownerDocument.createElement("div");
-  content.className = "min-w-36 px-1 py-0.5 text-[#17211c]";
-  content.setAttribute("role", "dialog");
-  content.setAttribute("aria-label", `${card.title}，${card.sourceLabel}`);
-  content.tabIndex = -1;
-  const title = ownerDocument.createElement("strong");
-  title.className = "block text-sm font-semibold";
-  title.textContent = card.title;
-  const source = ownerDocument.createElement("span");
-  source.className = "mt-1 block text-xs text-neutral-500";
-  source.textContent = card.sourceLabel;
-  content.append(title, source);
-  return content;
-}

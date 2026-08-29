@@ -1872,7 +1872,7 @@ describe("Campus Map AMap runtime effects", () => {
     expect(map.setBounds).not.toHaveBeenCalled();
   });
 
-  it("keeps an unlinked provider POI transient in one InfoWindow", async () => {
+  it("keeps an unlinked provider POI transient in the shared card shell", async () => {
     const { runtime, map } = await renderWithRuntime();
 
     await act(async () => {
@@ -1883,10 +1883,17 @@ describe("Campus Map AMap runtime effects", () => {
       });
     });
 
-    expect(runtime.infoWindows).toHaveLength(1);
-    expect(runtime.infoWindows[0]!.setContent).toHaveBeenCalledTimes(1);
-    expect(runtime.infoWindows[0]!.open).toHaveBeenCalledTimes(1);
+    expect(runtime.infoWindows).toHaveLength(0);
     expect(window.location.search).toBe("?v=1");
+    const providerHeading = await screen.findByRole("heading", {
+      name: "科学馆东座",
+    });
+    expect(providerHeading.closest("section")?.className).toContain(
+      "md:w-[390px]",
+    );
+    expect(screen.getByText("高德地图地点")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "建议修改" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "查看编辑记录" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
 
     await runtime.flushAnimationFrames();
@@ -1897,7 +1904,7 @@ describe("Campus Map AMap runtime effects", () => {
       map.emit("click", { lnglat: { lng: 114.2084, lat: 22.4198 } });
     });
     await runtime.flushAnimationFrames();
-    expect(runtime.infoWindows[0]!.close).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { name: "科学馆东座" })).toBeNull();
   });
 
   it("does not bind an exact provider name without an explicit POI mapping", async () => {
@@ -1911,12 +1918,16 @@ describe("Campus Map AMap runtime effects", () => {
       });
     });
 
-    await waitFor(() => expect(runtime.infoWindows).toHaveLength(1));
-    expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
+    expect(runtime.infoWindows).toHaveLength(0);
+    expect(
+      await screen.findByRole("heading", { name: "科学馆" }),
+    ).not.toBeNull();
+    expect(screen.getByText("高德地图地点")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "建议修改" })).toBeNull();
     expect(window.location.search).toBe("?v=1");
   });
 
-  it("keeps an unlinked provider InfoWindow open through its companion map click", async () => {
+  it("keeps an unlinked provider card open through its companion map click", async () => {
     const { runtime, map } = await renderWithRuntime();
 
     await act(async () => {
@@ -1932,14 +1943,13 @@ describe("Campus Map AMap runtime effects", () => {
     });
     await runtime.flushAnimationFrames();
 
-    expect(runtime.infoWindows).toHaveLength(1);
-    expect(runtime.infoWindows[0]!.open).toHaveBeenCalledTimes(1);
-    expect(runtime.infoWindows[0]!.close).not.toHaveBeenCalled();
+    expect(runtime.infoWindows).toHaveLength(0);
+    expect(screen.getByRole("heading", { name: "科学馆东座" })).not.toBeNull();
     expect(window.location.search).toBe("?v=1");
   });
 
-  it("dismisses an external scene when the provider InfoWindow X closes", async () => {
-    const { runtime, map } = await renderWithRuntime();
+  it("dismisses and reopens an external scene from the shared card X", async () => {
+    const { map } = await renderWithRuntime();
     const hotspot = {
       id: "provider-east-wing",
       name: "科学馆东座",
@@ -1952,11 +1962,12 @@ describe("Campus Map AMap runtime effects", () => {
         .dispatchEvent(new Event("pointerdown", { bubbles: true }));
       map.emit("hotspotclick", hotspot);
     });
-    expect(runtime.infoWindows[0]!.open).toHaveBeenCalledTimes(1);
+    expect(
+      await screen.findByRole("heading", { name: "科学馆东座" }),
+    ).not.toBeNull();
 
-    await act(async () => {
-      runtime.infoWindows[0]!.emit("close");
-    });
+    fireEvent.click(screen.getByRole("button", { name: "关闭地点详情" }));
+    expect(screen.queryByRole("heading", { name: "科学馆东座" })).toBeNull();
     await act(async () => {
       map
         .getContainer()
@@ -1964,12 +1975,13 @@ describe("Campus Map AMap runtime effects", () => {
       map.emit("hotspotclick", hotspot);
     });
 
-    expect(runtime.infoWindows).toHaveLength(2);
-    expect(runtime.infoWindows[1]!.open).toHaveBeenCalledTimes(1);
+    expect(
+      await screen.findByRole("heading", { name: "科学馆东座" }),
+    ).not.toBeNull();
     expect(window.location.search).toBe("?v=1");
   });
 
-  it("ignores a delayed close event from a driver-owned overlay transition", async () => {
+  it("keeps a mapped card after a queued provider-card focus transition", async () => {
     const { runtime, map } = await renderWithRuntime();
 
     await act(async () => {
@@ -1994,7 +2006,7 @@ describe("Campus Map AMap runtime effects", () => {
     });
     await screen.findByRole("heading", { name: "科学馆" });
 
-    await runtime.flushInfoWindowCloseEvents();
+    await runtime.flushAnimationFrames();
 
     expect(screen.getByRole("heading", { name: "科学馆" })).not.toBeNull();
     expect(window.location.search).toContain(
@@ -2002,7 +2014,7 @@ describe("Campus Map AMap runtime effects", () => {
     );
   });
 
-  it("does not let an old delayed close dismiss a newer provider POI", async () => {
+  it("keeps the newest provider card through rapid target switches", async () => {
     const { runtime, map } = await renderWithRuntime();
 
     await act(async () => {
@@ -2036,15 +2048,18 @@ describe("Campus Map AMap runtime effects", () => {
         lnglat: { lng: 114.2069, lat: 22.4178 },
       });
     });
-    expect(runtime.infoWindows.at(-1)!.getIsOpen()).toBe(true);
+    expect(
+      await screen.findByRole("heading", { name: "中药园" }),
+    ).not.toBeNull();
 
-    await runtime.flushInfoWindowCloseEvents();
+    await runtime.flushAnimationFrames();
 
-    expect(runtime.infoWindows.at(-1)!.getIsOpen()).toBe(true);
+    expect(screen.getByRole("heading", { name: "中药园" })).not.toBeNull();
+    expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
   });
 
-  it("closes a transient provider InfoWindow when browser history restores", async () => {
-    const { runtime, map } = await renderWithRuntime();
+  it("closes a transient provider card when browser history restores", async () => {
+    const { map } = await renderWithRuntime();
 
     await act(async () => {
       map.emit("hotspotclick", {
@@ -2053,7 +2068,9 @@ describe("Campus Map AMap runtime effects", () => {
         lnglat: { lng: 114.2084, lat: 22.4198 },
       });
     });
-    expect(runtime.infoWindows).toHaveLength(1);
+    expect(
+      await screen.findByRole("heading", { name: "科学馆东座" }),
+    ).not.toBeNull();
 
     await act(async () => {
       window.dispatchEvent(
@@ -2061,7 +2078,7 @@ describe("Campus Map AMap runtime effects", () => {
       );
     });
 
-    expect(runtime.infoWindows[0]!.close).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { name: "科学馆东座" })).toBeNull();
   });
 
   it("fits a search selection but preserves zoom for a building facility", async () => {

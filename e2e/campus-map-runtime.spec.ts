@@ -533,18 +533,21 @@ test("mapped and unmapped provider POIs never duplicate cards", async ({
 
   await expect(page).toHaveURL(/\/campus-map\?v=1$/);
   await expect(page.getByText("高德地图地点")).toBeVisible();
-  await expect(page.getByText("未映射高德参考点")).toBeVisible();
-  const providerDialog = page.getByRole("dialog", {
-    name: "未映射高德参考点，高德地图地点",
+  const providerCard = page.getByRole("region", {
+    name: "未映射高德参考点",
   });
-  await expect(providerDialog).toBeFocused();
+  const providerHeading = providerCard.getByRole("heading", {
+    name: "未映射高德参考点",
+  });
+  await expect(providerCard).toBeVisible();
+  await expect(providerHeading).toBeFocused();
   await expect(page.getByRole("button", { name: "建议修改" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "查看编辑记录" })).toHaveCount(0);
   expect(await page.evaluate(() => window.history.length)).toBe(
     historyBeforeTransient,
   );
   await page.keyboard.press("Escape");
-  await expect(providerDialog).toHaveCount(0);
+  await expect(providerCard).toHaveCount(0);
 });
 
 test("a rapid newer Place intent wins over a delayed provider result", async ({
