@@ -131,11 +131,9 @@ export function decodeCampusMapHistoryMetadata(
   }
 }
 
-export function encodeCampusMapUrl(
-  session: CampusMapSession,
-  catalog: CampusMapSceneCatalog,
+function encodePersistableCampusMapUrl(
+  normalized: PersistableCampusMapSession,
 ) {
-  const normalized = normalizePersistentSession(session, catalog);
   const params = new URLSearchParams({
     v: String(CAMPUS_MAP_SCENE_CODEC_VERSION),
   });
@@ -187,6 +185,35 @@ export function encodeCampusMapUrl(
   params.set("id", scene.contentId);
   params.set("snap", scene.snap);
   return params;
+}
+
+export function encodeCampusMapUrl(
+  session: CampusMapSession,
+  catalog: CampusMapSceneCatalog,
+) {
+  return encodePersistableCampusMapUrl(
+    normalizePersistentSession(session, catalog),
+  );
+}
+
+export function encodeCampusMapFacilityHref(
+  facilityId: string,
+  head: {
+    status: "active" | "retired" | "merged";
+    visibility: "public" | "redacted";
+  } | null,
+) {
+  const params = encodePersistableCampusMapUrl(
+    head?.status === "active" &&
+      head.visibility === "public" &&
+      isCanonicalCampusMapId(facilityId)
+      ? {
+          mode: "browse",
+          scene: { kind: "facility", facilityId, snap: "peek" },
+        }
+      : { mode: "browse", scene: { kind: "map" } },
+  );
+  return `/campus-map?${params.toString()}`;
 }
 
 export function decodeCampusMapUrl(
@@ -335,6 +362,9 @@ export function decodeCampusMapUrl(
   }
 
   return validSession(session, catalog)
-    ? { status: "decoded", session }
+    ? {
+        status: "decoded",
+        session: normalizePersistentSession(session, catalog),
+      }
     : fallback("unknown-entity");
 }

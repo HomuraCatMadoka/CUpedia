@@ -11,12 +11,12 @@ import {
   type CampusMapEvent,
   type CampusMapCameraCommand,
   type CampusMapFocusCommand,
-  type CampusMapOverlayCommand,
   type CampusMapSceneCatalog,
   type CampusMapSceneCommands,
   type CampusMapSession,
 } from "./scene-kernel";
 import {
+  projectCampusMapReturnFocus,
   projectCampusMapSceneCameraCommand,
   resolveCampusMapSessionSemantics,
 } from "./scene-semantics";
@@ -55,7 +55,6 @@ export type CampusMapDriverCameraCommand =
 
 export type CampusMapDriverFocusCommand =
   | CampusMapFocusCommand
-  | { kind: "result"; resultId: string }
   | { kind: "edit-field"; field: string };
 
 export type CampusMapSheetCommand =
@@ -110,10 +109,6 @@ export interface CampusMapSceneDriverPorts {
     command: CampusMapDriverFocusCommand,
     context: CampusMapDriverEffectContext,
   ): void;
-  overlay(
-    command: CampusMapOverlayCommand,
-    context: CampusMapDriverEffectContext,
-  ): void;
   sheet(
     command: CampusMapSheetCommand,
     context: CampusMapDriverEffectContext,
@@ -156,11 +151,7 @@ function returnTargetFor(
     event.type === "OPEN_FACILITY" ||
     event.type === "OPEN_CONTENT"
   ) {
-    if (
-      session.mode === "browse" &&
-      session.scene.kind !== "map" &&
-      session.scene.kind !== "provider-poi"
-    ) {
+    if (session.mode === "browse" && session.scene.kind !== "provider-poi") {
       return session;
     }
   }
@@ -270,7 +261,6 @@ export class CampusMapSceneDriver {
           history: "replace",
           camera: { kind: "cancel" },
           focus: this.dismissFocus(target),
-          overlay: { kind: "close-external" },
         },
         syncSheet: true,
       });
@@ -409,8 +399,7 @@ export class CampusMapSceneDriver {
     if (
       result.commands.history === null &&
       result.commands.camera === null &&
-      result.commands.focus === null &&
-      result.commands.overlay === null
+      result.commands.focus === null
     ) {
       return result;
     }
@@ -441,7 +430,6 @@ export class CampusMapSceneDriver {
           fallback.mode === "browse" && fallback.scene.kind === "building"
             ? { kind: "heading" }
             : { kind: "map" },
-        overlay: { kind: "close-external" },
       },
       syncSheet: true,
       bumpToken: false,
@@ -495,33 +483,20 @@ export class CampusMapSceneDriver {
   }
 
   private dismissFocus(target: CampusMapSession): CampusMapDriverFocusCommand {
-    const current = this.snapshot.session;
-    if (current.mode === "browse" && target.mode === "browse") {
-      const resultId =
-        current.scene.kind === "building"
-          ? current.scene.buildingId
-          : current.scene.kind === "facility"
-            ? current.scene.facilityId
-            : current.scene.kind === "content"
-              ? current.scene.contentId
-              : null;
-      if (
-        resultId &&
-        (target.scene.kind === "search-results" ||
-          target.scene.kind === "category-results" ||
-          target.scene.kind === "building")
-      ) {
-        return { kind: "result", resultId };
-      }
-    }
     const resolved = resolveCampusMapSessionSemantics(target, this.catalog);
-    return resolved.status === "valid" ? resolved.focus : { kind: "map" };
+    return resolved.status === "valid"
+      ? projectCampusMapReturnFocus(
+          this.snapshot.session,
+          resolved,
+          this.catalog,
+        )
+      : { kind: "map" };
   }
 
   private commitTransition({
     session,
     returnTo,
-    commands: { history, camera, focus, overlay },
+    commands: { history, camera, focus },
     syncSheet,
     bumpToken = true,
     incrementIntentVersion = true,
@@ -562,7 +537,7 @@ export class CampusMapSceneDriver {
     for (const listener of this.listeners) listener();
     const context = this.effectContext();
     this.executeCommands(
-      { history, camera, focus, overlay },
+      { history, camera, focus },
       session,
       syncSheet,
       context,
@@ -631,7 +606,6 @@ export class CampusMapSceneDriver {
           "facility-selection",
         ) ?? { kind: "cancel" },
         focus: resolved.focus,
-        overlay: { kind: "close-external" },
       },
       syncSheet: true,
       incrementIntentVersion,
@@ -660,13 +634,12 @@ export class CampusMapSceneDriver {
     syncSheet: boolean,
     context: CampusMapDriverEffectContext,
   ) {
-    const { camera, focus, overlay } = commands;
+    const { camera, focus } = commands;
     if (syncSheet && camera?.kind === "focus") {
       this.suppressNextSheetReframe = true;
     }
     if (camera) this.ports.camera(camera, context);
     if (focus) this.ports.focus(focus, context);
-    if (overlay) this.ports.overlay(overlay, context);
     if (syncSheet) this.ports.sheet(sheetCommand(session), context);
   }
 

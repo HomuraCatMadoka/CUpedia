@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import {
   CampusMapAmapCoordinateProjector,
   CampusMapAmapPoiCardResolver,
-  createCampusMapAmapPoiCardContent,
   projectCampusMapAmapPoiCard,
   projectCampusMapBrowseToAmap,
 } from "@/lib/campus-map/amap-browse-projection";
@@ -154,7 +153,6 @@ describe("AMap browse projection adapter (#647)", () => {
       kind: "transient",
       externalId: poi.providerObjectId,
       title: "高德科学馆",
-      sourceLabel: "高德地图地点",
       position: poi.position,
     });
   });
@@ -167,10 +165,10 @@ describe("AMap browse projection adapter (#647)", () => {
         buildingId: null,
         floorId: null,
       }),
-    ).toMatchObject({ kind: "transient", sourceLabel: "高德地图地点" });
+    ).toMatchObject({ kind: "transient", title: "高德科学馆" });
   });
 
-  it("owns provider lookup races and fallback card content outside React", async () => {
+  it("owns provider lookup races outside React", async () => {
     const pending: Array<
       (card: ReturnType<typeof projectCampusMapAmapPoiCard>) => void
     > = [];
@@ -184,12 +182,5 @@ describe("AMap browse projection adapter (#647)", () => {
 
     await expect(second).resolves.toMatchObject({ status: "resolved" });
     await expect(first).resolves.toEqual({ status: "superseded" });
-
-    const transientCard = projectCampusMapAmapPoiCard(projection, poi, null);
-    if (transientCard?.kind !== "transient") {
-      throw new Error("expected a transient card");
-    }
-    const content = createCampusMapAmapPoiCardContent(document, transientCard);
-    expect(content.textContent).toBe("高德科学馆高德地图地点");
   });
 });

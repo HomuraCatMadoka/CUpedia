@@ -1,12 +1,13 @@
 import type { CameraReason } from "./camera-policy";
 import {
+  projectCampusMapReturnFocus,
   projectCampusMapSceneCameraCommand,
   resolveCampusMapSessionSemantics,
 } from "./scene-semantics";
 
 /**
  * Pure product kernel layered on the #593 ports. Provider gesture arbitration,
- * camera execution, overlay lifecycle, browser history, and MarkerCluster
+ * camera execution, browser history, and MarkerCluster
  * failure handling remain owned by their existing adapters and runtimes.
  */
 
@@ -129,12 +130,25 @@ export type CampusMapEvent =
   | { type: "CANCEL_TASK" }
   | { type: "RESTORE"; session: CampusMapSession };
 
-export type CampusMapFocusCommand =
+export type CampusMapFocusTarget =
   | { kind: "map" }
   | { kind: "search-input" }
   | { kind: "results" }
   | { kind: "heading" }
   | { kind: "contribution-form" };
+
+export type CampusMapFocusCommand =
+  | CampusMapFocusTarget
+  | {
+      kind: "result";
+      resultId: string;
+      fallback: CampusMapFocusTarget;
+    }
+  | {
+      kind: "category-filter";
+      category: string;
+      fallback: CampusMapFocusTarget;
+    };
 
 export type CampusMapSheetSnap = "hidden" | "peek" | "full";
 
@@ -143,20 +157,10 @@ export type CampusMapCameraCommand =
   | { kind: "focus-place"; placeId: string; reason: CameraReason }
   | { kind: "cancel" };
 
-export type CampusMapOverlayCommand =
-  | {
-      kind: "open-external";
-      externalId: string;
-      name: string;
-      position: readonly [number, number];
-    }
-  | { kind: "close-external" };
-
 export type CampusMapSceneCommands = {
   history: "push" | "replace" | "back-or-push" | null;
   camera: CampusMapCameraCommand | null;
   focus: CampusMapFocusCommand | null;
-  overlay: CampusMapOverlayCommand | null;
 };
 
 export type CampusMapTransition =
@@ -181,7 +185,6 @@ const NO_COMMANDS: CampusMapSceneCommands = {
   history: null,
   camera: null,
   focus: null,
-  overlay: null,
 };
 
 type NavigationClass =
@@ -270,8 +273,9 @@ export function transitionCampusMapSession(
               "deep-link",
             ) ?? { kind: "cancel" })
           : { kind: "cancel" },
-        focus: restored?.focus ?? { kind: "map" },
-        overlay: { kind: "close-external" },
+        focus: restored
+          ? projectCampusMapReturnFocus(session, restored, catalog)
+          : { kind: "map" },
       },
     };
   }
@@ -298,7 +302,6 @@ export function transitionCampusMapSession(
         history: historyCommandFor("enter"),
         camera: { kind: "cancel" },
         focus: { kind: "contribution-form" },
-        overlay: { kind: "close-external" },
       },
     };
   }
@@ -320,7 +323,6 @@ export function transitionCampusMapSession(
         history: historyCommandFor("enter"),
         camera: { kind: "cancel" },
         focus: { kind: "contribution-form" },
-        overlay: { kind: "close-external" },
       },
     };
   }
@@ -349,7 +351,6 @@ export function transitionCampusMapSession(
         camera: { kind: "cancel" },
         focus:
           anchor.kind === "building" ? { kind: "heading" } : { kind: "map" },
-        overlay: null,
       },
     };
   }
@@ -367,13 +368,15 @@ export function transitionCampusMapSession(
         history: historyCommandFor("refine"),
         camera: { kind: "cancel" },
         focus: { kind: "map" },
-        overlay: { kind: "close-external" },
       },
     };
   }
 
   if (event.type === "SET_SNAP") {
     if (session.scene.kind === "map" || session.scene.kind === "provider-poi") {
+      return reject(session, "event-not-allowed");
+    }
+    if (session.scene.kind === "facility" && event.snap === "full") {
       return reject(session, "event-not-allowed");
     }
     if (session.scene.snap === event.snap) return acceptNoop(session);
@@ -387,7 +390,6 @@ export function transitionCampusMapSession(
         history: historyCommandFor("refine"),
         camera: null,
         focus: event.snap === "full" ? { kind: "heading" } : null,
-        overlay: null,
       },
     };
   }
@@ -413,7 +415,6 @@ export function transitionCampusMapSession(
         history: historyCommandFor("refine"),
         camera: null,
         focus: { kind: "results" },
-        overlay: null,
       },
     };
   }
@@ -438,7 +439,6 @@ export function transitionCampusMapSession(
         history: historyCommandFor("refine"),
         camera: { kind: "cancel" },
         focus: { kind: "search-input" },
-        overlay: { kind: "close-external" },
       },
     };
   }
@@ -476,7 +476,6 @@ export function transitionCampusMapSession(
             event.source === "search" ? "search-selection" : "map-selection",
         },
         focus: { kind: "heading" },
-        overlay: { kind: "close-external" },
       },
     };
   }
@@ -511,7 +510,6 @@ export function transitionCampusMapSession(
                   : "facility-selection",
               ) ?? { kind: "cancel" }),
         focus: { kind: "heading" },
-        overlay: { kind: "close-external" },
       },
     };
   }
@@ -545,7 +543,6 @@ export function transitionCampusMapSession(
               }
             : { kind: "cancel" },
         focus: { kind: "heading" },
-        overlay: { kind: "close-external" },
       },
     };
   }
@@ -580,13 +577,7 @@ export function transitionCampusMapSession(
       commands: {
         history: historyCommandFor("transient"),
         camera: { kind: "cancel" },
-        focus: { kind: "map" },
-        overlay: {
-          kind: "open-external",
-          externalId: providerPoiId,
-          name,
-          position: event.position,
-        },
+        focus: { kind: "heading" },
       },
     };
   }
@@ -620,7 +611,6 @@ export function transitionCampusMapSession(
       ),
       camera: { kind: "cancel" },
       focus: { kind: "results" },
-      overlay: { kind: "close-external" },
     },
   };
 }

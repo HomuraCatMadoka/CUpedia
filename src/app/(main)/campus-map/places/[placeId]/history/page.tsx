@@ -6,6 +6,7 @@ import {
   CampusMapReadInputError,
   getCampusMapPlaceHistory,
 } from "@/lib/campus-map/fact-store";
+import { encodeCampusMapFacilityHref } from "@/lib/campus-map/scene-codec";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ export default async function CampusMapPlaceHistoryRoute({
   return (
     <CampusMapHistoryPage
       placeId={placeId}
+      mapHref={encodeCampusMapFacilityHref(placeId, history.head)}
       head={history.head}
       items={history.items}
       nextHref={

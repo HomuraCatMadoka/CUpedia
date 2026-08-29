@@ -23,7 +23,6 @@ export function installAmapRuntime(options?: {
 }) {
   const rafQueue: FrameRequestCallback[] = [];
   const coordinateConversionQueue: Array<() => void> = [];
-  const infoWindowCloseQueue: Array<() => void> = [];
   const resizeObservers: Array<{ callback: ResizeObserverCallback }> = [];
 
   class MockLngLat implements LngLat {
@@ -63,7 +62,12 @@ export function installAmapRuntime(options?: {
 
     constructor(
       readonly containerId: string,
-      mapOptions: { zoom?: number; center?: readonly [number, number] },
+      readonly mapOptions: {
+        zoom?: number;
+        center?: readonly [number, number];
+        rotateEnable?: boolean;
+        pitchEnable?: boolean;
+      },
     ) {
       this.zoom = mapOptions.zoom ?? 17.2;
       if (mapOptions.center) {
@@ -82,11 +86,6 @@ export function installAmapRuntime(options?: {
     }
 
     emit(event: string, payload: Record<string, unknown>) {
-      if (event === "click") {
-        for (const infoWindow of runtime.infoWindows) {
-          infoWindow.handleMapClick();
-        }
-      }
       for (const handler of this.handlers.get(event) ?? []) handler(payload);
     }
 
@@ -249,46 +248,6 @@ export function installAmapRuntime(options?: {
     }
   }
 
-  class MockInfoWindow {
-    private readonly handlers = new Map<string, Array<() => void>>();
-    private openState = false;
-    readonly close = vi.fn(() => {
-      this.openState = false;
-      infoWindowCloseQueue.push(() => this.emit("close"));
-    });
-    readonly open = vi.fn(() => {
-      this.openState = true;
-    });
-    readonly setContent = vi.fn();
-
-    constructor(
-      private readonly infoWindowOptions: { closeWhenClickMap?: boolean } = {},
-    ) {
-      runtime.infoWindows.push(this);
-    }
-
-    on(event: string, handler: () => void) {
-      const handlers = this.handlers.get(event) ?? [];
-      handlers.push(handler);
-      this.handlers.set(event, handlers);
-    }
-
-    emit(event: string) {
-      if (event === "close") this.openState = false;
-      for (const handler of this.handlers.get(event) ?? []) handler();
-    }
-
-    getIsOpen() {
-      return this.openState;
-    }
-
-    handleMapClick() {
-      if (this.openState && this.infoWindowOptions.closeWhenClickMap) {
-        this.close();
-      }
-    }
-  }
-
   class MockResizeObserver {
     constructor(callback: ResizeObserverCallback) {
       resizeObservers.push({ callback });
@@ -301,7 +260,6 @@ export function installAmapRuntime(options?: {
     maps: [] as MockMap[],
     markers: [] as MockMarker[],
     clusters: [] as MockMarkerCluster[],
-    infoWindows: [] as MockInfoWindow[],
     geocoders: [] as MockGeocoder[],
     geocodeRequests: [] as Array<{
       position: readonly [number, number];
@@ -322,7 +280,6 @@ export function installAmapRuntime(options?: {
       Map: MockMap,
       Marker: MockMarker,
       MarkerCluster: MockMarkerCluster,
-      InfoWindow: MockInfoWindow,
       Geocoder: MockGeocoder,
       LngLat: MockLngLat,
       Pixel: MockPixel,
@@ -411,11 +368,6 @@ export function installAmapRuntime(options?: {
       await act(async () => {
         for (const respond of coordinateConversionQueue.splice(0)) respond();
         await Promise.resolve();
-      });
-    },
-    async flushInfoWindowCloseEvents() {
-      await act(async () => {
-        for (const callback of infoWindowCloseQueue.splice(0)) callback();
       });
     },
     async resolveGeocode(index: number, status: string, result: unknown) {

@@ -362,7 +362,7 @@ JS API callback 首先按 `complete | no_data | error` 分支。若底层返回�
 - [`useMap` 只创建一个原生 Map，cleanup 时清理并 `destroy()`](https://github.com/uiwjs/react-amap/blob/04d30d8e13c1fafe5916f12762aa903392634167/packages/map/src/useMap.tsx#L29-L50)。
 - [`useMarker` 卸载时 `setMap(null)`](https://github.com/uiwjs/react-amap/blob/04d30d8e13c1fafe5916f12762aa903392634167/packages/marker/src/useMarker.tsx#L13-L30)。
 
-不建议为了本功能引入整套封装：当前产品已经直接拥有 Map、cluster、InfoWindow、camera 和事件仲裁；换组件库会扩大改动面。该仓库本身也没有成品“选点 + 地址/POI 表单”，其 loader 没解决本产品的生产 security proxy。
+不建议为了本功能引入整套封装：当前产品已经直接拥有 Map、cluster、camera、事件仲裁，以及由 scene 投影的共享 React 卡片；换组件库会扩大改动面。该仓库本身也没有成品“选点 + 地址/POI 表单”，其 loader 没解决本产品的生产 security proxy。
 
 ### D. `baidu/amis`：成熟 React 表单的数据流参考
 

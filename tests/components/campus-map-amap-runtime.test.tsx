@@ -196,7 +196,6 @@ beforeEach(() => {
         kind: "transient" as const,
         externalId: providerObjectId ?? `${position[0]},${position[1]}`,
         title: name,
-        sourceLabel: "高德地图地点" as const,
         position,
       };
     },
@@ -263,6 +262,39 @@ async function renderWithRuntime(options?: {
 }
 
 describe("Campus Map AMap runtime effects", () => {
+  it("keeps Add pending until the provider offset can produce WGS84 coordinates", async () => {
+    const { runtime } = await renderWithRuntime({
+      deferConvertFrom: true,
+      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+      placementAnchorPosition: { longitude: 114.22, latitude: 22.43 },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
+
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "正在确定位置…",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(screen.queryByRole("button", { name: "使用此位置" })).toBeNull();
+
+    await runtime.flushCoordinateConversions();
+
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "使用此位置",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+    expect(runtime.containerToLngLatRequests).toHaveLength(1);
+    expect(screen.getByText(/114\.210000, 22\.420000/)).not.toBeNull();
+  });
+
   it("uses the visible centre pin rather than the occluded map centre for mobile Add", async () => {
     const { runtime } = await renderWithRuntime({
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
@@ -270,7 +302,7 @@ describe("Campus Map AMap runtime effects", () => {
       placementAnchorPosition: { longitude: 114.22, latitude: 22.43 },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
 
     await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
     expect(runtime.containerToLngLatRequests.at(-1)).toEqual({
@@ -282,18 +314,29 @@ describe("Campus Map AMap runtime effects", () => {
       expect.closeTo(22.43, 10),
     ]);
     expect(screen.getByText(/114\.210000, 22\.420000/)).not.toBeNull();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "使用此位置",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
   });
 
   it("initializes when the AMap SDK is already present", async () => {
     const { runtime } = await renderWithRuntime();
 
     expect(runtime.maps).toHaveLength(1);
+    expect(runtime.maps[0]?.mapOptions).toMatchObject({
+      rotateEnable: false,
+      pitchEnable: false,
+    });
     expect(document.querySelector("script[data-amap-campus]")).toBeNull();
   });
 
   it("uses the latest AMap center context while keeping provider data transient", async () => {
     const { runtime, map } = await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
 
     await waitFor(() => expect(runtime.geocoders).toHaveLength(1));
     await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
@@ -319,7 +362,7 @@ describe("Campus Map AMap runtime effects", () => {
         pois: [{ id: "new-poi", name: "新位置", distance: "8" }],
       },
     });
-    expect(await screen.findByText("新位置")).not.toBeNull();
+    expect(await screen.findByText("高德地图地点：新位置")).not.toBeNull();
     await runtime.resolveGeocode(0, "complete", {
       regeocode: {
         formattedAddress: "旧位置一",
@@ -332,12 +375,12 @@ describe("Campus Map AMap runtime effects", () => {
         pois: [{ id: "old-poi-2", name: "旧位置二" }],
       },
     });
-    expect(screen.getByText("新位置")).not.toBeNull();
+    expect(screen.getByText("高德地图地点：新位置")).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
     expect(await screen.findByText("新位置")).not.toBeNull();
     expect(screen.getByText(/114\.212000, 22\.422000/)).not.toBeNull();
-    expect(screen.queryByText(/高德参考.*香港中文大学新位置/)).toBeNull();
+    expect(screen.queryByText(/高德地图参考.*香港中文大学新位置/)).toBeNull();
     const restored = JSON.parse(
       window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
     );
@@ -360,7 +403,7 @@ describe("Campus Map AMap runtime effects", () => {
 
   it("describes a generic AMap result with the nearby campus building and coordinates", async () => {
     const { runtime, map } = await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
 
     await act(async () => {
@@ -375,16 +418,16 @@ describe("Campus Map AMap runtime effects", () => {
       },
     });
 
-    expect(await screen.findByText("科学馆附近")).not.toBeNull();
+    expect(await screen.findByText("附近建筑：科学馆")).not.toBeNull();
     expect(screen.getByText(/114\.208010, 22\.419660/)).not.toBeNull();
     expect(
-      screen.getByText(/高德参考.*香港特别行政区沙田区中央道香港中文大学/),
+      screen.getByText(/高德地图参考.*香港特别行政区沙田区中央道香港中文大学/),
     ).not.toBeNull();
   });
 
   it("keeps the location context and schema default name after confirmation", async () => {
     const { runtime, map } = await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
 
     await act(async () => {
@@ -398,12 +441,12 @@ describe("Campus Map AMap runtime effects", () => {
       },
     });
 
-    expect(screen.getByText(/轻点地图名称直接选择/)).not.toBeNull();
+    expect(screen.getByText(/轻点地点名称/)).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
 
     expect(await screen.findByText("科学馆附近")).not.toBeNull();
     expect(screen.getByText(/114\.208010, 22\.419660/)).not.toBeNull();
-    expect(screen.queryByText(/高德参考/)).toBeNull();
+    expect(screen.queryByText(/高德地图参考/)).toBeNull();
     expect(screen.getByRole("radio", { name: "饮水点" })).not.toBeNull();
     expect(
       screen.queryByRole("textbox", { name: "设施名称或编号" }),
@@ -414,7 +457,7 @@ describe("Campus Map AMap runtime effects", () => {
     const { runtime, map } = await renderWithRuntime({
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await waitFor(() =>
       expect(
         (
@@ -435,9 +478,8 @@ describe("Campus Map AMap runtime effects", () => {
     });
     await runtime.flushAnimationFrames();
 
-    expect(screen.getByText("邵逸夫堂")).not.toBeNull();
-    expect(screen.getByText("高德参考 · 已选中地图标签")).not.toBeNull();
-    expect(runtime.infoWindows).toHaveLength(0);
+    expect(screen.getByText("高德地图地点：邵逸夫堂")).not.toBeNull();
+    expect(screen.queryByText(/已选中地图标签/)).toBeNull();
     expect(map.setZoomAndCenter).toHaveBeenCalledWith(
       map.getZoom(),
       expect.objectContaining({
@@ -450,7 +492,7 @@ describe("Campus Map AMap runtime effects", () => {
     expect(map.panBy).toHaveBeenCalledWith(0, 844 * 0.26 - 844 / 2, 0);
 
     await act(async () => map.emit("moveend", {}));
-    expect(screen.getByText("邵逸夫堂")).not.toBeNull();
+    expect(screen.getByText("高德地图地点：邵逸夫堂")).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
 
     expect(await screen.findByText("邵逸夫堂")).not.toBeNull();
@@ -471,7 +513,7 @@ describe("Campus Map AMap runtime effects", () => {
 
   it("invalidates an exact AMap label when a map drag starts", async () => {
     const { runtime, map } = await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
 
     await act(async () => {
@@ -481,7 +523,7 @@ describe("Campus Map AMap runtime effects", () => {
         lnglat: { lng: map.center.lng, lat: map.center.lat },
       });
     });
-    expect(screen.getByText("邵逸夫堂")).not.toBeNull();
+    expect(screen.getByText("高德地图地点：邵逸夫堂")).not.toBeNull();
 
     await act(async () => {
       map.emit("dragstart", {});
@@ -496,15 +538,15 @@ describe("Campus Map AMap runtime effects", () => {
       },
     });
 
-    expect(await screen.findByText("地图坐标")).not.toBeNull();
-    expect(screen.queryByText("邵逸夫堂")).toBeNull();
+    expect(await screen.findByText(/WGS84 · 约略/)).not.toBeNull();
+    expect(screen.queryByText(/邵逸夫堂/)).toBeNull();
   });
 
   it("routes keyboard placement through the existing camera and focus owner", async () => {
     const { runtime, map } = await renderWithRuntime({
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     fireEvent.click(screen.getByRole("button", { name: "输入坐标" }));
     fireEvent.change(screen.getByRole("textbox", { name: "经度（WGS84）" }), {
       target: { value: "114.21" },
@@ -527,7 +569,7 @@ describe("Campus Map AMap runtime effects", () => {
       0,
     );
     expect(document.activeElement).toBe(
-      screen.getByRole("heading", { name: "添加校内设施" }),
+      screen.getByRole("heading", { name: "新增设施" }),
     );
   });
 
@@ -536,7 +578,7 @@ describe("Campus Map AMap runtime effects", () => {
       convertFromMutatesInput: true,
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     fireEvent.click(screen.getByRole("button", { name: "输入坐标" }));
     fireEvent.change(screen.getByRole("textbox", { name: "经度（WGS84）" }), {
       target: { value: "114.21" },
@@ -626,7 +668,7 @@ describe("Campus Map AMap runtime effects", () => {
     const { runtime } = await renderWithRuntime({
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
-    await screen.findByRole("heading", { name: "添加校内设施" });
+    await screen.findByRole("heading", { name: "新增设施" });
     await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
     expect(runtime.geocodeRequests[0]?.position).toEqual([
       expect.closeTo(114.22, 10),
@@ -651,7 +693,7 @@ describe("Campus Map AMap runtime effects", () => {
     const { map } = await renderWithRuntime({
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await act(async () => {
       map.center = { lng: 114.22, lat: 22.43 };
       map.emit("moveend", {});
@@ -689,7 +731,7 @@ describe("Campus Map AMap runtime effects", () => {
 
   it("ignores an older camera moveend until the latest placement target settles", async () => {
     const { map } = await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await waitFor(() =>
       expect(
         (
@@ -799,7 +841,7 @@ describe("Campus Map AMap runtime effects", () => {
 
   it("lifts the center pin while the map is moving", async () => {
     const { runtime, map } = await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
     await runtime.resolveGeocode(0, "complete", {
       regeocode: {
@@ -809,15 +851,18 @@ describe("Campus Map AMap runtime effects", () => {
     });
     const pin = document.querySelector("[data-campus-map-center-pin]");
     expect(pin?.getAttribute("data-moving")).toBe("false");
-    expect(screen.getByText("地图坐标")).not.toBeNull();
-    expect(screen.getByText("高德参考 · 香港中文大学中央校园")).not.toBeNull();
+    expect(screen.getByText(/WGS84 · 约略/)).not.toBeNull();
+    expect(screen.queryByText(/高德地图地点/)).toBeNull();
+    expect(
+      screen.getByText("高德地图参考：香港中文大学中央校园"),
+    ).not.toBeNull();
 
     await act(async () => map.emit("movestart", {}));
     expect(pin?.getAttribute("data-moving")).toBe("true");
     const pending = screen.getByRole("button", { name: "正在确定位置…" });
     expect((pending as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(pending);
-    expect(screen.getByText(/轻点地图名称直接选择/)).not.toBeNull();
+    expect(screen.getByText(/轻点地点名称/)).not.toBeNull();
 
     await act(async () => {
       map.center = { lng: 114.211, lat: 22.421 };
@@ -837,7 +882,7 @@ describe("Campus Map AMap runtime effects", () => {
 
   it("refreshes a placing candidate after closing during a map gesture", async () => {
     const { map } = await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await waitFor(() =>
       expect(
         (
@@ -884,7 +929,7 @@ describe("Campus Map AMap runtime effects", () => {
 
   it("publishes without exposing a source-entry step", async () => {
     await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await waitFor(() =>
       expect(
         (
@@ -900,17 +945,120 @@ describe("Campus Map AMap runtime effects", () => {
     expect(screen.getByRole("button", { name: "发布设施" })).not.toBeNull();
   });
 
-  it("opens Add once from a map long-press", async () => {
+  it.each(["longpress", "rightclick"])(
+    "opens Add once from a map %s at the pressed position",
+    async (gesture) => {
+      const push = vi.spyOn(window.history, "pushState");
+      const { map } = await renderWithRuntime({
+        convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+      });
+      push.mockClear();
+
+      await act(async () =>
+        map.emit(gesture, {
+          lnglat: { lng: 114.225, lat: 22.435 },
+        }),
+      );
+
+      expect(
+        await screen.findByRole("heading", { name: "选择设施位置" }),
+      ).not.toBeNull();
+      expect(screen.getByText(/114\.215000, 22\.425000/)).not.toBeNull();
+      expect(map.setZoomAndCenter).toHaveBeenLastCalledWith(
+        map.getZoom(),
+        expect.objectContaining({ lng: 114.225, lat: 22.435 }),
+        true,
+        0,
+      );
+      expect(push).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(["longpress", "rightclick"])(
+    "keeps a %s point while coordinate conversion is still pending",
+    async (gesture) => {
+      const push = vi.spyOn(window.history, "pushState");
+      const { runtime, map } = await renderWithRuntime({
+        deferConvertFrom: true,
+        convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+      });
+      push.mockClear();
+
+      await act(async () => {
+        map.emit(gesture, {
+          lnglat: { lng: 114.225, lat: 22.435 },
+        });
+        map.emit("click", {
+          lnglat: { lng: 114.225, lat: 22.435 },
+        });
+      });
+
+      expect(
+        screen.queryByRole("heading", { name: "选择设施位置" }),
+      ).toBeNull();
+      expect(push).not.toHaveBeenCalled();
+
+      await runtime.flushCoordinateConversions();
+
+      expect(
+        await screen.findByRole("heading", { name: "选择设施位置" }),
+      ).not.toBeNull();
+      expect(screen.getByText(/114\.215000, 22\.425000/)).not.toBeNull();
+      expect(push).toHaveBeenCalledTimes(1);
+      expect(map.setZoomAndCenter).toHaveBeenLastCalledWith(
+        map.getZoom(),
+        expect.objectContaining({ lng: 114.225, lat: 22.435 }),
+        true,
+        0,
+      );
+    },
+  );
+
+  it("uses the latest map Add gesture while coordinate conversion is pending", async () => {
     const push = vi.spyOn(window.history, "pushState");
-    const { map } = await renderWithRuntime();
+    const { runtime, map } = await renderWithRuntime({
+      deferConvertFrom: true,
+      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+    });
     push.mockClear();
 
-    await act(async () => map.emit("longpress", {}));
+    await act(async () => {
+      map.emit("longpress", {
+        lnglat: { lng: 114.225, lat: 22.435 },
+      });
+      map.getContainer().dispatchEvent(new Event("pointerdown"));
+      map.emit("rightclick", {
+        lnglat: { lng: 114.229, lat: 22.439 },
+      });
+    });
+    await runtime.flushCoordinateConversions();
 
-    expect(
-      await screen.findByRole("heading", { name: "选择设施位置" }),
-    ).not.toBeNull();
+    expect(screen.getByText(/114\.219000, 22\.429000/)).not.toBeNull();
+    expect(screen.queryByText(/114\.215000, 22\.425000/)).toBeNull();
     expect(push).toHaveBeenCalledTimes(1);
+  });
+
+  it("discards a pending map Add after a newer canonical selection", async () => {
+    const { runtime, map } = await renderWithRuntime({
+      deferConvertFrom: true,
+      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+    });
+
+    await act(async () =>
+      map.emit("longpress", {
+        lnglat: { lng: 114.225, lat: 22.435 },
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    expect(
+      await screen.findByRole("heading", { name: "饮水点" }),
+    ).not.toBeNull();
+
+    await runtime.flushCoordinateConversions();
+
+    expect(screen.getByRole("heading", { name: "饮水点" })).not.toBeNull();
+    expect(screen.queryByRole("heading", { name: "选择设施位置" })).toBeNull();
+    expect(window.location.search).toContain("scene=category&id=water");
   });
 
   it("opens Add once from an empty category", async () => {
@@ -924,10 +1072,12 @@ describe("Campus Map AMap runtime effects", () => {
     const push = vi.spyOn(window.history, "pushState");
     await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "打印服务" }));
-    expect(await screen.findByText("当前没有已收录地点")).not.toBeNull();
+    expect(await screen.findByText("暂无地点")).not.toBeNull();
     push.mockClear();
 
-    fireEvent.click(screen.getByRole("button", { name: "添加这个类别的地点" }));
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "新增设施" }).at(-1)!,
+    );
 
     expect(
       await screen.findByRole("heading", { name: "选择设施位置" }),
@@ -937,7 +1087,7 @@ describe("Campus Map AMap runtime effects", () => {
 
   it("merges rapid moveend address lookups but keeps the latest candidate", async () => {
     const { runtime, map } = await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
 
     await act(async () => {
@@ -1060,7 +1210,7 @@ describe("Campus Map AMap runtime effects", () => {
 
   it("does not dismiss an active edit task when the map background is clicked", async () => {
     const { runtime, map } = await renderWithRuntime();
-    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await waitFor(() =>
       expect(
         (
@@ -1083,9 +1233,7 @@ describe("Campus Map AMap runtime effects", () => {
     await runtime.flushAnimationFrames();
 
     expect(window.location.search).toContain("task=create");
-    expect(
-      screen.getByRole("heading", { name: "添加校内设施" }),
-    ).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "新增设施" })).not.toBeNull();
   });
 
   it("keeps only the latest camera request during rapid hotspot selection", async () => {
@@ -1201,7 +1349,7 @@ describe("Campus Map AMap runtime effects", () => {
         lnglat: { lng: 114.21161, lat: 22.4167 },
       });
     });
-    const search = screen.getByPlaceholderText("搜索建筑");
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
     fireEvent.change(search, { target: { value: "科学馆" } });
     const scienceResult = await waitFor(() =>
       document.querySelector<HTMLButtonElement>(
@@ -1237,7 +1385,7 @@ describe("Campus Map AMap runtime effects", () => {
         floorId: "G",
       },
     });
-    const { runtime, map } = await renderWithRuntime();
+    const { map } = await renderWithRuntime();
 
     await act(async () => {
       map.emit("hotspotclick", {
@@ -1249,7 +1397,6 @@ describe("Campus Map AMap runtime effects", () => {
 
     await screen.findByRole("heading", { name: "饮水机" });
     expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
-    expect(runtime.infoWindows).toHaveLength(0);
   });
 
   it("refreshes a stale projection before opening a newly mapped canonical Place", async () => {
@@ -1267,7 +1414,7 @@ describe("Campus Map AMap runtime effects", () => {
       title: place.name,
       selectionTarget: place.selectionTarget,
     });
-    const { runtime, map } = await renderWithRuntime({ projection: initial });
+    const { map } = await renderWithRuntime({ projection: initial });
 
     await act(async () => {
       map.emit("hotspotclick", {
@@ -1285,7 +1432,6 @@ describe("Campus Map AMap runtime effects", () => {
       `scene=facility&id=${place.placeId}`,
     );
     expect(window.location.search).not.toContain("scene=building");
-    expect(runtime.infoWindows).toHaveLength(0);
   });
 
   it("refreshes a stale projection before opening a newly mapped canonical Building", async () => {
@@ -1359,22 +1505,19 @@ describe("Campus Map AMap runtime effects", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "地点资料暂时无法载入",
+        name: place.name,
       }),
     ).not.toBeNull();
-    expect(screen.getByText(place.name)).not.toBeNull();
+    expect(screen.getByText("暂时无法载入地点资料")).not.toBeNull();
+    expect(screen.queryByText(/正式映射/)).toBeNull();
     expect(window.location.search).toBe(initialSearch);
-    const errorPanel = screen.getByRole("alert").closest("section");
-    expect(errorPanel?.className).toContain("h-[min(248px,36dvh)]");
-    expect(errorPanel?.className).not.toContain("h-[72dvh]");
+    expect(screen.getByRole("alert")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
 
     fireEvent.keyDown(window, { key: "Escape" });
 
     await waitFor(() =>
-      expect(
-        screen.queryByRole("heading", { name: "地点资料暂时无法载入" }),
-      ).toBeNull(),
+      expect(screen.queryByRole("heading", { name: place.name })).toBeNull(),
     );
     expect(screen.getByRole("heading", { name: building.name })).not.toBeNull();
   });
@@ -1389,7 +1532,7 @@ describe("Campus Map AMap runtime effects", () => {
       await renderWithRuntime({ projection });
 
       if (entry === "search") {
-        fireEvent.change(screen.getByPlaceholderText("搜索建筑"), {
+        fireEvent.change(screen.getByPlaceholderText("搜索建筑或地点…"), {
           target: { value: name },
         });
       } else {
@@ -1435,7 +1578,7 @@ describe("Campus Map AMap runtime effects", () => {
     await act(async () => buildingPresence.emit("click"));
 
     const buildingOnlyButton = await screen.findByRole("button", {
-      name: /大堂饮水点/,
+      name: "查看设施：大堂饮水点，建筑内",
     });
     expect((buildingOnlyButton as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(buildingOnlyButton);
@@ -1506,7 +1649,6 @@ describe("Campus Map AMap runtime effects", () => {
       await screen.findByRole("heading", { name: "林荫饮水点" }),
     ).not.toBeNull();
     expect(window.location.search).toContain("scene=facility&id=outdoor-water");
-    expect(runtime.infoWindows).toHaveLength(0);
   });
 
   it("restores an outdoor Place deep link after refresh", async () => {
@@ -1614,9 +1756,11 @@ describe("Campus Map AMap runtime effects", () => {
   it("fits cluster members without selecting the first facility", async () => {
     const { runtime, map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByRole("heading", {
-      name: "2 栋建筑 · 2 个饮水点",
-    });
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "饮水点" }).textContent).toBe(
+        "饮水点 · 2 处",
+      ),
+    );
     await waitFor(() => {
       expect(
         runtime.clusters.some((cluster) => cluster.data.length === 2),
@@ -1638,11 +1782,7 @@ describe("Campus Map AMap runtime effects", () => {
     });
 
     expect(map.setBounds).toHaveBeenCalledTimes(1);
-    expect(
-      screen.getByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水点",
-      }),
-    ).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "饮水点" })).not.toBeNull();
     expect(window.location.search).not.toContain("scene=facility");
   });
 
@@ -1660,9 +1800,11 @@ describe("Campus Map AMap runtime effects", () => {
 
     const { runtime, map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByRole("heading", {
-      name: "2 栋建筑 · 3 个饮水点",
-    });
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "饮水点" }).textContent).toBe(
+        "饮水点 · 3 处",
+      ),
+    );
 
     const cluster = await waitFor(() => {
       const match = runtime.clusters.findLast(
@@ -1690,9 +1832,7 @@ describe("Campus Map AMap runtime effects", () => {
     });
     expect(map.setBounds).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
-    expect(
-      screen.getByRole("heading", { name: "2 栋建筑 · 3 个饮水点" }),
-    ).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "饮水点" })).not.toBeNull();
   });
 
   it("renders one interactive Building presence for co-located Places", async () => {
@@ -1710,9 +1850,11 @@ describe("Campus Map AMap runtime effects", () => {
 
     const { runtime } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByRole("heading", {
-      name: "2 栋建筑 · 3 个饮水点",
-    });
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "饮水点" }).textContent).toBe(
+        "饮水点 · 3 处",
+      ),
+    );
 
     const scienceMarkers = await waitFor(() => {
       const cluster = runtime.clusters.findLast(
@@ -1758,9 +1900,11 @@ describe("Campus Map AMap runtime effects", () => {
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByRole("heading", {
-      name: "2 栋建筑 · 2 个饮水点",
-    });
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "饮水点" }).textContent).toBe(
+        "饮水点 · 2 处",
+      ),
+    );
     await waitFor(() => {
       expect(
         runtime.clusters.some((cluster) =>
@@ -1820,9 +1964,7 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
     expect(
-      await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水点",
-      }),
+      await screen.findByRole("heading", { name: "饮水点" }),
     ).not.toBeNull();
     expect(screen.getByRole("status").textContent).toContain(
       "地图标记正在加载",
@@ -1835,9 +1977,7 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
     expect(
-      await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水点",
-      }),
+      await screen.findByRole("heading", { name: "饮水点" }),
     ).not.toBeNull();
     expect((await screen.findByRole("status")).textContent).toContain(
       "地图标记加载失败，列表仍可使用",
@@ -1850,9 +1990,7 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
 
     expect(
-      await screen.findByRole("heading", {
-        name: "2 栋建筑 · 2 个饮水点",
-      }),
+      await screen.findByRole("heading", { name: "饮水点" }),
     ).not.toBeNull();
     expect((await screen.findByRole("status")).textContent).toContain(
       "地图标记加载失败，列表仍可使用",
@@ -1866,20 +2004,16 @@ describe("Campus Map AMap runtime effects", () => {
     map.setBounds.mockClear();
 
     fireEvent.click(screen.getByRole("button", { name: "洗手间" }));
-    await screen.findByRole("heading", {
-      name: "2 栋建筑 · 2 个洗手间",
-    });
+    await screen.findByRole("heading", { name: "洗手间" });
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByRole("heading", {
-      name: "2 栋建筑 · 2 个饮水点",
-    });
+    await screen.findByRole("heading", { name: "饮水点" });
 
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();
     expect(map.panTo).not.toHaveBeenCalled();
     expect(map.setBounds).not.toHaveBeenCalled();
   });
 
-  it("keeps an unlinked provider POI transient in one InfoWindow", async () => {
+  it("keeps an unlinked provider POI transient in the shared card shell", async () => {
     const { runtime, map } = await renderWithRuntime();
 
     await act(async () => {
@@ -1890,10 +2024,13 @@ describe("Campus Map AMap runtime effects", () => {
       });
     });
 
-    expect(runtime.infoWindows).toHaveLength(1);
-    expect(runtime.infoWindows[0]!.setContent).toHaveBeenCalledTimes(1);
-    expect(runtime.infoWindows[0]!.open).toHaveBeenCalledTimes(1);
     expect(window.location.search).toBe("?v=1");
+    await screen.findByRole("heading", {
+      name: "科学馆东座",
+    });
+    expect(screen.getByText("高德地图地点")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "建议修改" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "查看编辑记录" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
 
     await runtime.flushAnimationFrames();
@@ -1904,11 +2041,11 @@ describe("Campus Map AMap runtime effects", () => {
       map.emit("click", { lnglat: { lng: 114.2084, lat: 22.4198 } });
     });
     await runtime.flushAnimationFrames();
-    expect(runtime.infoWindows[0]!.close).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { name: "科学馆东座" })).toBeNull();
   });
 
   it("does not bind an exact provider name without an explicit POI mapping", async () => {
-    const { runtime, map } = await renderWithRuntime();
+    const { map } = await renderWithRuntime();
 
     await act(async () => {
       map.emit("hotspotclick", {
@@ -1918,12 +2055,15 @@ describe("Campus Map AMap runtime effects", () => {
       });
     });
 
-    await waitFor(() => expect(runtime.infoWindows).toHaveLength(1));
-    expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
+    expect(
+      await screen.findByRole("heading", { name: "科学馆" }),
+    ).not.toBeNull();
+    expect(screen.getByText("高德地图地点")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "建议修改" })).toBeNull();
     expect(window.location.search).toBe("?v=1");
   });
 
-  it("keeps an unlinked provider InfoWindow open through its companion map click", async () => {
+  it("keeps an unlinked provider card open through its companion map click", async () => {
     const { runtime, map } = await renderWithRuntime();
 
     await act(async () => {
@@ -1939,14 +2079,12 @@ describe("Campus Map AMap runtime effects", () => {
     });
     await runtime.flushAnimationFrames();
 
-    expect(runtime.infoWindows).toHaveLength(1);
-    expect(runtime.infoWindows[0]!.open).toHaveBeenCalledTimes(1);
-    expect(runtime.infoWindows[0]!.close).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "科学馆东座" })).not.toBeNull();
     expect(window.location.search).toBe("?v=1");
   });
 
-  it("dismisses an external scene when the provider InfoWindow X closes", async () => {
-    const { runtime, map } = await renderWithRuntime();
+  it("dismisses and reopens an external scene from the shared card X", async () => {
+    const { map } = await renderWithRuntime();
     const hotspot = {
       id: "provider-east-wing",
       name: "科学馆东座",
@@ -1959,11 +2097,12 @@ describe("Campus Map AMap runtime effects", () => {
         .dispatchEvent(new Event("pointerdown", { bubbles: true }));
       map.emit("hotspotclick", hotspot);
     });
-    expect(runtime.infoWindows[0]!.open).toHaveBeenCalledTimes(1);
+    expect(
+      await screen.findByRole("heading", { name: "科学馆东座" }),
+    ).not.toBeNull();
 
-    await act(async () => {
-      runtime.infoWindows[0]!.emit("close");
-    });
+    fireEvent.click(screen.getByRole("button", { name: "关闭地点详情" }));
+    expect(screen.queryByRole("heading", { name: "科学馆东座" })).toBeNull();
     await act(async () => {
       map
         .getContainer()
@@ -1971,12 +2110,13 @@ describe("Campus Map AMap runtime effects", () => {
       map.emit("hotspotclick", hotspot);
     });
 
-    expect(runtime.infoWindows).toHaveLength(2);
-    expect(runtime.infoWindows[1]!.open).toHaveBeenCalledTimes(1);
+    expect(
+      await screen.findByRole("heading", { name: "科学馆东座" }),
+    ).not.toBeNull();
     expect(window.location.search).toBe("?v=1");
   });
 
-  it("ignores a delayed close event from a driver-owned overlay transition", async () => {
+  it("keeps a mapped card after a queued provider-card focus transition", async () => {
     const { runtime, map } = await renderWithRuntime();
 
     await act(async () => {
@@ -2001,7 +2141,7 @@ describe("Campus Map AMap runtime effects", () => {
     });
     await screen.findByRole("heading", { name: "科学馆" });
 
-    await runtime.flushInfoWindowCloseEvents();
+    await runtime.flushAnimationFrames();
 
     expect(screen.getByRole("heading", { name: "科学馆" })).not.toBeNull();
     expect(window.location.search).toContain(
@@ -2009,7 +2149,7 @@ describe("Campus Map AMap runtime effects", () => {
     );
   });
 
-  it("does not let an old delayed close dismiss a newer provider POI", async () => {
+  it("keeps the newest provider card through rapid target switches", async () => {
     const { runtime, map } = await renderWithRuntime();
 
     await act(async () => {
@@ -2043,15 +2183,18 @@ describe("Campus Map AMap runtime effects", () => {
         lnglat: { lng: 114.2069, lat: 22.4178 },
       });
     });
-    expect(runtime.infoWindows.at(-1)!.getIsOpen()).toBe(true);
+    expect(
+      await screen.findByRole("heading", { name: "中药园" }),
+    ).not.toBeNull();
 
-    await runtime.flushInfoWindowCloseEvents();
+    await runtime.flushAnimationFrames();
 
-    expect(runtime.infoWindows.at(-1)!.getIsOpen()).toBe(true);
+    expect(screen.getByRole("heading", { name: "中药园" })).not.toBeNull();
+    expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
   });
 
-  it("closes a transient provider InfoWindow when browser history restores", async () => {
-    const { runtime, map } = await renderWithRuntime();
+  it("closes a transient provider card when browser history restores", async () => {
+    const { map } = await renderWithRuntime();
 
     await act(async () => {
       map.emit("hotspotclick", {
@@ -2060,7 +2203,9 @@ describe("Campus Map AMap runtime effects", () => {
         lnglat: { lng: 114.2084, lat: 22.4198 },
       });
     });
-    expect(runtime.infoWindows).toHaveLength(1);
+    expect(
+      await screen.findByRole("heading", { name: "科学馆东座" }),
+    ).not.toBeNull();
 
     await act(async () => {
       window.dispatchEvent(
@@ -2068,7 +2213,7 @@ describe("Campus Map AMap runtime effects", () => {
       );
     });
 
-    expect(runtime.infoWindows[0]!.close).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { name: "科学馆东座" })).toBeNull();
   });
 
   it("fits a search selection but preserves zoom for a building facility", async () => {
@@ -2077,7 +2222,7 @@ describe("Campus Map AMap runtime effects", () => {
     map.setZoomAndCenter.mockClear();
     map.panTo.mockClear();
 
-    fireEvent.input(screen.getByPlaceholderText("搜索建筑"), {
+    fireEvent.input(screen.getByPlaceholderText("搜索建筑或地点…"), {
       target: { value: "科学馆" },
     });
     fireEvent.click(await screen.findByRole("button", { name: /科学馆/ }));

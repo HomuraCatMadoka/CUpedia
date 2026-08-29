@@ -241,10 +241,16 @@ export async function installFakeCampusMapAmap(page: Page) {
       }
     }
 
-    class FakeInfoWindow {
-      private content: Node | null = null;
-      private container: HTMLElement | null = null;
+    class FakeMarker {
       private readonly handlers = new Map<string, Array<() => void>>();
+      private content = "";
+      private element: HTMLElement | null = null;
+
+      constructor(
+        private readonly options: {
+          position?: FakeLngLat | readonly [number, number];
+        } = {},
+      ) {}
 
       on(event: string, handler: () => void) {
         const handlers = this.handlers.get(event) ?? [];
@@ -252,25 +258,69 @@ export async function installFakeCampusMapAmap(page: Page) {
         this.handlers.set(event, handlers);
       }
 
-      setContent(content: Node) {
+      getPosition() {
+        const position = this.options.position;
+        if (!position) return null;
+        return position instanceof FakeLngLat
+          ? position
+          : new FakeLngLat(position[0], position[1]);
+      }
+
+      setContent(content: string) {
         this.content = content;
+        if (this.element) this.element.innerHTML = content;
       }
 
-      open(map: FakeMap) {
-        this.close(false);
-        const container = document.createElement("div");
-        container.dataset.amapInfoWindow = "true";
-        if (this.content) container.append(this.content);
-        map.getContainer().append(container);
-        this.container = container;
+      setzIndex() {}
+
+      mount(map: FakeMap) {
+        const element = document.createElement("div");
+        element.dataset.amapMarker = "true";
+        element.innerHTML = this.content;
+        element.addEventListener("click", () => {
+          for (const handler of this.handlers.get("click") ?? []) handler();
+        });
+        map.getContainer().append(element);
+        this.element = element;
       }
 
-      close(notify = true) {
-        this.container?.remove();
-        this.container = null;
-        if (notify) {
-          for (const handler of this.handlers.get("close") ?? []) handler();
+      remove() {
+        this.element?.remove();
+        this.element = null;
+      }
+    }
+
+    class FakeMarkerCluster {
+      private readonly markers: FakeMarker[] = [];
+
+      constructor(
+        private readonly map: FakeMap,
+        data: readonly { lnglat: FakeLngLat | readonly [number, number] }[],
+        private readonly options: {
+          renderMarker?: (input: { marker: FakeMarker }) => void;
+        },
+      ) {
+        this.setData(data);
+      }
+
+      on() {}
+
+      setData(
+        data: readonly { lnglat: FakeLngLat | readonly [number, number] }[],
+      ) {
+        this.setMap(null);
+        for (const item of data) {
+          const marker = new FakeMarker({ position: item.lnglat });
+          this.options.renderMarker?.({ marker });
+          marker.mount(this.map);
+          this.markers.push(marker);
         }
+      }
+
+      setMap(map: FakeMap | null) {
+        if (map) return;
+        for (const marker of this.markers) marker.remove();
+        this.markers.length = 0;
       }
     }
 
@@ -278,8 +328,9 @@ export async function installFakeCampusMapAmap(page: Page) {
       configurable: true,
       value: {
         Map: FakeMap,
+        Marker: FakeMarker,
+        MarkerCluster: FakeMarkerCluster,
         Geocoder: FakeGeocoder,
-        InfoWindow: FakeInfoWindow,
         LngLat: FakeLngLat,
         Pixel: FakePixel,
         Bounds: class {

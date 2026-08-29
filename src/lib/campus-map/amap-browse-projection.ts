@@ -48,7 +48,6 @@ export type CampusMapAmapPoiCard =
       kind: "transient";
       externalId: string;
       title: string;
-      sourceLabel: "高德地图地点";
       position: CampusMapAmapPosition;
     };
 
@@ -178,7 +177,6 @@ export function createTransientCampusMapAmapPoiCard(
     kind: "transient",
     externalId: providerObjectId ?? `${input.position[0]},${input.position[1]}`,
     title: input.name.trim() || "高德地图地点",
-    sourceLabel: "高德地图地点",
     position: [input.position[0], input.position[1]],
   };
 }
@@ -248,20 +246,4 @@ export class CampusMapAmapPoiCardResolver {
       ? { status: "resolved", card }
       : { status: "superseded" };
   }
-}
-
-export function createCampusMapAmapPoiCardContent(
-  ownerDocument: Pick<Document, "createElement">,
-  card: Extract<CampusMapAmapPoiCard, { kind: "transient" }>,
-) {
-  const content = ownerDocument.createElement("div");
-  content.className = "min-w-36 px-1 py-0.5 text-[#17211c]";
-  const title = ownerDocument.createElement("strong");
-  title.className = "block text-sm font-semibold";
-  title.textContent = card.title;
-  const source = ownerDocument.createElement("span");
-  source.className = "mt-1 block text-xs text-neutral-500";
-  source.textContent = card.sourceLabel;
-  content.append(title, source);
-  return content;
 }

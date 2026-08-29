@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   decodeCampusMapUrl,
   decodeCampusMapHistoryMetadata,
+  encodeCampusMapFacilityHref,
   encodeCampusMapUrl,
   encodeCampusMapHistoryMetadata,
   normalizeCampusMapUrlSession,
@@ -49,6 +50,33 @@ const catalog: CampusMapSceneCatalog = {
 };
 
 describe("Campus Map versioned scene codec", () => {
+  it("owns canonical Place deep links used outside the runtime", () => {
+    expect(
+      encodeCampusMapFacilityHref("courtyardWater", {
+        status: "active",
+        visibility: "public",
+      }),
+    ).toBe("/campus-map?v=1&scene=facility&id=courtyardWater&snap=peek");
+    expect(
+      encodeCampusMapFacilityHref(" courtyardWater ", {
+        status: "active",
+        visibility: "public",
+      }),
+    ).toBe("/campus-map?v=1");
+    expect(
+      encodeCampusMapFacilityHref("retiredPlace", {
+        status: "retired",
+        visibility: "public",
+      }),
+    ).toBe("/campus-map?v=1");
+    expect(
+      encodeCampusMapFacilityHref("redactedPlace", {
+        status: "active",
+        visibility: "redacted",
+      }),
+    ).toBe("/campus-map?v=1");
+  });
+
   it("round-trips a canonical Map Note return context for refresh recovery", () => {
     const session: CampusMapSession = {
       mode: "task",
@@ -78,20 +106,25 @@ describe("Campus Map versioned scene codec", () => {
     ).toMatchObject({ status: "fallback", reason: "invalid-return-context" });
   });
 
-  it("round-trips a facility URL without derived relationship fields", () => {
+  it("normalizes a legacy full facility URL to its compact card", () => {
     const session: CampusMapSession = {
       mode: "browse",
       scene: { kind: "facility", facilityId: "fountain", snap: "full" },
     };
 
     const encoded = encodeCampusMapUrl(session, catalog);
-    expect(encoded.toString()).toBe("v=1&scene=facility&id=fountain&snap=full");
+    expect(encoded.toString()).toBe("v=1&scene=facility&id=fountain&snap=peek");
     expect(encoded.has("building")).toBe(false);
     expect(encoded.has("floor")).toBe(false);
     expect(encoded.has("category")).toBe(false);
-    expect(decodeCampusMapUrl(encoded, catalog)).toEqual({
+    expect(
+      decodeCampusMapUrl("v=1&scene=facility&id=fountain&snap=full", catalog),
+    ).toEqual({
       status: "decoded",
-      session,
+      session: {
+        mode: "browse",
+        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+      },
     });
   });
 

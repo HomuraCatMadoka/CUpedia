@@ -3,6 +3,7 @@ import type {
   CampusMapCameraCommand,
   CampusMapContributionTask,
   CampusMapFocusCommand,
+  CampusMapFocusTarget,
   CampusMapSceneCatalog,
   CampusMapSession,
 } from "./scene-kernel";
@@ -32,7 +33,7 @@ export type CampusMapSessionSemantics =
       } | null;
       buildingId: string | null;
       cameraTarget: CampusMapSceneCameraTarget;
-      focus: CampusMapFocusCommand;
+      focus: CampusMapFocusTarget;
       contributionAnchor: Extract<
         CampusMapContributionTask,
         { kind: "create" }
@@ -44,6 +45,11 @@ export type CampusMapSceneCameraTarget =
   | { kind: "building"; buildingId: string }
   | { kind: "place"; placeId: string }
   | null;
+
+type ValidCampusMapSessionSemantics = Extract<
+  CampusMapSessionSemantics,
+  { status: "valid" }
+>;
 
 export function projectCampusMapSceneCameraCommand(
   target: CampusMapSceneCameraTarget,
@@ -149,6 +155,67 @@ function findFacility(catalog: CampusMapSceneCatalog, facilityId: string) {
     category,
     cameraTarget: normalizedCameraTarget ?? null,
   };
+}
+
+export function projectCampusMapReturnFocus(
+  source: CampusMapSession,
+  target: ValidCampusMapSessionSemantics,
+  catalog: CampusMapSceneCatalog,
+): CampusMapFocusCommand {
+  if (source.mode !== "browse" || target.session.mode !== "browse") {
+    return target.focus;
+  }
+
+  const sourceScene = source.scene;
+  const targetScene = target.session.scene;
+  if (sourceScene.kind === "category-results" && targetScene.kind === "map") {
+    return {
+      kind: "category-filter",
+      category: sourceScene.category,
+      fallback: target.focus,
+    };
+  }
+  if (
+    sourceScene.kind === "building" &&
+    (targetScene.kind === "search-results" ||
+      targetScene.kind === "category-results" ||
+      targetScene.kind === "building")
+  ) {
+    return {
+      kind: "result",
+      resultId: sourceScene.buildingId,
+      fallback: target.focus,
+    };
+  }
+  if (
+    sourceScene.kind === "content" &&
+    (targetScene.kind === "search-results" ||
+      targetScene.kind === "category-results" ||
+      targetScene.kind === "building")
+  ) {
+    return {
+      kind: "result",
+      resultId: sourceScene.contentId,
+      fallback: target.focus,
+    };
+  }
+  if (sourceScene.kind !== "facility") return target.focus;
+
+  const facility = findFacility(catalog, sourceScene.facilityId);
+  const restoresTrigger =
+    targetScene.kind === "search-results" ||
+    (targetScene.kind === "building" &&
+      facility?.buildingId === targetScene.buildingId) ||
+    (targetScene.kind === "category-results" &&
+      facility?.category === targetScene.category);
+
+  return restoresTrigger
+    ? {
+        kind: "result",
+        resultId: sourceScene.facilityId,
+        fallback: target.focus,
+      }
+    : target.focus;
 }
 
 function findContent(catalog: CampusMapSceneCatalog, contentId: string) {
@@ -352,6 +419,8 @@ export function resolveCampusMapSessionSemantics(
     contributionAnchor: entity.buildingId
       ? { kind: "building", buildingId: entity.buildingId }
       : { kind: "map" },
-    persistence: persistentBrowse(scene),
+    persistence: persistentBrowse(
+      scene.kind === "facility" ? { ...scene, snap: "peek" } : scene,
+    ),
   };
 }

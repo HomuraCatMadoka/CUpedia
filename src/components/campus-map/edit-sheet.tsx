@@ -16,7 +16,6 @@ import {
 import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
-import type { CampusMapTaskReturnContext } from "@/lib/campus-map/scene-kernel";
 
 interface CampusMapEditSheetProps {
   session: CampusMapEditSession;
@@ -25,7 +24,6 @@ interface CampusMapEditSheetProps {
   placeContext?: AmapPlaceContextResult | { status: "loading" } | null;
   factSchema?: CampusMapFactSchema | null;
   buildings?: readonly CampusMapBrowseBuilding[];
-  returnContext?: CampusMapTaskReturnContext;
   onEvent(event: CampusMapEditEvent): void;
 }
 
@@ -58,12 +56,18 @@ const WEEKDAYS = [
 function messageForError(code: string): string {
   const messages: Record<string, string> = {
     "fact-name-required": "设施资料不完整，请重新选择类型。",
-    "source-required": "发布记录缺少来源标记，请重试。",
+    "source-required": "发布资料不完整，请重试。",
     "invalid-location": "位置资料不完整，请修改位置。",
-    "base-revision-conflict": "地点资料已被其他人更新。",
-    "invalid-place-id": "这个过渡地点尚未连接到正式 Place。",
+    "base-revision-conflict": "地点资料已被其他人更新，请刷新后重试。",
+    "invalid-place-id": "这个地点暂时无法发布，请返回地图后重试。",
   };
-  return messages[code] ?? `服务器未接受这项资料（${code}）。`;
+  return messages[code] ?? "服务器暂时无法接受这项资料，请稍后重试。";
+}
+
+function messageForWarning(code: string): string {
+  return code === "possible-duplicate"
+    ? "附近可能已有相似设施，请确认这是另一个独立地点。"
+    : "发布前需要确认这项修改。";
 }
 
 function matchingDisplay(
@@ -413,7 +417,6 @@ export function CampusMapEditSheet({
   factSchema,
   buildings = [],
   onEvent,
-  returnContext,
 }: CampusMapEditSheetProps) {
   const fieldPrefix = useId();
   const [keyboardLongitude, setKeyboardLongitude] = useState(
@@ -443,50 +446,7 @@ export function CampusMapEditSheet({
     conflictSelection.key === conflictKey ? conflictSelection.fields : [];
 
   if (session.status === "published" && session.receipt) {
-    const receipt = session.receipt;
-    return (
-      <div className="grid gap-3 p-5" aria-live="polite">
-        <p className="text-xs font-bold tracking-[0.14em] text-[#567166]">
-          PUBLISHED
-        </p>
-        <h2
-          id="campus-map-panel-title"
-          tabIndex={-1}
-          className="rounded-sm text-xl font-semibold text-balance focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-        >
-          地点资料已公开
-        </h2>
-        <p className="text-sm text-neutral-600">
-          此次发布已生成不可改写的公开记录。
-        </p>
-        <Link
-          className={secondaryClass}
-          href={`/campus-map/places/${receipt.placeId}`}
-        >
-          查看 Place
-        </Link>
-        <Link
-          className={secondaryClass}
-          href={`/campus-map/changesets/${receipt.changesetId}`}
-        >
-          查看此次 Changeset
-        </Link>
-        <Link
-          className={secondaryClass}
-          href={`/campus-map/places/${receipt.placeId}/history`}
-        >
-          查看 History
-        </Link>
-        {returnContext?.kind === "map-note" ? (
-          <Link
-            className={secondaryClass}
-            href={`/campus-map/notes/${returnContext.noteId}`}
-          >
-            返回地图备注
-          </Link>
-        ) : null}
-      </div>
-    );
+    return null;
   }
 
   if (
@@ -609,24 +569,26 @@ export function CampusMapEditSheet({
   );
   const placementLabel =
     resolvedContext?.label && resolvedContext.label !== "地图中心位置"
-      ? resolvedContext.label
-      : (nearbyPlacementLabel ?? "地图坐标");
+      ? `高德地图地点：${resolvedContext.label}`
+      : nearbyPlacementLabel
+        ? `附近建筑：${nearbyPlacementLabel.replace(/附近$/u, "")}`
+        : null;
   const placementDescription = describeOutdoorPosition(placementPosition);
   const placementReference = resolvedContext
-    ? resolvedContext.distanceMeters === 0 && !resolvedContext.address
-      ? "高德参考 · 已选中地图标签"
-      : `高德参考 · ${resolvedContext.address ?? "附近地点"}`
+    ? resolvedContext.address
+      ? `高德地图参考：${resolvedContext.address}`
+      : null
     : placeContext?.status === "loading"
-      ? "正在确定位置…"
+      ? "正在查询高德地图参考…"
       : placeContext?.status === "rate-limited"
-        ? "地址查询较频繁，仍可使用此位置"
+        ? "高德地图查询较频繁，仍可使用此位置"
         : placeContext?.status === "transient-error"
-          ? "暂时无法识别地址，仍可使用此位置"
+          ? "暂时无法查询高德地图参考，仍可使用此位置"
           : placeContext?.status === "permanent-error"
-            ? "地址服务不可用，仍可使用此位置"
+            ? "高德地图参考不可用，仍可使用此位置"
             : placeContext?.status === "empty"
-              ? "高德未找到附近地点，仍可使用此位置"
-              : "移动地图，让图钉对准地点";
+              ? "高德地图未找到附近地点，仍可使用此位置"
+              : null;
   const lockedOutdoorLabel =
     !isPlacing &&
     fact.location?.kind === "outdoor-point" &&
@@ -751,13 +713,10 @@ export function CampusMapEditSheet({
           className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm"
           role="alert"
         >
-          <p className="font-semibold">服务器发现需要确认的情况</p>
+          <p className="font-semibold">发布前请确认</p>
           {session.warnings?.map((warning) => (
-            <p
-              key={`${warning.code}:${warning.fingerprint}`}
-              className="mt-1 break-all"
-            >
-              {warning.code} · {warning.fingerprint}
+            <p key={`${warning.code}:${warning.fingerprint}`} className="mt-1">
+              {messageForWarning(warning.code)}
             </p>
           ))}
           <button
@@ -770,7 +729,7 @@ export function CampusMapEditSheet({
               })
             }
           >
-            我已确认，重新发布
+            确认并发布
           </button>
         </div>
       );
@@ -1016,25 +975,23 @@ export function CampusMapEditSheet({
         <h2
           id="campus-map-panel-title"
           tabIndex={-1}
-          className="rounded-sm pr-10 text-lg font-semibold text-balance focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 md:text-xl"
+          className="-ml-2 pr-10 pl-2 text-lg font-semibold text-balance focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346] md:text-xl"
         >
           {isPlacing
             ? draft.mode === "add"
               ? "选择设施位置"
               : "修改设施位置"
             : draft.mode === "add"
-              ? "添加校内设施"
+              ? "新增设施"
               : "修改设施"}
         </h2>
-        <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm">
-          {isPlacing
-            ? draft.mode === "add"
-              ? "拖动地图对准设施，或轻点地图名称直接选择；建筑只作位置参考。"
-              : "移动地图或轻点地图标签，选择新的设施位置。"
-            : draft.mode === "add"
-              ? "位置已确定。选择设施类型后即可发布。"
-              : "确认设施类型和位置后即可发布修改。"}
-        </p>
+        {isPlacing ? (
+          <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm">
+            {draft.mode === "add"
+              ? "拖动地图或轻点地点名称，选择设施位置。"
+              : "拖动地图或轻点地点名称，选择新的设施位置。"}
+          </p>
+        ) : null}
       </div>
       <div
         className={cn(
@@ -1068,40 +1025,51 @@ export function CampusMapEditSheet({
               className="mt-0.5 size-5 shrink-0 text-[#176346]"
             />
             <div className="min-w-0 flex-1">
-              <p className="font-semibold" aria-live="polite">
-                {isPlacing
-                  ? placementLabel
-                  : (lockedOutdoorLabel ??
-                    friendlyLocationLabel(
-                      fact,
-                      draft.locationDisplay,
-                      buildings,
-                    ))}
-              </p>
-              <p
-                className={cn(
-                  "mt-0.5 text-xs text-neutral-600",
-                  !isPlacing && "truncate",
-                )}
-                aria-live="polite"
-              >
-                {isPlacing
-                  ? placementDescription
-                  : describeLocation(fact, draft.locationDisplay)}
-              </p>
               {isPlacing ? (
-                <p
-                  className="mt-0.5 text-xs text-neutral-500"
-                  aria-live="polite"
-                >
-                  {placementReference}
-                </p>
-              ) : null}
+                <>
+                  <p className="font-semibold" aria-live="polite">
+                    {placementDescription}
+                  </p>
+                  {placementLabel ? (
+                    <p
+                      className="mt-0.5 text-xs text-neutral-600"
+                      aria-live="polite"
+                    >
+                      {placementLabel}
+                    </p>
+                  ) : null}
+                  {placementReference ? (
+                    <p
+                      className="mt-0.5 text-xs text-neutral-500"
+                      aria-live="polite"
+                    >
+                      {placementReference}
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold" aria-live="polite">
+                    {lockedOutdoorLabel ??
+                      friendlyLocationLabel(
+                        fact,
+                        draft.locationDisplay,
+                        buildings,
+                      )}
+                  </p>
+                  <p
+                    className="mt-0.5 truncate text-xs text-neutral-600"
+                    aria-live="polite"
+                  >
+                    {describeLocation(fact, draft.locationDisplay)}
+                  </p>
+                </>
+              )}
             </div>
             {!isPlacing ? (
               <button
                 type="button"
-                className="min-h-10 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                className="min-h-11 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
                 onClick={() =>
                   onEvent({ type: "START_REPOSITION", ...freshAttempt() })
                 }
@@ -1119,7 +1087,7 @@ export function CampusMapEditSheet({
             className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
           >
             <legend className="mb-1.5 text-sm font-medium">设施类型</legend>
-            <div className="grid grid-cols-5 gap-1.5 md:gap-2">
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5 md:gap-2">
               {CAMPUS_MAP_EDIT_SCHEMA.presets.map((item) => (
                 <label
                   key={item.pinType}

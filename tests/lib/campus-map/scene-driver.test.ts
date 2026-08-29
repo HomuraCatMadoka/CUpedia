@@ -70,7 +70,6 @@ function harness(initialSearch = "?v=1", clearStartEffects = true) {
     },
     camera: vi.fn(),
     focus: vi.fn(),
-    overlay: vi.fn(),
     sheet: vi.fn(),
   };
   const driver = new CampusMapSceneDriver(catalog, ports, initialSearch);
@@ -79,7 +78,6 @@ function harness(initialSearch = "?v=1", clearStartEffects = true) {
   if (clearStartEffects) {
     vi.mocked(ports.camera).mockClear();
     vi.mocked(ports.focus).mockClear();
-    vi.mocked(ports.overlay).mockClear();
     vi.mocked(ports.sheet).mockClear();
   }
   return {
@@ -339,7 +337,35 @@ describe("CampusMapSceneDriver", () => {
     expect(runtime.search).toBe("?v=1&scene=category&id=toilet&snap=peek");
   });
 
+  it("returns focus to the category filter when its card is dismissed", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "OPEN_CATEGORY", category: "water" });
+    vi.mocked(runtime.ports.focus).mockClear();
+
+    runtime.driver.dispatch({ type: "DISMISS" });
+
+    expect(runtime.ports.focus).toHaveBeenCalledWith(
+      {
+        kind: "category-filter",
+        category: "water",
+        fallback: { kind: "map" },
+      },
+      expect.any(Object),
+    );
+  });
+
   it("uses the real predecessor for Back and a building fallback for a direct facility deep link", () => {
+    const fromMap = harness();
+    fromMap.driver.dispatch({
+      type: "OPEN_FACILITY",
+      facilityId: "fountain",
+      source: "map",
+    });
+    expect(fromMap.driver.getSnapshot().returnTo).toEqual({
+      mode: "browse",
+      scene: { kind: "map" },
+    });
+
     const navigated = harness();
     navigated.driver.dispatch({ type: "OPEN_CATEGORY", category: "water" });
     navigated.driver.dispatch({
@@ -477,7 +503,11 @@ describe("CampusMapSceneDriver", () => {
       },
     });
     expect(runtime.ports.focus).toHaveBeenLastCalledWith(
-      { kind: "result", resultId: "fountain" },
+      {
+        kind: "result",
+        resultId: "fountain",
+        fallback: { kind: "search-input" },
+      },
       expect.any(Object),
     );
   });
@@ -519,7 +549,6 @@ describe("CampusMapSceneDriver", () => {
     vi.mocked(runtime.history.replaceState).mockClear();
     vi.mocked(runtime.ports.camera).mockClear();
     vi.mocked(runtime.ports.focus).mockClear();
-    vi.mocked(runtime.ports.overlay).mockClear();
     vi.mocked(runtime.ports.sheet).mockClear();
 
     runtime.driver.dispatch({
@@ -533,7 +562,6 @@ describe("CampusMapSceneDriver", () => {
     expect(runtime.history.replaceState).not.toHaveBeenCalled();
     expect(runtime.ports.camera).not.toHaveBeenCalled();
     expect(runtime.ports.focus).not.toHaveBeenCalled();
-    expect(runtime.ports.overlay).not.toHaveBeenCalled();
     expect(runtime.ports.sheet).not.toHaveBeenCalled();
   });
 
@@ -564,6 +592,110 @@ describe("CampusMapSceneDriver", () => {
     });
     expect(push).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("restores focus to the Place trigger when Back returns to a Building", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "science",
+      source: "map",
+    });
+    runtime.driver.dispatch({
+      type: "OPEN_FACILITY",
+      facilityId: "fountain",
+      source: "building",
+    });
+    vi.mocked(runtime.ports.focus).mockClear();
+
+    runtime.driver.restore("?v=1&scene=building&id=science&snap=peek", {
+      campusMapScene: true,
+      version: 1,
+      depth: 1,
+    });
+
+    expect(runtime.ports.focus).toHaveBeenCalledWith(
+      {
+        kind: "result",
+        resultId: "fountain",
+        fallback: { kind: "heading" },
+      },
+      expect.any(Object),
+    );
+  });
+
+  it("restores focus to the Place trigger when Back returns to search results", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "SEARCH", query: "science fountain" });
+    runtime.driver.dispatch({
+      type: "OPEN_FACILITY",
+      facilityId: "fountain",
+      source: "search",
+    });
+    vi.mocked(runtime.ports.focus).mockClear();
+
+    runtime.driver.restore("?v=1&scene=search&q=science+fountain&snap=peek", {
+      campusMapScene: true,
+      version: 1,
+      depth: 0,
+    });
+
+    expect(runtime.ports.focus).toHaveBeenCalledWith(
+      {
+        kind: "result",
+        resultId: "fountain",
+        fallback: { kind: "search-input" },
+      },
+      expect.any(Object),
+    );
+  });
+
+  it("restores focus to the Building trigger when Back returns to search results", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "SEARCH", query: "science" });
+    runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "science",
+      source: "search",
+    });
+    vi.mocked(runtime.ports.focus).mockClear();
+
+    runtime.driver.restore("?v=1&scene=search&q=science&snap=peek", {
+      campusMapScene: true,
+      version: 1,
+      depth: 0,
+    });
+
+    expect(runtime.ports.focus).toHaveBeenCalledWith(
+      {
+        kind: "result",
+        resultId: "science",
+        fallback: { kind: "search-input" },
+      },
+      expect.any(Object),
+    );
+  });
+
+  it("keeps the kernel focus when the restored Building has no matching Place trigger", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "OPEN_CATEGORY", category: "water" });
+    runtime.driver.dispatch({
+      type: "OPEN_FACILITY",
+      facilityId: "courtyardWater",
+      source: "map",
+    });
+    vi.mocked(runtime.ports.focus).mockClear();
+
+    runtime.driver.restore("?v=1&scene=building&id=science&snap=peek", {
+      campusMapScene: true,
+      version: 1,
+      depth: 1,
+    });
+
+    expect(runtime.ports.focus).toHaveBeenCalledWith(
+      { kind: "heading" },
+      expect.any(Object),
+    );
   });
 
   it("clears transient provider state on restore and rejects its late response", () => {

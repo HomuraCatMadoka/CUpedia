@@ -25,23 +25,30 @@ const statusLabels = {
 
 export function CampusMapHistoryPage({
   placeId,
+  mapHref,
   head,
   items,
   nextHref,
 }: {
   placeId: string;
+  mapHref: string;
   head: CampusMapPlaceHistoryHead | null;
   items: CampusMapPlaceHistoryItem[];
   nextHref: string | null;
 }) {
-  const name = head?.name ?? `地点 ${shortId(placeId)}`;
+  const name = head?.name ?? "地点";
 
   return (
     <CampusMapReadShell
-      eyebrow="PLACE HISTORY"
-      title={`${name}的修订历史`}
-      description="每次公开修改都会保留为不可变修订。旧链接不会随名称或状态变化。"
-      actions={<CopyDeepLinkButton />}
+      eyebrow="校园地图"
+      title={`${name}的编辑记录`}
+      actions={
+        <div className="flex flex-wrap gap-2">
+          <ReadLink href={mapHref}>返回地图</ReadLink>
+          <ReadLink href={`/campus-map/places/${placeId}`}>地点详情</ReadLink>
+          <CopyDeepLinkButton />
+        </div>
+      }
     >
       {head?.status === "retired" ? (
         <Notice>这个地点已停用；过去的公开修订仍可读取。</Notice>
@@ -376,7 +383,7 @@ export function CampusMapReadShell({
 }: {
   eyebrow: string;
   title: string;
-  description: string;
+  description?: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -392,9 +399,11 @@ export function CampusMapReadShell({
               <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
                 {title}
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                {description}
-              </p>
+              {description ? (
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  {description}
+                </p>
+              ) : null}
             </div>
             {actions}
           </div>

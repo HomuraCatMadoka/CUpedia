@@ -25,9 +25,11 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
     render(
       <CampusMapHistoryPage
         placeId="00000000-0000-4000-8000-000000007192"
+        mapHref="/campus-map?v=1"
         head={{
           revisionId: "00000000-0000-4000-8000-000000007198",
           status: "merged",
+          visibility: "public",
           mergedIntoPlaceId: survivorId,
           name: "已合并地点",
         }}
@@ -37,17 +39,28 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "已合并地点的修订历史" }),
+      screen.getByRole("heading", { name: "已合并地点的编辑记录" }),
     ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "返回地图" }).getAttribute("href"),
+    ).toBe("/campus-map?v=1");
+    expect(
+      screen.getByRole("link", { name: "地点详情" }).getAttribute("href"),
+    ).toBe("/campus-map/places/00000000-0000-4000-8000-000000007192");
     expect(
       screen.getByRole("link", { name: "保留地点" }).getAttribute("href"),
     ).toBe(`/campus-map/places/${survivorId}`);
+    expect(
+      screen.queryByText("按时间查看地点名称、类型和位置的修改。"),
+    ).toBeNull();
+    expect(screen.queryByText("查看这个地点过去的公开修改。")).toBeNull();
   });
 
   it("shows the Changeset explanation and safe source summary on revisions", () => {
     render(
       <CampusMapHistoryPage
         placeId="00000000-0000-4000-8000-000000007192"
+        mapHref="/campus-map?v=1"
         head={null}
         items={[
           {
@@ -79,6 +92,10 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
     );
 
     expect(screen.getByText("建立饮水点")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "地点的编辑记录" }),
+    ).toBeTruthy();
+    expect(document.body.textContent).not.toContain("地点 00000000");
     expect(screen.getByText("来源摘要：现场观察")).toBeTruthy();
     expect(
       screen.getByText(

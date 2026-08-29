@@ -79,7 +79,6 @@ describe("Campus Map canonical scene transition", () => {
         history: "push",
         camera: { kind: "cancel" },
         focus: { kind: "contribution-form" },
-        overlay: { kind: "close-external" },
       },
     });
   });
@@ -104,7 +103,6 @@ describe("Campus Map canonical scene transition", () => {
         history: "replace",
         camera: { kind: "cancel" },
         focus: { kind: "map" },
-        overlay: { kind: "close-external" },
       },
     });
   });
@@ -126,7 +124,6 @@ describe("Campus Map canonical scene transition", () => {
         history: "replace",
         camera: { kind: "cancel" },
         focus: { kind: "results" },
-        overlay: { kind: "close-external" },
       },
     });
   });
@@ -274,7 +271,7 @@ describe("Campus Map canonical scene transition", () => {
     ).toEqual({
       status: "accepted",
       session,
-      commands: { history: null, camera: null, focus: null, overlay: null },
+      commands: { history: null, camera: null, focus: null },
     });
   });
 
@@ -293,7 +290,6 @@ describe("Campus Map canonical scene transition", () => {
         history: null,
         camera: null,
         focus: null,
-        overlay: null,
       },
     });
   });
@@ -318,7 +314,6 @@ describe("Campus Map canonical scene transition", () => {
         history: null,
         camera: null,
         focus: null,
-        overlay: null,
       },
     });
   });
@@ -350,7 +345,6 @@ describe("Campus Map canonical scene transition", () => {
           history: null,
           camera: null,
           focus: null,
-          overlay: null,
         },
       });
     },
@@ -492,7 +486,6 @@ describe("Campus Map canonical scene transition", () => {
           history: "push",
           camera,
           focus: { kind: "heading" },
-          overlay: { kind: "close-external" },
         },
       });
     },
@@ -521,7 +514,6 @@ describe("Campus Map canonical scene transition", () => {
       history: "push",
       camera: { kind: "cancel" },
       focus: { kind: "contribution-form" },
-      overlay: { kind: "close-external" },
     });
 
     const cancelled = transitionCampusMapSession(
@@ -612,6 +604,11 @@ describe("Campus Map canonical scene transition", () => {
     expect(forward.session).toEqual(facility);
     expect(back.commands.history).toBeNull();
     expect(forward.commands.history).toBeNull();
+    expect(back.commands.focus).toEqual({
+      kind: "result",
+      resultId: "fountain",
+      fallback: { kind: "heading" },
+    });
     expect(forward.commands.camera).toEqual({
       kind: "focus",
       buildingId: "science",
@@ -644,7 +641,6 @@ describe("Campus Map canonical scene transition", () => {
         history: null,
         camera: { kind: "cancel" },
         focus: { kind: "map" },
-        overlay: { kind: "close-external" },
       },
     });
   });
@@ -779,7 +775,6 @@ describe("Campus Map canonical scene transition", () => {
           history: null,
           camera: commands.camera,
           focus: commands.focus,
-          overlay: { kind: "close-external" },
         },
       });
     }
@@ -819,7 +814,6 @@ describe("Campus Map canonical scene transition", () => {
           history: null,
           camera: { kind: "cancel" },
           focus: { kind: "map" },
-          overlay: { kind: "close-external" },
         },
       });
     }
@@ -869,7 +863,6 @@ describe("Campus Map canonical scene transition", () => {
           history: null,
           camera: null,
           focus: null,
-          overlay: null,
         },
       });
     },
@@ -916,7 +909,6 @@ describe("Campus Map canonical scene transition", () => {
           history: null,
           camera: null,
           focus: null,
-          overlay: null,
         },
       });
     },
@@ -979,7 +971,6 @@ describe("Campus Map canonical scene transition", () => {
       history: null,
       camera: null,
       focus: null,
-      overlay: null,
     } as const;
     const accepted = (
       session: CampusMapSession,
@@ -1014,7 +1005,6 @@ describe("Campus Map canonical scene transition", () => {
           history: "replace",
           camera: { kind: "cancel" },
           focus: { kind: "map" },
-          overlay: { kind: "close-external" },
         }),
       );
     }
@@ -1033,7 +1023,6 @@ describe("Campus Map canonical scene transition", () => {
           history: "replace",
           camera: { kind: "cancel" },
           focus: { kind: "search-input" },
-          overlay: { kind: "close-external" },
         }),
       );
     }
@@ -1059,7 +1048,6 @@ describe("Campus Map canonical scene transition", () => {
           history: "replace",
           camera: { kind: "cancel" },
           focus: { kind: "results" },
-          overlay: { kind: "close-external" },
         }),
       );
     }
@@ -1071,7 +1059,6 @@ describe("Campus Map canonical scene transition", () => {
           history: "push",
           camera: { kind: "cancel" },
           focus: { kind: "results" },
-          overlay: { kind: "close-external" },
         }),
       );
     }
@@ -1103,7 +1090,6 @@ describe("Campus Map canonical scene transition", () => {
             reason: "map-selection",
           },
           focus: { kind: "heading" },
-          overlay: { kind: "close-external" },
         }),
       );
     }
@@ -1132,7 +1118,6 @@ describe("Campus Map canonical scene transition", () => {
                 reason: "facility-selection",
               },
               focus: { kind: "heading" },
-              overlay: { kind: "close-external" },
             }),
       );
     }
@@ -1161,7 +1146,6 @@ describe("Campus Map canonical scene transition", () => {
                 reason: "map-selection",
               },
               focus: { kind: "heading" },
-              overlay: { kind: "close-external" },
             }),
       );
     }
@@ -1190,13 +1174,7 @@ describe("Campus Map canonical scene transition", () => {
         accepted(external, {
           history: null,
           camera: { kind: "cancel" },
-          focus: { kind: "map" },
-          overlay: {
-            kind: "open-external",
-            externalId: "external-2",
-            name: "External 2",
-            position: [114.21, 22.41],
-          },
+          focus: { kind: "heading" },
         }),
       );
     }
@@ -1206,12 +1184,7 @@ describe("Campus Map canonical scene transition", () => {
     for (const source of ["map", "provider", "task"] as const) {
       verify(source, setSnap, rejected(sources[source]));
     }
-    for (const source of [
-      "search",
-      "category",
-      "building",
-      "facility",
-    ] as const) {
+    for (const source of ["search", "category", "building"] as const) {
       const current = sources[source];
       if (current.mode !== "browse" || !("snap" in current.scene)) {
         throw new Error("sheet-bearing fixture expected");
@@ -1225,11 +1198,11 @@ describe("Campus Map canonical scene transition", () => {
             history: "replace",
             camera: null,
             focus: { kind: "heading" },
-            overlay: null,
           },
         ),
       );
     }
+    verify("facility", setSnap, rejected(sources.facility));
     verify("content", setSnap, accepted(sources.content, noCommands));
 
     const setFloor = { type: "SET_BUILDING_FLOOR", floorId: "4" } as const;
@@ -1249,7 +1222,6 @@ describe("Campus Map canonical scene transition", () => {
           history: "replace",
           camera: null,
           focus: { kind: "results" },
-          overlay: null,
         },
       ),
     );
@@ -1270,7 +1242,6 @@ describe("Campus Map canonical scene transition", () => {
       history: "push",
       camera: { kind: "cancel" },
       focus: { kind: "contribution-form" },
-      overlay: { kind: "close-external" },
     } as const;
     for (const source of ["map", "search", "category", "provider"] as const) {
       verify(source, startCreate, accepted(mapTask, createCommands));
@@ -1304,7 +1275,6 @@ describe("Campus Map canonical scene transition", () => {
         history: "back-or-push",
         camera: { kind: "cancel" },
         focus: { kind: "heading" },
-        overlay: null,
       }),
     );
 
@@ -1319,8 +1289,14 @@ describe("Campus Map canonical scene transition", () => {
         accepted(sources.map, {
           history: null,
           camera: { kind: "cancel" },
-          focus: { kind: "map" },
-          overlay: { kind: "close-external" },
+          focus:
+            source === "category"
+              ? {
+                  kind: "category-filter",
+                  category: "water",
+                  fallback: { kind: "map" },
+                }
+              : { kind: "map" },
         }),
       );
     }
@@ -1377,7 +1353,6 @@ describe("Campus Map canonical scene transition", () => {
         history: null,
         camera: null,
         focus: null,
-        overlay: null,
       },
     });
   });

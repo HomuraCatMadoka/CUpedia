@@ -64,8 +64,11 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(
       screen.queryByRole("textbox", { name: "设施名称或编号" }),
     ).toBeNull();
-    expect(screen.getByText("科学馆")).toBeTruthy();
-    expect(screen.getByText("高德参考 · 香港中文大学中央大道")).toBeTruthy();
+    expect(
+      screen.getByText("114.210100, 22.419800 · WGS84 · 约略"),
+    ).toBeTruthy();
+    expect(screen.getByText("高德地图地点：科学馆")).toBeTruthy();
+    expect(screen.getByText("高德地图参考：香港中文大学中央大道")).toBeTruthy();
     expect(screen.queryByRole("radio", { name: "饮水点" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
@@ -126,7 +129,10 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "添加校内设施" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "新增设施" })).toBeTruthy();
+    expect(
+      screen.queryByText("位置已确定。选择设施类型后即可发布。"),
+    ).toBeNull();
     expect(screen.getByRole("group", { name: "设施类型" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "修改位置" })).toBeTruthy();
     expect(
@@ -244,7 +250,7 @@ describe("Campus Map single-page edit Sheet", () => {
     ).toBeNull();
   });
 
-  it("keeps programmatic heading focus visible for keyboard users", () => {
+  it("keeps the edit heading programmatically focusable", () => {
     render(
       <CampusMapEditSheet
         session={{
@@ -268,14 +274,17 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    const heading = screen.getByRole("heading", { name: "添加校内设施" });
+    const heading = screen.getByRole("heading", { name: "新增设施" });
     heading.focus();
     expect(document.activeElement).toBe(heading);
     expect(heading.getAttribute("tabindex")).toBe("-1");
-    expect(heading.className).toContain("focus-visible:ring-2");
+    expect(heading.className).toContain(
+      "focus-visible:shadow-[inset_3px_0_0_#176346]",
+    );
+    expect(heading.className).not.toContain("focus-visible:ring-offset-2");
   });
 
-  it("keeps every place type discoverable without a hidden horizontal scroller", () => {
+  it("exposes every place type as one accessible radio group", () => {
     render(
       <CampusMapEditSheet
         session={{
@@ -300,17 +309,11 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     const typeGroup = screen.getByRole("group", { name: "设施类型" });
-    const choices = typeGroup.querySelector("div");
-    expect(choices?.className).toContain("grid-cols-5");
-    expect(choices?.className).not.toContain("overflow-x-auto");
-    expect(
-      screen.getByRole("radio", { name: "饮水点" }).closest("label")?.className,
-    ).not.toContain("col-span");
-    expect(
-      screen.getByRole("radio", { name: "课室" }).closest("label")?.className,
-    ).not.toContain("col-span");
+    expect(screen.getAllByRole("radio")).toHaveLength(5);
+    for (const label of ["饮水点", "洗手间", "打印服务", "公共空间", "课室"]) {
+      expect(screen.getByRole("radio", { name: label })).toBeTruthy();
+    }
     expect(typeGroup.getAttribute("tabindex")).toBe("-1");
-    expect(typeGroup.className).toContain("focus-visible:ring-2");
     expect(screen.queryByText(/Changeset 说明/)).toBeNull();
   });
 
@@ -370,15 +373,15 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    expect(screen.getByText("邵逸夫堂")).toBeTruthy();
-    expect(screen.getByText("高德参考 · 附近地点")).toBeTruthy();
+    expect(screen.getByText("高德地图地点：邵逸夫堂")).toBeTruthy();
+    expect(screen.queryByText(/附近地点/)).toBeNull();
   });
 
   it.each([
-    ["rate-limited", "地址查询较频繁，仍可使用此位置"],
-    ["transient-error", "暂时无法识别地址，仍可使用此位置"],
-    ["permanent-error", "地址服务不可用，仍可使用此位置"],
-    ["empty", "高德未找到附近地点，仍可使用此位置"],
+    ["rate-limited", "高德地图查询较频繁，仍可使用此位置"],
+    ["transient-error", "暂时无法查询高德地图参考，仍可使用此位置"],
+    ["permanent-error", "高德地图参考不可用，仍可使用此位置"],
+    ["empty", "高德地图未找到附近地点，仍可使用此位置"],
   ] as const)("keeps the candidate usable after %s", (status, message) => {
     render(
       <CampusMapEditSheet
@@ -601,13 +604,13 @@ describe("Campus Map single-page edit Sheet", () => {
     },
   );
 
-  it("shows only #719 Place, Changeset, and History links on the receipt", () => {
+  it("does not render the removed publish receipt page", () => {
     const session: CampusMapEditSession = {
       status: "published",
       draft: draft(),
       receipt: { placeId, revisionId, changesetId },
     };
-    render(
+    const { container } = render(
       <CampusMapEditSheet
         session={session}
         centerPosition={[114.2, 22.4]}
@@ -615,50 +618,19 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    expect(screen.getAllByRole("link").map((link) => link.textContent)).toEqual(
-      ["查看 Place", "查看此次 Changeset", "查看 History"],
-    );
-    expect(document.body.textContent).not.toMatch(
-      /discussion|Map Note|请求复核/i,
-    );
+    expect(container.innerHTML).toBe("");
+    expect(screen.queryByText("PUBLISHED")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
-  it("keeps a Map Note return target on the successful publish receipt", () => {
-    const session: CampusMapEditSession = {
-      status: "published",
-      draft: draft(),
-      receipt: { placeId, revisionId, changesetId },
-    };
-    render(
-      <CampusMapEditSheet
-        session={session}
-        centerPosition={[114.2, 22.4]}
-        returnContext={{
-          kind: "map-note",
-          noteId: "72000000-0000-4000-8000-000000000003",
-        }}
-        onEvent={vi.fn()}
-      />,
-    );
-
-    expect(
-      screen.getByRole("link", { name: "返回地图备注" }).getAttribute("href"),
-    ).toBe("/campus-map/notes/72000000-0000-4000-8000-000000000003");
-    expect(
-      screen
-        .getByRole("link", { name: "查看此次 Changeset" })
-        .getAttribute("href"),
-    ).toBe(`/campus-map/changesets/${changesetId}`);
-  });
-
-  it("renders only server-issued warning identity and a fresh acknowledgement action", () => {
+  it("keeps server warning identity out of the user-facing acknowledgement", () => {
     const fingerprint = "a".repeat(64);
     const session: CampusMapEditSession = {
       status: "warning",
       draft: draft(),
       warnings: [
         {
-          code: "duplicate-candidate",
+          code: "possible-duplicate",
           fingerprint,
           anchor: { changeIndex: 0, field: "name" },
         },
@@ -673,12 +645,44 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     expect(screen.getByRole("alert").textContent).toContain(
-      "duplicate-candidate",
+      "附近可能已有相似设施",
     );
-    expect(screen.getByRole("alert").textContent).toContain(fingerprint);
-    expect(
-      screen.getByRole("button", { name: "我已确认，重新发布" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).not.toContain(
+      "possible-duplicate",
+    );
+    expect(screen.getByRole("alert").textContent).not.toContain(fingerprint);
+    expect(screen.getByRole("button", { name: "确认并发布" })).toBeTruthy();
+  });
+
+  it("uses ordinary language for unknown and transitional server errors", () => {
+    const session = {
+      status: "editing",
+      draft: draft(),
+      serverErrors: [
+        {
+          code: "invalid-place-id",
+          anchor: { changeIndex: 0, field: "placeId" },
+        },
+        {
+          code: "internal-opaque-code",
+          anchor: { changeIndex: 0, field: "name" },
+        },
+      ],
+    } as CampusMapEditSession;
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain("这个地点暂时无法发布");
+    expect(alert.textContent).toContain("服务器暂时无法接受这项资料");
+    expect(alert.textContent).not.toContain("Place");
+    expect(alert.textContent).not.toContain("invalid-place-id");
+    expect(alert.textContent).not.toContain("internal-opaque-code");
   });
 
   it("keeps source and optional metadata controls out of the streamlined Sheet", () => {
@@ -837,7 +841,8 @@ describe("Campus Map single-page edit Sheet", () => {
       '[data-edit-field="location"]',
     );
     expect(locationTarget?.getAttribute("tabindex")).toBe("-1");
-    expect(locationTarget?.className).toContain("focus-visible:ring-2");
+    locationTarget?.focus();
+    expect(document.activeElement).toBe(locationTarget);
   });
 
   it("shows forbidden results as a permission state, not field validation", () => {
@@ -955,7 +960,7 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     expect(
-      screen.getByText("移动地图或轻点地图标签，选择新的设施位置。"),
+      screen.getByText("拖动地图或轻点地点名称，选择新的设施位置。"),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "使用此位置" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "确认新位置" })).toBeNull();
