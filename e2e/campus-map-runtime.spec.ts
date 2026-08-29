@@ -346,7 +346,7 @@ test("#649 core 2/5 search opens one Place card and refresh keeps canonical iden
   const search = page.getByPlaceholder("搜索建筑或地点…");
   await search.fill("正式测试饮水点");
   await page
-    .getByRole("button", { name: /正式测试楼.*正式测试饮水点/ })
+    .getByRole("button", { name: /正式测试饮水点.*正式测试楼/ })
     .click();
 
   const canonicalUrl = new RegExp(
@@ -364,7 +364,7 @@ test("#649 core 2/5 search opens one Place card and refresh keeps canonical iden
   await page.goBack();
   await expect(page).toHaveURL(/scene=search/);
   await expect(
-    page.getByRole("button", { name: /正式测试楼.*正式测试饮水点/ }),
+    page.getByRole("button", { name: /正式测试饮水点.*正式测试楼/ }),
   ).toBeVisible();
 
   await page.goForward();
@@ -538,7 +538,7 @@ test("#649 core 5/5 a rapid newer Place intent wins over a delayed provider resu
   });
   await page.getByPlaceholder("搜索建筑或地点…").fill("正式测试饮水点");
   await page
-    .getByRole("button", { name: /正式测试楼.*正式测试饮水点/ })
+    .getByRole("button", { name: /正式测试饮水点.*正式测试楼/ })
     .click();
 
   const placeUrl = new RegExp(
@@ -732,7 +732,7 @@ test("#649 cards remain usable at 390x844, 720x844, and 1280x800", async ({
     } else {
       expect(cardBox!.height).toBeLessThanOrEqual(260);
       const buildingCta = card.getByRole("button", {
-        name: "查看 1 个校内地点",
+        name: "查看地点",
       });
       await expect(buildingCta).toBeVisible();
       await buildingCta.evaluate((element) => {

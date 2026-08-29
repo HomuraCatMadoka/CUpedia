@@ -42,7 +42,6 @@ export function CampusMapHistoryPage({
     <CampusMapReadShell
       eyebrow="校园地图"
       title={`${name}的编辑记录`}
-      description="查看这个地点过去的公开修改。"
       actions={
         <div className="flex flex-wrap gap-2">
           <ReadLink href={mapHref}>返回地图</ReadLink>
@@ -384,7 +383,7 @@ export function CampusMapReadShell({
 }: {
   eyebrow: string;
   title: string;
-  description: string;
+  description?: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -400,9 +399,11 @@ export function CampusMapReadShell({
               <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
                 {title}
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                {description}
-              </p>
+              {description ? (
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  {description}
+                </p>
+              ) : null}
             </div>
             {actions}
           </div>

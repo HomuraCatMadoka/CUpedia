@@ -50,6 +50,10 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
     expect(
       screen.getByRole("link", { name: "保留地点" }).getAttribute("href"),
     ).toBe(`/campus-map/places/${survivorId}`);
+    expect(
+      screen.queryByText("按时间查看地点名称、类型和位置的修改。"),
+    ).toBeNull();
+    expect(screen.queryByText("查看这个地点过去的公开修改。")).toBeNull();
   });
 
   it("shows the Changeset explanation and safe source summary on revisions", () => {

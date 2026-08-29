@@ -385,6 +385,17 @@ describe("CampusMapRuntime", () => {
     expect(search.getAttribute("autocomplete")).toBe("off");
   });
 
+  it("uses plain language when search has no results", async () => {
+    render(<CampusMapRuntime />);
+
+    fireEvent.change(screen.getByPlaceholderText("搜索建筑或地点…"), {
+      target: { value: "不存在的地点" },
+    });
+
+    expect(await screen.findByText("没有找到建筑或地点")).not.toBeNull();
+    expect(screen.queryByText(/正式建筑或设施/)).toBeNull();
+  });
+
   it("searches formal Current facts and lists same-type Places separately in the Building card", async () => {
     render(
       <CampusMapRuntime
@@ -408,7 +419,7 @@ describe("CampusMapRuntime", () => {
     expect(screen.getByText("Ho Sin-Hang Engineering Building")).not.toBeNull();
     expect(screen.queryByText(/Current facts/i)).toBeNull();
     const buildingCta = screen.getByRole("button", {
-      name: "查看 2 个校内地点",
+      name: "查看地点",
     });
     expect(buildingCta).not.toBeNull();
     expect(buildingCta.closest(".overflow-y-auto")?.className).toContain(
@@ -418,6 +429,7 @@ describe("CampusMapRuntime", () => {
 
     expect(screen.getByRole("heading", { name: "1/F" })).not.toBeNull();
     expect(screen.getByRole("heading", { name: "2/F" })).not.toBeNull();
+    expect(screen.queryByRole("heading", { name: "建筑内设施" })).toBeNull();
     expect(screen.getByRole("button", { name: /东翼洗手间/ })).not.toBeNull();
     expect(screen.getByRole("button", { name: /西翼洗手间/ })).not.toBeNull();
   });
@@ -434,6 +446,7 @@ describe("CampusMapRuntime", () => {
       await screen.findByRole("heading", { name: "空置测试楼" }),
     ).not.toBeNull();
     expect(screen.getByText("暂未收录校内地点")).not.toBeNull();
+    expect(screen.queryByText("正式校舍资料")).toBeNull();
     expect(
       screen.queryByRole("button", { name: "查看 0 个校内地点" }),
     ).toBeNull();
@@ -449,6 +462,9 @@ describe("CampusMapRuntime", () => {
     );
 
     await screen.findByRole("heading", { name: "饮水机" });
+    expect(screen.queryByText("G/F")).toBeNull();
+    expect(screen.queryByText(/开放条件未完全核实/)).toBeNull();
+    expect(screen.queryByText(/尚无室内精确坐标/)).toBeNull();
     for (const control of [
       screen.getByRole("button", { name: "建议修改" }),
       screen.getByRole("button", { name: "定位所属建筑" }),
@@ -532,7 +548,7 @@ describe("CampusMapRuntime", () => {
     expect(
       document.querySelector('[aria-live="polite"]')?.textContent,
     ).not.toContain("地点已添加");
-    expect(screen.getAllByText("室外位置")).toHaveLength(2);
+    expect(screen.getAllByText("室外位置")).toHaveLength(1);
     expect(screen.queryByText("建筑内")).toBeNull();
     expect(screen.queryByText("PUBLISHED")).toBeNull();
     expect(
@@ -560,9 +576,7 @@ describe("CampusMapRuntime", () => {
         document.querySelector(`[data-search-result="${placeId}"]`),
       ).not.toBeNull(),
     );
-    const result = screen
-      .getByText("校内独立地点 · 新发布饮水点")
-      .closest("button");
+    const result = screen.getByText("新发布饮水点").closest("button");
     expect(result).not.toBeNull();
     fireEvent.click(result!);
     expect(
@@ -1326,8 +1340,10 @@ describe("CampusMapRuntime", () => {
         document.querySelector(`[data-search-result="${placeId}"]`),
       ).not.toBeNull(),
     );
-    expect(screen.getByText("校内独立地点 · 新发布饮水点")).not.toBeNull();
-    expect(screen.getByText("室外位置 · 开放条件未完全核实")).not.toBeNull();
+    expect(screen.getByText("新发布饮水点")).not.toBeNull();
+    expect(screen.getByText("室外位置")).not.toBeNull();
+    expect(screen.queryByText(/校内独立地点/)).toBeNull();
+    expect(screen.queryByText(/开放条件未完全核实/)).toBeNull();
     expect(screen.queryByText(/公众可达/)).toBeNull();
     expect(window.location.search).toContain("scene=search");
   });
@@ -1342,10 +1358,11 @@ describe("CampusMapRuntime", () => {
       />,
     );
 
-    expect(await screen.findByText("校园内已收录 1 个室外地点")).not.toBeNull();
+    expect(await screen.findByText("1 个地点")).not.toBeNull();
     expect(screen.queryByText(/0 栋建筑/)).toBeNull();
-    expect(await screen.findByText("校内独立地点 · 室外位置")).not.toBeNull();
-    expect(screen.queryByText("校内独立地点 · 建筑内")).toBeNull();
+    expect(await screen.findByText("新发布饮水点")).not.toBeNull();
+    expect(screen.getByText("室外位置")).not.toBeNull();
+    expect(screen.queryByText(/校内独立地点/)).toBeNull();
   });
 
   it("distinguishes outdoor Places from Building-contained category results", async () => {
@@ -1356,11 +1373,8 @@ describe("CampusMapRuntime", () => {
       />,
     );
 
-    expect(
-      await screen.findByText(
-        "校园内已收录 3 个地点：1 个在室外，其余分布在 2 栋建筑",
-      ),
-    ).not.toBeNull();
+    expect(await screen.findByText("3 个地点")).not.toBeNull();
+    expect(screen.queryByText(/校园内已收录/)).toBeNull();
   });
 
   it("keeps the draft and does not publish when contributor setup is cancelled", async () => {
@@ -2080,14 +2094,13 @@ describe("CampusMapRuntime", () => {
     expect(push.mock.calls.length - before).toBe(1);
   });
 
-  it("labels building-level facility positions without claiming indoor precision", async () => {
+  it("uses the location action without repeating an indoor precision warning", async () => {
     render(
       <CampusMapRuntime initialSearch="?v=1&scene=facility&id=71000000-0000-4000-8000-000000000003&snap=peek" />,
     );
 
-    expect(
-      await screen.findByText("建筑内位置 · 尚无室内精确坐标"),
-    ).not.toBeNull();
+    await screen.findByRole("heading", { name: "洗手间" });
+    expect(screen.queryByText(/尚无室内精确坐标/)).toBeNull();
     expect(screen.getByRole("button", { name: "定位所属建筑" })).not.toBeNull();
   });
 
@@ -2156,7 +2169,7 @@ describe("CampusMapRuntime", () => {
     fireEvent.change(search, { target: { value: "大学图书馆 饮水机" } });
 
     expect(
-      await screen.findByRole("button", { name: /大学图书馆.*饮水机/ }),
+      await screen.findByRole("button", { name: /饮水机.*大学图书馆/ }),
     ).not.toBeNull();
   });
 
@@ -2180,7 +2193,7 @@ describe("CampusMapRuntime", () => {
 
     fireEvent.change(search, { target: { value: "大学图书馆 饮水机" } });
     fireEvent.click(
-      await screen.findByRole("button", { name: /大学图书馆.*饮水机/ }),
+      await screen.findByRole("button", { name: /饮水机.*大学图书馆/ }),
     );
 
     expect(
@@ -2202,7 +2215,7 @@ describe("CampusMapRuntime", () => {
     expect(history.getAttribute("href")).toBe(
       "/campus-map/places/71000000-0000-4000-8000-000000000005/history",
     );
-    expect(screen.getByRole("group", { name: "地点次要操作" })).not.toBeNull();
+    expect(screen.getByRole("group", { name: "更多地点操作" })).not.toBeNull();
     expect(
       screen.getByRole("region", { name: "饮水机" }).textContent,
     ).toContain("饮水点");
@@ -2241,9 +2254,7 @@ describe("CampusMapRuntime", () => {
         name: "饮水点",
       }),
     ).not.toBeNull();
-    expect(
-      screen.getByText("校园内已收录 2 个地点，分布在 2 栋建筑"),
-    ).not.toBeNull();
+    expect(screen.getByText("2 个地点")).not.toBeNull();
     expect(screen.queryByText(/Current facts/i)).toBeNull();
     const firstCategoryResult = screen.getByRole("button", {
       name: /科学馆 · 1\/F/,

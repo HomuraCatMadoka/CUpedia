@@ -436,7 +436,7 @@ function accessLabel(facility: Facility) {
     facility.access.reservationRequirement === "unknown" ||
     facility.access.temporaryStatus === "unknown"
   ) {
-    return "开放条件未完全核实";
+    return null;
   }
   const conditions: string[] = [];
   if (facility.access.audience === "cuhk-member") {
@@ -458,6 +458,10 @@ function accessLabel(facility: Facility) {
     conditions.push("需要预约");
   }
   return conditions.length > 0 ? conditions.join(" · ") : "公众可达";
+}
+
+function metadataLabel(...parts: Array<string | null | undefined>) {
+  return parts.filter(Boolean).join(" · ");
 }
 
 function browseMarkerKey(marker: CampusMapBrowseMarker) {
@@ -2153,17 +2157,7 @@ export function CampusMapRuntime({
     ? queryCampusMapBrowse(browseProjection, { pinType: activeAmenity })
     : null;
   const categoryFacilities = categoryResults?.places ?? [];
-  const categoryBuildingCount = categoryResults?.counts.buildings ?? 0;
-  const categoryOutdoorCount = categoryFacilities.filter(
-    (facility) => facility.location.kind === "outdoor-point",
-  ).length;
-  const categorySummary =
-    categoryOutdoorCount === categoryFacilities.length &&
-    categoryOutdoorCount > 0
-      ? `校园内已收录 ${categoryOutdoorCount} 个室外地点`
-      : categoryOutdoorCount > 0
-        ? `校园内已收录 ${categoryFacilities.length} 个地点：${categoryOutdoorCount} 个在室外，其余分布在 ${categoryBuildingCount} 栋建筑`
-        : `校园内已收录 ${categoryFacilities.length} 个地点，分布在 ${categoryBuildingCount} 栋建筑`;
+  const categorySummary = `${categoryFacilities.length} 个地点`;
   const activeCategoryStyle = activeAmenity
     ? amenityStyle(activeAmenity)
     : null;
@@ -2331,6 +2325,14 @@ export function CampusMapRuntime({
                     result.kind === "building"
                       ? result.building.buildingId
                       : result.facility.placeId;
+                  const subtitle =
+                    result.kind === "building"
+                      ? result.building.englishName
+                      : metadataLabel(
+                          result.building?.name,
+                          placeLocationLabel(result.facility),
+                          accessLabel(result.facility),
+                        );
                   const content = (
                     <>
                       <span className="grid size-9 place-items-center rounded-lg bg-[#e4f1eb] text-xs font-bold text-[#176346]">
@@ -2342,13 +2344,13 @@ export function CampusMapRuntime({
                         <strong className="block truncate text-sm">
                           {result.kind === "building"
                             ? result.building.name
-                            : `${result.building?.name ?? "校内独立地点"} · ${result.facility.name}`}
+                            : result.facility.name}
                         </strong>
-                        <span className="block truncate text-xs text-neutral-500">
-                          {result.kind === "building"
-                            ? (result.building.englishName ?? "正式校舍资料")
-                            : `${placeLocationLabel(result.facility)} · ${accessLabel(result.facility)}`}
-                        </span>
+                        {subtitle ? (
+                          <span className="block truncate text-xs text-neutral-500">
+                            {subtitle}
+                          </span>
+                        ) : null}
                       </span>
                     </>
                   );
@@ -2372,7 +2374,7 @@ export function CampusMapRuntime({
                 })
               ) : (
                 <p className="px-4 py-4 text-sm text-neutral-600">
-                  没有匹配的正式建筑或设施
+                  没有找到建筑或地点
                 </p>
               )}
             </div>
@@ -2543,11 +2545,10 @@ export function CampusMapRuntime({
             className="flex h-[calc(100%-44px)] flex-col justify-center px-5 pb-5"
           >
             <h2 id="campus-map-panel-title" className="text-xl font-semibold">
-              地点资料暂时无法载入
+              {activeProviderTargetError.title}
             </h2>
             <p className="mt-2 text-sm text-neutral-600">
-              {activeProviderTargetError.title}{" "}
-              已有正式映射，但最新地点资料未能载入。
+              暂时无法载入地点资料
             </p>
             <button
               type="button"
@@ -2645,12 +2646,13 @@ export function CampusMapRuntime({
                       <activeCategoryStyle.icon className="size-4" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <strong className="block text-sm">
-                        {building?.name ?? "校内独立地点"} ·{" "}
-                        {placeLocationLabel(facility)}
-                      </strong>
+                      <strong className="block text-sm">{facility.name}</strong>
                       <span className="mt-0.5 block text-xs text-neutral-500">
-                        {facility.name} · {accessLabel(facility)}
+                        {metadataLabel(
+                          building?.name,
+                          placeLocationLabel(facility),
+                          accessLabel(facility),
+                        )}
                       </span>
                     </span>
                   </>
@@ -2680,18 +2682,18 @@ export function CampusMapRuntime({
                 >
                   {state.sheet.snap === "full"
                     ? "收起列表"
-                    : `查看全部 ${categoryFacilities.length} 项设施记录`}
+                    : `查看全部 ${categoryFacilities.length} 个地点`}
                 </button>
               ) : null}
               {!categoryFacilities.length ? (
                 <div className="py-6 text-center text-sm text-neutral-500">
-                  <p>当前没有已收录地点</p>
+                  <p>暂无地点</p>
                   <button
                     type="button"
                     className="mt-3 min-h-11 rounded-xl bg-[#174b38] px-4 font-semibold text-white"
                     onClick={startAddAtPlacementAnchor}
                   >
-                    添加这个类别的地点
+                    添加地点
                   </button>
                 </div>
               ) : null}
@@ -2730,13 +2732,17 @@ export function CampusMapRuntime({
                 >
                   {selectedFacility?.name ?? selectedBuilding?.name}
                 </h2>
-                <p className="mt-1 truncate text-sm text-neutral-500">
-                  {selectedFacility
-                    ? selectedBuilding
+                {selectedFacility ? (
+                  <p className="mt-1 truncate text-sm text-neutral-500">
+                    {selectedBuilding
                       ? `${selectedBuilding.name} · ${floorLabel(selectedFacility.floorId, selectedFacility.floorLabel)}`
-                      : placeLocationLabel(selectedFacility)
-                    : (selectedBuilding?.englishName ?? "正式校舍资料")}
-                </p>
+                      : placeLocationLabel(selectedFacility)}
+                  </p>
+                ) : selectedBuilding?.englishName ? (
+                  <p className="mt-1 truncate text-sm text-neutral-500">
+                    {selectedBuilding.englishName}
+                  </p>
+                ) : null}
                 {selectedBuilding && !selectedFacility ? (
                   <p className="mt-1 text-sm font-medium text-[#174b38]">
                     {selectedBuilding.placeIds.length
@@ -2761,18 +2767,12 @@ export function CampusMapRuntime({
                   <span className="rounded-lg bg-[#e7f1ec] px-2.5 py-1.5 text-sm font-medium text-[#174b38]">
                     {amenityStyle(selectedFacility.pinType).label}
                   </span>
-                  <span className="rounded-lg bg-[#e7f1ec] px-2.5 py-1.5 text-sm font-medium text-[#174b38]">
-                    {placeLocationLabel(selectedFacility)}
-                  </span>
-                  <span className="rounded-lg bg-neutral-100 px-2.5 py-1.5 text-sm text-neutral-700">
-                    {accessLabel(selectedFacility)}
-                  </span>
+                  {accessLabel(selectedFacility) ? (
+                    <span className="rounded-lg bg-neutral-100 px-2.5 py-1.5 text-sm text-neutral-700">
+                      {accessLabel(selectedFacility)}
+                    </span>
+                  ) : null}
                 </div>
-                {selectedFacility.location.kind !== "outdoor-point" ? (
-                  <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                    建筑内位置 · 尚无室内精确坐标
-                  </p>
-                ) : null}
                 <button
                   type="button"
                   className="mt-3 min-h-11 w-full touch-manipulation rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white hover:bg-[#123d2e] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 motion-reduce:transform-none"
@@ -2782,7 +2782,7 @@ export function CampusMapRuntime({
                 </button>
                 <div
                   role="group"
-                  aria-label="地点次要操作"
+                  aria-label="更多地点操作"
                   className="mt-2 grid grid-cols-2 gap-2"
                 >
                   <button
@@ -2863,20 +2863,12 @@ export function CampusMapRuntime({
                         dispatch({ type: "SET_SNAP", snap: "full" })
                       }
                     >
-                      查看 {selectedBuilding.placeIds.length} 个校内地点
+                      查看地点
                     </button>
                   ) : null}
-                  <h3
-                    className={cn(
-                      "text-sm font-semibold",
-                      state.sheet.snap !== "full" && "hidden md:block",
-                    )}
-                  >
-                    建筑内设施
-                  </h3>
                   <div
                     className={cn(
-                      "mt-3 divide-y divide-black/8",
+                      "divide-y divide-black/8",
                       state.sheet.snap !== "full" && "hidden md:block",
                     )}
                   >
@@ -2935,8 +2927,10 @@ export function CampusMapRuntime({
                                       {facility.name}
                                     </strong>
                                     <span className="text-xs text-neutral-500">
-                                      {amenityStyle(facility.pinType).label} ·{" "}
-                                      {accessLabel(facility)}
+                                      {metadataLabel(
+                                        amenityStyle(facility.pinType).label,
+                                        accessLabel(facility),
+                                      )}
                                     </span>
                                   </span>
                                 </button>
@@ -2947,7 +2941,7 @@ export function CampusMapRuntime({
                       ))
                     ) : (
                       <p className="py-8 text-center text-sm text-neutral-500">
-                        这个楼层暂无已收录设施
+                        这个楼层暂无地点
                       </p>
                     )}
                   </div>

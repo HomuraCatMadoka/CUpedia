@@ -928,10 +928,12 @@ describe("Campus Map AMap runtime effects", () => {
     const push = vi.spyOn(window.history, "pushState");
     await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "打印服务" }));
-    expect(await screen.findByText("当前没有已收录地点")).not.toBeNull();
+    expect(await screen.findByText("暂无地点")).not.toBeNull();
     push.mockClear();
 
-    fireEvent.click(screen.getByRole("button", { name: "添加这个类别的地点" }));
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "添加地点" }).at(-1)!,
+    );
 
     expect(
       await screen.findByRole("heading", { name: "选择设施位置" }),
@@ -1363,10 +1365,11 @@ describe("Campus Map AMap runtime effects", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "地点资料暂时无法载入",
+        name: place.name,
       }),
     ).not.toBeNull();
-    expect(screen.getByText(place.name)).not.toBeNull();
+    expect(screen.getByText("暂时无法载入地点资料")).not.toBeNull();
+    expect(screen.queryByText(/正式映射/)).toBeNull();
     expect(window.location.search).toBe(initialSearch);
     const errorPanel = screen.getByRole("alert").closest("section");
     expect(errorPanel?.className).toContain(
@@ -1378,9 +1381,7 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.keyDown(window, { key: "Escape" });
 
     await waitFor(() =>
-      expect(
-        screen.queryByRole("heading", { name: "地点资料暂时无法载入" }),
-      ).toBeNull(),
+      expect(screen.queryByRole("heading", { name: place.name })).toBeNull(),
     );
     expect(screen.getByRole("heading", { name: building.name })).not.toBeNull();
   });
@@ -1620,7 +1621,7 @@ describe("Campus Map AMap runtime effects", () => {
   it("fits cluster members without selecting the first facility", async () => {
     const { runtime, map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByText("校园内已收录 2 个地点，分布在 2 栋建筑");
+    await screen.findByText("2 个地点");
     await waitFor(() => {
       expect(
         runtime.clusters.some((cluster) => cluster.data.length === 2),
@@ -1660,7 +1661,7 @@ describe("Campus Map AMap runtime effects", () => {
 
     const { runtime, map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByText("校园内已收录 3 个地点，分布在 2 栋建筑");
+    await screen.findByText("3 个地点");
 
     const cluster = await waitFor(() => {
       const match = runtime.clusters.findLast(
@@ -1706,7 +1707,7 @@ describe("Campus Map AMap runtime effects", () => {
 
     const { runtime } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByText("校园内已收录 3 个地点，分布在 2 栋建筑");
+    await screen.findByText("3 个地点");
 
     const scienceMarkers = await waitFor(() => {
       const cluster = runtime.clusters.findLast(
@@ -1752,7 +1753,7 @@ describe("Campus Map AMap runtime effects", () => {
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByText("校园内已收录 2 个地点，分布在 2 栋建筑");
+    await screen.findByText("2 个地点");
     await waitFor(() => {
       expect(
         runtime.clusters.some((cluster) =>
