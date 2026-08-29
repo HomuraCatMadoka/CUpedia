@@ -6,7 +6,7 @@ import {
 
 /**
  * Pure product kernel layered on the #593 ports. Provider gesture arbitration,
- * camera execution, overlay lifecycle, browser history, and MarkerCluster
+ * camera execution, browser history, and MarkerCluster
  * failure handling remain owned by their existing adapters and runtimes.
  */
 
@@ -143,13 +143,10 @@ export type CampusMapCameraCommand =
   | { kind: "focus-place"; placeId: string; reason: CameraReason }
   | { kind: "cancel" };
 
-export type CampusMapOverlayCommand = { kind: "close-external" };
-
 export type CampusMapSceneCommands = {
   history: "push" | "replace" | "back-or-push" | null;
   camera: CampusMapCameraCommand | null;
   focus: CampusMapFocusCommand | null;
-  overlay: CampusMapOverlayCommand | null;
 };
 
 export type CampusMapTransition =
@@ -174,7 +171,6 @@ const NO_COMMANDS: CampusMapSceneCommands = {
   history: null,
   camera: null,
   focus: null,
-  overlay: null,
 };
 
 type NavigationClass =
@@ -264,7 +260,6 @@ export function transitionCampusMapSession(
             ) ?? { kind: "cancel" })
           : { kind: "cancel" },
         focus: restored?.focus ?? { kind: "map" },
-        overlay: { kind: "close-external" },
       },
     };
   }
@@ -291,7 +286,6 @@ export function transitionCampusMapSession(
         history: historyCommandFor("enter"),
         camera: { kind: "cancel" },
         focus: { kind: "contribution-form" },
-        overlay: { kind: "close-external" },
       },
     };
   }
@@ -313,7 +307,6 @@ export function transitionCampusMapSession(
         history: historyCommandFor("enter"),
         camera: { kind: "cancel" },
         focus: { kind: "contribution-form" },
-        overlay: { kind: "close-external" },
       },
     };
   }
@@ -342,7 +335,6 @@ export function transitionCampusMapSession(
         camera: { kind: "cancel" },
         focus:
           anchor.kind === "building" ? { kind: "heading" } : { kind: "map" },
-        overlay: null,
       },
     };
   }
@@ -360,7 +352,6 @@ export function transitionCampusMapSession(
         history: historyCommandFor("refine"),
         camera: { kind: "cancel" },
         focus: { kind: "map" },
-        overlay: { kind: "close-external" },
       },
     };
   }
@@ -383,7 +374,6 @@ export function transitionCampusMapSession(
         history: historyCommandFor("refine"),
         camera: null,
         focus: event.snap === "full" ? { kind: "heading" } : null,
-        overlay: null,
       },
     };
   }
@@ -409,7 +399,6 @@ export function transitionCampusMapSession(
         history: historyCommandFor("refine"),
         camera: null,
         focus: { kind: "results" },
-        overlay: null,
       },
     };
   }
@@ -434,7 +423,6 @@ export function transitionCampusMapSession(
         history: historyCommandFor("refine"),
         camera: { kind: "cancel" },
         focus: { kind: "search-input" },
-        overlay: { kind: "close-external" },
       },
     };
   }
@@ -472,7 +460,6 @@ export function transitionCampusMapSession(
             event.source === "search" ? "search-selection" : "map-selection",
         },
         focus: { kind: "heading" },
-        overlay: { kind: "close-external" },
       },
     };
   }
@@ -507,7 +494,6 @@ export function transitionCampusMapSession(
                   : "facility-selection",
               ) ?? { kind: "cancel" }),
         focus: { kind: "heading" },
-        overlay: { kind: "close-external" },
       },
     };
   }
@@ -541,7 +527,6 @@ export function transitionCampusMapSession(
               }
             : { kind: "cancel" },
         focus: { kind: "heading" },
-        overlay: { kind: "close-external" },
       },
     };
   }
@@ -577,7 +562,6 @@ export function transitionCampusMapSession(
         history: historyCommandFor("transient"),
         camera: { kind: "cancel" },
         focus: { kind: "heading" },
-        overlay: null,
       },
     };
   }
@@ -611,7 +595,6 @@ export function transitionCampusMapSession(
       ),
       camera: { kind: "cancel" },
       focus: { kind: "results" },
-      overlay: { kind: "close-external" },
     },
   };
 }

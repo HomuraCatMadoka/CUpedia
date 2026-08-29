@@ -42,7 +42,7 @@ Verified at。`unknown` 不提升为 unrestricted、true 或 false；显示精�
 并把 loser 保留为永久 redirect/tombstone；普通停用是可恢复的 retired，ID 不删除、不复用。
 
 供应商 POI 通过显式 `(provider, providerPlaceId)` 映射到 canonical ID。名称或距离匹配只能
-产生待人工关联候选。scene kernel、URL/history state、列表聚合、cluster、provider InfoWindow
+产生待人工关联候选。scene kernel、URL/history state、列表聚合、cluster、provider card
 和 RPG ArtPoint 都是 presentation；它们引用 canonical ID，但不能成为事实来源或另建身份。
 
 ## 后果

@@ -1080,7 +1080,6 @@ export function CampusMapRuntime({
           });
         });
       },
-      overlay: () => {},
       sheet: (sheet, context) => {
         if (sheet.kind === "hide") {
           sceneDriver.updateSheetGeometry(null);

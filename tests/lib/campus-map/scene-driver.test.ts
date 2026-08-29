@@ -70,7 +70,6 @@ function harness(initialSearch = "?v=1", clearStartEffects = true) {
     },
     camera: vi.fn(),
     focus: vi.fn(),
-    overlay: vi.fn(),
     sheet: vi.fn(),
   };
   const driver = new CampusMapSceneDriver(catalog, ports, initialSearch);
@@ -79,7 +78,6 @@ function harness(initialSearch = "?v=1", clearStartEffects = true) {
   if (clearStartEffects) {
     vi.mocked(ports.camera).mockClear();
     vi.mocked(ports.focus).mockClear();
-    vi.mocked(ports.overlay).mockClear();
     vi.mocked(ports.sheet).mockClear();
   }
   return {
@@ -519,7 +517,6 @@ describe("CampusMapSceneDriver", () => {
     vi.mocked(runtime.history.replaceState).mockClear();
     vi.mocked(runtime.ports.camera).mockClear();
     vi.mocked(runtime.ports.focus).mockClear();
-    vi.mocked(runtime.ports.overlay).mockClear();
     vi.mocked(runtime.ports.sheet).mockClear();
 
     runtime.driver.dispatch({
@@ -533,7 +530,6 @@ describe("CampusMapSceneDriver", () => {
     expect(runtime.history.replaceState).not.toHaveBeenCalled();
     expect(runtime.ports.camera).not.toHaveBeenCalled();
     expect(runtime.ports.focus).not.toHaveBeenCalled();
-    expect(runtime.ports.overlay).not.toHaveBeenCalled();
     expect(runtime.ports.sheet).not.toHaveBeenCalled();
   });
 

@@ -1,6 +1,6 @@
 # 开源地图交互架构对照：#593 应该如何收口
 
-> 调研日期：2026-08-14。只使用仓库源码与仓库内架构文档；链接固定到所检查的 commit。
+> 调研日期：2026-08-14。只使用仓库源码与仓库内架构文档；链接固定到所检查的 commit。#649 已将早期 provider InfoWindow 方案替换为 scene 投影的共享轻量 React 卡片。
 
 ## 结论
 
@@ -8,22 +8,22 @@
 
 - 产品选择、搜索和面板状态不会完全寄存在地图 SDK 实例里；
 - SDK 原始事件通常先经过 adaptor/proxy/handler，再进入产品逻辑；
-- camera、overlay、SDK 生命周期有专门 owner；
+- camera 和 SDK 覆盖物生命周期有专门 owner；
 - 面板通常根据 selection/view model 投影，而不是反过来充当产品状态；
 - 复杂项目会用显式 command/request/mode 约束可发生的转换。
 
-因此，前述 `Scene Kernel + AMap Interaction Adapter + Effect Runtime + UI Projection` 是这些实践针对 #593 的组合，不是过度工程。#593 当前已经有 reducer 和 session transition，问题是仍处于“分了一半”的状态：组件还同时拥有 history、camera、provider 事件归并、overlay 和 UI。
+因此，前述 `Scene Kernel + AMap Interaction Adapter + Effect Runtime + UI Projection` 是这些实践针对 #593 的组合，不是过度工程。早期 #593 虽有 reducer 和 session transition，组件仍同时拥有 history、camera、provider 事件归并和 UI；后续实现已将这些职责收进正式 driver 与 adapter。
 
 ## 一手源码对照
 
-| 项目                                                                                                                    | 代表性做法                                                                                                                                              | 对 #593 的意义                                                      |
-| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| [MapComplete @ `cf368606`](https://github.com/pietervdvn/MapComplete/tree/cf368606d31fdc7542de44f1231ec2f25212f87d)     | `ThemeViewState` 是 GUI 状态中枢；`WithSelectedElementState` 明确“不含 GUI”；`MapLibreAdaptor` 在 `MapProperties` 与 SDK 之间桥接；hash 另由 actor 同步 | 与目标架构最接近：selection、provider、URL 各有边界                 |
-| [uMap @ `40b1c703`](https://github.com/umap-project/umap/tree/40b1c703fb1875ff644288970186d6994746c50f)                 | `LeafletProxy`/`OLProxy` 把不同 provider 翻译成共同 app events；camera 和 popup 命令由 proxy 执行；Panel 独立管理 DOM                                   | 证明 provider adapter 与 camera/overlay runtime 是实际可替换的 seam |
-| [Organic Maps @ `3655a703`](https://github.com/organicmaps/organicmaps/tree/3655a7033e65c2460150ca9e3fbc07754fe2d10b)   | Search-on-map 使用 typed `Request → Response → ViewModel → render`，并对选择地点、拖地图和面板状态做表驱动测试                                          | 证明地图产品行为应先成为可测试的产品转换，再驱动面板                |
-| [OpenStreetMap iD @ `9b18ef29`](https://github.com/openstreetmap/iD/tree/9b18ef296a1ae04f2072d02f0be5a38e0af74455)      | action 产生新 graph；互斥 mode 有 `enter/exit`；behavior 负责安装/卸载事件                                                                              | 证明交互模式必须排他、生命周期必须成对，不应靠散落 boolean ref      |
-| [react-map-gl @ `4b649aaf`](https://github.com/visgl/react-map-gl/tree/4b649aaf926adacb3ffba4b7c5d8edebaca90f8a)        | React 组件只管理一个 MapLibre wrapper；wrapper 归一 pointer/camera events、同步 controlled view state、负责销毁与错误回调                               | 证明 SDK lifecycle 与 React 产品组件应隔离                          |
-| [MapLibre GL JS @ `06cac16c`](https://github.com/maplibre/maplibre-gl-js/tree/06cac16ca843bbc9b029aff71d4120ef448f79b4) | DOM 事件统一进入 `HandlerManager`，handler 有兼容/阻塞规则；`Camera` 与 handler manager 分离                                                            | 证明“一个手势只被一个交互认领”应由适配层统一仲裁                    |
+| 项目                                                                                                                    | 代表性做法                                                                                                                                              | 对 #593 的意义                                                  |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [MapComplete @ `cf368606`](https://github.com/pietervdvn/MapComplete/tree/cf368606d31fdc7542de44f1231ec2f25212f87d)     | `ThemeViewState` 是 GUI 状态中枢；`WithSelectedElementState` 明确“不含 GUI”；`MapLibreAdaptor` 在 `MapProperties` 与 SDK 之间桥接；hash 另由 actor 同步 | 与目标架构最接近：selection、provider、URL 各有边界             |
+| [uMap @ `40b1c703`](https://github.com/umap-project/umap/tree/40b1c703fb1875ff644288970186d6994746c50f)                 | `LeafletProxy`/`OLProxy` 把不同 provider 翻译成共同 app events；camera 和 popup 命令由 proxy 执行；Panel 独立管理 DOM                                   | 证明 provider adapter 与 camera/SDK runtime 是实际可替换的 seam |
+| [Organic Maps @ `3655a703`](https://github.com/organicmaps/organicmaps/tree/3655a7033e65c2460150ca9e3fbc07754fe2d10b)   | Search-on-map 使用 typed `Request → Response → ViewModel → render`，并对选择地点、拖地图和面板状态做表驱动测试                                          | 证明地图产品行为应先成为可测试的产品转换，再驱动面板            |
+| [OpenStreetMap iD @ `9b18ef29`](https://github.com/openstreetmap/iD/tree/9b18ef296a1ae04f2072d02f0be5a38e0af74455)      | action 产生新 graph；互斥 mode 有 `enter/exit`；behavior 负责安装/卸载事件                                                                              | 证明交互模式必须排他、生命周期必须成对，不应靠散落 boolean ref  |
+| [react-map-gl @ `4b649aaf`](https://github.com/visgl/react-map-gl/tree/4b649aaf926adacb3ffba4b7c5d8edebaca90f8a)        | React 组件只管理一个 MapLibre wrapper；wrapper 归一 pointer/camera events、同步 controlled view state、负责销毁与错误回调                               | 证明 SDK lifecycle 与 React 产品组件应隔离                      |
+| [MapLibre GL JS @ `06cac16c`](https://github.com/maplibre/maplibre-gl-js/tree/06cac16ca843bbc9b029aff71d4120ef448f79b4) | DOM 事件统一进入 `HandlerManager`，handler 有兼容/阻塞规则；`Camera` 与 handler manager 分离                                                            | 证明“一个手势只被一个交互认领”应由适配层统一仲裁                |
 
 ### 1. MapComplete：最接近我们的目标，但也展示了反例
 
@@ -59,8 +59,8 @@ react-map-gl 的 React `Map` 只创建、更新和销毁一个 wrapper，并把�
 
 这份调研记录的中间态已经删除。正式
 [`campus-map-runtime.tsx`](../../src/components/campus-map/campus-map-runtime.tsx)
-只把用户和 provider intent 交给 `scene-driver.ts`；driver 统一拥有 URL/history、camera、focus、
-Sheet 与 overlay effect。`map-state.ts`、`map-session.ts`、`browser-history.ts` 和静态 runtime
+只把用户和 provider intent 交给 `scene-driver.ts`；driver 统一拥有 URL/history、camera、focus
+与 Sheet effect。共享卡片直接由 scene 投影，不使用单独 overlay command。`map-state.ts`、`map-session.ts`、`browser-history.ts` 和静态 runtime
 catalog 已删除，`/prototype/campus-map` 只重定向到正式 `/campus-map`。
 
 ### #593 当前落地状态
@@ -69,7 +69,7 @@ catalog 已删除，`/prototype/campus-map` 只重定向到正式 `/campus-map`�
 
 1. `AmapInteractionAdapter` 以 pointer gesture 为边界仲裁 `hotspotclick` / marker / cluster 与 companion map `click`；provider 与 background handler 只能把产品动作交给 adapter，adapter 对同一 pointer cycle 最多执行一次；background click 经过可取消 settlement，两个事件顺序均有 trace test；
 2. `scene-kernel.ts` 暴露互斥的 map / search-results / category-results / building / facility / content / provider-poi scene，以及对应的 typed intent；facility 的 building、floor 与 category 只从 catalog 推导；
-3. `scene-driver.ts` 是唯一产品 session owner。React 的搜索、类别、热点、marker、目录、deep link、Back、X、Escape、popstate 与 sheet intent 都只 dispatch 一次；driver 独占 URL/history write/travel，并统一执行 camera、focus、overlay 与 sheet command；
+3. `scene-driver.ts` 是唯一产品 session owner。React 的搜索、类别、热点、marker、目录、deep link、Back、X、Escape、popstate 与 sheet intent 都只 dispatch 一次；driver 独占 URL/history write/travel，并统一执行 camera、focus 与 sheet command；
 4. MarkerCluster 生命周期显式区分 loading / ready / error；插件注册与 cluster 构造/更新任一失败都会进入同一 error projection，类别列表仍可独立使用；
 5. runtime contract 已覆盖 390 / 720 / desktop panel rect、两个 provider/map-click 顺序、marker/cluster、插件 pending/注册错误/构造错误、快速 A→B 以及 drag/wheel 取消。
 
@@ -85,7 +85,6 @@ transition(scene, command, catalog): {
   effects: {
     history: HistoryIntent;
     camera?: CameraIntent;
-    overlay?: OverlayIntent;
     focus?: FocusIntent;
   };
 }
@@ -96,7 +95,7 @@ transition(scene, command, catalog): {
 ### B. `amap-interaction-adapter.ts`：只翻译 provider 事件
 
 - 在地图容器的 pointer 生命周期内生成 interaction token；hotspot/marker/background 只能认领一次；
-- 将真实高德事件序列归并为一个 `open-building`、`open-external` 或 `dismiss-entity`；
+- 将真实高德事件序列归并为一个 `open-building`、`open-provider-poi` 或 `dismiss-entity`；
 - 若高德事件缺少可共享的原始事件，允许 adaptor 内部有短暂 settlement queue，但它必须封装、可取消，并以两种事件顺序测试；
 - 产品 kernel 不接触 `originEvent`、RAF 或高德对象。
 
@@ -104,7 +103,7 @@ transition(scene, command, catalog): {
 
 - `CameraController`：token、safe area、resize、用户手势取消；
 - `HistoryAdapter`：push/replace/pop restore，restore 不回写；
-- `OverlayRegistry`：InfoWindow、facility marker、cluster 的 loading/ready/error 与销毁；
+- `MarkerRegistry`：facility marker、cluster 的 loading/ready/error 与销毁；
 - 一个 effect 执行器按 transition 输出运行这些 intent。
 
 ### D. UI 只做 projection
@@ -123,7 +122,7 @@ Panel、category list、facility card 都只从 `CampusMapScene`/derived view mo
 
 修复后的矩阵应分四层，而不是所有行都标成“组件测试”：
 
-1. **Kernel table test**：每个 command 精确断言 next scene、history、camera、overlay；
+1. **Kernel table test**：每个 command 精确断言 next scene、history、camera、focus；
 2. **Adapter trace test**：hotspot→click、click→hotspot、marker→map click、blank click、drag/zoom cancellation；每个 pointer cycle 最多一个产品 command；
 3. **Runtime contract test**：390/720/desktop 的真实 panel rect、相机可见区、plugin failure、rapid A→B、destroy；
 4. **UI projection test**：同一 scene 在不同 viewport 的 panel/card/tag，以及 Back/Forward 恢复。
