@@ -2202,8 +2202,10 @@ export function CampusMapRuntime({
   const activeCategoryStyle = activeAmenity
     ? amenityStyle(activeAmenity)
     : null;
+  const canExpandBrowseCard = !selectedFacility;
   const chromeHidden =
-    Boolean(editSession) || (state.sheet.snap === "full" && !selectedFacility);
+    Boolean(editSession) ||
+    (state.sheet.snap === "full" && canExpandBrowseCard);
   const selectedBuildingIsEmpty = Boolean(
     selectedBuilding &&
     !selectedFacility &&
@@ -2229,7 +2231,7 @@ export function CampusMapRuntime({
       ? "48dvh"
       : editSession
         ? "var(--campus-map-edit-sheet-height)"
-        : panelSnap === "full" && !selectedFacility
+        : panelSnap === "full" && canExpandBrowseCard
           ? "72dvh"
           : browsePeekHeight;
   const mobileMapOcclusion = panelHidden
@@ -2559,7 +2561,7 @@ export function CampusMapRuntime({
       >
         {!editSession &&
         !activeProviderTargetError &&
-        !selectedFacility &&
+        canExpandBrowseCard &&
         !selectedBuildingIsEmpty ? (
           <button
             type="button"
