@@ -56,12 +56,18 @@ const WEEKDAYS = [
 function messageForError(code: string): string {
   const messages: Record<string, string> = {
     "fact-name-required": "设施资料不完整，请重新选择类型。",
-    "source-required": "发布记录缺少来源标记，请重试。",
+    "source-required": "发布资料不完整，请重试。",
     "invalid-location": "位置资料不完整，请修改位置。",
-    "base-revision-conflict": "地点资料已被其他人更新。",
-    "invalid-place-id": "这个过渡地点尚未连接到正式 Place。",
+    "base-revision-conflict": "地点资料已被其他人更新，请刷新后重试。",
+    "invalid-place-id": "这个地点暂时无法发布，请返回地图后重试。",
   };
-  return messages[code] ?? `服务器未接受这项资料（${code}）。`;
+  return messages[code] ?? "服务器暂时无法接受这项资料，请稍后重试。";
+}
+
+function messageForWarning(code: string): string {
+  return code === "possible-duplicate"
+    ? "附近可能已有相似设施，请确认这是另一个独立地点。"
+    : "发布前需要确认这项修改。";
 }
 
 function matchingDisplay(
@@ -707,13 +713,10 @@ export function CampusMapEditSheet({
           className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm"
           role="alert"
         >
-          <p className="font-semibold">服务器发现需要确认的情况</p>
+          <p className="font-semibold">发布前请确认</p>
           {session.warnings?.map((warning) => (
-            <p
-              key={`${warning.code}:${warning.fingerprint}`}
-              className="mt-1 break-all"
-            >
-              {warning.code} · {warning.fingerprint}
+            <p key={`${warning.code}:${warning.fingerprint}`} className="mt-1">
+              {messageForWarning(warning.code)}
             </p>
           ))}
           <button
@@ -726,7 +729,7 @@ export function CampusMapEditSheet({
               })
             }
           >
-            我已确认，重新发布
+            确认并发布
           </button>
         </div>
       );

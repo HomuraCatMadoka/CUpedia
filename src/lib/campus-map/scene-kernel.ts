@@ -130,13 +130,20 @@ export type CampusMapEvent =
   | { type: "CANCEL_TASK" }
   | { type: "RESTORE"; session: CampusMapSession };
 
-export type CampusMapFocusCommand =
+export type CampusMapFocusTarget =
   | { kind: "map" }
   | { kind: "search-input" }
   | { kind: "results" }
-  | { kind: "result"; resultId: string }
   | { kind: "heading" }
   | { kind: "contribution-form" };
+
+export type CampusMapFocusCommand =
+  | CampusMapFocusTarget
+  | {
+      kind: "result";
+      resultId: string;
+      fallback: CampusMapFocusTarget;
+    };
 
 export type CampusMapSheetSnap = "hidden" | "peek" | "full";
 

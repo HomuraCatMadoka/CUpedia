@@ -2489,6 +2489,22 @@ describe("CampusMapRuntime", () => {
     await waitFor(() => expect(window.location.search).toBe("?v=1"));
   });
 
+  it("uses a truthful generic Back label after a Place page refresh", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000005";
+    window.history.replaceState(
+      { campusMapScene: true, version: 1, depth: 1 },
+      "",
+      `/campus-map?v=1&scene=facility&id=${placeId}&snap=peek`,
+    );
+
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
+
+    await screen.findByRole("heading", { name: "饮水机" });
+    expect(screen.getByRole("button", { name: "返回" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "返回建筑" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "返回地图" })).toBeNull();
+  });
+
   it("links the selected canonical Place to its public history", async () => {
     render(
       <CampusMapRuntime initialSearch="?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=full" />,

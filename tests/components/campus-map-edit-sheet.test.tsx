@@ -623,14 +623,14 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.queryByRole("link")).toBeNull();
   });
 
-  it("renders only server-issued warning identity and a fresh acknowledgement action", () => {
+  it("keeps server warning identity out of the user-facing acknowledgement", () => {
     const fingerprint = "a".repeat(64);
     const session: CampusMapEditSession = {
       status: "warning",
       draft: draft(),
       warnings: [
         {
-          code: "duplicate-candidate",
+          code: "possible-duplicate",
           fingerprint,
           anchor: { changeIndex: 0, field: "name" },
         },
@@ -645,12 +645,44 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     expect(screen.getByRole("alert").textContent).toContain(
-      "duplicate-candidate",
+      "附近可能已有相似设施",
     );
-    expect(screen.getByRole("alert").textContent).toContain(fingerprint);
-    expect(
-      screen.getByRole("button", { name: "我已确认，重新发布" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).not.toContain(
+      "possible-duplicate",
+    );
+    expect(screen.getByRole("alert").textContent).not.toContain(fingerprint);
+    expect(screen.getByRole("button", { name: "确认并发布" })).toBeTruthy();
+  });
+
+  it("uses ordinary language for unknown and transitional server errors", () => {
+    const session = {
+      status: "editing",
+      draft: draft(),
+      serverErrors: [
+        {
+          code: "invalid-place-id",
+          anchor: { changeIndex: 0, field: "placeId" },
+        },
+        {
+          code: "internal-opaque-code",
+          anchor: { changeIndex: 0, field: "name" },
+        },
+      ],
+    } as CampusMapEditSession;
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain("这个地点暂时无法发布");
+    expect(alert.textContent).toContain("服务器暂时无法接受这项资料");
+    expect(alert.textContent).not.toContain("Place");
+    expect(alert.textContent).not.toContain("invalid-place-id");
+    expect(alert.textContent).not.toContain("internal-opaque-code");
   });
 
   it("keeps source and optional metadata controls out of the streamlined Sheet", () => {

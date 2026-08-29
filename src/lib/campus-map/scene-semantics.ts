@@ -3,6 +3,7 @@ import type {
   CampusMapCameraCommand,
   CampusMapContributionTask,
   CampusMapFocusCommand,
+  CampusMapFocusTarget,
   CampusMapSceneCatalog,
   CampusMapSession,
 } from "./scene-kernel";
@@ -32,7 +33,7 @@ export type CampusMapSessionSemantics =
       } | null;
       buildingId: string | null;
       cameraTarget: CampusMapSceneCameraTarget;
-      focus: CampusMapFocusCommand;
+      focus: CampusMapFocusTarget;
       contributionAnchor: Extract<
         CampusMapContributionTask,
         { kind: "create" }
@@ -179,7 +180,11 @@ export function projectCampusMapRestoreFocus(
       facility?.category === targetScene.category);
 
   return restoresTrigger
-    ? { kind: "result", resultId: source.scene.facilityId }
+    ? {
+        kind: "result",
+        resultId: source.scene.facilityId,
+        fallback: target.focus,
+      }
     : target.focus;
 }
 

@@ -107,11 +107,10 @@ import {
 } from "@/lib/campus-map/scene-codec";
 import {
   EMPTY_CAMPUS_MAP_SCENE_SESSION,
-  type CampusMapFocusCommand,
+  type CampusMapFocusTarget,
   type CampusMapSceneCatalog,
   type CampusMapSession,
 } from "@/lib/campus-map/scene-kernel";
-import { resolveCampusMapSessionSemantics } from "@/lib/campus-map/scene-semantics";
 import type {
   CampusMapFactSchema,
   CampusMapSelectionTarget,
@@ -425,6 +424,7 @@ function knownAmenity(value: string | null) {
 function facilityBackLabel(
   facility: Facility,
   returnTo: CampusMapSession | null,
+  hasScenePredecessor: boolean,
 ) {
   const returnScene = returnTo?.mode === "browse" ? returnTo.scene : null;
   if (returnScene?.kind === "search-results") return "返回搜索结果";
@@ -436,6 +436,7 @@ function facilityBackLabel(
   }
   if (returnScene?.kind === "building") return "返回建筑";
   if (returnScene?.kind === "map") return "返回地图";
+  if (hasScenePredecessor) return "返回";
   return facility.buildingId ? "返回建筑" : "返回地图";
 }
 
@@ -1118,9 +1119,7 @@ export function CampusMapRuntime({
         queueMicrotask(() => {
           window.requestAnimationFrame(() => {
             if (!context.isCurrent()) return;
-            const focusSceneTarget = (
-              target: Exclude<CampusMapFocusCommand, { kind: "result" }>,
-            ) => {
+            const focusSceneTarget = (target: CampusMapFocusTarget) => {
               if (target.kind === "contribution-form") {
                 document
                   .querySelector<HTMLElement>("#campus-map-panel-title")
@@ -1155,16 +1154,7 @@ export function CampusMapRuntime({
               if (result) {
                 result.focus({ preventScroll: true });
               } else {
-                const resolved = resolveCampusMapSessionSemantics(
-                  sceneDriver.getSnapshot().session,
-                  sceneCatalog,
-                );
-                if (
-                  resolved.status === "valid" &&
-                  resolved.focus.kind !== "result"
-                ) {
-                  focusSceneTarget(resolved.focus);
-                }
+                focusSceneTarget(focus.fallback);
               }
             } else if (focus.kind === "edit-field") {
               const target = Array.from(
@@ -1226,7 +1216,11 @@ export function CampusMapRuntime({
     : buildingFor(state.selection, buildings);
   const activeAmenity = knownAmenity(state.mapFilter.category);
   const selectedFacilityBackLabel = selectedFacility
-    ? facilityBackLabel(selectedFacility, driverSnapshot.returnTo)
+    ? facilityBackLabel(
+        selectedFacility,
+        driverSnapshot.returnTo,
+        driver.hasScenePredecessor(),
+      )
     : "返回地图";
 
   const dispatch = useCallback(

@@ -486,7 +486,11 @@ describe("CampusMapSceneDriver", () => {
       },
     });
     expect(runtime.ports.focus).toHaveBeenLastCalledWith(
-      { kind: "result", resultId: "fountain" },
+      {
+        kind: "result",
+        resultId: "fountain",
+        fallback: { kind: "search-input" },
+      },
       expect.any(Object),
     );
   });
@@ -594,7 +598,11 @@ describe("CampusMapSceneDriver", () => {
     });
 
     expect(runtime.ports.focus).toHaveBeenCalledWith(
-      { kind: "result", resultId: "fountain" },
+      {
+        kind: "result",
+        resultId: "fountain",
+        fallback: { kind: "heading" },
+      },
       expect.any(Object),
     );
   });
@@ -616,7 +624,11 @@ describe("CampusMapSceneDriver", () => {
     });
 
     expect(runtime.ports.focus).toHaveBeenCalledWith(
-      { kind: "result", resultId: "fountain" },
+      {
+        kind: "result",
+        resultId: "fountain",
+        fallback: { kind: "search-input" },
+      },
       expect.any(Object),
     );
   });
