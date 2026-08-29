@@ -150,11 +150,7 @@ function returnTargetFor(
     event.type === "OPEN_FACILITY" ||
     event.type === "OPEN_CONTENT"
   ) {
-    if (
-      session.mode === "browse" &&
-      session.scene.kind !== "map" &&
-      session.scene.kind !== "provider-poi"
-    ) {
+    if (session.mode === "browse" && session.scene.kind !== "provider-poi") {
       return session;
     }
   }

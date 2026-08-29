@@ -107,9 +107,11 @@ import {
 } from "@/lib/campus-map/scene-codec";
 import {
   EMPTY_CAMPUS_MAP_SCENE_SESSION,
+  type CampusMapFocusCommand,
   type CampusMapSceneCatalog,
   type CampusMapSession,
 } from "@/lib/campus-map/scene-kernel";
+import { resolveCampusMapSessionSemantics } from "@/lib/campus-map/scene-semantics";
 import type {
   CampusMapFactSchema,
   CampusMapSelectionTarget,
@@ -433,6 +435,7 @@ function facilityBackLabel(
       : "返回设施列表";
   }
   if (returnScene?.kind === "building") return "返回建筑";
+  if (returnScene?.kind === "map") return "返回地图";
   return facility.buildingId ? "返回建筑" : "返回地图";
 }
 
@@ -1115,19 +1118,27 @@ export function CampusMapRuntime({
         queueMicrotask(() => {
           window.requestAnimationFrame(() => {
             if (!context.isCurrent()) return;
-            if (focus.kind === "contribution-form") {
-              document
-                .querySelector<HTMLElement>("#campus-map-panel-title")
-                ?.focus({ preventScroll: true });
-            } else if (focus.kind === "heading") {
-              panelTitleRef.current?.focus({ preventScroll: true });
-            } else if (focus.kind === "results") {
-              if (document.activeElement?.tagName !== "BUTTON") {
+            const focusSceneTarget = (
+              target: Exclude<CampusMapFocusCommand, { kind: "result" }>,
+            ) => {
+              if (target.kind === "contribution-form") {
+                document
+                  .querySelector<HTMLElement>("#campus-map-panel-title")
+                  ?.focus({ preventScroll: true });
+              } else if (target.kind === "heading") {
                 panelTitleRef.current?.focus({ preventScroll: true });
+              } else if (target.kind === "results") {
+                if (document.activeElement?.tagName !== "BUTTON") {
+                  panelTitleRef.current?.focus({ preventScroll: true });
+                }
+              } else if (target.kind === "search-input") {
+                searchInputRef.current?.focus({ preventScroll: true });
+              } else if (target.kind === "map") {
+                mapElementRef.current?.focus({ preventScroll: true });
               }
-            } else if (focus.kind === "search-input") {
-              searchInputRef.current?.focus({ preventScroll: true });
-            } else if (focus.kind === "result") {
+            };
+
+            if (focus.kind === "result") {
               const resultCandidates = Array.from(
                 document.querySelectorAll<HTMLElement>(
                   "[data-search-result], [data-return-result]",
@@ -1140,17 +1151,29 @@ export function CampusMapRuntime({
               const visibleResult = resultCandidates.find(
                 (candidate) => candidate.getClientRects().length > 0,
               );
-              (visibleResult ?? resultCandidates[0])?.focus({
-                preventScroll: true,
-              });
-            } else if (focus.kind === "map") {
-              mapElementRef.current?.focus({ preventScroll: true });
+              const result = visibleResult ?? resultCandidates[0];
+              if (result) {
+                result.focus({ preventScroll: true });
+              } else {
+                const resolved = resolveCampusMapSessionSemantics(
+                  sceneDriver.getSnapshot().session,
+                  sceneCatalog,
+                );
+                if (
+                  resolved.status === "valid" &&
+                  resolved.focus.kind !== "result"
+                ) {
+                  focusSceneTarget(resolved.focus);
+                }
+              }
             } else if (focus.kind === "edit-field") {
               const target = Array.from(
                 document.querySelectorAll<HTMLElement>("[data-edit-field]"),
               ).find((element) => element.dataset.editField === focus.field);
               target?.focus({ preventScroll: true });
               target?.scrollIntoView?.({ block: "center", inline: "nearest" });
+            } else {
+              focusSceneTarget(focus);
             }
           });
         });

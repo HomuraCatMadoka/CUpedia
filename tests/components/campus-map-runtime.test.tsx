@@ -1486,6 +1486,44 @@ describe("CampusMapRuntime", () => {
     expect(screen.queryByText(/校内独立地点/)).toBeNull();
   });
 
+  it("falls back to the category heading when a restored Place row is not rendered", async () => {
+    const places = [1, 2, 3, 4].map((index) => ({
+      id: `30000000-0000-4000-8000-00000000003${index}`,
+      name: `饮水点 ${index}`,
+    }));
+    const selected = places[3]!;
+    window.history.replaceState(
+      { campusMapScene: true, version: 1, depth: 1 },
+      "",
+      `/campus-map?v=1&scene=facility&id=${selected.id}&snap=peek`,
+    );
+    render(
+      <CampusMapRuntime
+        initialSearch={window.location.search}
+        initialBrowseProjection={publishedOutdoorProjectionFor(places)}
+      />,
+    );
+    await screen.findByRole("heading", { name: selected.name });
+
+    await act(async () => {
+      const state = { campusMapScene: true, version: 1, depth: 0 };
+      window.history.replaceState(
+        state,
+        "",
+        "/campus-map?v=1&scene=category&id=water&snap=peek",
+      );
+      window.dispatchEvent(new PopStateEvent("popstate", { state }));
+    });
+
+    const categoryHeading = await screen.findByRole("heading", {
+      name: "饮水点",
+    });
+    expect(
+      document.querySelector(`[data-return-result="${selected.id}"]`),
+    ).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(categoryHeading));
+  });
+
   it("distinguishes outdoor Places from Building-contained category results", async () => {
     render(
       <CampusMapRuntime

@@ -201,7 +201,7 @@ for (const viewport of [
     ).toBeVisible();
     await expect(page.getByRole("link", { name: "返回地图" })).toHaveAttribute(
       "href",
-      `/campus-map?v=1&scene=facility&id=${ids.place}&snap=peek`,
+      "/campus-map?v=1",
     );
     await expect(page.getByText("地点已停用", { exact: true })).toBeVisible();
     await expect(page.getByText("来源摘要：现场复核")).toBeVisible();

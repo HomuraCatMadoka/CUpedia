@@ -573,16 +573,14 @@ test("mapped and unmapped provider POIs never duplicate cards", async ({
   ).toBeVisible();
   await expect(page.getByText("高德地图地点")).toHaveCount(0);
 
-  await expect(visibleMapCanvas(page)).toHaveCount(1);
-  await visibleMapCanvas(page).dispatchEvent("pointerdown");
-  await emitAmapEvent(page, "click", {
-    lnglat: { lng: 114.2073, lat: 22.4192 },
-  });
+  await page.getByRole("button", { name: "返回地图" }).click();
   await expect(page).toHaveURL(/\/campus-map\?v=1$/);
+  await expect(visibleMapCanvas(page)).toBeFocused();
   const historyBeforeTransient = await page.evaluate(
     () => window.history.length,
   );
 
+  await visibleMapCanvas(page).dispatchEvent("pointerdown");
   await emitAmapEvent(page, "hotspotclick", {
     id: unmappedProviderId,
     name: "未映射高德参考点",

@@ -338,6 +338,17 @@ describe("CampusMapSceneDriver", () => {
   });
 
   it("uses the real predecessor for Back and a building fallback for a direct facility deep link", () => {
+    const fromMap = harness();
+    fromMap.driver.dispatch({
+      type: "OPEN_FACILITY",
+      facilityId: "fountain",
+      source: "map",
+    });
+    expect(fromMap.driver.getSnapshot().returnTo).toEqual({
+      mode: "browse",
+      scene: { kind: "map" },
+    });
+
     const navigated = harness();
     navigated.driver.dispatch({ type: "OPEN_CATEGORY", category: "water" });
     navigated.driver.dispatch({
