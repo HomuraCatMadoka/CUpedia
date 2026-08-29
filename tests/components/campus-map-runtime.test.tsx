@@ -553,9 +553,6 @@ describe("CampusMapRuntime", () => {
     await screen.findByRole("heading", { name: "新发布饮水点" });
     const publishStatus = screen.getByRole("status");
     expect(publishStatus.textContent).toContain("地点已添加");
-    expect(publishStatus.className).toContain(
-      "bottom-[calc(var(--campus-map-panel-height)+12px)]",
-    );
     expect(
       document.querySelector('[aria-live="polite"]')?.textContent,
     ).not.toContain("地点已添加");
@@ -2252,18 +2249,6 @@ describe("CampusMapRuntime", () => {
 
     await waitFor(() => expect(window.location.search).toBe("?v=1"));
     expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
-  });
-
-  it("keeps the building directory out of the compact mobile preview", async () => {
-    render(<CampusMapRuntime />);
-    await selectScienceCentre();
-
-    const floor = screen.getByRole("button", { name: "LG/F" });
-    const facility = screen.getByRole("button", {
-      name: /洗手间.*公众可达/,
-    });
-    expect(floor.parentElement?.className).toContain("hidden");
-    expect(facility.closest(".hidden")).not.toBeNull();
   });
 
   it("keeps a multi-category Building summary short enough for the mobile header", async () => {

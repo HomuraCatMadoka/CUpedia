@@ -1216,20 +1216,36 @@ export function CampusMapRuntime({
     recoverPublish,
   });
   const startAddAtPlacementAnchor = useCallback(() => {
+    let initialPlacement = {
+      longitude: centerPosition[0],
+      latitude: centerPosition[1],
+      crs: "wgs84" as const,
+      precision: "approximate" as const,
+      method: "pointer" as const,
+    };
     const map = mapRef.current;
     const mapElement = mapElementRef.current;
     const AMap = typeof window === "undefined" ? undefined : window.AMap;
     if (map && mapElement && AMap) {
       const providerPosition = placementAnchorLngLat(map, mapElement, AMap);
       const offset = amapOffsetRef.current;
+      initialPlacement = {
+        ...initialPlacement,
+        longitude: providerPosition.lng - offset[0],
+        latitude: providerPosition.lat - offset[1],
+      };
       setCenterPosition([
-        providerPosition.lng - offset[0],
-        providerPosition.lat - offset[1],
+        initialPlacement.longitude,
+        initialPlacement.latitude,
       ]);
       setProviderCenterPosition([providerPosition.lng, providerPosition.lat]);
     }
     startAdd();
-  }, [startAdd]);
+    dispatchEditEvent({
+      type: "UPDATE_PLACEMENT_CANDIDATE",
+      position: initialPlacement,
+    });
+  }, [centerPosition, dispatchEditEvent, startAdd]);
   useEffect(() => {
     if (!publishNotice) return;
     const timeout = window.setTimeout(() => setPublishNotice(null), 4_000);

@@ -66,6 +66,11 @@ test("Campus Map editing keeps only the essential controls in a compact mobile v
   expect(facilityTypeBox!.y + facilityTypeBox!.height).toBeLessThanOrEqual(
     publishBox!.y,
   );
+  for (const label of ["饮水点", "洗手间", "打印服务", "公共空间", "课室"]) {
+    await expect(
+      facilityType.getByText(label, { exact: true }),
+    ).toBeInViewport();
+  }
   await expect(
     page.getByRole("textbox", { name: "设施名称或编号" }),
   ).toHaveCount(0);
@@ -107,6 +112,9 @@ test("Campus Map editing supports the keyboard placement and dirty-close path", 
   );
 
   const reposition = page.getByRole("button", { name: "修改位置" });
+  const repositionBox = await reposition.boundingBox();
+  expect(repositionBox).not.toBeNull();
+  expect(repositionBox!.height).toBeGreaterThanOrEqual(44);
   await reposition.focus();
   await page.keyboard.press("Enter");
   await expect(

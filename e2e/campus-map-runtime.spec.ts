@@ -790,6 +790,7 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
         name: "查看全部楼内设施",
       });
       await expect(buildingCta).toBeVisible();
+      await expect(card.getByRole("heading", { name: "G/F" })).toHaveCount(0);
     }
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
@@ -808,6 +809,7 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
     if (viewport.width < 768) {
       await page.getByRole("button", { name: "展开地点卡片" }).click();
     }
+    await expect(card.getByRole("heading", { name: "G/F" })).toBeVisible();
     const place = page.locator(
       `[data-return-result="${browseIds.place}"]:visible`,
     );

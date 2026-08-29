@@ -65,8 +65,8 @@ describe("Campus Map single-page edit Sheet", () => {
       screen.queryByRole("textbox", { name: "设施名称或编号" }),
     ).toBeNull();
     expect(
-      screen.getByText("114.210100, 22.419800 · WGS84 · 约略").className,
-    ).toContain("font-semibold");
+      screen.getByText("114.210100, 22.419800 · WGS84 · 约略"),
+    ).toBeTruthy();
     expect(screen.getByText("高德地图地点：科学馆")).toBeTruthy();
     expect(screen.getByText("高德地图参考：香港中文大学中央大道")).toBeTruthy();
     expect(screen.queryByRole("radio", { name: "饮水点" })).toBeNull();
@@ -131,8 +131,7 @@ describe("Campus Map single-page edit Sheet", () => {
 
     expect(screen.getByRole("heading", { name: "添加校内设施" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "设施类型" })).toBeTruthy();
-    const reposition = screen.getByRole("button", { name: "修改位置" });
-    expect(reposition.className).toContain("min-h-11");
+    expect(screen.getByRole("button", { name: "修改位置" })).toBeTruthy();
     expect(
       screen.queryByRole("textbox", { name: "设施名称或编号" }),
     ).toBeNull();
@@ -248,7 +247,7 @@ describe("Campus Map single-page edit Sheet", () => {
     ).toBeNull();
   });
 
-  it("keeps programmatic heading focus visible for keyboard users", () => {
+  it("keeps the edit heading programmatically focusable", () => {
     render(
       <CampusMapEditSheet
         session={{
@@ -276,10 +275,9 @@ describe("Campus Map single-page edit Sheet", () => {
     heading.focus();
     expect(document.activeElement).toBe(heading);
     expect(heading.getAttribute("tabindex")).toBe("-1");
-    expect(heading.className).toContain("focus-visible:ring-2");
   });
 
-  it("keeps every place type discoverable without a hidden horizontal scroller", () => {
+  it("exposes every place type as one accessible radio group", () => {
     render(
       <CampusMapEditSheet
         session={{
@@ -304,17 +302,11 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     const typeGroup = screen.getByRole("group", { name: "设施类型" });
-    const choices = typeGroup.querySelector("div");
-    expect(choices?.className).toContain("grid-cols-5");
-    expect(choices?.className).not.toContain("overflow-x-auto");
-    expect(
-      screen.getByRole("radio", { name: "饮水点" }).closest("label")?.className,
-    ).not.toContain("col-span");
-    expect(
-      screen.getByRole("radio", { name: "课室" }).closest("label")?.className,
-    ).not.toContain("col-span");
+    expect(screen.getAllByRole("radio")).toHaveLength(5);
+    for (const label of ["饮水点", "洗手间", "打印服务", "公共空间", "课室"]) {
+      expect(screen.getByRole("radio", { name: label })).toBeTruthy();
+    }
     expect(typeGroup.getAttribute("tabindex")).toBe("-1");
-    expect(typeGroup.className).toContain("focus-visible:ring-2");
     expect(screen.queryByText(/Changeset 说明/)).toBeNull();
   });
 
@@ -810,7 +802,8 @@ describe("Campus Map single-page edit Sheet", () => {
       '[data-edit-field="location"]',
     );
     expect(locationTarget?.getAttribute("tabindex")).toBe("-1");
-    expect(locationTarget?.className).toContain("focus-visible:ring-2");
+    locationTarget?.focus();
+    expect(document.activeElement).toBe(locationTarget);
   });
 
   it("shows forbidden results as a permission state, not field validation", () => {

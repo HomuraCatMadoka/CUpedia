@@ -282,6 +282,13 @@ describe("Campus Map AMap runtime effects", () => {
       expect.closeTo(22.43, 10),
     ]);
     expect(screen.getByText(/114\.210000, 22\.420000/)).not.toBeNull();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "使用此位置",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
   });
 
   it("initializes when the AMap SDK is already present", async () => {
