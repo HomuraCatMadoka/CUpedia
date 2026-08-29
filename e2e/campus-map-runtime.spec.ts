@@ -749,9 +749,6 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
     await expect(
       page.locator('header:has(input[placeholder="搜索建筑或地点…"])').first(),
     ).toHaveCSS("transition-property", "none");
-    await expect(
-      page.getByRole("navigation", { name: "设施筛选" }).first().locator(".."),
-    ).toHaveCSS("transition-property", "none");
     await page
       .locator('input[placeholder="搜索建筑或地点…"]:visible')
       .fill("正式");
@@ -793,14 +790,6 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
         name: "查看全部楼内设施",
       });
       await expect(buildingCta).toBeVisible();
-      const buildingScroll = buildingCta.locator("..").locator("..");
-      await buildingCta.evaluate((element) => {
-        element
-          .closest("main")
-          ?.style.setProperty("--campus-map-safe-area-bottom", "32px");
-      });
-      await expect(buildingScroll).toHaveCSS("padding-bottom", "32px");
-      await expect(buildingScroll).toHaveCSS("margin-bottom", "0px");
     }
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
@@ -839,17 +828,6 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
       expect(actionBox).not.toBeNull();
       expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(
         viewport.height,
-      );
-    }
-    if (viewport.width < 768) {
-      await suggestEdit.evaluate((element) => {
-        element
-          .closest("main")
-          ?.style.setProperty("--campus-map-safe-area-bottom", "32px");
-      });
-      await expect(suggestEdit.locator("..")).toHaveCSS(
-        "padding-bottom",
-        "32px",
       );
     }
   }

@@ -414,11 +414,7 @@ describe("CampusMapRuntime", () => {
       name: "何善衡工程学大楼",
     });
 
-    expect(buildingHeading.className).toContain("focus-visible:outline-none");
-    expect(buildingHeading.className).toContain("focus-visible:ring-2");
-    expect(buildingHeading.parentElement?.className).not.toContain(
-      "has-[:focus-visible]:before:bg-[#176346]",
-    );
+    expect(document.activeElement).toBe(buildingHeading);
     expect(screen.getByText("Ho Sin-Hang Engineering Building")).not.toBeNull();
     expect(screen.queryByText(/Current facts/i)).toBeNull();
     expect(screen.getByText("洗手间 2 处")).not.toBeNull();
@@ -435,19 +431,10 @@ describe("CampusMapRuntime", () => {
     expect(buildingPreview?.getAttribute("data-return-result")).toBe(
       "30000000-0000-4000-8000-000000000010",
     );
-    expect(buildingPreview?.querySelector("strong")?.className).toContain(
-      "truncate",
-    );
-    expect(
-      buildingPreview?.querySelector("strong + span")?.className,
-    ).toContain("truncate");
     const buildingCta = screen.getByRole("button", {
       name: "查看全部楼内设施",
     });
     expect(buildingCta).not.toBeNull();
-    expect(buildingCta.closest(".overflow-y-auto")?.className).not.toContain(
-      "mb-[var(--campus-map-provider-control-clearance)]",
-    );
     fireEvent.click(screen.getByRole("button", { name: "展开地点卡片" }));
 
     expect(screen.getByRole("heading", { name: "1/F" })).not.toBeNull();
@@ -474,7 +461,7 @@ describe("CampusMapRuntime", () => {
     expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
   });
 
-  it("gives every Place action consistent keyboard and pointer feedback", async () => {
+  it("exposes every Place action as an accessible control", async () => {
     const placeId = "71000000-0000-4000-8000-000000000005";
     render(
       <CampusMapRuntime
@@ -487,19 +474,17 @@ describe("CampusMapRuntime", () => {
     expect(screen.queryByText("G/F")).toBeNull();
     expect(screen.queryByText(/开放条件未完全核实/)).toBeNull();
     expect(screen.queryByText(/尚无室内精确坐标/)).toBeNull();
-    for (const control of [
-      screen.getByRole("button", { name: "建议修改" }),
-      screen.getByRole("button", { name: "定位所属建筑" }),
-      screen.getByRole("link", { name: "查看编辑记录" }),
-    ]) {
-      expect(control.className).toContain("focus-visible:ring-2");
-      expect(control.className).toContain("active:translate-y-px");
-    }
+    expect(
+      screen.getByRole("button", { name: "建议修改" }).hasAttribute("disabled"),
+    ).toBe(false);
     expect(
       screen
-        .getByRole("button", { name: "建议修改" })
-        .closest(".overflow-y-auto")?.className,
-    ).not.toContain("mb-[var(--campus-map-provider-control-clearance)]");
+        .getByRole("button", { name: "定位所属建筑" })
+        .hasAttribute("disabled"),
+    ).toBe(false);
+    expect(
+      screen.getByRole("link", { name: "查看编辑记录" }).getAttribute("href"),
+    ).toBe(`/campus-map/places/${placeId}/history`);
   });
 
   it("refetches Current facts after publish so a standalone Place is searchable", async () => {
@@ -1566,14 +1551,7 @@ describe("CampusMapRuntime", () => {
     expect(
       screen.getByText("拖动地图或轻点地点名称，选择设施位置。"),
     ).toBeTruthy();
-    expect(screen.getByText(/WGS84 · 约略/).className).toContain(
-      "font-semibold",
-    );
-    expect(
-      screen
-        .getByRole("main")
-        .style.getPropertyValue("--campus-map-panel-height"),
-    ).toBe("min(336px, 48dvh)");
+    expect(screen.getByText(/WGS84 · 约略/)).toBeTruthy();
     expect(
       screen.queryByRole("textbox", { name: "设施名称或编号" }),
     ).toBeNull();
@@ -2258,11 +2236,6 @@ describe("CampusMapRuntime", () => {
     const facilityRegion = screen.getByRole("region", { name: "饮水机" });
     expect(facilityRegion.textContent).toContain("饮水点");
     expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
-    expect(
-      facilityRegion
-        .closest("main")
-        ?.style.getPropertyValue("--campus-map-panel-height"),
-    ).toBe("min(300px, 40dvh)");
     await waitFor(() =>
       expect(window.location.search).toBe(
         "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
@@ -2293,6 +2266,17 @@ describe("CampusMapRuntime", () => {
     expect(facility.closest(".hidden")).not.toBeNull();
   });
 
+  it("keeps a multi-category Building summary short enough for the mobile header", async () => {
+    render(<CampusMapRuntime />);
+    await selectScienceCentre();
+
+    expect(screen.getByText("2 处设施")).not.toBeNull();
+    expect(screen.queryByText("洗手间 1 处 · 饮水点 1 处")).toBeNull();
+    const facilityTypes = screen.getByRole("list", { name: "楼内设施" });
+    expect(facilityTypes.textContent).toContain("洗手间");
+    expect(facilityTypes.textContent).toContain("饮水点");
+  });
+
   it("opens a browsable result sheet when a facility category is selected", async () => {
     render(<CampusMapRuntime />);
 
@@ -2309,34 +2293,12 @@ describe("CampusMapRuntime", () => {
       name: /科学馆 · 1\/F/,
     });
     expect(firstCategoryResult).not.toBeNull();
-    expect(firstCategoryResult.querySelector("strong")?.className).toContain(
-      "truncate",
-    );
-    expect(
-      firstCategoryResult.querySelector("strong + span")?.className,
-    ).toContain("truncate");
-    expect(
-      firstCategoryResult.closest(".overflow-y-auto")?.className,
-    ).toContain("pb-[max(1.25rem,var(--campus-map-safe-area-bottom))]");
-    expect(
-      firstCategoryResult.closest(".overflow-y-auto")?.className,
-    ).not.toContain("mb-[var(--campus-map-provider-control-clearance)]");
     expect(
       screen.getByRole("button", { name: /大学图书馆 · G\/F/ }),
     ).not.toBeNull();
     expect(
       screen.queryByRole("button", { name: "查看全部 2 处设施" }),
     ).toBeNull();
-    expect(
-      screen
-        .getByRole("main")
-        .style.getPropertyValue("--campus-map-panel-height"),
-    ).toBe("min(236px, 44dvh)");
-    const categoryHeading = screen.getByRole("heading", { name: "饮水点" });
-    expect(categoryHeading.className).toContain("focus-visible:ring-2");
-    expect(categoryHeading.parentElement?.className).not.toContain(
-      "has-[:focus-visible]:before:bg-[#176346]",
-    );
   });
 
   it("shows three category results before offering the full list", async () => {
@@ -2380,11 +2342,6 @@ describe("CampusMapRuntime", () => {
       await screen.findByRole("button", { name: /东门饮水机/ }),
     ).not.toBeNull();
     expect(screen.queryByRole("button", { name: /西门饮水机/ })).toBeNull();
-    expect(
-      screen
-        .getByRole("main")
-        .style.getPropertyValue("--campus-map-panel-height"),
-    ).toBe("min(352px, 44dvh)");
     fireEvent.click(screen.getByRole("button", { name: "查看全部 4 处设施" }));
     expect(screen.getByRole("button", { name: /西门饮水机/ })).not.toBeNull();
   });

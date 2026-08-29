@@ -1,6 +1,7 @@
 import type { CameraReason } from "./camera-policy";
 import {
   projectCampusMapSceneCameraCommand,
+  projectCampusMapRestoreFocus,
   resolveCampusMapSessionSemantics,
 } from "./scene-semantics";
 
@@ -133,6 +134,7 @@ export type CampusMapFocusCommand =
   | { kind: "map" }
   | { kind: "search-input" }
   | { kind: "results" }
+  | { kind: "result"; resultId: string }
   | { kind: "heading" }
   | { kind: "contribution-form" };
 
@@ -259,7 +261,9 @@ export function transitionCampusMapSession(
               "deep-link",
             ) ?? { kind: "cancel" })
           : { kind: "cancel" },
-        focus: restored?.focus ?? { kind: "map" },
+        focus: restored
+          ? projectCampusMapRestoreFocus(session, restored, catalog)
+          : { kind: "map" },
       },
     };
   }

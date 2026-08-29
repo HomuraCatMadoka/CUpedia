@@ -78,7 +78,7 @@ cannot emit more than one command of each kind.
 | `START_CREATE`       | browse                                  | create task                            | push                                              | cancel                                                                                                           | contribution form                 |
 | `START_EDIT`         | browse                                  | edit task with stable Place ID         | push                                              | cancel                                                                                                           | contribution form                 |
 | `CANCEL_TASK`        | task                                    | anchor projection or map               | back-or-push                                      | cancel                                                                                                           | scene heading                     |
-| `RESTORE`            | any                                     | normalized decoded session             | none                                              | derived entity focus or cancel                                                                                   | normalized scene projection       |
+| `RESTORE`            | any                                     | normalized decoded session             | none                                              | derived entity focus or cancel                                                                                   | matching result or scene focus    |
 
 Events outside the listed source scenes, unknown catalog IDs, invalid
 coordinates, and invalid floors are explicitly rejected with no state change

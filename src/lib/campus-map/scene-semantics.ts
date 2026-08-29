@@ -45,6 +45,11 @@ export type CampusMapSceneCameraTarget =
   | { kind: "place"; placeId: string }
   | null;
 
+type ValidCampusMapSessionSemantics = Extract<
+  CampusMapSessionSemantics,
+  { status: "valid" }
+>;
+
 export function projectCampusMapSceneCameraCommand(
   target: CampusMapSceneCameraTarget,
   reason: CameraReason,
@@ -149,6 +154,32 @@ function findFacility(catalog: CampusMapSceneCatalog, facilityId: string) {
     category,
     cameraTarget: normalizedCameraTarget ?? null,
   };
+}
+
+export function projectCampusMapRestoreFocus(
+  source: CampusMapSession,
+  target: ValidCampusMapSessionSemantics,
+  catalog: CampusMapSceneCatalog,
+): CampusMapFocusCommand {
+  if (
+    source.mode !== "browse" ||
+    source.scene.kind !== "facility" ||
+    target.session.mode !== "browse"
+  ) {
+    return target.focus;
+  }
+
+  const facility = findFacility(catalog, source.scene.facilityId);
+  const targetScene = target.session.scene;
+  const restoresTrigger =
+    (targetScene.kind === "building" &&
+      facility?.buildingId === targetScene.buildingId) ||
+    (targetScene.kind === "category-results" &&
+      facility?.category === targetScene.category);
+
+  return restoresTrigger
+    ? { kind: "result", resultId: source.scene.facilityId }
+    : target.focus;
 }
 
 function findContent(catalog: CampusMapSceneCatalog, contentId: string) {

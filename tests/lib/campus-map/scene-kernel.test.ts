@@ -604,6 +604,10 @@ describe("Campus Map canonical scene transition", () => {
     expect(forward.session).toEqual(facility);
     expect(back.commands.history).toBeNull();
     expect(forward.commands.history).toBeNull();
+    expect(back.commands.focus).toEqual({
+      kind: "result",
+      resultId: "fountain",
+    });
     expect(forward.commands.camera).toEqual({
       kind: "focus",
       buildingId: "science",

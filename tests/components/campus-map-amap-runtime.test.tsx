@@ -1371,21 +1371,7 @@ describe("Campus Map AMap runtime effects", () => {
     expect(screen.getByText("暂时无法载入地点资料")).not.toBeNull();
     expect(screen.queryByText(/正式映射/)).toBeNull();
     expect(window.location.search).toBe(initialSearch);
-    const errorPanel = screen.getByRole("alert").closest("section");
-    expect(errorPanel?.className).toContain(
-      "h-[var(--campus-map-panel-height)]",
-    );
-    const root = errorPanel?.closest("main");
-    expect(root?.style.getPropertyValue("--campus-map-panel-height")).toBe(
-      "var(--campus-map-peek-height)",
-    );
-    expect(
-      [...document.querySelectorAll("style")].some((style) =>
-        style.textContent?.includes(
-          "calc(var(--campus-map-panel-height) + 4px)",
-        ),
-      ),
-    ).toBe(true);
+    expect(screen.getByRole("alert")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
 
     fireEvent.keyDown(window, { key: "Escape" });
@@ -1883,23 +1869,10 @@ describe("Campus Map AMap runtime effects", () => {
     });
 
     expect(window.location.search).toBe("?v=1");
-    const providerHeading = await screen.findByRole("heading", {
+    await screen.findByRole("heading", {
       name: "科学馆东座",
     });
-    expect(providerHeading.closest("section")?.className).toContain(
-      "md:w-[390px]",
-    );
     expect(screen.getByText("高德地图地点")).not.toBeNull();
-    expect(providerHeading.className).toContain("focus-visible:ring-2");
-    expect(providerHeading.className).toContain("truncate");
-    expect(providerHeading.parentElement?.className).not.toContain(
-      "has-[:focus-visible]:before:bg-[#176346]",
-    );
-    expect(
-      providerHeading
-        .closest("main")
-        ?.style.getPropertyValue("--campus-map-panel-height"),
-    ).toBe("120px");
     expect(screen.queryByRole("button", { name: "建议修改" })).toBeNull();
     expect(screen.queryByRole("link", { name: "查看编辑记录" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();

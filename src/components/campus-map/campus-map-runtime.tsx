@@ -75,6 +75,11 @@ import {
 } from "@/lib/campus-map/browse-projection-store";
 import { projectCampusMapBuildingDirectory } from "@/lib/campus-map/building-directory";
 import {
+  CAMPUS_MAP_CATEGORY_PEEK_RESULT_LIMIT,
+  campusMapMobilePanelHeight,
+  type CampusMapMobilePanelLayout,
+} from "@/lib/campus-map/card-layout";
+import {
   identifyCampusMapEditPublisher,
   publishCampusMapEdit,
   reconcileCampusMapEditPublish,
@@ -250,16 +255,6 @@ const CATEGORIES = CAMPUS_MAP_EDIT_SCHEMA.presets.map((preset) => ({
   label: preset.label,
   ...CATEGORY_PRESENTATION[preset.pinType],
 }));
-
-const CATEGORY_PEEK_RESULT_LIMIT = 3;
-
-function categoryPeekPanelHeight(resultCount: number) {
-  if (resultCount > CATEGORY_PEEK_RESULT_LIMIT) {
-    return "min(352px, 44dvh)";
-  }
-  const contentHeight = Math.max(208, 124 + resultCount * 56);
-  return `min(${contentHeight}px, 44dvh)`;
-}
 
 function canonicalInitialSearch(
   search: string,
@@ -2142,9 +2137,12 @@ export function CampusMapRuntime({
   const buildingFacilitySummary = summarizeFacilityTypes(
     buildingOverviewDirectory?.places ?? [],
   );
-  const buildingFacilitySummaryLabel = buildingFacilitySummary
-    .map((summary) => `${summary.label} ${summary.count} 处`)
-    .join(" · ");
+  const buildingFacilitySummaryLabel =
+    buildingFacilitySummary.length === 1
+      ? `${buildingFacilitySummary[0]?.label} ${buildingFacilitySummary[0]?.count} 处`
+      : buildingFacilitySummary.length > 1
+        ? `${buildingFacilitySummary.reduce((total, summary) => total + summary.count, 0)} 处设施`
+        : "";
   const buildingFacilities = buildingDirectory?.places ?? [];
   const buildingPreviewFacility =
     buildingOverviewDirectory?.status === "ready"
@@ -2158,6 +2156,12 @@ export function CampusMapRuntime({
     : null;
   const categoryFacilities = categoryResults?.places ?? [];
   const categorySummary = `${categoryFacilities.length} 处设施`;
+  const visibleCategoryFacilities =
+    state.sheet.snap === "full"
+      ? categoryFacilities
+      : categoryFacilities.slice(0, CAMPUS_MAP_CATEGORY_PEEK_RESULT_LIMIT);
+  const hasMoreCategoryFacilities =
+    categoryFacilities.length > CAMPUS_MAP_CATEGORY_PEEK_RESULT_LIMIT;
   const activeCategoryStyle = activeAmenity
     ? amenityStyle(activeAmenity)
     : null;
@@ -2181,25 +2185,28 @@ export function CampusMapRuntime({
         !state.mapFilter.category &&
         !selectedFacility)),
   );
-  const browsePeekHeight = activeProviderTargetError
-    ? "var(--campus-map-peek-height)"
-    : selectedProviderPoi
-      ? "120px"
-      : selectedFacility
-        ? "min(300px, 40dvh)"
-        : selectedBuilding && selectedBuilding.placeIds.length > 0
-          ? "min(304px, 40dvh)"
-          : activeAmenity
-            ? categoryPeekPanelHeight(categoryFacilities.length)
-            : "var(--campus-map-peek-height)";
-  const mobilePanelHeight =
-    editSession?.status === "placing"
-      ? "min(336px, 48dvh)"
-      : editSession
-        ? "var(--campus-map-edit-sheet-height)"
-        : panelSnap === "full" && canExpandBrowseCard
-          ? "72dvh"
-          : browsePeekHeight;
+  let mobilePanelLayout: CampusMapMobilePanelLayout = { kind: "default" };
+  if (editSession?.status === "placing") {
+    mobilePanelLayout = { kind: "placing" };
+  } else if (editSession) {
+    mobilePanelLayout = { kind: "edit" };
+  } else if (panelSnap === "full" && canExpandBrowseCard) {
+    mobilePanelLayout = { kind: "expanded" };
+  } else if (activeProviderTargetError) {
+    mobilePanelLayout = { kind: "provider-error" };
+  } else if (selectedProviderPoi) {
+    mobilePanelLayout = { kind: "provider-poi" };
+  } else if (selectedFacility) {
+    mobilePanelLayout = { kind: "facility" };
+  } else if (selectedBuilding && selectedBuilding.placeIds.length > 0) {
+    mobilePanelLayout = { kind: "building" };
+  } else if (activeAmenity) {
+    mobilePanelLayout = {
+      kind: "category",
+      resultCount: categoryFacilities.length,
+    };
+  }
+  const mobilePanelHeight = campusMapMobilePanelHeight(mobilePanelLayout);
   const mobileMapOcclusion = panelHidden
     ? "0px"
     : "var(--campus-map-panel-height)";
@@ -2701,10 +2708,7 @@ export function CampusMapRuntime({
               </p>
             ) : null}
             <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:pb-5">
-              {(state.sheet.snap === "full"
-                ? categoryFacilities
-                : categoryFacilities.slice(0, CATEGORY_PEEK_RESULT_LIMIT)
-              ).map((facility) => {
+              {visibleCategoryFacilities.map((facility) => {
                 const building = buildings.find(
                   (item) => item.buildingId === facility.buildingId,
                 );
@@ -2731,7 +2735,7 @@ export function CampusMapRuntime({
                   </button>
                 );
               })}
-              {categoryFacilities.length > CATEGORY_PEEK_RESULT_LIMIT ? (
+              {hasMoreCategoryFacilities ? (
                 <button
                   type="button"
                   aria-label={
