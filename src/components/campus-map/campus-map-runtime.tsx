@@ -2248,6 +2248,8 @@ export function CampusMapRuntime({
     mobilePanelLayout = { kind: "provider-poi" };
   } else if (selectedFacility) {
     mobilePanelLayout = { kind: "facility" };
+  } else if (selectedBuildingIsEmpty) {
+    mobilePanelLayout = { kind: "empty-building" };
   } else if (selectedBuilding && selectedBuilding.placeIds.length > 0) {
     mobilePanelLayout = { kind: "building" };
   } else if (activeAmenity) {
@@ -2592,20 +2594,9 @@ export function CampusMapRuntime({
         )}
       >
         {!editSession &&
-        (selectedProviderPoi ||
-          activeProviderTargetError ||
-          selectedFacility ||
-          selectedBuildingIsEmpty) ? (
-          <div
-            aria-hidden="true"
-            className="mx-auto flex h-8 w-20 items-center justify-center md:hidden"
-          >
-            <span className="h-1 w-10 rounded-full bg-neutral-300" />
-          </div>
-        ) : !editSession &&
-          !activeProviderTargetError &&
-          canExpandBrowseCard &&
-          !selectedBuildingIsEmpty ? (
+        !activeProviderTargetError &&
+        canExpandBrowseCard &&
+        !selectedBuildingIsEmpty ? (
           <button
             type="button"
             aria-label={
@@ -2638,7 +2629,7 @@ export function CampusMapRuntime({
           <div
             id="campus-map-panel-content"
             role="alert"
-            className="flex h-[calc(100%-32px)] flex-col justify-center px-5 pb-5"
+            className="flex h-full flex-col justify-center p-5"
           >
             <h2 id="campus-map-panel-title" className="text-xl font-semibold">
               {activeProviderTargetError.title}
@@ -2677,7 +2668,7 @@ export function CampusMapRuntime({
         ) : selectedProviderPoi ? (
           <div
             id="campus-map-panel-content"
-            className="flex h-[calc(100%-32px)] items-start gap-3 px-4 pb-[max(1rem,var(--campus-map-safe-area-bottom))] md:h-auto md:p-5"
+            className="flex h-full items-start gap-3 p-4 pb-[max(1rem,var(--campus-map-safe-area-bottom))] md:h-auto md:p-5"
           >
             <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#e7f1ec] text-[#174b38]">
               <MapPinIcon aria-hidden="true" className="size-5" />
@@ -2687,7 +2678,7 @@ export function CampusMapRuntime({
                 id="campus-map-panel-title"
                 ref={panelTitleRef}
                 tabIndex={-1}
-                className="truncate rounded-sm text-xl font-semibold tracking-[-0.02em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
+                className="-ml-2 line-clamp-2 break-words pl-2 text-xl font-semibold tracking-[-0.02em] focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346]"
               >
                 {selectedProviderPoi.name}
               </h2>
@@ -2725,7 +2716,7 @@ export function CampusMapRuntime({
                   id="campus-map-panel-title"
                   ref={panelTitleRef}
                   tabIndex={-1}
-                  className="rounded-sm text-xl font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
+                  className="-ml-2 pl-2 text-xl font-semibold focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346]"
                 >
                   {activeCategoryStyle.label}
                 </h2>
@@ -2736,7 +2727,7 @@ export function CampusMapRuntime({
               <button
                 type="button"
                 aria-label={`关闭${activeCategoryStyle.label}列表`}
-                className="grid size-11 place-items-center rounded-full hover:bg-neutral-100"
+                className="grid size-11 place-items-center rounded-full hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
                 onClick={() => dispatch({ type: "DISMISS" })}
               >
                 <XIcon className="size-5" />
@@ -2824,11 +2815,16 @@ export function CampusMapRuntime({
             className={cn(
               "flex flex-col overscroll-contain md:h-auto md:max-h-[calc(100dvh-32px)]",
               selectedFacility || selectedBuildingIsEmpty
-                ? "h-[calc(100%-32px)]"
+                ? "h-full"
                 : "h-[calc(100%-44px)]",
             )}
           >
-            <div className="flex items-start gap-3 border-b border-black/10 p-4 md:p-5">
+            <div
+              className={cn(
+                "flex items-start gap-3 border-b border-black/10 p-4 md:p-5",
+                selectedBuildingIsEmpty && "flex-1 items-center",
+              )}
+            >
               {selectedFacility ? (
                 <button
                   type="button"
@@ -2837,13 +2833,16 @@ export function CampusMapRuntime({
                       ? `返回${amenityStyle(selectedFacility.pinType).label}列表`
                       : "返回建筑"
                   }
-                  className="grid size-11 shrink-0 place-items-center rounded-full hover:bg-neutral-100"
+                  className="grid size-11 shrink-0 place-items-center rounded-full hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
                   onClick={navigateEntityBack}
                 >
                   <ArrowLeftIcon className="size-5" />
                 </button>
               ) : (
-                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#174b38] text-sm font-bold text-white">
+                <span
+                  title={selectedBuilding?.code ?? undefined}
+                  className="grid h-11 min-w-11 max-w-20 shrink-0 place-items-center overflow-hidden text-ellipsis whitespace-nowrap rounded-xl bg-[#174b38] px-2 text-xs leading-none font-bold text-white"
+                >
                   {selectedBuilding?.code ?? "地点"}
                 </span>
               )}
@@ -2852,7 +2851,7 @@ export function CampusMapRuntime({
                   id="campus-map-panel-title"
                   ref={panelTitleRef}
                   tabIndex={-1}
-                  className="truncate rounded-sm text-xl font-semibold tracking-[-0.02em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
+                  className="-ml-2 line-clamp-2 break-words pl-2 text-xl font-semibold tracking-[-0.02em] focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346]"
                 >
                   {selectedFacility?.name ?? selectedBuilding?.name}
                 </h2>
@@ -2881,7 +2880,7 @@ export function CampusMapRuntime({
               <button
                 type="button"
                 aria-label="关闭地点详情"
-                className="grid size-11 shrink-0 place-items-center rounded-full hover:bg-neutral-100"
+                className="grid size-11 shrink-0 place-items-center rounded-full hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
                 onClick={closeSelection}
               >
                 <XIcon className="size-5" />

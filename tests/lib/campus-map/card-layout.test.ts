@@ -12,8 +12,9 @@ describe("Campus Map card layout policy", () => {
     [{ kind: "expanded" } as const, "72dvh"],
     [{ kind: "provider-error" } as const, "var(--campus-map-peek-height)"],
     [{ kind: "provider-poi" } as const, "120px"],
+    [{ kind: "empty-building" } as const, "136px"],
     [{ kind: "facility" } as const, "min(300px, 40dvh)"],
-    [{ kind: "building" } as const, "min(304px, 40dvh)"],
+    [{ kind: "building" } as const, "min(340px, 42dvh)"],
     [{ kind: "default" } as const, "var(--campus-map-peek-height)"],
   ])("projects the %s panel height", (layout, expected) => {
     expect(campusMapMobilePanelHeight(layout)).toBe(expected);

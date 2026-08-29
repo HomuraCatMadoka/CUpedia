@@ -188,7 +188,7 @@ async function applyBrowseFixtureData(client: Client) {
   await client.query(
     `insert into campus_map_buildings
        (id, name, english_name, code, aliases, anchor_longitude, anchor_latitude, anchor_crs)
-     values ($1, '正式测试楼', 'Canonical Test Building', 'QA648',
+     values ($1, '正式测试楼', 'Canonical Test Building', 'QA648-LONG',
        array['测试楼'], 114.2072, 22.4191, 'wgs84') on conflict do nothing`,
     [browseIds.building],
   );
@@ -768,6 +768,13 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
     const card = page.getByRole("region", { name: "正式测试楼" });
     await expect(card).toBeVisible();
     await expect(card.getByText("饮水点 1 处", { exact: true })).toBeVisible();
+    const buildingCode = card.getByText("QA648-LONG", { exact: true });
+    await expect(buildingCode).toBeVisible();
+    expect(
+      await buildingCode.evaluate(
+        (element) => element.scrollHeight <= element.clientHeight,
+      ),
+    ).toBe(true);
 
     const cardBox = await card.boundingBox();
     expect(cardBox).not.toBeNull();
@@ -787,13 +794,18 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
       expect(searchBox!.x + searchBox!.width).toBeLessThanOrEqual(cardBox!.x);
       expect(filterBox!.x + filterBox!.width).toBeLessThanOrEqual(cardBox!.x);
     } else {
-      expect(cardBox!.height).toBeLessThanOrEqual(310);
+      expect(cardBox!.height).toBeLessThanOrEqual(344);
       const buildingPreview = card.locator("[data-building-preview]");
       await expect(buildingPreview).toContainText("正式测试饮水点");
       const buildingCta = card.getByRole("button", {
         name: "查看全部楼内设施",
       });
       await expect(buildingCta).toBeVisible();
+      const buildingCtaBox = await buildingCta.boundingBox();
+      expect(buildingCtaBox).not.toBeNull();
+      expect(buildingCtaBox!.y + buildingCtaBox!.height).toBeLessThanOrEqual(
+        cardBox!.y + cardBox!.height,
+      );
       await expect(card.getByRole("heading", { name: "G/F" })).toHaveCount(0);
     }
     expect(

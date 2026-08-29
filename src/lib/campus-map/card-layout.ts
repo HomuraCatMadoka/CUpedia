@@ -6,6 +6,7 @@ export type CampusMapMobilePanelLayout =
   | { kind: "expanded" }
   | { kind: "provider-error" }
   | { kind: "provider-poi" }
+  | { kind: "empty-building" }
   | { kind: "facility" }
   | { kind: "building" }
   | { kind: "category"; resultCount: number }
@@ -23,10 +24,12 @@ export function campusMapMobilePanelHeight(
       return "72dvh";
     case "provider-poi":
       return "120px";
+    case "empty-building":
+      return "136px";
     case "facility":
       return "min(300px, 40dvh)";
     case "building":
-      return "min(304px, 40dvh)";
+      return "min(340px, 42dvh)";
     case "category": {
       if (layout.resultCount > CAMPUS_MAP_CATEGORY_PEEK_RESULT_LIMIT) {
         return "min(352px, 44dvh)";
