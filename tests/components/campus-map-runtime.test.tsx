@@ -396,7 +396,7 @@ describe("CampusMapRuntime", () => {
     expect(screen.queryByText(/正式建筑或设施/)).toBeNull();
   });
 
-  it("searches formal Current facts and lists same-type Places separately in the Building card", async () => {
+  it("makes facilities the primary Building-card content and lists each Place separately", async () => {
     render(
       <CampusMapRuntime
         initialBrowseProjection={formalCurrentFactsProjection()}
@@ -414,12 +414,12 @@ describe("CampusMapRuntime", () => {
       name: "何善衡工程学大楼",
     });
 
-    expect(screen.getByText("2 个校内地点")).not.toBeNull();
     expect(buildingHeading.className).toContain("focus-visible:ring-2");
-    expect(screen.getByText("Ho Sin-Hang Engineering Building")).not.toBeNull();
+    expect(screen.queryByText("Ho Sin-Hang Engineering Building")).toBeNull();
     expect(screen.queryByText(/Current facts/i)).toBeNull();
+    expect(screen.getByText("楼内设施 · 洗手间 2")).not.toBeNull();
     const buildingCta = screen.getByRole("button", {
-      name: "查看地点",
+      name: "查看全部设施",
     });
     expect(buildingCta).not.toBeNull();
     expect(buildingCta.closest(".overflow-y-auto")?.className).toContain(
@@ -445,11 +445,9 @@ describe("CampusMapRuntime", () => {
     expect(
       await screen.findByRole("heading", { name: "空置测试楼" }),
     ).not.toBeNull();
-    expect(screen.getByText("暂未收录校内地点")).not.toBeNull();
+    expect(screen.getByText("暂未收录设施")).not.toBeNull();
     expect(screen.queryByText("正式校舍资料")).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: "查看 0 个校内地点" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "查看 0 项设施" })).toBeNull();
     expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
   });
 
@@ -1358,7 +1356,7 @@ describe("CampusMapRuntime", () => {
       />,
     );
 
-    expect(await screen.findByText("1 个地点")).not.toBeNull();
+    expect(await screen.findByText("1 处设施")).not.toBeNull();
     expect(screen.queryByText(/0 栋建筑/)).toBeNull();
     expect(await screen.findByText("新发布饮水点")).not.toBeNull();
     expect(screen.getByText("室外位置")).not.toBeNull();
@@ -1373,8 +1371,11 @@ describe("CampusMapRuntime", () => {
       />,
     );
 
-    expect(await screen.findByText("3 个地点")).not.toBeNull();
+    expect(await screen.findByText("3 处设施")).not.toBeNull();
     expect(screen.queryByText(/校园内已收录/)).toBeNull();
+    expect(document.querySelectorAll("[data-return-result] svg")).toHaveLength(
+      0,
+    );
   });
 
   it("keeps the draft and does not publish when contributor setup is cancelled", async () => {
@@ -2254,7 +2255,7 @@ describe("CampusMapRuntime", () => {
         name: "饮水点",
       }),
     ).not.toBeNull();
-    expect(screen.getByText("2 个地点")).not.toBeNull();
+    expect(screen.getByText("2 处设施")).not.toBeNull();
     expect(screen.queryByText(/Current facts/i)).toBeNull();
     const firstCategoryResult = screen.getByRole("button", {
       name: /科学馆 · 1\/F/,
@@ -2266,6 +2267,7 @@ describe("CampusMapRuntime", () => {
     expect(
       firstCategoryResult.closest(".overflow-y-auto")?.className,
     ).toContain("mb-[var(--campus-map-provider-control-clearance)]");
+    fireEvent.click(screen.getByRole("button", { name: "查看全部 2 处设施" }));
     expect(
       screen.getByRole("button", { name: /大学图书馆 · G\/F/ }),
     ).not.toBeNull();

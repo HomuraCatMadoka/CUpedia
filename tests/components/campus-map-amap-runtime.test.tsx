@@ -1621,7 +1621,7 @@ describe("Campus Map AMap runtime effects", () => {
   it("fits cluster members without selecting the first facility", async () => {
     const { runtime, map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByText("2 个地点");
+    await screen.findByText("2 处设施");
     await waitFor(() => {
       expect(
         runtime.clusters.some((cluster) => cluster.data.length === 2),
@@ -1661,7 +1661,7 @@ describe("Campus Map AMap runtime effects", () => {
 
     const { runtime, map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByText("3 个地点");
+    await screen.findByText("3 处设施");
 
     const cluster = await waitFor(() => {
       const match = runtime.clusters.findLast(
@@ -1707,7 +1707,7 @@ describe("Campus Map AMap runtime effects", () => {
 
     const { runtime } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByText("3 个地点");
+    await screen.findByText("3 处设施");
 
     const scienceMarkers = await waitFor(() => {
       const cluster = runtime.clusters.findLast(
@@ -1753,7 +1753,7 @@ describe("Campus Map AMap runtime effects", () => {
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
     });
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    await screen.findByText("2 个地点");
+    await screen.findByText("2 处设施");
     await waitFor(() => {
       expect(
         runtime.clusters.some((cluster) =>

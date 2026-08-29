@@ -593,6 +593,17 @@ function groupBuildingFacilities(
   });
 }
 
+function summarizeFacilityTypes(facilities: readonly Facility[]) {
+  const counts = new Map<Amenity, number>();
+  for (const facility of facilities) {
+    counts.set(facility.pinType, (counts.get(facility.pinType) ?? 0) + 1);
+  }
+  return CATEGORIES.flatMap((category) => {
+    const count = counts.get(category.id) ?? 0;
+    return count > 0 ? [{ ...category, count }] : [];
+  });
+}
+
 export function CampusMapRuntime({
   initialSearch = "",
   factSchema = null,
@@ -2142,13 +2153,28 @@ export function CampusMapRuntime({
     ];
   }, [browseProjection, buildings, state.mapFilter.query]);
 
-  const buildingDirectory = selectedBuilding
+  const buildingOverviewDirectory = selectedBuilding
     ? projectCampusMapBuildingDirectory(
         browseSnapshot,
         selectedBuilding.buildingId,
-        state.buildingContext.floorId,
+        null,
       )
     : null;
+  const buildingDirectory = selectedBuilding
+    ? state.buildingContext.floorId
+      ? projectCampusMapBuildingDirectory(
+          browseSnapshot,
+          selectedBuilding.buildingId,
+          state.buildingContext.floorId,
+        )
+      : buildingOverviewDirectory
+    : null;
+  const buildingFacilitySummary = summarizeFacilityTypes(
+    buildingOverviewDirectory?.places ?? [],
+  );
+  const buildingFacilitySummaryLabel = buildingFacilitySummary
+    .map((summary) => `${summary.label} ${summary.count}`)
+    .join(" · ");
   const buildingFacilities = buildingDirectory?.places ?? [];
   const buildingFacilityGroups = selectedBuilding
     ? groupBuildingFacilities(selectedBuilding, buildingFacilities)
@@ -2157,7 +2183,7 @@ export function CampusMapRuntime({
     ? queryCampusMapBrowse(browseProjection, { pinType: activeAmenity })
     : null;
   const categoryFacilities = categoryResults?.places ?? [];
-  const categorySummary = `${categoryFacilities.length} 个地点`;
+  const categorySummary = `${categoryFacilities.length} 处设施`;
   const activeCategoryStyle = activeAmenity
     ? amenityStyle(activeAmenity)
     : null;
@@ -2632,19 +2658,19 @@ export function CampusMapRuntime({
             <div className="mb-[var(--campus-map-provider-control-clearance)] min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:mb-0 md:pb-5">
               {(state.sheet.snap === "full"
                 ? categoryFacilities
-                : categoryFacilities.slice(0, 3)
+                : categoryFacilities.slice(0, 1)
               ).map((facility) => {
                 const building = buildings.find(
                   (item) => item.buildingId === facility.buildingId,
                 );
-                const content = (
-                  <>
-                    <span
-                      className="grid size-9 shrink-0 place-items-center rounded-full text-white"
-                      style={{ background: activeCategoryStyle.color }}
-                    >
-                      <activeCategoryStyle.icon className="size-4" />
-                    </span>
+                return (
+                  <button
+                    key={facility.placeId}
+                    data-return-result={facility.placeId}
+                    type="button"
+                    className="flex min-h-14 w-full items-center border-b border-black/8 py-2 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
+                    onClick={() => selectFacility(facility, "category")}
+                  >
                     <span className="min-w-0 flex-1">
                       <strong className="block text-sm">{facility.name}</strong>
                       <span className="mt-0.5 block text-xs text-neutral-500">
@@ -2655,24 +2681,13 @@ export function CampusMapRuntime({
                         )}
                       </span>
                     </span>
-                  </>
-                );
-                return (
-                  <button
-                    key={facility.placeId}
-                    data-return-result={facility.placeId}
-                    type="button"
-                    className="flex min-h-16 w-full items-center gap-3 border-b border-black/8 py-3 text-left"
-                    onClick={() => selectFacility(facility, "category")}
-                  >
-                    {content}
                   </button>
                 );
               })}
-              {categoryFacilities.length > 3 ? (
+              {categoryFacilities.length > 1 ? (
                 <button
                   type="button"
-                  className="mt-3 min-h-11 w-full rounded-xl bg-neutral-100 text-sm font-medium"
+                  className="mt-2 min-h-11 w-full rounded-xl bg-neutral-100 text-sm font-medium hover:bg-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
                   onClick={() =>
                     dispatch({
                       type: "SET_SNAP",
@@ -2682,7 +2697,7 @@ export function CampusMapRuntime({
                 >
                   {state.sheet.snap === "full"
                     ? "收起列表"
-                    : `查看全部 ${categoryFacilities.length} 个地点`}
+                    : `查看全部 ${categoryFacilities.length} 处设施`}
                 </button>
               ) : null}
               {!categoryFacilities.length ? (
@@ -2738,16 +2753,11 @@ export function CampusMapRuntime({
                       ? `${selectedBuilding.name} · ${floorLabel(selectedFacility.floorId, selectedFacility.floorLabel)}`
                       : placeLocationLabel(selectedFacility)}
                   </p>
-                ) : selectedBuilding?.englishName ? (
-                  <p className="mt-1 truncate text-sm text-neutral-500">
-                    {selectedBuilding.englishName}
-                  </p>
-                ) : null}
-                {selectedBuilding && !selectedFacility ? (
-                  <p className="mt-1 text-sm font-medium text-[#174b38]">
-                    {selectedBuilding.placeIds.length
-                      ? `${selectedBuilding.placeIds.length} 个校内地点`
-                      : "暂未收录校内地点"}
+                ) : selectedBuilding ? (
+                  <p className="mt-1 truncate text-sm font-medium text-[#174b38]">
+                    {selectedBuilding.placeIds.length > 0
+                      ? `楼内设施 · ${buildingFacilitySummaryLabel || `${selectedBuilding.placeIds.length} 项`}`
+                      : "暂未收录设施"}
                   </p>
                 ) : null}
               </div>
@@ -2858,93 +2868,96 @@ export function CampusMapRuntime({
                   selectedBuilding.placeIds.length > 0 ? (
                     <button
                       type="button"
-                      className="flex min-h-11 w-full items-center justify-center rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white md:hidden"
+                      className="flex min-h-11 w-full items-center justify-center rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white hover:bg-[#123d2e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 md:hidden"
                       onClick={() =>
                         dispatch({ type: "SET_SNAP", snap: "full" })
                       }
                     >
-                      查看地点
+                      查看全部设施
                     </button>
                   ) : null}
-                  <div
-                    className={cn(
-                      "divide-y divide-black/8",
-                      state.sheet.snap !== "full" && "hidden md:block",
-                    )}
-                  >
-                    {buildingDirectory?.status === "loading" ? (
-                      <p
-                        role="status"
-                        className="py-8 text-center text-sm text-neutral-500"
-                      >
-                        正在读取建筑内设施
-                      </p>
-                    ) : buildingDirectory?.status === "error" ? (
-                      <div
-                        role="alert"
-                        className="py-6 text-center text-sm text-neutral-600"
-                      >
-                        <p>无法读取建筑内设施</p>
-                        <button
-                          type="button"
-                          className="mt-3 min-h-11 rounded-xl border border-black/15 px-4 font-semibold"
-                          onClick={() => void projectionStore.refresh()}
+                  {selectedBuilding.placeIds.length > 0 ? (
+                    <div
+                      className={cn(
+                        "divide-y divide-black/8",
+                        state.sheet.snap !== "full" && "hidden md:block",
+                      )}
+                    >
+                      {buildingDirectory?.status === "loading" ? (
+                        <p
+                          role="status"
+                          className="py-8 text-center text-sm text-neutral-500"
                         >
-                          重新读取
-                        </button>
-                      </div>
-                    ) : buildingDirectory?.status === "ready" ? (
-                      buildingFacilityGroups.map((group) => (
-                        <section key={group.floorId ?? "building"}>
-                          <h4 className="pt-4 text-xs font-semibold text-neutral-500 first:pt-0">
-                            {group.label}
-                          </h4>
-                          <div className="divide-y divide-black/8">
-                            {group.places.map((facility) => {
-                              const style = amenityStyle(facility.pinType);
-                              const Icon = style.icon;
-                              return (
-                                <button
-                                  key={facility.placeId}
-                                  data-return-result={facility.placeId}
-                                  type="button"
-                                  className="flex min-h-16 w-full items-center gap-3 py-3 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
-                                  onClick={() =>
-                                    selectFacility(facility, "building")
-                                  }
-                                >
-                                  <span
-                                    className="grid size-9 shrink-0 place-items-center rounded-full text-white"
-                                    style={{ background: style.color }}
+                          正在读取楼内设施
+                        </p>
+                      ) : buildingDirectory?.status === "error" ? (
+                        <div
+                          role="alert"
+                          className="py-6 text-center text-sm text-neutral-600"
+                        >
+                          <p>无法读取楼内设施</p>
+                          <button
+                            type="button"
+                            className="mt-3 min-h-11 rounded-xl border border-black/15 px-4 font-semibold"
+                            onClick={() => void projectionStore.refresh()}
+                          >
+                            重新读取
+                          </button>
+                        </div>
+                      ) : buildingDirectory?.status === "ready" &&
+                        buildingFacilityGroups.length > 0 ? (
+                        buildingFacilityGroups.map((group) => (
+                          <section key={group.floorId ?? "building"}>
+                            <h4 className="pt-4 text-xs font-semibold text-neutral-500 first:pt-0">
+                              {group.label}
+                            </h4>
+                            <div className="divide-y divide-black/8">
+                              {group.places.map((facility) => {
+                                const style = amenityStyle(facility.pinType);
+                                const Icon = style.icon;
+                                return (
+                                  <button
+                                    key={facility.placeId}
+                                    data-return-result={facility.placeId}
+                                    type="button"
+                                    className="flex min-h-16 w-full items-center gap-3 py-3 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
+                                    onClick={() =>
+                                      selectFacility(facility, "building")
+                                    }
                                   >
-                                    <Icon
-                                      aria-hidden="true"
-                                      className="size-4"
-                                    />
-                                  </span>
-                                  <span className="min-w-0 flex-1">
-                                    <strong className="block truncate text-sm">
-                                      {facility.name}
-                                    </strong>
-                                    <span className="text-xs text-neutral-500">
-                                      {metadataLabel(
-                                        amenityStyle(facility.pinType).label,
-                                        accessLabel(facility),
-                                      )}
+                                    <span
+                                      className="grid size-9 shrink-0 place-items-center rounded-full text-white"
+                                      style={{ background: style.color }}
+                                    >
+                                      <Icon
+                                        aria-hidden="true"
+                                        className="size-4"
+                                      />
                                     </span>
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </section>
-                      ))
-                    ) : (
-                      <p className="py-8 text-center text-sm text-neutral-500">
-                        这个楼层暂无地点
-                      </p>
-                    )}
-                  </div>
+                                    <span className="min-w-0 flex-1">
+                                      <strong className="block truncate text-sm">
+                                        {facility.name}
+                                      </strong>
+                                      <span className="text-xs text-neutral-500">
+                                        {metadataLabel(
+                                          amenityStyle(facility.pinType).label,
+                                          accessLabel(facility),
+                                        )}
+                                      </span>
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </section>
+                        ))
+                      ) : (
+                        <p className="py-8 text-center text-sm text-neutral-500">
+                          这个楼层暂无设施
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               </>
             ) : null}
