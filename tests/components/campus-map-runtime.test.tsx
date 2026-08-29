@@ -2474,7 +2474,7 @@ describe("CampusMapRuntime", () => {
     expect(screen.getByRole("button", { name: "返回搜索结果" })).not.toBeNull();
   });
 
-  it("labels the direct outdoor Place fallback as returning to the map", async () => {
+  it("uses a generic Back label for a direct outdoor Place", async () => {
     const placeId = "30000000-0000-4000-8000-000000000020";
     render(
       <CampusMapRuntime
@@ -2484,12 +2484,12 @@ describe("CampusMapRuntime", () => {
     );
 
     await screen.findByRole("heading", { name: "新发布饮水点" });
-    fireEvent.click(screen.getByRole("button", { name: "返回地图" }));
+    fireEvent.click(screen.getByRole("button", { name: "返回" }));
 
     await waitFor(() => expect(window.location.search).toBe("?v=1"));
   });
 
-  it("uses a truthful generic Back label after a Place page refresh", async () => {
+  it("uses a truthful generic Back label without a return context", async () => {
     const placeId = "71000000-0000-4000-8000-000000000005";
     window.history.replaceState(
       { campusMapScene: true, version: 1, depth: 1 },

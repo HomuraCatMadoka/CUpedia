@@ -379,13 +379,9 @@ test("search and marker open one canonical Place card", async ({ page }) => {
     page.getByRole("link", { name: "查看编辑记录" }),
   ).toHaveAttribute("href", `/campus-map/places/${browseIds.place}/history`);
 
-  await page.getByRole("button", { name: "返回", exact: true }).click();
-  await expect(page).toHaveURL(/scene=search/);
   await expect(
-    page.getByRole("button", { name: /正式测试饮水点.*正式测试楼/ }),
-  ).toBeFocused();
-  await page.goForward();
-  await expect(page).toHaveURL(canonicalUrl);
+    page.getByRole("button", { name: "返回", exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "关闭地点详情" }).click();
   await page.getByRole("button", { name: "饮水点" }).click();

@@ -424,7 +424,6 @@ function knownAmenity(value: string | null) {
 function facilityBackLabel(
   facility: Facility,
   returnTo: CampusMapSession | null,
-  hasScenePredecessor: boolean,
 ) {
   const returnScene = returnTo?.mode === "browse" ? returnTo.scene : null;
   if (returnScene?.kind === "search-results") return "返回搜索结果";
@@ -436,8 +435,7 @@ function facilityBackLabel(
   }
   if (returnScene?.kind === "building") return "返回建筑";
   if (returnScene?.kind === "map") return "返回地图";
-  if (hasScenePredecessor) return "返回";
-  return facility.buildingId ? "返回建筑" : "返回地图";
+  return "返回";
 }
 
 function accessLabel(facility: Facility) {
@@ -1216,11 +1214,7 @@ export function CampusMapRuntime({
     : buildingFor(state.selection, buildings);
   const activeAmenity = knownAmenity(state.mapFilter.category);
   const selectedFacilityBackLabel = selectedFacility
-    ? facilityBackLabel(
-        selectedFacility,
-        driverSnapshot.returnTo,
-        driver.hasScenePredecessor(),
-      )
+    ? facilityBackLabel(selectedFacility, driverSnapshot.returnTo)
     : "返回地图";
 
   const dispatch = useCallback(

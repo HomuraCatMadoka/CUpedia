@@ -180,23 +180,18 @@ export class CampusMapSceneDriver {
     initialSearch = ports.location.search(),
   ) {
     const decoded = decodeCampusMapUrl(initialSearch, catalog);
-    this.currentDepth = decodeCampusMapHistoryMetadata(
-      this.ports.history.state,
-    ).depth;
     this.snapshot = {
       session: decoded.session,
       returnTo: null,
       transitionToken: 0,
       transientPanel: null,
     };
-    this.returnTargetsByDepth.set(this.currentDepth, null);
+    this.returnTargetsByDepth.set(0, null);
   }
 
   getSnapshot = () => this.snapshot;
 
   getIntentToken = () => this.intentVersion;
-
-  hasScenePredecessor = () => this.currentDepth > 0;
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
