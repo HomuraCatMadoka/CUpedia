@@ -429,7 +429,7 @@ describe("CampusMapRuntime", () => {
       name: "查看全部设施",
     });
     expect(buildingCta).not.toBeNull();
-    expect(buildingCta.closest(".overflow-y-auto")?.className).toContain(
+    expect(buildingCta.closest(".overflow-y-auto")?.className).not.toContain(
       "mb-[var(--campus-map-provider-control-clearance)]",
     );
     fireEvent.click(screen.getByRole("button", { name: "展开地点卡片" }));
@@ -482,7 +482,7 @@ describe("CampusMapRuntime", () => {
       screen
         .getByRole("button", { name: "建议修改" })
         .closest(".overflow-y-auto")?.className,
-    ).toContain("mb-[var(--campus-map-provider-control-clearance)]");
+    ).not.toContain("mb-[var(--campus-map-provider-control-clearance)]");
   });
 
   it("refetches Current facts after publish so a standalone Place is searchable", async () => {
@@ -2278,7 +2278,7 @@ describe("CampusMapRuntime", () => {
     ).toContain("pb-[max(1.25rem,var(--campus-map-safe-area-bottom))]");
     expect(
       firstCategoryResult.closest(".overflow-y-auto")?.className,
-    ).toContain("mb-[var(--campus-map-provider-control-clearance)]");
+    ).not.toContain("mb-[var(--campus-map-provider-control-clearance)]");
     fireEvent.click(screen.getByRole("button", { name: "查看全部 2 处设施" }));
     expect(
       screen.getByRole("button", { name: /大学图书馆 · G\/F/ }),

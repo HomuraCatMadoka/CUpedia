@@ -2240,7 +2240,6 @@ export function CampusMapRuntime({
           "--campus-map-edit-sheet-height": "65dvh",
           "--campus-map-peek-height": "min(248px, 36dvh)",
           "--campus-map-panel-height": mobilePanelHeight,
-          "--campus-map-provider-control-clearance": "3.5rem",
           "--campus-map-safe-area-bottom": "env(safe-area-inset-bottom)",
         } as CSSProperties
       }
@@ -2669,7 +2668,7 @@ export function CampusMapRuntime({
                   : "地图标记正在加载"}
               </p>
             ) : null}
-            <div className="mb-[var(--campus-map-provider-control-clearance)] min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:mb-0 md:pb-5">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:pb-5">
               {(state.sheet.snap === "full"
                 ? categoryFacilities
                 : categoryFacilities.slice(0, 1)
@@ -2786,7 +2785,7 @@ export function CampusMapRuntime({
             </div>
 
             {selectedFacility ? (
-              <div className="mb-[var(--campus-map-provider-control-clearance)] min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:mb-0 md:pb-5">
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:pb-5">
                 <div className="flex flex-wrap gap-2 pt-4">
                   <span className="rounded-lg bg-[#e7f1ec] px-2.5 py-1.5 text-sm font-medium text-[#174b38]">
                     {amenityStyle(selectedFacility.pinType).label}
@@ -2877,7 +2876,7 @@ export function CampusMapRuntime({
                     </button>
                   ))}
                 </div>
-                <div className="mb-[var(--campus-map-provider-control-clearance)] min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-[max(1rem,var(--campus-map-safe-area-bottom))] md:mb-0 md:p-5">
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-[max(1rem,var(--campus-map-safe-area-bottom))] md:p-5">
                   {state.sheet.snap !== "full" &&
                   selectedBuilding.placeIds.length > 0 ? (
                     <button
