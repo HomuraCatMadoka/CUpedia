@@ -193,6 +193,19 @@ async function selectScienceCentre() {
   await screen.findByRole("heading", { name: "科学馆" });
 }
 
+async function confirmPlacementWithKeyboard() {
+  if (screen.queryByRole("textbox", { name: "经度（WGS84）" }) === null) {
+    fireEvent.click(await screen.findByRole("button", { name: "输入坐标" }));
+  }
+  fireEvent.change(screen.getByRole("textbox", { name: "经度（WGS84）" }), {
+    target: { value: "114.2072" },
+  });
+  fireEvent.change(screen.getByRole("textbox", { name: "纬度（WGS84）" }), {
+    target: { value: "22.4191" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "使用输入坐标" }));
+}
+
 function formalCurrentFactsProjection() {
   const buildingId = "10000000-0000-4000-8000-000000000010";
   const floorId = "20000000-0000-4000-8000-000000000010";
@@ -524,7 +537,7 @@ describe("CampusMapRuntime", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
-    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "饮水点" }));
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
 
@@ -908,7 +921,7 @@ describe("CampusMapRuntime", () => {
       new PopStateEvent("popstate", { state: window.history.state }),
     );
     fireEvent.click(await screen.findByRole("button", { name: "添加地点" }));
-    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "打印服务" }));
     const replacementSnapshot = window.sessionStorage.getItem(
       "cupedia:campus-map:edit-session:v1",
@@ -942,7 +955,7 @@ describe("CampusMapRuntime", () => {
       "#campus-map-panel-title",
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    await confirmPlacementWithKeyboard();
     window.history.replaceState(null, "", "/campus-map");
     window.dispatchEvent(
       new PopStateEvent("popstate", { state: window.history.state }),
@@ -1398,7 +1411,7 @@ describe("CampusMapRuntime", () => {
     render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
-    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
 
@@ -1420,7 +1433,7 @@ describe("CampusMapRuntime", () => {
     render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
-    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
 
@@ -1440,7 +1453,7 @@ describe("CampusMapRuntime", () => {
     render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
-    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
     const retry = await screen.findByRole("button", {
@@ -1486,7 +1499,7 @@ describe("CampusMapRuntime", () => {
     render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
-    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
     await waitFor(() => expect(mockRequestContributorSetup).toHaveBeenCalled());
@@ -1494,7 +1507,7 @@ describe("CampusMapRuntime", () => {
     fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
     fireEvent.click(await screen.findByRole("button", { name: "放弃草稿" }));
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
-    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "打印服务" }));
 
     await act(async () => resolveSetup());
@@ -1511,14 +1524,14 @@ describe("CampusMapRuntime", () => {
     render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
-    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
     fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
     fireEvent.click(await screen.findByRole("button", { name: "放弃草稿" }));
     expect(back).toHaveBeenCalledOnce();
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
-    fireEvent.click(await screen.findByRole("button", { name: "使用此位置" }));
+    await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "打印服务" }));
 
     window.history.replaceState(null, "", "/campus-map");
@@ -1538,7 +1551,7 @@ describe("CampusMapRuntime", () => {
     ).toBeNull();
   });
 
-  it("uses one Add session for natural center-pin placement and dirty close", async () => {
+  it("uses one Add session for keyboard placement and dirty close", async () => {
     render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
@@ -1559,7 +1572,7 @@ describe("CampusMapRuntime", () => {
     expect(screen.getByRole("textbox", { name: "经度（WGS84）" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "纬度（WGS84）" })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
+    await confirmPlacementWithKeyboard();
     expect(
       await screen.findByRole("heading", { name: "添加校内设施" }),
     ).toBeTruthy();
@@ -1588,7 +1601,7 @@ describe("CampusMapRuntime", () => {
   it("keeps a dirty Add draft when browser Back is cancelled", async () => {
     render(<CampusMapRuntime />);
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
-    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
+    await confirmPlacementWithKeyboard();
     await screen.findByRole("group", { name: "设施类型" });
 
     await act(async () => window.history.back());

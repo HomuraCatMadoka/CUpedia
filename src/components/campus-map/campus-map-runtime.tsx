@@ -1226,7 +1226,7 @@ export function CampusMapRuntime({
     const map = mapRef.current;
     const mapElement = mapElementRef.current;
     const AMap = typeof window === "undefined" ? undefined : window.AMap;
-    if (map && mapElement && AMap) {
+    if (coordinateVersion > 0 && map && mapElement && AMap) {
       const providerPosition = placementAnchorLngLat(map, mapElement, AMap);
       const offset = amapOffsetRef.current;
       initialPlacement = {
@@ -1241,11 +1241,13 @@ export function CampusMapRuntime({
       setProviderCenterPosition([providerPosition.lng, providerPosition.lat]);
     }
     startAdd();
-    dispatchEditEvent({
-      type: "UPDATE_PLACEMENT_CANDIDATE",
-      position: initialPlacement,
-    });
-  }, [centerPosition, dispatchEditEvent, startAdd]);
+    if (coordinateVersion > 0) {
+      dispatchEditEvent({
+        type: "UPDATE_PLACEMENT_CANDIDATE",
+        position: initialPlacement,
+      });
+    }
+  }, [centerPosition, coordinateVersion, dispatchEditEvent, startAdd]);
   useEffect(() => {
     if (!publishNotice) return;
     const timeout = window.setTimeout(() => setPublishNotice(null), 4_000);
@@ -1259,7 +1261,8 @@ export function CampusMapRuntime({
       : null;
   const placementPending = Boolean(
     editSession?.status === "placing" &&
-    (mapMoving ||
+    (coordinateVersion === 0 ||
+      mapMoving ||
       !placementCandidate ||
       Math.abs(placementCandidate.longitude - centerPosition[0]) > 0.00001 ||
       Math.abs(placementCandidate.latitude - centerPosition[1]) > 0.00001),
@@ -1299,6 +1302,7 @@ export function CampusMapRuntime({
       placementTrackingRef.current = null;
       return;
     }
+    if (coordinateVersion === 0) return;
     const tracked = placementTrackingRef.current;
     const isNewPlacement =
       tracked?.idempotencyKey !== editSession.draft.idempotencyKey;
@@ -1320,7 +1324,13 @@ export function CampusMapRuntime({
         },
       });
     }
-  }, [centerPosition, dispatchEditEvent, editSession, mapCenterRevision]);
+  }, [
+    centerPosition,
+    coordinateVersion,
+    dispatchEditEvent,
+    editSession,
+    mapCenterRevision,
+  ]);
 
   useEffect(() => {
     if (

@@ -1,5 +1,5 @@
 // refs #646, #649, #799
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import {
   commandCampusMapProviderMapping,
@@ -27,6 +27,11 @@ const eligibleEmail = "1155000648@link.cuhk.edu.hk";
 const mappedBuildingProviderId = "qa-648-building";
 const mappedPlaceProviderId = "qa-799-place";
 const unmappedProviderId = "qa-799-transient";
+
+function visibleMapCanvas(page: Page) {
+  return page.locator("#amap-campus-canvas:visible");
+}
+
 const providerMappingFixtures = [
   {
     identity: {
@@ -486,7 +491,8 @@ test("one provider callback produces one canonical effect and a map gesture clos
   );
   await expect(page.getByText("高德地图地点")).toHaveCount(0);
 
-  await page.locator("#amap-campus-canvas").dispatchEvent("pointerdown");
+  await expect(visibleMapCanvas(page)).toHaveCount(1);
+  await visibleMapCanvas(page).dispatchEvent("pointerdown");
   await emitAmapEvent(page, "click", {
     lnglat: { lng: 114.2073, lat: 22.4192 },
   });
@@ -521,7 +527,8 @@ test("mapped and unmapped provider POIs never duplicate cards", async ({
   ).toBeVisible();
   await expect(page.getByText("高德地图地点")).toHaveCount(0);
 
-  await page.locator("#amap-campus-canvas").dispatchEvent("pointerdown");
+  await expect(visibleMapCanvas(page)).toHaveCount(1);
+  await visibleMapCanvas(page).dispatchEvent("pointerdown");
   await emitAmapEvent(page, "click", {
     lnglat: { lng: 114.2073, lat: 22.4192 },
   });
@@ -648,10 +655,7 @@ test("three peek/full rounds and ResizeObserver callbacks do not accumulate came
   const targetBeforeResize = await readAmapProjectedPoint(page, targetPosition);
   await page.setViewportSize({ width: 720, height: 845 });
   await page.setViewportSize({ width: 720, height: 844 });
-  await expect(page.locator("#amap-campus-canvas")).toHaveCSS(
-    "height",
-    "844px",
-  );
+  await expect(visibleMapCanvas(page)).toHaveCSS("height", "844px");
   const afterResize = await readAmapSnapshot(page);
   const targetAfterResize = await readAmapProjectedPoint(page, targetPosition);
   expect(afterResize.zoom).toBe(beforeResize.zoom);

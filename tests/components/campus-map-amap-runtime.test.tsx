@@ -263,6 +263,37 @@ async function renderWithRuntime(options?: {
 }
 
 describe("Campus Map AMap runtime effects", () => {
+  it("keeps Add pending until the provider offset can produce WGS84 coordinates", async () => {
+    const { runtime } = await renderWithRuntime({
+      deferConvertFrom: true,
+      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "正在确定位置…",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(screen.queryByRole("button", { name: "使用此位置" })).toBeNull();
+
+    await runtime.flushCoordinateConversions();
+
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "使用此位置",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+    expect(screen.getByText(/114\.207200, 22\.419100/)).not.toBeNull();
+  });
+
   it("uses the visible centre pin rather than the occluded map centre for mobile Add", async () => {
     const { runtime } = await renderWithRuntime({
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
