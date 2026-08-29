@@ -414,7 +414,11 @@ describe("CampusMapRuntime", () => {
       name: "何善衡工程学大楼",
     });
 
-    expect(buildingHeading.className).toContain("focus-visible:ring-2");
+    expect(buildingHeading.className).toContain("focus-visible:outline-none");
+    expect(buildingHeading.className).not.toContain("focus-visible:ring-2");
+    expect(buildingHeading.parentElement?.className).toContain(
+      "has-[:focus-visible]:ring-2",
+    );
     expect(screen.queryByText("Ho Sin-Hang Engineering Building")).toBeNull();
     expect(screen.queryByText(/Current facts/i)).toBeNull();
     expect(screen.getByText("楼内设施 · 洗手间 2")).not.toBeNull();
@@ -1357,6 +1361,11 @@ describe("CampusMapRuntime", () => {
     );
 
     expect(await screen.findByText("1 处设施")).not.toBeNull();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("heading", { name: "饮水点" }),
+      ),
+    );
     expect(screen.queryByText(/0 栋建筑/)).toBeNull();
     expect(await screen.findByText("新发布饮水点")).not.toBeNull();
     expect(screen.getByText("室外位置")).not.toBeNull();

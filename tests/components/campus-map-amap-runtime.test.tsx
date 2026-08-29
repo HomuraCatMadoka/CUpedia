@@ -1373,9 +1373,19 @@ describe("Campus Map AMap runtime effects", () => {
     expect(window.location.search).toBe(initialSearch);
     const errorPanel = screen.getByRole("alert").closest("section");
     expect(errorPanel?.className).toContain(
-      "h-[var(--campus-map-peek-height)]",
+      "h-[var(--campus-map-panel-height)]",
     );
-    expect(errorPanel?.className).not.toContain("h-[72dvh]");
+    const root = errorPanel?.closest("main");
+    expect(root?.style.getPropertyValue("--campus-map-panel-height")).toBe(
+      "var(--campus-map-peek-height)",
+    );
+    expect(
+      [...document.querySelectorAll("style")].some((style) =>
+        style.textContent?.includes(
+          "calc(var(--campus-map-panel-height) + 4px)",
+        ),
+      ),
+    ).toBe(true);
     expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
 
     fireEvent.keyDown(window, { key: "Escape" });

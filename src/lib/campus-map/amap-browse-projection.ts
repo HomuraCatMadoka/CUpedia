@@ -256,6 +256,9 @@ export function createCampusMapAmapPoiCardContent(
 ) {
   const content = ownerDocument.createElement("div");
   content.className = "min-w-36 px-1 py-0.5 text-[#17211c]";
+  content.setAttribute("role", "dialog");
+  content.setAttribute("aria-label", `${card.title}，${card.sourceLabel}`);
+  content.tabIndex = -1;
   const title = ownerDocument.createElement("strong");
   title.className = "block text-sm font-semibold";
   title.textContent = card.title;

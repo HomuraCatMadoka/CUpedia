@@ -1077,6 +1077,13 @@ export function CampusMapRuntime({
                 )
                 ?.focus({ preventScroll: true });
             } else if (focus.kind === "map") {
+              const currentSession = sceneDriver.getSnapshot().session;
+              if (
+                currentSession.mode === "browse" &&
+                currentSession.scene.kind === "provider-poi"
+              ) {
+                return;
+              }
               mapElementRef.current?.focus({ preventScroll: true });
             } else if (focus.kind === "edit-field") {
               const target = Array.from(
@@ -1131,6 +1138,10 @@ export function CampusMapRuntime({
           map,
           new AMap.LngLat(overlay.position[0], overlay.position[1]),
         );
+        browserWindow?.requestAnimationFrame(() => {
+          if (infoWindowRef.current !== infoWindow) return;
+          content.focus({ preventScroll: true });
+        });
       },
       sheet: (sheet, context) => {
         if (sheet.kind === "hide") {
@@ -2193,16 +2204,25 @@ export function CampusMapRuntime({
     !selectedFacility &&
     selectedBuilding.placeIds.length === 0,
   );
-  const mobileMapOcclusion =
+  const panelHidden = Boolean(
+    !editSession &&
+    !activeProviderTargetError &&
+    (state.selection.kind === "external" ||
+      (state.selection.kind === "none" &&
+        !state.mapFilter.category &&
+        !selectedFacility)),
+  );
+  const mobilePanelHeight =
     editSession?.status === "placing"
       ? "48dvh"
       : editSession
         ? "var(--campus-map-edit-sheet-height)"
-        : state.selection.kind === "none" && !activeAmenity
-          ? "0px"
-          : state.sheet.snap === "full"
-            ? "72dvh"
-            : "var(--campus-map-peek-height)";
+        : panelSnap === "full"
+          ? "72dvh"
+          : "var(--campus-map-peek-height)";
+  const mobileMapOcclusion = panelHidden
+    ? "0px"
+    : "var(--campus-map-panel-height)";
   const desktopSidePanelVisible = Boolean(
     editSession ||
     activeProviderTargetError ||
@@ -2219,6 +2239,7 @@ export function CampusMapRuntime({
           "--campus-map-placement-anchor-y": `${MOBILE_PLACEMENT_ANCHOR_RATIO * 100}dvh`,
           "--campus-map-edit-sheet-height": "65dvh",
           "--campus-map-peek-height": "min(248px, 36dvh)",
+          "--campus-map-panel-height": mobilePanelHeight,
           "--campus-map-provider-control-clearance": "3.5rem",
           "--campus-map-safe-area-bottom": "env(safe-area-inset-bottom)",
         } as CSSProperties
@@ -2512,25 +2533,17 @@ export function CampusMapRuntime({
 
       <section
         ref={panelRef}
-        hidden={
-          !editSession &&
-          !activeProviderTargetError &&
-          (state.selection.kind === "external" ||
-            (state.selection.kind === "none" &&
-              !state.mapFilter.category &&
-              !selectedFacility))
-        }
+        hidden={panelHidden}
         aria-labelledby="campus-map-panel-title"
         className={cn(
           "absolute z-30 overflow-hidden overscroll-contain border-black/10 bg-white shadow-[0_12px_40px_rgba(23,33,28,.24)]",
           "inset-x-0 bottom-0 rounded-t-2xl border-t md:right-4 md:left-auto md:w-[390px] md:rounded-2xl md:border",
+          "h-[var(--campus-map-panel-height)]",
           editSession?.status === "placing"
-            ? "h-[48dvh] max-h-[65dvh] md:inset-y-4 md:h-auto md:max-h-[calc(100dvh-32px)]"
+            ? "max-h-[65dvh] md:inset-y-4 md:h-auto md:max-h-[calc(100dvh-32px)]"
             : editSession
-              ? "h-[var(--campus-map-edit-sheet-height)] md:inset-y-4 md:h-auto"
-              : panelSnap === "full"
-                ? "h-[72dvh] md:top-4 md:bottom-auto md:h-auto md:max-h-[calc(100dvh-32px)]"
-                : "h-[var(--campus-map-peek-height)] md:top-4 md:bottom-auto md:h-auto md:max-h-[calc(100dvh-32px)]",
+              ? "md:inset-y-4 md:h-auto"
+              : "md:top-4 md:bottom-auto md:h-auto md:max-h-[calc(100dvh-32px)]",
         )}
       >
         {!editSession &&
@@ -2619,11 +2632,12 @@ export function CampusMapRuntime({
               >
                 <activeCategoryStyle.icon className="size-5" />
               </span>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 rounded-lg has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#176346] has-[:focus-visible]:ring-offset-2">
                 <h2
                   id="campus-map-panel-title"
                   ref={panelTitleRef}
-                  className="text-xl font-semibold"
+                  tabIndex={-1}
+                  className="text-xl font-semibold focus-visible:outline-none"
                 >
                   {activeCategoryStyle.label}
                 </h2>
@@ -2738,12 +2752,12 @@ export function CampusMapRuntime({
                   {selectedBuilding?.code ?? "地点"}
                 </span>
               )}
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 rounded-lg has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#176346] has-[:focus-visible]:ring-offset-2">
                 <h2
                   id="campus-map-panel-title"
                   ref={panelTitleRef}
                   tabIndex={-1}
-                  className="truncate rounded-sm text-xl font-semibold tracking-[-0.02em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
+                  className="truncate text-xl font-semibold tracking-[-0.02em] focus-visible:outline-none"
                 >
                   {selectedFacility?.name ?? selectedBuilding?.name}
                 </h2>

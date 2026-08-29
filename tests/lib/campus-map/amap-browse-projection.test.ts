@@ -191,5 +191,8 @@ describe("AMap browse projection adapter (#647)", () => {
     }
     const content = createCampusMapAmapPoiCardContent(document, transientCard);
     expect(content.textContent).toBe("高德科学馆高德地图地点");
+    expect(content.getAttribute("role")).toBe("dialog");
+    expect(content.getAttribute("aria-label")).toBe("高德科学馆，高德地图地点");
+    expect(content.tabIndex).toBe(-1);
   });
 });
