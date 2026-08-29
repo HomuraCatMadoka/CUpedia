@@ -1206,12 +1206,7 @@ describe("Campus Map canonical scene transition", () => {
     for (const source of ["map", "provider", "task"] as const) {
       verify(source, setSnap, rejected(sources[source]));
     }
-    for (const source of [
-      "search",
-      "category",
-      "building",
-      "facility",
-    ] as const) {
+    for (const source of ["search", "category", "building"] as const) {
       const current = sources[source];
       if (current.mode !== "browse" || !("snap" in current.scene)) {
         throw new Error("sheet-bearing fixture expected");
@@ -1230,6 +1225,7 @@ describe("Campus Map canonical scene transition", () => {
         ),
       );
     }
+    verify("facility", setSnap, rejected(sources.facility));
     verify("content", setSnap, accepted(sources.content, noCommands));
 
     const setFloor = { type: "SET_BUILDING_FLOOR", floorId: "4" } as const;

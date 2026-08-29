@@ -2222,7 +2222,7 @@ export function CampusMapRuntime({
   const browsePeekHeight = activeProviderTargetError
     ? "var(--campus-map-peek-height)"
     : selectedFacility
-      ? "min(344px, 44dvh)"
+      ? "min(300px, 40dvh)"
       : selectedBuilding && selectedBuilding.placeIds.length > 0
         ? "min(304px, 40dvh)"
         : "var(--campus-map-peek-height)";
@@ -2910,6 +2910,7 @@ export function CampusMapRuntime({
                           data-building-preview={
                             buildingPreviewFacility.placeId
                           }
+                          data-return-result={buildingPreviewFacility.placeId}
                           aria-label={`查看设施：${buildingPreviewFacility.name}，${placeLocationLabel(buildingPreviewFacility)}`}
                           className="flex min-h-14 w-full items-center border-b border-black/8 py-2 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
                           onClick={() =>

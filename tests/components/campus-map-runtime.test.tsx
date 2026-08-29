@@ -430,6 +430,9 @@ describe("CampusMapRuntime", () => {
     );
     expect(buildingPreview?.textContent).toContain("东翼洗手间");
     expect(buildingPreview?.textContent).toContain("1/F");
+    expect(buildingPreview?.getAttribute("data-return-result")).toBe(
+      "30000000-0000-4000-8000-000000000010",
+    );
     expect(buildingPreview?.querySelector("strong")?.className).toContain(
       "truncate",
     );
@@ -2041,7 +2044,7 @@ describe("CampusMapRuntime", () => {
     expect(heading.parentElement?.textContent).toContain("大学图书馆 · G/F");
     await waitFor(() => {
       expect(window.location.search).toBe(
-        "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=full",
+        "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
       );
     });
   });
@@ -2252,7 +2255,12 @@ describe("CampusMapRuntime", () => {
       facilityRegion
         .closest("main")
         ?.style.getPropertyValue("--campus-map-panel-height"),
-    ).toBe("min(344px, 44dvh)");
+    ).toBe("min(300px, 40dvh)");
+    await waitFor(() =>
+      expect(window.location.search).toBe(
+        "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
+      ),
+    );
     expect(screen.queryByText(/Current fact/i)).toBeNull();
     expect(screen.queryByText(/2026/)).toBeNull();
   });

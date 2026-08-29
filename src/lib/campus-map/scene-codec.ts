@@ -69,10 +69,16 @@ function normalizePersistentSession(
   catalog: CampusMapSceneCatalog,
 ): PersistableCampusMapSession {
   const resolved = resolveCampusMapSessionSemantics(session, catalog);
-  return resolved.status === "valid" &&
-    resolved.persistence.kind === "persistent"
-    ? resolved.persistence.session
-    : { mode: "browse", scene: { kind: "map" } };
+  const persistent =
+    resolved.status === "valid" && resolved.persistence.kind === "persistent"
+      ? resolved.persistence.session
+      : ({ mode: "browse", scene: { kind: "map" } } as const);
+  return persistent.mode === "browse" && persistent.scene.kind === "facility"
+    ? {
+        mode: "browse",
+        scene: { ...persistent.scene, snap: "peek" },
+      }
+    : persistent;
 }
 
 export function normalizeCampusMapUrlSession(
@@ -196,16 +202,13 @@ export function encodeCampusMapUrl(
   );
 }
 
-export function encodeCampusMapFacilityHref(
-  facilityId: string,
-  snap: "peek" | "full" = "peek",
-) {
+export function encodeCampusMapFacilityHref(facilityId: string) {
   const session: PersistableCampusMapSession = isCanonicalCampusMapId(
     facilityId,
   )
     ? {
         mode: "browse",
-        scene: { kind: "facility", facilityId, snap },
+        scene: { kind: "facility", facilityId, snap: "peek" },
       }
     : { mode: "browse", scene: { kind: "map" } };
   return `/campus-map?${encodePersistableCampusMapUrl(session).toString()}`;
@@ -357,6 +360,9 @@ export function decodeCampusMapUrl(
   }
 
   return validSession(session, catalog)
-    ? { status: "decoded", session }
+    ? {
+        status: "decoded",
+        session: normalizePersistentSession(session, catalog),
+      }
     : fallback("unknown-entity");
 }

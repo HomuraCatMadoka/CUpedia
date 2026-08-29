@@ -392,6 +392,7 @@ test("search and marker open one canonical Place card", async ({ page }) => {
 test("Building expands into Place and Back restores the Building card", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   const buildingUrl = `/campus-map?v=1&scene=building&id=${browseIds.building}&snap=peek`;
   const placeUrl = new RegExp(
     `/campus-map\\?v=1&scene=facility&id=${browseIds.place}&snap=peek$`,
@@ -399,15 +400,19 @@ test("Building expands into Place and Back restores the Building card", async ({
 
   await page.goto(buildingUrl);
   await expect(page.getByRole("heading", { name: "正式测试楼" })).toBeVisible();
-  await expect(page.getByText("饮水点 1 处", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /正式测试饮水点/ }).click();
+  const buildingCard = page.getByRole("region", { name: "正式测试楼" }).first();
+  await expect(
+    buildingCard.getByText("饮水点 1 处", { exact: true }),
+  ).toBeVisible();
+  const buildingPreview = buildingCard.locator(
+    `[data-building-preview="${browseIds.place}"]`,
+  );
+  await buildingPreview.click();
   await expect(page).toHaveURL(placeUrl);
   await page.goBack();
   await expect(page).toHaveURL(buildingUrl);
   await expect(page.getByRole("heading", { name: "正式测试楼" })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /正式测试饮水点/ }),
-  ).toBeFocused();
+  await expect(buildingPreview).toBeFocused();
   await page.goForward();
   await expect(page).toHaveURL(placeUrl);
 
@@ -437,7 +442,7 @@ test("Building expands into Place and Back restores the Building card", async ({
   await page.goto("/campus-map?v=1&scene=facility&id=missing-place&snap=peek");
   await expect(page).toHaveURL(/\/campus-map\?v=1$/);
   await expect(
-    page.locator("[aria-labelledby='campus-map-panel-title']"),
+    page.locator("[aria-labelledby='campus-map-panel-title']").first(),
   ).toBeHidden();
 });
 

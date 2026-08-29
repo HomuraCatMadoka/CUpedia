@@ -376,6 +376,9 @@ export function transitionCampusMapSession(
     if (session.scene.kind === "map" || session.scene.kind === "provider-poi") {
       return reject(session, "event-not-allowed");
     }
+    if (session.scene.kind === "facility" && event.snap === "full") {
+      return reject(session, "event-not-allowed");
+    }
     if (session.scene.snap === event.snap) return acceptNoop(session);
     return {
       status: "accepted",
