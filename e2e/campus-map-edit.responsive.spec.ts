@@ -76,6 +76,8 @@ test("Campus Map editing keeps only the essential controls in a compact mobile v
   expect(sheetBox).not.toBeNull();
   expect(facilityTypeBox).not.toBeNull();
   expect(publishBox).not.toBeNull();
+  expect(sheetBox!.y).toBeGreaterThanOrEqual(844 * 0.45);
+  expect(sheetBox!.height).toBeLessThanOrEqual(448);
   expect(facilityTypeBox!.y + facilityTypeBox!.height).toBeLessThanOrEqual(
     publishBox!.y,
   );

@@ -972,7 +972,7 @@ export function CampusMapEditSheet({
         <h2
           id="campus-map-panel-title"
           tabIndex={-1}
-          className="rounded-sm pr-10 text-lg font-semibold text-balance focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 md:text-xl"
+          className="-ml-2 pr-10 pl-2 text-lg font-semibold text-balance focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346] md:text-xl"
         >
           {isPlacing
             ? draft.mode === "add"

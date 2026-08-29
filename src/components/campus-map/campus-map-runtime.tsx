@@ -2365,7 +2365,7 @@ export function CampusMapRuntime({
       style={
         {
           "--campus-map-placement-anchor-y": `${MOBILE_PLACEMENT_ANCHOR_RATIO * 100}dvh`,
-          "--campus-map-edit-sheet-height": "65dvh",
+          "--campus-map-edit-sheet-height": "min(448px, 65dvh)",
           "--campus-map-peek-height": "min(248px, 36dvh)",
           "--campus-map-panel-height": mobilePanelHeight,
           "--campus-map-safe-area-bottom": "env(safe-area-inset-bottom)",

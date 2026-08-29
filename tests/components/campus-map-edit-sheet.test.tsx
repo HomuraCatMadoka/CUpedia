@@ -278,6 +278,10 @@ describe("Campus Map single-page edit Sheet", () => {
     heading.focus();
     expect(document.activeElement).toBe(heading);
     expect(heading.getAttribute("tabindex")).toBe("-1");
+    expect(heading.className).toContain(
+      "focus-visible:shadow-[inset_3px_0_0_#176346]",
+    );
+    expect(heading.className).not.toContain("focus-visible:ring-offset-2");
   });
 
   it("exposes every place type as one accessible radio group", () => {
