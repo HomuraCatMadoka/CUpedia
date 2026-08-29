@@ -2202,7 +2202,8 @@ export function CampusMapRuntime({
   const activeCategoryStyle = activeAmenity
     ? amenityStyle(activeAmenity)
     : null;
-  const chromeHidden = Boolean(editSession) || state.sheet.snap === "full";
+  const chromeHidden =
+    Boolean(editSession) || (state.sheet.snap === "full" && !selectedFacility);
   const selectedBuildingIsEmpty = Boolean(
     selectedBuilding &&
     !selectedFacility &&
@@ -2228,7 +2229,7 @@ export function CampusMapRuntime({
       ? "48dvh"
       : editSession
         ? "var(--campus-map-edit-sheet-height)"
-        : panelSnap === "full"
+        : panelSnap === "full" && !selectedFacility
           ? "72dvh"
           : browsePeekHeight;
   const mobileMapOcclusion = panelHidden
@@ -2258,7 +2259,7 @@ export function CampusMapRuntime({
       {visiblePublishNotice ? (
         <div
           role="status"
-          className="pointer-events-none absolute bottom-[calc(var(--campus-map-peek-height)+12px)] left-1/2 z-40 flex min-h-11 max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-2 rounded-xl bg-[#174b38] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(23,75,56,.28)] motion-reduce:transition-none md:top-4 md:bottom-auto md:left-4 md:translate-x-0"
+          className="pointer-events-none absolute bottom-[calc(var(--campus-map-panel-height)+12px)] left-1/2 z-40 flex min-h-11 max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-2 rounded-xl bg-[#174b38] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(23,75,56,.28)] motion-reduce:transition-none md:top-4 md:bottom-auto md:left-4 md:translate-x-0"
         >
           <CheckCircle2Icon aria-hidden="true" className="size-5 shrink-0" />
           <span>{visiblePublishNotice.message}</span>
@@ -2558,6 +2559,7 @@ export function CampusMapRuntime({
       >
         {!editSession &&
         !activeProviderTargetError &&
+        !selectedFacility &&
         !selectedBuildingIsEmpty ? (
           <button
             type="button"
@@ -2696,8 +2698,10 @@ export function CampusMapRuntime({
                     onClick={() => selectFacility(facility, "category")}
                   >
                     <span className="min-w-0 flex-1">
-                      <strong className="block text-sm">{facility.name}</strong>
-                      <span className="mt-0.5 block text-xs text-neutral-500">
+                      <strong className="block truncate text-sm">
+                        {facility.name}
+                      </strong>
+                      <span className="mt-0.5 block truncate text-xs text-neutral-500">
                         {metadataLabel(
                           building?.name,
                           placeLocationLabel(facility),
@@ -2744,7 +2748,10 @@ export function CampusMapRuntime({
         ) : selectedBuilding || selectedFacility ? (
           <div
             id="campus-map-panel-content"
-            className="flex h-[calc(100%-44px)] flex-col overscroll-contain md:h-auto md:max-h-[calc(100dvh-32px)]"
+            className={cn(
+              "flex flex-col overscroll-contain md:h-auto md:max-h-[calc(100dvh-32px)]",
+              selectedFacility ? "h-full" : "h-[calc(100%-44px)]",
+            )}
           >
             <div className="flex items-start gap-3 border-b border-black/10 p-4 md:p-5">
               {selectedFacility ? (
@@ -2911,7 +2918,7 @@ export function CampusMapRuntime({
                             <strong className="block truncate text-sm">
                               {buildingPreviewFacility.name}
                             </strong>
-                            <span className="mt-0.5 block text-xs text-neutral-500">
+                            <span className="mt-0.5 block truncate text-xs text-neutral-500">
                               {metadataLabel(
                                 placeLocationLabel(buildingPreviewFacility),
                                 amenityStyle(buildingPreviewFacility.pinType)

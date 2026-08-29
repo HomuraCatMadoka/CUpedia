@@ -430,6 +430,12 @@ describe("CampusMapRuntime", () => {
     );
     expect(buildingPreview?.textContent).toContain("东翼洗手间");
     expect(buildingPreview?.textContent).toContain("1/F");
+    expect(buildingPreview?.querySelector("strong")?.className).toContain(
+      "truncate",
+    );
+    expect(
+      buildingPreview?.querySelector("strong + span")?.className,
+    ).toContain("truncate");
     const buildingCta = screen.getByRole("button", {
       name: "查看全部楼内设施",
     });
@@ -472,6 +478,7 @@ describe("CampusMapRuntime", () => {
     );
 
     await screen.findByRole("heading", { name: "饮水机" });
+    expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
     expect(screen.queryByText("G/F")).toBeNull();
     expect(screen.queryByText(/开放条件未完全核实/)).toBeNull();
     expect(screen.queryByText(/尚无室内精确坐标/)).toBeNull();
@@ -554,7 +561,11 @@ describe("CampusMapRuntime", () => {
     );
     expect(initialProjectionObserver).not.toHaveBeenCalled();
     await screen.findByRole("heading", { name: "新发布饮水点" });
-    expect(screen.getByRole("status").textContent).toContain("地点已添加");
+    const publishStatus = screen.getByRole("status");
+    expect(publishStatus.textContent).toContain("地点已添加");
+    expect(publishStatus.className).toContain(
+      "bottom-[calc(var(--campus-map-panel-height)+12px)]",
+    );
     expect(
       document.querySelector('[aria-live="polite"]')?.textContent,
     ).not.toContain("地点已添加");
@@ -2234,9 +2245,14 @@ describe("CampusMapRuntime", () => {
       "/campus-map/places/71000000-0000-4000-8000-000000000005/history",
     );
     expect(screen.getByRole("group", { name: "更多地点操作" })).not.toBeNull();
+    const facilityRegion = screen.getByRole("region", { name: "饮水机" });
+    expect(facilityRegion.textContent).toContain("饮水点");
+    expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
     expect(
-      screen.getByRole("region", { name: "饮水机" }).textContent,
-    ).toContain("饮水点");
+      facilityRegion
+        .closest("main")
+        ?.style.getPropertyValue("--campus-map-panel-height"),
+    ).toBe("min(344px, 44dvh)");
     expect(screen.queryByText(/Current fact/i)).toBeNull();
     expect(screen.queryByText(/2026/)).toBeNull();
   });
@@ -2278,6 +2294,12 @@ describe("CampusMapRuntime", () => {
       name: /科学馆 · 1\/F/,
     });
     expect(firstCategoryResult).not.toBeNull();
+    expect(firstCategoryResult.querySelector("strong")?.className).toContain(
+      "truncate",
+    );
+    expect(
+      firstCategoryResult.querySelector("strong + span")?.className,
+    ).toContain("truncate");
     expect(
       firstCategoryResult.closest(".overflow-y-auto")?.className,
     ).toContain("pb-[max(1.25rem,var(--campus-map-safe-area-bottom))]");

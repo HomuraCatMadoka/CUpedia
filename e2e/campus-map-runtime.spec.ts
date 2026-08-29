@@ -574,7 +574,7 @@ test("three peek/full rounds and ResizeObserver callbacks do not accumulate came
   const targetPosition = [114.2072, 22.4191] as const;
   await page.setViewportSize({ width: 720, height: 844 });
   await page.goto(
-    `/campus-map?v=1&scene=facility&id=${browseIds.place}&snap=peek`,
+    `/campus-map?v=1&scene=building&id=${browseIds.building}&snap=peek`,
   );
   const initial = await readAmapSnapshot(page);
   const fullSnapshots: Array<{
@@ -636,6 +636,7 @@ test("publish handoff shows one success prompt and never restores the form", asy
   page,
 }) => {
   const publishedName = "打印站";
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/campus-map");
   await page.getByRole("button", { name: "添加地点" }).click();
   await page.getByRole("button", { name: "使用此位置" }).click();
@@ -655,13 +656,20 @@ test("publish handoff shows one success prompt and never restores the form", asy
   await expect(page.getByRole("status")).toContainText("地点已添加");
   await expect(page.getByText("PUBLISHED")).toHaveCount(0);
   const publishNoticeBox = await page.getByRole("status").boundingBox();
+  const publishedCardBox = await page
+    .getByRole("region", { name: publishedName })
+    .boundingBox();
   const searchBox = await page
     .getByRole("textbox", {
       name: "搜索建筑或地点",
     })
     .boundingBox();
   expect(publishNoticeBox).not.toBeNull();
+  expect(publishedCardBox).not.toBeNull();
   expect(searchBox).not.toBeNull();
+  expect(publishNoticeBox!.y + publishNoticeBox!.height).toBeLessThanOrEqual(
+    publishedCardBox!.y,
+  );
   expect(
     publishNoticeBox!.x + publishNoticeBox!.width <= searchBox!.x ||
       searchBox!.x + searchBox!.width <= publishNoticeBox!.x ||
@@ -686,7 +694,10 @@ test("publish handoff shows one success prompt and never restores the form", asy
   ).toBeVisible();
   await expect(page.getByRole("status")).toHaveCount(0);
 
-  await page.getByPlaceholder("搜索建筑或地点…").fill(publishedName);
+  await page
+    .locator('input[placeholder="搜索建筑或地点…"]:visible')
+    .first()
+    .fill(publishedName);
   const publishedResult = page.locator(`[data-search-result="${placeId}"]`);
   await expect(publishedResult).toBeVisible();
   await publishedResult.click();
@@ -779,7 +790,9 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
     if (viewport.width < 768) {
       await page.getByRole("button", { name: "展开地点卡片" }).click();
     }
-    const place = page.getByRole("button", { name: /正式测试饮水点/ });
+    const place = page.locator(
+      `[data-return-result="${browseIds.place}"]:visible`,
+    );
     await expect(place).toBeVisible();
     await place.focus();
     await page.keyboard.press("Enter");
