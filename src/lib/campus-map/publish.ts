@@ -57,7 +57,6 @@ import type {
 } from "@/lib/campus-map/publish-contract";
 import { consumePublishRate } from "@/lib/campus-map/publish-rate-policy";
 import { findActiveCampusMapContributorBlock } from "@/lib/campus-map/moderation-governance";
-import { isAllowedEmail } from "@/lib/email";
 import type { CampusMapPublishReconciliation } from "@/lib/campus-map/publish-receipt-consumer";
 
 export type {
@@ -594,7 +593,6 @@ async function publishCampusMapChangesetInternal(
         .select({
           id: users.id,
           banned: users.banned,
-          email: users.email,
           emailVerified: users.emailVerified,
           nickname: users.nickname,
           role: users.role,
@@ -606,7 +604,9 @@ async function publishCampusMapChangesetInternal(
       if (!actor) {
         return { status: "forbidden", code: "actor-not-eligible" } as const;
       }
-      if (!actor.emailVerified || !isAllowedEmail(actor.email)) {
+      // Account creation owns the email-shape policy. Campus Map only needs
+      // fresh proof that this existing User still owns a verified email.
+      if (!actor.emailVerified) {
         return { status: "forbidden", code: "actor-not-eligible" } as const;
       }
       if (actor.banned) {

@@ -556,23 +556,38 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     }
   }, 10_000);
 
-  it("freshly requires a verified CUHK email", async () => {
-    const [unverifiedId, externalId] = await Promise.all([
-      createActor({ emailVerified: false }),
-      createActor({ email: `campus-map-${randomUUID()}@example.com` }),
-    ]);
+  it("freshly requires verified email ownership", async () => {
+    const actorId = await createActor({ emailVerified: false });
 
-    for (const [index, actorId] of [unverifiedId, externalId].entries()) {
-      await expect(
-        publishCampusMapChangeset(createCommand(), {
-          actorId,
-          clientIp: `203.0.113.${7 + index}`,
-        }),
-      ).resolves.toEqual({
-        status: "forbidden",
-        code: "actor-not-eligible",
-      });
-    }
+    await expect(
+      publishCampusMapChangeset(createCommand(), {
+        actorId,
+        clientIp: "203.0.113.7",
+      }),
+    ).resolves.toEqual({
+      status: "forbidden",
+      code: "actor-not-eligible",
+    });
+  });
+
+  it("does not reapply signup email-shape rules to a verified User", async () => {
+    const actorId = await createActor({
+      email: `campus-map-${randomUUID()}@link.cuhk.edu.hk`,
+    });
+    const command = createCommand();
+    command.comment = "";
+
+    await expect(
+      publishCampusMapChangeset(command, {
+        actorId,
+        clientIp: "203.0.113.8",
+      }),
+    ).resolves.toEqual({
+      status: "validation-failed",
+      errors: [{ code: "comment-required", anchor: { field: "comment" } }],
+      warnings: [],
+      suggestions: [],
+    });
   });
 
   it("requires a completed nickname and credential profile", async () => {
