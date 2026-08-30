@@ -1,27 +1,34 @@
 "use server";
 
-import { readCampusMapBrowse } from "./browse-projection";
+import { requireAuth } from "@/lib/auth-guard";
 import {
   projectCampusMapAmapPoiCard,
   type CampusMapAmapPoiInput,
-} from "./amap-browse-projection";
+} from "@/lib/campus-map/amap-browse-projection";
+import { readCampusMapBrowse } from "@/lib/campus-map/browse-projection";
 import {
   listCampusMapBrowseBuildings,
   listCampusMapCurrentPlaces,
-} from "./fact-store";
-import { resolveCampusMapProviderSelection } from "./provider-mapping-registry";
+} from "@/lib/campus-map/fact-store";
+import { resolveCampusMapProviderSelection } from "@/lib/campus-map/provider-mapping-registry";
 
-/** Public Current-facts projection used by map, search, and Building cards. */
-export async function loadCampusMapBrowseProjection() {
+function readBrowseProjection() {
   return readCampusMapBrowse({
     listBuildings: listCampusMapBrowseBuildings,
     listCurrentPlaces: listCampusMapCurrentPlaces,
   });
 }
 
+/** Beta Current-facts projection used by map, search, and Building cards. */
+export async function loadCampusMapBrowseProjection() {
+  await requireAuth();
+  return readBrowseProjection();
+}
+
 /** Returns one linked or transient AMap card without exposing mapping rules. */
 export async function loadCampusMapAmapPoiCard(input: CampusMapAmapPoiInput) {
-  const projectionPromise = loadCampusMapBrowseProjection();
+  await requireAuth();
+  const projectionPromise = readBrowseProjection();
   const mappingPromise = input.providerObjectId
     ? resolveCampusMapProviderSelection("amap", input.providerObjectId)
     : Promise.resolve(null);

@@ -1,4 +1,4 @@
-import { canonicalizeCampusMapUuid } from "./canonical-uuid";
+import { canonicalizeCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
 
 export const CAMPUS_MAP_MODERATION_TARGET_KINDS = [
   "changeset",

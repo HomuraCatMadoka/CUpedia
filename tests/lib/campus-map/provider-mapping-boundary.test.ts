@@ -28,7 +28,9 @@ describe("Campus Map provider mapping boundary", () => {
     );
 
     expect(factStore).not.toContain("campusMapProviderMappings");
-    expect(browseActions).toContain('from "./provider-mapping-registry"');
+    expect(browseActions).toContain(
+      'from "@/lib/campus-map/provider-mapping-registry"',
+    );
 
     const sourceFiles = (
       await Promise.all(

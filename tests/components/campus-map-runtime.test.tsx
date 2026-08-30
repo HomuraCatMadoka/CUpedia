@@ -411,7 +411,7 @@ describe("CampusMapRuntime", () => {
     expect(screen.queryByText(/正式建筑或设施/)).toBeNull();
   });
 
-  it("makes facilities the primary Building-card content and lists each Place separately", async () => {
+  it("makes places the primary Building-card content and lists each Place separately", async () => {
     render(
       <CampusMapRuntime
         initialBrowseProjection={formalCurrentFactsProjection()}
@@ -578,7 +578,7 @@ describe("CampusMapRuntime", () => {
     const placeId = "71000000-0000-4000-8000-000000000005";
     render(
       <CampusMapRuntime
-        initialSearch={`?v=1&scene=facility&id=${placeId}&snap=peek`}
+        initialSearch={`?v=1&scene=place&id=${placeId}&snap=peek`}
       />,
     );
 
@@ -676,7 +676,7 @@ describe("CampusMapRuntime", () => {
     expect(
       screen.queryByRole("link", { name: "查看此次 Changeset" }),
     ).toBeNull();
-    expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
+    expect(window.location.search).toContain(`scene=place&id=${placeId}`);
     await waitFor(() =>
       expect(
         amapRuntime.markers.some(
@@ -717,7 +717,7 @@ describe("CampusMapRuntime", () => {
     expect(
       await screen.findByRole("heading", { name: "新发布饮水点" }),
     ).not.toBeNull();
-    expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
+    expect(window.location.search).toContain(`scene=place&id=${placeId}`);
   });
 
   it("reconciles a publishing snapshot after remount when its browser actor binding was lost", async () => {
@@ -775,7 +775,7 @@ describe("CampusMapRuntime", () => {
     expect(
       await screen.findByRole("heading", { name: "新发布饮水点" }),
     ).toBeTruthy();
-    expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
+    expect(window.location.search).toContain(`scene=place&id=${placeId}`);
     expect(
       window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1"),
     ).toBeNull();
@@ -930,7 +930,7 @@ describe("CampusMapRuntime", () => {
     window.history.replaceState(
       window.history.state,
       "",
-      `/campus-map?v=1&scene=facility&id=${newerPlaceId}&snap=peek`,
+      `/campus-map?v=1&scene=place&id=${newerPlaceId}&snap=peek`,
     );
     window.dispatchEvent(
       new PopStateEvent("popstate", { state: window.history.state }),
@@ -1254,7 +1254,7 @@ describe("CampusMapRuntime", () => {
     window.history.replaceState(
       null,
       "",
-      `/campus-map?v=1&scene=facility&id=${selectedPlaceId}&snap=peek`,
+      `/campus-map?v=1&scene=place&id=${selectedPlaceId}&snap=peek`,
     );
 
     render(
@@ -1270,7 +1270,7 @@ describe("CampusMapRuntime", () => {
       ).toBeNull(),
     );
     expect(window.location.search).toContain(
-      `scene=facility&id=${selectedPlaceId}`,
+      `scene=place&id=${selectedPlaceId}`,
     );
     expect(reconcileCampusMapEditPublish).not.toHaveBeenCalled();
     expect(publishCampusMapEdit).not.toHaveBeenCalled();
@@ -1511,7 +1511,7 @@ describe("CampusMapRuntime", () => {
     window.history.replaceState(
       { campusMapScene: true, version: 1, depth: 1 },
       "",
-      `/campus-map?v=1&scene=facility&id=${selected.id}&snap=peek`,
+      `/campus-map?v=1&scene=place&id=${selected.id}&snap=peek`,
     );
     render(
       <CampusMapRuntime
@@ -1773,7 +1773,7 @@ describe("CampusMapRuntime", () => {
     window.history.replaceState(
       null,
       "",
-      "/campus-map?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
+      "/campus-map?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
     render(<CampusMapRuntime initialSearch={window.location.search} />);
 
@@ -1799,7 +1799,7 @@ describe("CampusMapRuntime", () => {
     window.history.replaceState(
       null,
       "",
-      `/campus-map?v=1&scene=facility&id=${placeId}&snap=peek`,
+      `/campus-map?v=1&scene=place&id=${placeId}&snap=peek`,
     );
     vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
       status: "published",
@@ -1997,7 +1997,7 @@ describe("CampusMapRuntime", () => {
     window.history.replaceState(
       null,
       "",
-      `/campus-map?v=1&scene=facility&id=${placeId}&snap=peek`,
+      `/campus-map?v=1&scene=place&id=${placeId}&snap=peek`,
     );
     render(<CampusMapRuntime initialSearch={window.location.search} />);
 
@@ -2062,7 +2062,7 @@ describe("CampusMapRuntime", () => {
     window.history.replaceState(
       null,
       "",
-      `/campus-map?v=1&scene=facility&id=${placeId}&snap=peek`,
+      `/campus-map?v=1&scene=place&id=${placeId}&snap=peek`,
     );
     render(<CampusMapRuntime initialSearch={window.location.search} />);
 
@@ -2079,7 +2079,7 @@ describe("CampusMapRuntime", () => {
     window.history.replaceState(
       null,
       "",
-      "/campus-map?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
+      "/campus-map?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
 
     render(<CampusMapRuntime initialSearch={window.location.search} />);
@@ -2087,7 +2087,7 @@ describe("CampusMapRuntime", () => {
     const heading = await screen.findByRole("heading", { name: "饮水机" });
     expect(heading.parentElement?.textContent).toContain("大学图书馆 · G/F");
     expect(window.location.search).toBe(
-      "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
+      "?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
     expect(window.history.state).toEqual({
       campusMapScene: true,
@@ -2212,7 +2212,7 @@ describe("CampusMapRuntime", () => {
     await screen.findByRole("heading", { name: "洗手间" });
     expect(push).toHaveBeenCalledTimes(2);
     expect(window.location.search).toContain(
-      "scene=facility&id=71000000-0000-4000-8000-000000000001",
+      "scene=place&id=71000000-0000-4000-8000-000000000001",
     );
     expect(window.location.search).toContain("snap=peek");
   });
@@ -2225,14 +2225,14 @@ describe("CampusMapRuntime", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "返回建筑" }));
     await screen.findByRole("heading", { name: "科学馆" });
-    expect(window.location.search).not.toContain("scene=facility");
+    expect(window.location.search).not.toContain("scene=place");
 
     await act(async () => {
       window.history.forward();
     });
     await screen.findByRole("heading", { name: "洗手间" });
     expect(window.location.search).toContain(
-      "scene=facility&id=71000000-0000-4000-8000-000000000001",
+      "scene=place&id=71000000-0000-4000-8000-000000000001",
     );
   });
 
@@ -2302,7 +2302,7 @@ describe("CampusMapRuntime", () => {
     window.history.replaceState(
       null,
       "",
-      "/campus-map?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=full",
+      "/campus-map?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=full",
     );
     render(<CampusMapRuntime initialSearch={window.location.search} />);
 
@@ -2310,7 +2310,7 @@ describe("CampusMapRuntime", () => {
     expect(heading.parentElement?.textContent).toContain("大学图书馆 · G/F");
     await waitFor(() => {
       expect(window.location.search).toBe(
-        "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
+        "?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=peek",
       );
     });
   });
@@ -2318,7 +2318,7 @@ describe("CampusMapRuntime", () => {
   it("moves from a direct Place link to its category in one intent", async () => {
     const push = vi.spyOn(window.history, "pushState");
     render(
-      <CampusMapRuntime initialSearch="?v=1&scene=facility&id=71000000-0000-4000-8000-000000000003&snap=peek" />,
+      <CampusMapRuntime initialSearch="?v=1&scene=place&id=71000000-0000-4000-8000-000000000003&snap=peek" />,
     );
     await screen.findByRole("heading", { name: "洗手间" });
     const before = push.mock.calls.length;
@@ -2333,7 +2333,7 @@ describe("CampusMapRuntime", () => {
       }),
     ).not.toBeNull();
     expect(window.location.search).toContain("scene=category&id=toilet");
-    expect(window.location.search).not.toContain("scene=facility");
+    expect(window.location.search).not.toContain("scene=place");
     expect(push.mock.calls.length - before).toBe(1);
 
     await act(async () => {
@@ -2379,7 +2379,7 @@ describe("CampusMapRuntime", () => {
   it("keeps a direct facility deep-link building fallback reversible", async () => {
     const push = vi.spyOn(window.history, "pushState");
     render(
-      <CampusMapRuntime initialSearch="?v=1&scene=facility&id=71000000-0000-4000-8000-000000000003&snap=peek" />,
+      <CampusMapRuntime initialSearch="?v=1&scene=place&id=71000000-0000-4000-8000-000000000003&snap=peek" />,
     );
     await screen.findByRole("heading", { name: "洗手间" });
     const before = push.mock.calls.length;
@@ -2394,7 +2394,7 @@ describe("CampusMapRuntime", () => {
 
   it("uses the location action without repeating an indoor precision warning", async () => {
     render(
-      <CampusMapRuntime initialSearch="?v=1&scene=facility&id=71000000-0000-4000-8000-000000000003&snap=peek" />,
+      <CampusMapRuntime initialSearch="?v=1&scene=place&id=71000000-0000-4000-8000-000000000003&snap=peek" />,
     );
 
     await screen.findByRole("heading", { name: "洗手间" });
@@ -2498,7 +2498,7 @@ describe("CampusMapRuntime", () => {
       await screen.findByRole("heading", { name: "饮水机" }),
     ).not.toBeNull();
     expect(window.location.search).toBe(
-      "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
+      "?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
     expect(screen.getByRole("button", { name: "返回搜索结果" })).not.toBeNull();
   });
@@ -2507,7 +2507,7 @@ describe("CampusMapRuntime", () => {
     const placeId = "30000000-0000-4000-8000-000000000020";
     render(
       <CampusMapRuntime
-        initialSearch={`?v=1&scene=facility&id=${placeId}&snap=peek`}
+        initialSearch={`?v=1&scene=place&id=${placeId}&snap=peek`}
         initialBrowseProjection={publishedOutdoorProjection(placeId)}
       />,
     );
@@ -2523,7 +2523,7 @@ describe("CampusMapRuntime", () => {
     window.history.replaceState(
       { campusMapScene: true, version: 1, depth: 1 },
       "",
-      `/campus-map?v=1&scene=facility&id=${placeId}&snap=peek`,
+      `/campus-map?v=1&scene=place&id=${placeId}&snap=peek`,
     );
 
     render(<CampusMapRuntime initialSearch={window.location.search} />);
@@ -2536,7 +2536,7 @@ describe("CampusMapRuntime", () => {
 
   it("links the selected canonical Place to its public history", async () => {
     render(
-      <CampusMapRuntime initialSearch="?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=full" />,
+      <CampusMapRuntime initialSearch="?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=full" />,
     );
 
     const history = await screen.findByRole("link", {
@@ -2551,7 +2551,7 @@ describe("CampusMapRuntime", () => {
     expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
     await waitFor(() =>
       expect(window.location.search).toBe(
-        "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
+        "?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=peek",
       ),
     );
     expect(screen.queryByText(/Current fact/i)).toBeNull();

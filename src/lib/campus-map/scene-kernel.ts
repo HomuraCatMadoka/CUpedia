@@ -1,9 +1,9 @@
-import type { CameraReason } from "./camera-policy";
+import type { CameraReason } from "@/lib/campus-map/camera-policy";
 import {
   projectCampusMapReturnFocus,
   projectCampusMapSceneCameraCommand,
   resolveCampusMapSessionSemantics,
-} from "./scene-semantics";
+} from "@/lib/campus-map/scene-semantics";
 
 /**
  * Pure product kernel layered on the #593 ports. Provider gesture arbitration,
@@ -30,8 +30,8 @@ export type CampusMapBrowseScene =
       snap: Exclude<CampusMapSheetSnap, "hidden">;
     }
   | {
-      kind: "facility";
-      facilityId: string;
+      kind: "place";
+      placeId: string;
       snap: Exclude<CampusMapSheetSnap, "hidden">;
     }
   | {
@@ -72,7 +72,7 @@ export interface CampusMapSceneCatalog {
   readonly buildings: Readonly<
     Record<string, { floorIds: readonly string[] } | undefined>
   >;
-  readonly facilities: Readonly<
+  readonly places: Readonly<
     Record<
       string,
       | {
@@ -108,8 +108,8 @@ export type CampusMapEvent =
       source: "map" | "search";
     }
   | {
-      type: "OPEN_FACILITY";
-      facilityId: string;
+      type: "OPEN_PLACE";
+      placeId: string;
       source: "map" | "building" | "search";
     }
   | {
@@ -376,7 +376,7 @@ export function transitionCampusMapSession(
     if (session.scene.kind === "map" || session.scene.kind === "provider-poi") {
       return reject(session, "event-not-allowed");
     }
-    if (session.scene.kind === "facility" && event.snap === "full") {
+    if (session.scene.kind === "place" && event.snap === "full") {
       return reject(session, "event-not-allowed");
     }
     if (session.scene.snap === event.snap) return acceptNoop(session);
@@ -480,18 +480,18 @@ export function transitionCampusMapSession(
     };
   }
 
-  if (event.type === "OPEN_FACILITY") {
+  if (event.type === "OPEN_PLACE") {
     const candidate: CampusMapSession = {
       mode: "browse",
-      scene: { kind: "facility", facilityId: event.facilityId, snap: "peek" },
+      scene: { kind: "place", placeId: event.placeId, snap: "peek" },
     };
     const resolved = resolveCampusMapSessionSemantics(candidate, catalog);
     if (resolved.status === "invalid") {
-      return reject(session, "unknown-facility");
+      return reject(session, "unknown-place");
     }
     if (
-      session.scene.kind === "facility" &&
-      session.scene.facilityId === event.facilityId
+      session.scene.kind === "place" &&
+      session.scene.placeId === event.placeId
     ) {
       return acceptNoop(session);
     }
@@ -507,7 +507,7 @@ export function transitionCampusMapSession(
                 resolved.cameraTarget,
                 event.source === "search"
                   ? "search-selection"
-                  : "facility-selection",
+                  : "place-selection",
               ) ?? { kind: "cancel" }),
         focus: { kind: "heading" },
       },
@@ -604,7 +604,7 @@ export function transitionCampusMapSession(
     commands: {
       history: historyCommandFor(
         session.scene.kind === "building" ||
-          session.scene.kind === "facility" ||
+          session.scene.kind === "place" ||
           session.scene.kind === "content"
           ? "enter"
           : "refine",

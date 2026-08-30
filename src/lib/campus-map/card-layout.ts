@@ -13,7 +13,7 @@ export type CampusMapMobilePanelLayout =
   | { kind: "provider-error" }
   | { kind: "provider-poi" }
   | { kind: "empty-building" }
-  | { kind: "facility" }
+  | { kind: "place" }
   | { kind: "building" }
   | { kind: "category"; resultCount: number }
   | { kind: "default" };
@@ -37,7 +37,7 @@ export function campusMapMobilePanelHeight(
       return "120px";
     case "empty-building":
       return "136px";
-    case "facility":
+    case "place":
       return "min(264px, 35dvh)";
     case "building":
       return "min(312px, 39dvh)";

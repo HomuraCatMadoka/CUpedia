@@ -3,7 +3,7 @@ import type { CampusMapFactFieldKey } from "@/db/schema";
 import type {
   CampusMapPublishFactInput,
   CampusMapPublishSourceInput,
-} from "./publish-contract";
+} from "@/lib/campus-map/publish-contract";
 
 export type CampusMapEditFieldKey = CampusMapFactFieldKey | "sources";
 

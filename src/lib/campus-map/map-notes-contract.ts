@@ -1,8 +1,8 @@
-import type { CampusMapTaskReturnContext } from "./scene-kernel";
+import type { CampusMapTaskReturnContext } from "@/lib/campus-map/scene-kernel";
 import {
   canonicalizeCampusMapUuid,
   isCanonicalCampusMapUuid,
-} from "./canonical-uuid";
+} from "@/lib/campus-map/canonical-uuid";
 
 export const CAMPUS_MAP_NOTE_STATUSES = [
   "open",

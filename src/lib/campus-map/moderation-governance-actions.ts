@@ -3,11 +3,12 @@
 import { headers } from "next/headers";
 
 import { getOptionalUser } from "@/lib/auth-guard";
-import { commandCampusMapModeration } from "./moderation-governance";
+import { commandCampusMapModeration } from "@/lib/campus-map/moderation-governance";
 import type {
   CampusMapModerationCommand,
   CampusMapModerationCommandResult,
-} from "./moderation-governance-contract";
+} from "@/lib/campus-map/moderation-governance-contract";
+import { requestClientIp } from "@/lib/campus-map/request-client-ip";
 
 /** Supplies authenticated identity and network context; clients send intent only. */
 export async function commandCampusMapModerationAction(
@@ -19,9 +20,6 @@ export async function commandCampusMapModerationAction(
   ]);
   return commandCampusMapModeration(command, {
     actorId: user?.id ?? null,
-    clientIp:
-      requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      requestHeaders.get("x-real-ip")?.trim() ||
-      "127.0.0.1",
+    clientIp: requestClientIp(requestHeaders),
   });
 }

@@ -58,7 +58,7 @@ import type {
 import { consumePublishRate } from "@/lib/campus-map/publish-rate-policy";
 import { findActiveCampusMapContributorBlock } from "@/lib/campus-map/moderation-governance";
 import { isAllowedEmail } from "@/lib/email";
-import type { CampusMapPublishReconciliation } from "./publish-receipt-consumer";
+import type { CampusMapPublishReconciliation } from "@/lib/campus-map/publish-receipt-consumer";
 
 export type {
   CampusMapPublishChange,

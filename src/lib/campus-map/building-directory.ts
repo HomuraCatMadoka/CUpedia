@@ -1,8 +1,8 @@
 import type {
   CampusMapBrowseBuilding,
   CampusMapBrowsePlace,
-} from "./browse-projection";
-import type { CampusMapBrowseProjectionSnapshot } from "./browse-projection-store";
+} from "@/lib/campus-map/browse-projection";
+import type { CampusMapBrowseProjectionSnapshot } from "@/lib/campus-map/browse-projection-store";
 
 export type CampusMapBuildingDirectory = {
   status: "loading" | "empty" | "ready" | "error";

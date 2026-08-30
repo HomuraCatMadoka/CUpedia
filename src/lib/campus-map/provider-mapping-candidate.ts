@@ -1,7 +1,7 @@
 import type {
   CampusMapProviderIdentity,
   CampusMapProviderMappingTarget,
-} from "./provider-mapping-registry";
+} from "@/lib/campus-map/provider-mapping-registry";
 
 export type CampusMapProviderMappingCandidateSignal =
   | {

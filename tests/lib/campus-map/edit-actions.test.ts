@@ -7,7 +7,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/campus-map/fact-store", () => ({
   getCampusMapCurrentPlace: mocks.getCampusMapCurrentPlace,
 }));
-vi.mock("@/lib/auth-guard", () => ({ getOptionalUser: vi.fn() }));
+vi.mock("@/lib/auth-guard", () => ({
+  getOptionalUser: vi.fn(),
+  requireAuth: vi.fn().mockResolvedValue({ id: "user-1" }),
+}));
 vi.mock("@/lib/campus-map/publish", () => ({
   publishCampusMapChangeset: vi.fn(),
 }));

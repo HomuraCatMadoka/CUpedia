@@ -15,8 +15,8 @@ import {
   campusMapRevisionVisibility,
   users,
 } from "@/db/schema";
-import { isCanonicalCampusMapUuid } from "./canonical-uuid";
-import type { CampusMapSelectionTarget } from "./fact-store";
+import { isCanonicalCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
+import type { CampusMapSelectionTarget } from "@/lib/campus-map/fact-store";
 import {
   normalizeCampusMapProviderIdentity,
   normalizeCampusMapProviderMappingTarget as normalizeTarget,
@@ -24,12 +24,12 @@ import {
   validateCampusMapProviderIdentity as validateProviderIdentity,
   type CampusMapProviderIdentity,
   type CampusMapProviderMappingTarget,
-} from "./provider-mapping-domain";
+} from "@/lib/campus-map/provider-mapping-domain";
 
 export type {
   CampusMapProviderIdentity,
   CampusMapProviderMappingTarget,
-} from "./provider-mapping-domain";
+} from "@/lib/campus-map/provider-mapping-domain";
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 

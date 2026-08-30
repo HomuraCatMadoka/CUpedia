@@ -5,15 +5,15 @@ import type {
   CampusMapPublishSourceInput,
   CampusMapPublishValidationIssue,
   CampusMapPublishWarning,
-} from "./publish-contract";
-import type { CampusMapPublishReceiptOutcome } from "./publish-receipt-consumer";
-import { CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES } from "./publish-contract";
-import { isCampusMapUuid } from "./canonical-uuid";
+} from "@/lib/campus-map/publish-contract";
+import type { CampusMapPublishReceiptOutcome } from "@/lib/campus-map/publish-receipt-consumer";
+import { CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES } from "@/lib/campus-map/publish-contract";
+import { isCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
 import {
   CAMPUS_MAP_EDIT_SCHEMA,
   firstInvalidCampusMapEditField,
   type CampusMapEditFieldKey,
-} from "./edit-schema";
+} from "@/lib/campus-map/edit-schema";
 
 export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 4 as const;
 

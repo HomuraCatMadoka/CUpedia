@@ -12,7 +12,7 @@ describe("Campus Map card layout policy", () => {
     [{ kind: "provider-error" } as const, "var(--campus-map-peek-height)"],
     [{ kind: "provider-poi" } as const, "120px"],
     [{ kind: "empty-building" } as const, "136px"],
-    [{ kind: "facility" } as const, "min(264px, 35dvh)"],
+    [{ kind: "place" } as const, "min(264px, 35dvh)"],
     [{ kind: "building" } as const, "min(312px, 39dvh)"],
     [{ kind: "default" } as const, "var(--campus-map-peek-height)"],
   ])("projects the %s panel height", (layout, expected) => {

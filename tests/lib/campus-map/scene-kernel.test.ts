@@ -17,7 +17,7 @@ const catalog: CampusMapSceneCatalog = {
     science: { floorIds: ["G", "1", "4"] },
     library: { floorIds: ["G", "1"] },
   },
-  facilities: {
+  places: {
     fountain: {
       buildingId: "science",
       floorId: "1",
@@ -63,7 +63,7 @@ describe("Campus Map canonical scene transition", () => {
   it("starts one stable Place edit task through the canonical kernel", () => {
     const facility: CampusMapSession = {
       mode: "browse",
-      scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+      scene: { kind: "place", placeId: "fountain", snap: "peek" },
     };
 
     expect(
@@ -162,14 +162,14 @@ describe("Campus Map canonical scene transition", () => {
   it("stores only a facility identity and derives its relationships", () => {
     const result = transitionCampusMapSession(
       EMPTY_CAMPUS_MAP_SCENE_SESSION,
-      { type: "OPEN_FACILITY", facilityId: "fountain", source: "map" },
+      { type: "OPEN_PLACE", placeId: "fountain", source: "map" },
       catalog,
     );
 
     expect(result.status).toBe("accepted");
     expect(result.session).toEqual({
       mode: "browse",
-      scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+      scene: { kind: "place", placeId: "fountain", snap: "peek" },
     });
     expect(resolveCampusMapScene(result.session, catalog)).toEqual({
       status: "valid",
@@ -183,7 +183,7 @@ describe("Campus Map canonical scene transition", () => {
     expect(result.commands.camera).toEqual({
       kind: "focus",
       buildingId: "science",
-      reason: "facility-selection",
+      reason: "place-selection",
     });
   });
 
@@ -199,7 +199,7 @@ describe("Campus Map canonical scene transition", () => {
       {
         kind: "focus",
         buildingId: "science",
-        reason: "facility-selection",
+        reason: "place-selection",
       },
     ],
     [
@@ -209,7 +209,7 @@ describe("Campus Map canonical scene transition", () => {
       {
         kind: "focus-place",
         placeId: "courtyardWater",
-        reason: "facility-selection",
+        reason: "place-selection",
       },
     ],
     [
@@ -224,36 +224,33 @@ describe("Campus Map canonical scene transition", () => {
       { buildingId: "science", floorId: null, category: "water" },
       { kind: "cancel" },
     ],
-  ])(
-    "opens a %s using stable placeId",
-    (_label, facilityId, context, camera) => {
-      const result = transitionCampusMapSession(
-        EMPTY_CAMPUS_MAP_SCENE_SESSION,
-        { type: "OPEN_FACILITY", facilityId, source: "map" },
-        catalog,
-      );
+  ])("opens a %s using stable placeId", (_label, placeId, context, camera) => {
+    const result = transitionCampusMapSession(
+      EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      { type: "OPEN_PLACE", placeId, source: "map" },
+      catalog,
+    );
 
-      expect(result).toMatchObject({
-        status: "accepted",
-        session: {
-          mode: "browse",
-          scene: { kind: "facility", facilityId, snap: "peek" },
-        },
-        commands: { camera },
-      });
-      expect(resolveCampusMapScene(result.session, catalog)).toMatchObject({
-        status: "valid",
-        context,
-      });
-    },
-  );
+    expect(result).toMatchObject({
+      status: "accepted",
+      session: {
+        mode: "browse",
+        scene: { kind: "place", placeId, snap: "peek" },
+      },
+      commands: { camera },
+    });
+    expect(resolveCampusMapScene(result.session, catalog)).toMatchObject({
+      status: "valid",
+      context,
+    });
+  });
 
   it("treats a repeated outdoor Place intent as an explicit idempotent no-op", () => {
     const session: CampusMapSession = {
       mode: "browse",
       scene: {
-        kind: "facility",
-        facilityId: "courtyardWater",
+        kind: "place",
+        placeId: "courtyardWater",
         snap: "peek",
       },
     };
@@ -262,8 +259,8 @@ describe("Campus Map canonical scene transition", () => {
       transitionCampusMapSession(
         session,
         {
-          type: "OPEN_FACILITY",
-          facilityId: "courtyardWater",
+          type: "OPEN_PLACE",
+          placeId: "courtyardWater",
           source: "search",
         },
         catalog,
@@ -278,13 +275,13 @@ describe("Campus Map canonical scene transition", () => {
   it("explicitly rejects an event with an unknown catalog entity", () => {
     const result = transitionCampusMapSession(
       EMPTY_CAMPUS_MAP_SCENE_SESSION,
-      { type: "OPEN_FACILITY", facilityId: "missing", source: "map" },
+      { type: "OPEN_PLACE", placeId: "missing", source: "map" },
       catalog,
     );
 
     expect(result).toEqual({
       status: "rejected",
-      reason: "unknown-facility",
+      reason: "unknown-place",
       session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
       commands: {
         history: null,
@@ -440,10 +437,10 @@ describe("Campus Map canonical scene transition", () => {
           snap: "peek",
         },
       },
-      { type: "OPEN_FACILITY", facilityId: "fountain", source: "building" },
+      { type: "OPEN_PLACE", placeId: "fountain", source: "building" },
       {
         mode: "browse",
-        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+        scene: { kind: "place", placeId: "fountain", snap: "peek" },
       },
       { kind: "cancel" },
     ],
@@ -494,7 +491,7 @@ describe("Campus Map canonical scene transition", () => {
   it("enters one contribution task and derives its canonical anchor", () => {
     const facility = transitionCampusMapSession(
       EMPTY_CAMPUS_MAP_SCENE_SESSION,
-      { type: "OPEN_FACILITY", facilityId: "fountain", source: "map" },
+      { type: "OPEN_PLACE", placeId: "fountain", source: "map" },
       catalog,
     );
     const task = transitionCampusMapSession(
@@ -585,7 +582,7 @@ describe("Campus Map canonical scene transition", () => {
     ).session;
     const facility = transitionCampusMapSession(
       building,
-      { type: "OPEN_FACILITY", facilityId: "fountain", source: "building" },
+      { type: "OPEN_PLACE", placeId: "fountain", source: "building" },
       catalog,
     ).session;
 
@@ -686,7 +683,7 @@ describe("Campus Map canonical scene transition", () => {
       [
         {
           mode: "browse",
-          scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+          scene: { kind: "place", placeId: "fountain", snap: "peek" },
         },
         {
           camera: {
@@ -842,9 +839,9 @@ describe("Campus Map canonical scene transition", () => {
     [
       {
         mode: "browse",
-        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+        scene: { kind: "place", placeId: "fountain", snap: "peek" },
       },
-      { type: "OPEN_FACILITY", facilityId: "fountain", source: "map" },
+      { type: "OPEN_PLACE", placeId: "fountain", source: "map" },
     ],
     [
       {
@@ -872,7 +869,7 @@ describe("Campus Map canonical scene transition", () => {
     [
       {
         mode: "browse",
-        scene: { kind: "facility", facilityId: "missing", snap: "peek" },
+        scene: { kind: "place", placeId: "missing", snap: "peek" },
       },
       { type: "SET_SNAP", snap: "full" },
     ],
@@ -935,9 +932,9 @@ describe("Campus Map canonical scene transition", () => {
           snap: "peek",
         },
       },
-      facility: {
+      place: {
         mode: "browse",
-        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+        scene: { kind: "place", placeId: "fountain", snap: "peek" },
       },
       content: {
         mode: "browse",
@@ -963,7 +960,7 @@ describe("Campus Map canonical scene transition", () => {
       "search",
       "category",
       "building",
-      "facility",
+      "place",
       "content",
       "provider",
     ] as const;
@@ -1051,7 +1048,7 @@ describe("Campus Map canonical scene transition", () => {
         }),
       );
     }
-    for (const source of ["building", "facility", "content"] as const) {
+    for (const source of ["building", "place", "content"] as const) {
       verify(
         source,
         openCategory,
@@ -1096,26 +1093,26 @@ describe("Campus Map canonical scene transition", () => {
     verify("task", openBuilding, rejected(sources.task));
 
     const openFacility = {
-      type: "OPEN_FACILITY",
-      facilityId: "fountain",
+      type: "OPEN_PLACE",
+      placeId: "fountain",
       source: "map",
     } as const;
     const fountain: CampusMapSession = {
       mode: "browse",
-      scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+      scene: { kind: "place", placeId: "fountain", snap: "peek" },
     };
     for (const source of browseSources) {
       verify(
         source,
         openFacility,
-        source === "facility"
-          ? accepted(sources.facility, noCommands)
+        source === "place"
+          ? accepted(sources.place, noCommands)
           : accepted(fountain, {
               history: "push",
               camera: {
                 kind: "focus",
                 buildingId: "science",
-                reason: "facility-selection",
+                reason: "place-selection",
               },
               focus: { kind: "heading" },
             }),
@@ -1202,7 +1199,7 @@ describe("Campus Map canonical scene transition", () => {
         ),
       );
     }
-    verify("facility", setSnap, rejected(sources.facility));
+    verify("place", setSnap, rejected(sources.place));
     verify("content", setSnap, accepted(sources.content, noCommands));
 
     const setFloor = { type: "SET_BUILDING_FLOOR", floorId: "4" } as const;
@@ -1246,7 +1243,7 @@ describe("Campus Map canonical scene transition", () => {
     for (const source of ["map", "search", "category", "provider"] as const) {
       verify(source, startCreate, accepted(mapTask, createCommands));
     }
-    for (const source of ["building", "facility", "content"] as const) {
+    for (const source of ["building", "place", "content"] as const) {
       verify(source, startCreate, accepted(buildingTask, createCommands));
     }
     verify("task", startCreate, rejected(sources.task));

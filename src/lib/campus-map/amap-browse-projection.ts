@@ -1,8 +1,8 @@
 import {
   CAMPUS_MAP_DEFAULT_VIEW_CENTER,
   type CampusMapBrowseProjection,
-} from "./browse-projection";
-import type { CampusMapSelectionTarget } from "./fact-store";
+} from "@/lib/campus-map/browse-projection";
+import type { CampusMapSelectionTarget } from "@/lib/campus-map/fact-store";
 
 export type CampusMapAmapPosition = readonly [
   longitude: number,

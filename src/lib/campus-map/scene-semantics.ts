@@ -6,9 +6,9 @@ import type {
   CampusMapFocusTarget,
   CampusMapSceneCatalog,
   CampusMapSession,
-} from "./scene-kernel";
-import type { CameraReason } from "./camera-policy";
-import { isCanonicalCampusMapUuid } from "./canonical-uuid";
+} from "@/lib/campus-map/scene-kernel";
+import type { CameraReason } from "@/lib/campus-map/camera-policy";
+import { isCanonicalCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
 
 export type PersistableCampusMapSession =
   | {
@@ -125,8 +125,8 @@ function decodeCatalogRelation(value: unknown): CatalogRelation | undefined {
     : undefined;
 }
 
-function findFacility(catalog: CampusMapSceneCatalog, facilityId: string) {
-  const value = ownCatalogValue(catalog.facilities, facilityId);
+function findFacility(catalog: CampusMapSceneCatalog, placeId: string) {
+  const value = ownCatalogValue(catalog.places, placeId);
   if (!isRecord(value)) return undefined;
   const { buildingId, floorId, category, cameraTarget } = value;
   if (
@@ -199,9 +199,9 @@ export function projectCampusMapReturnFocus(
       fallback: target.focus,
     };
   }
-  if (sourceScene.kind !== "facility") return target.focus;
+  if (sourceScene.kind !== "place") return target.focus;
 
-  const facility = findFacility(catalog, sourceScene.facilityId);
+  const facility = findFacility(catalog, sourceScene.placeId);
   const restoresTrigger =
     targetScene.kind === "search-results" ||
     (targetScene.kind === "building" &&
@@ -212,7 +212,7 @@ export function projectCampusMapReturnFocus(
   return restoresTrigger
     ? {
         kind: "result",
-        resultId: sourceScene.facilityId,
+        resultId: sourceScene.placeId,
         fallback: target.focus,
       }
     : target.focus;
@@ -255,7 +255,7 @@ export function resolveCampusMapSessionSemantics(
         ? findFacility(catalog, session.task.placeId)
         : null;
     if (session.task.kind === "edit" && !editedPlace) {
-      return { status: "invalid", reason: "unknown-facility" };
+      return { status: "invalid", reason: "unknown-place" };
     }
     const anchor =
       session.task.kind === "create"
@@ -371,14 +371,14 @@ export function resolveCampusMapSessionSemantics(
   }
 
   const entity =
-    scene.kind === "facility"
-      ? findFacility(catalog, scene.facilityId)
+    scene.kind === "place"
+      ? findFacility(catalog, scene.placeId)
       : findContent(catalog, scene.contentId);
   const building = entity?.buildingId
     ? findBuilding(catalog, entity.buildingId)
     : undefined;
   const validRelationship =
-    scene.kind === "facility"
+    scene.kind === "place"
       ? Boolean(
           entity &&
           (entity.buildingId === null ||
@@ -392,8 +392,7 @@ export function resolveCampusMapSessionSemantics(
   if (!entity || !validRelationship || !hasCategory(catalog, entity.category)) {
     return {
       status: "invalid",
-      reason:
-        scene.kind === "facility" ? "unknown-facility" : "unknown-content",
+      reason: scene.kind === "place" ? "unknown-place" : "unknown-content",
     };
   }
   return {
@@ -406,9 +405,9 @@ export function resolveCampusMapSessionSemantics(
     },
     buildingId: entity.buildingId,
     cameraTarget:
-      scene.kind === "facility" && "cameraTarget" in entity
+      scene.kind === "place" && "cameraTarget" in entity
         ? entity.cameraTarget === "place-point"
-          ? { kind: "place", placeId: scene.facilityId }
+          ? { kind: "place", placeId: scene.placeId }
           : entity.cameraTarget === "building-anchor" && entity.buildingId
             ? { kind: "building", buildingId: entity.buildingId }
             : null
@@ -420,7 +419,7 @@ export function resolveCampusMapSessionSemantics(
       ? { kind: "building", buildingId: entity.buildingId }
       : { kind: "map" },
     persistence: persistentBrowse(
-      scene.kind === "facility" ? { ...scene, snap: "peek" } : scene,
+      scene.kind === "place" ? { ...scene, snap: "peek" } : scene,
     ),
   };
 }

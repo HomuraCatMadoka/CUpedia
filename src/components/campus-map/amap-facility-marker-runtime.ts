@@ -1,7 +1,7 @@
 import {
   campusMapAmenityStyle,
   campusMapFloorLabel,
-} from "./browse-card-presentation";
+} from "@/components/campus-map/browse-card-presentation";
 
 import type {
   CampusMapBrowseMarker,
@@ -325,7 +325,7 @@ export class AmapFacilityMarkerRuntime {
             String(
               projection.markers.some(
                 (marker) =>
-                  markerKey(marker) === element.dataset.facilityId &&
+                  markerKey(marker) === element.dataset.placeId &&
                   selectedPlaceId !== null &&
                   markerContainsPlace(marker, selectedPlaceId),
               ),

@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { campusMapModerationRateLimits } from "@/db/schema";
-import type { CampusMapModerationCommandResult } from "./moderation-governance-contract";
+import type { CampusMapModerationCommandResult } from "@/lib/campus-map/moderation-governance-contract";
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type RateScope = "actor" | "ip";

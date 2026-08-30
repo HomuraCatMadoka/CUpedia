@@ -1,10 +1,10 @@
-import type { CameraReason, ScreenRect } from "./camera-policy";
+import type { CameraReason, ScreenRect } from "@/lib/campus-map/camera-policy";
 import {
   decodeCampusMapHistoryMetadata,
   decodeCampusMapUrl,
   encodeCampusMapHistoryMetadata,
   encodeCampusMapUrl,
-} from "./scene-codec";
+} from "@/lib/campus-map/scene-codec";
 import {
   EMPTY_CAMPUS_MAP_SCENE_SESSION,
   transitionCampusMapSession,
@@ -14,12 +14,12 @@ import {
   type CampusMapSceneCatalog,
   type CampusMapSceneCommands,
   type CampusMapSession,
-} from "./scene-kernel";
+} from "@/lib/campus-map/scene-kernel";
 import {
   projectCampusMapReturnFocus,
   projectCampusMapSceneCameraCommand,
   resolveCampusMapSessionSemantics,
-} from "./scene-semantics";
+} from "@/lib/campus-map/scene-semantics";
 
 export type CampusMapDriverIntent =
   | CampusMapEvent
@@ -148,7 +148,7 @@ function returnTargetFor(
   }
   if (
     event.type === "OPEN_BUILDING" ||
-    event.type === "OPEN_FACILITY" ||
+    event.type === "OPEN_PLACE" ||
     event.type === "OPEN_CONTENT"
   ) {
     if (session.mode === "browse" && session.scene.kind !== "provider-poi") {
@@ -441,7 +441,7 @@ export class CampusMapSceneDriver {
     if (
       resolved.status === "valid" &&
       session.mode === "browse" &&
-      (session.scene.kind === "facility" || session.scene.kind === "content") &&
+      (session.scene.kind === "place" || session.scene.kind === "content") &&
       resolved.context?.buildingId
     ) {
       return {
@@ -603,7 +603,7 @@ export class CampusMapSceneDriver {
         history,
         camera: projectCampusMapSceneCameraCommand(
           resolved.cameraTarget,
-          "facility-selection",
+          "place-selection",
         ) ?? { kind: "cancel" },
         focus: resolved.focus,
       },
@@ -615,14 +615,14 @@ export class CampusMapSceneDriver {
 
   private resolvePublishedPlace(placeId: string) {
     if (
-      !Object.prototype.hasOwnProperty.call(this.catalog.facilities, placeId) ||
-      !this.catalog.facilities[placeId]
+      !Object.prototype.hasOwnProperty.call(this.catalog.places, placeId) ||
+      !this.catalog.places[placeId]
     ) {
       return null;
     }
     const target: CampusMapSession = {
       mode: "browse",
-      scene: { kind: "facility", facilityId: placeId, snap: "peek" },
+      scene: { kind: "place", placeId: placeId, snap: "peek" },
     };
     const resolved = resolveCampusMapSessionSemantics(target, this.catalog);
     return resolved.status === "valid" ? { target, resolved } : null;

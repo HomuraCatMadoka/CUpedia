@@ -5,7 +5,7 @@ import {
   commandCampusMapProviderMapping,
   type CampusMapProviderMappingCommand,
   type CampusMapProviderMappingCommandResult,
-} from "./provider-mapping-registry";
+} from "@/lib/campus-map/provider-mapping-registry";
 
 /** Clients provide explicit intent; authenticated identity is server-owned. */
 export async function commandCampusMapProviderMappingAction(

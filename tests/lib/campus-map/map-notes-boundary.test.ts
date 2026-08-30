@@ -13,7 +13,7 @@ import type { CampusMapSceneCatalog } from "@/lib/campus-map/scene-kernel";
 const correctionCatalog: CampusMapSceneCatalog = {
   categories: [],
   buildings: {},
-  facilities: {
+  places: {
     "72000000-0000-4000-8000-000000000002": {
       buildingId: null,
       floorId: null,

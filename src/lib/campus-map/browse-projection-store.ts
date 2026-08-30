@@ -1,12 +1,12 @@
 import type {
   CampusMapBrowsePlace,
   CampusMapBrowseProjection,
-} from "./browse-projection";
+} from "@/lib/campus-map/browse-projection";
 import {
   createCampusMapSceneCatalog,
   RefreshableCampusMapSceneCatalog,
-} from "./browse-scene-catalog";
-import type { CampusMapSceneCatalog } from "./scene-kernel";
+} from "@/lib/campus-map/browse-scene-catalog";
+import type { CampusMapSceneCatalog } from "@/lib/campus-map/scene-kernel";
 
 export interface CampusMapBrowseProjectionSnapshot {
   status: "ready" | "refreshing" | "error";

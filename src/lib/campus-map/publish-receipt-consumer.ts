@@ -1,8 +1,8 @@
 import type {
   CampusMapPublishCommand,
   CampusMapPublishResult,
-} from "./publish-contract";
-import { isCanonicalCampusMapId } from "./scene-semantics";
+} from "@/lib/campus-map/publish-contract";
+import { isCanonicalCampusMapId } from "@/lib/campus-map/scene-semantics";
 
 export type CampusMapPublishedReceipt = Extract<
   CampusMapPublishResult,

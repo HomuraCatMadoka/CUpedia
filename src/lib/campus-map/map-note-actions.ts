@@ -11,6 +11,7 @@ import type {
   CampusMapNoteCommand,
   CampusMapNoteCommandResult,
 } from "@/lib/campus-map/map-notes-contract";
+import { requestClientIp } from "@/lib/campus-map/request-client-ip";
 
 export async function commandCampusMapNoteAction(
   command: CampusMapNoteCommand,
@@ -31,12 +32,4 @@ export async function setCampusMapNoteSubscriptionAction(
 ) {
   const user = await getOptionalUser();
   return setCampusMapNoteSubscription(noteId, subscribed, user?.id ?? null);
-}
-
-function requestClientIp(requestHeaders: Headers): string {
-  return (
-    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    requestHeaders.get("x-real-ip")?.trim() ||
-    "127.0.0.1"
-  );
 }

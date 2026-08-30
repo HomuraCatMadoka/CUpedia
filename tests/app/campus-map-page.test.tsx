@@ -36,19 +36,19 @@ describe("formal Campus Map route", () => {
     const element = await CampusMapPage({
       searchParams: Promise.resolve({
         v: "1",
-        scene: "facility",
+        scene: "place",
         id: "place-1",
         snap: "peek",
       }),
     });
 
     expect(mocks.requireAuth).toHaveBeenCalledWith(
-      "/campus-map?v=1&scene=facility&id=place-1&snap=peek",
+      "/campus-map?v=1&scene=place&id=place-1&snap=peek",
     );
     expect(isValidElement(element)).toBe(true);
     expect(element.type).toBe(CampusMapRuntime);
     expect(element.props.initialSearch).toBe(
-      "v=1&scene=facility&id=place-1&snap=peek",
+      "v=1&scene=place&id=place-1&snap=peek",
     );
   });
 

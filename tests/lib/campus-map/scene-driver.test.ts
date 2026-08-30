@@ -12,7 +12,7 @@ const catalog: CampusMapSceneCatalog = {
     science: { floorIds: ["G", "1"] },
     library: { floorIds: ["G"] },
   },
-  facilities: {
+  places: {
     fountain: {
       buildingId: "science",
       floorId: "1",
@@ -215,7 +215,7 @@ describe("CampusMapSceneDriver", () => {
   });
 
   it("projects a deep link through one complete start transition", () => {
-    const runtime = harness("?v=1&scene=facility&id=fountain&snap=peek", false);
+    const runtime = harness("?v=1&scene=place&id=fountain&snap=peek", false);
 
     expect(runtime.ports.camera).toHaveBeenCalledTimes(1);
     expect(runtime.ports.camera).toHaveBeenCalledWith(
@@ -249,15 +249,12 @@ describe("CampusMapSceneDriver", () => {
       },
     ],
     ["no camera target", "locationPending", { kind: "cancel" }],
-  ])("restores a Place deep link with %s", (_label, facilityId, camera) => {
-    const runtime = harness(
-      `?v=1&scene=facility&id=${facilityId}&snap=peek`,
-      false,
-    );
+  ])("restores a Place deep link with %s", (_label, placeId, camera) => {
+    const runtime = harness(`?v=1&scene=place&id=${placeId}&snap=peek`, false);
 
     expect(runtime.driver.getSnapshot().session).toMatchObject({
       mode: "browse",
-      scene: { kind: "facility", facilityId },
+      scene: { kind: "place", placeId },
     });
     expect(runtime.ports.camera).toHaveBeenCalledWith(
       camera,
@@ -269,19 +266,19 @@ describe("CampusMapSceneDriver", () => {
     [
       "marker",
       null,
-      { type: "OPEN_FACILITY", facilityId: "fountain", source: "map" } as const,
+      { type: "OPEN_PLACE", placeId: "fountain", source: "map" } as const,
     ],
     [
       "category list",
       { type: "OPEN_CATEGORY", category: "water" } as const,
-      { type: "OPEN_FACILITY", facilityId: "fountain", source: "map" } as const,
+      { type: "OPEN_PLACE", placeId: "fountain", source: "map" } as const,
     ],
     [
       "building directory",
       { type: "OPEN_BUILDING", buildingId: "science", source: "map" } as const,
       {
-        type: "OPEN_FACILITY",
-        facilityId: "fountain",
+        type: "OPEN_PLACE",
+        placeId: "fountain",
         source: "building",
       } as const,
     ],
@@ -300,9 +297,9 @@ describe("CampusMapSceneDriver", () => {
 
       expect(runtime.driver.getSnapshot().session).toEqual({
         mode: "browse",
-        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+        scene: { kind: "place", placeId: "fountain", snap: "peek" },
       });
-      expect(runtime.search).toBe("?v=1&scene=facility&id=fountain&snap=peek");
+      expect(runtime.search).toBe("?v=1&scene=place&id=fountain&snap=peek");
       expect(runtime.history.pushState).toHaveBeenCalledTimes(1);
       expect(runtime.ports.camera).toHaveBeenCalledTimes(1);
       expect(runtime.ports.focus).toHaveBeenCalledTimes(1);
@@ -320,8 +317,8 @@ describe("CampusMapSceneDriver", () => {
     });
     runtime.driver.dispatch({ type: "SET_BUILDING_FLOOR", floorId: "1" });
     runtime.driver.dispatch({
-      type: "OPEN_FACILITY",
-      facilityId: "fountain",
+      type: "OPEN_PLACE",
+      placeId: "fountain",
       source: "building",
     });
 
@@ -357,8 +354,8 @@ describe("CampusMapSceneDriver", () => {
   it("uses the real predecessor for Back and a building fallback for a direct facility deep link", () => {
     const fromMap = harness();
     fromMap.driver.dispatch({
-      type: "OPEN_FACILITY",
-      facilityId: "fountain",
+      type: "OPEN_PLACE",
+      placeId: "fountain",
       source: "map",
     });
     expect(fromMap.driver.getSnapshot().returnTo).toEqual({
@@ -369,8 +366,8 @@ describe("CampusMapSceneDriver", () => {
     const navigated = harness();
     navigated.driver.dispatch({ type: "OPEN_CATEGORY", category: "water" });
     navigated.driver.dispatch({
-      type: "OPEN_FACILITY",
-      facilityId: "fountain",
+      type: "OPEN_PLACE",
+      placeId: "fountain",
       source: "map",
     });
     vi.mocked(navigated.history.pushState).mockClear();
@@ -382,7 +379,7 @@ describe("CampusMapSceneDriver", () => {
     expect(navigated.history.pushState).not.toHaveBeenCalled();
     expect(navigated.ports.camera).not.toHaveBeenCalled();
 
-    const direct = harness("?v=1&scene=facility&id=fountain&snap=peek");
+    const direct = harness("?v=1&scene=place&id=fountain&snap=peek");
     direct.driver.dispatch({ type: "NAVIGATE_BACK" });
     expect(direct.history.back).not.toHaveBeenCalled();
     expect(direct.driver.getSnapshot().session).toEqual({
@@ -412,8 +409,8 @@ describe("CampusMapSceneDriver", () => {
     ["Place without camera target", "locationPending", { kind: "map" }],
   ])(
     "uses a safe direct-link Back fallback for a %s",
-    (_label, facilityId, scene) => {
-      const runtime = harness(`?v=1&scene=facility&id=${facilityId}&snap=peek`);
+    (_label, placeId, scene) => {
+      const runtime = harness(`?v=1&scene=place&id=${placeId}&snap=peek`);
 
       runtime.driver.dispatch({ type: "NAVIGATE_BACK" });
 
@@ -435,13 +432,13 @@ describe("CampusMapSceneDriver", () => {
     });
 
     runtime.driver.dispatch({
-      type: "OPEN_FACILITY",
-      facilityId: "courtyardWater",
+      type: "OPEN_PLACE",
+      placeId: "courtyardWater",
       source: "map",
     });
     runtime.driver.dispatch({
-      type: "OPEN_FACILITY",
-      facilityId: "lobbyWater",
+      type: "OPEN_PLACE",
+      placeId: "lobbyWater",
       source: "search",
     });
     pending[1]!();
@@ -449,13 +446,13 @@ describe("CampusMapSceneDriver", () => {
 
     expect(runtime.driver.getSnapshot().session).toMatchObject({
       mode: "browse",
-      scene: { kind: "facility", facilityId: "lobbyWater" },
+      scene: { kind: "place", placeId: "lobbyWater" },
     });
     expect(executed).toEqual(["focus"]);
   });
 
   it.each(["X", "Escape"])("keeps %s dismissal independent from Back", () => {
-    const runtime = harness("?v=1&scene=facility&id=fountain&snap=peek");
+    const runtime = harness("?v=1&scene=place&id=fountain&snap=peek");
 
     runtime.driver.dispatch({ type: "DISMISS" });
 
@@ -471,8 +468,8 @@ describe("CampusMapSceneDriver", () => {
     const runtime = harness();
     runtime.driver.dispatch({ type: "SEARCH", query: "science fountain" });
     runtime.driver.dispatch({
-      type: "OPEN_FACILITY",
-      facilityId: "fountain",
+      type: "OPEN_PLACE",
+      placeId: "fountain",
       source: "search",
     });
 
@@ -602,8 +599,8 @@ describe("CampusMapSceneDriver", () => {
       source: "map",
     });
     runtime.driver.dispatch({
-      type: "OPEN_FACILITY",
-      facilityId: "fountain",
+      type: "OPEN_PLACE",
+      placeId: "fountain",
       source: "building",
     });
     vi.mocked(runtime.ports.focus).mockClear();
@@ -628,8 +625,8 @@ describe("CampusMapSceneDriver", () => {
     const runtime = harness();
     runtime.driver.dispatch({ type: "SEARCH", query: "science fountain" });
     runtime.driver.dispatch({
-      type: "OPEN_FACILITY",
-      facilityId: "fountain",
+      type: "OPEN_PLACE",
+      placeId: "fountain",
       source: "search",
     });
     vi.mocked(runtime.ports.focus).mockClear();
@@ -680,8 +677,8 @@ describe("CampusMapSceneDriver", () => {
     const runtime = harness();
     runtime.driver.dispatch({ type: "OPEN_CATEGORY", category: "water" });
     runtime.driver.dispatch({
-      type: "OPEN_FACILITY",
-      facilityId: "courtyardWater",
+      type: "OPEN_PLACE",
+      placeId: "courtyardWater",
       source: "map",
     });
     vi.mocked(runtime.ports.focus).mockClear();
@@ -804,7 +801,7 @@ describe("CampusMapSceneDriver", () => {
     runtime.driver.dispatch({ type: "CANCEL_TASK" });
     runtime.driver.dispatch({ type: "START_CREATE" });
     const intentToken = runtime.driver.getIntentToken();
-    (catalog.facilities as Record<string, object>).queuedPublishedWater = {
+    (catalog.places as Record<string, object>).queuedPublishedWater = {
       buildingId: null,
       floorId: null,
       category: "water",
@@ -825,13 +822,13 @@ describe("CampusMapSceneDriver", () => {
     expect(runtime.driver.getSnapshot().session).toEqual({
       mode: "browse",
       scene: {
-        kind: "facility",
-        facilityId: "queuedPublishedWater",
+        kind: "place",
+        placeId: "queuedPublishedWater",
         snap: "peek",
       },
     });
     expect(runtime.search).toBe(
-      "?v=1&scene=facility&id=queuedPublishedWater&snap=peek",
+      "?v=1&scene=place&id=queuedPublishedWater&snap=peek",
     );
     expect(runtime.history.pushState).toHaveBeenCalledOnce();
   });
@@ -842,7 +839,7 @@ describe("CampusMapSceneDriver", () => {
     runtime.driver.dispatch({ type: "CANCEL_TASK" });
     runtime.driver.dispatch({ type: "START_CREATE" });
     const intentToken = runtime.driver.getIntentToken();
-    (catalog.facilities as Record<string, object>).supersededPublishedWater = {
+    (catalog.places as Record<string, object>).supersededPublishedWater = {
       buildingId: null,
       floorId: null,
       category: "water",
@@ -899,8 +896,8 @@ describe("CampusMapSceneDriver", () => {
     const runtime = harness();
     runtime.driver.dispatch({ type: "OPEN_CATEGORY", category: "water" });
     runtime.driver.dispatch({
-      type: "OPEN_FACILITY",
-      facilityId: "courtyardWater",
+      type: "OPEN_PLACE",
+      placeId: "courtyardWater",
       source: "map",
     });
     vi.mocked(runtime.history.pushState).mockClear();
@@ -916,14 +913,14 @@ describe("CampusMapSceneDriver", () => {
       scene: { kind: "category-results", category: "water" },
     });
 
-    runtime.driver.restore("?v=1&scene=facility&id=courtyardWater&snap=peek", {
+    runtime.driver.restore("?v=1&scene=place&id=courtyardWater&snap=peek", {
       campusMapScene: true,
       version: 1,
       depth: 1,
     });
     expect(runtime.driver.getSnapshot().session).toMatchObject({
       mode: "browse",
-      scene: { kind: "facility", facilityId: "courtyardWater" },
+      scene: { kind: "place", placeId: "courtyardWater" },
     });
     expect(runtime.history.pushState).not.toHaveBeenCalled();
     expect(runtime.history.replaceState).not.toHaveBeenCalled();
@@ -982,7 +979,7 @@ describe("CampusMapSceneDriver", () => {
     const runtime = harness();
     runtime.driver.dispatch({ type: "START_CREATE" });
     const intentToken = runtime.driver.getIntentToken();
-    (catalog.facilities as Record<string, object>).publishedWater = {
+    (catalog.places as Record<string, object>).publishedWater = {
       buildingId: null,
       floorId: null,
       category: "water",
@@ -998,8 +995,8 @@ describe("CampusMapSceneDriver", () => {
     expect(runtime.driver.getSnapshot().session).toEqual({
       mode: "browse",
       scene: {
-        kind: "facility",
-        facilityId: "publishedWater",
+        kind: "place",
+        placeId: "publishedWater",
         snap: "peek",
       },
     });
@@ -1012,7 +1009,7 @@ describe("CampusMapSceneDriver", () => {
     runtime.driver.dispatch({ type: "START_CREATE" });
     const intentToken = runtime.driver.getIntentToken();
     runtime.driver.dispatch({ type: "CANCEL_TASK" });
-    (catalog.facilities as Record<string, object>).lateWater = {
+    (catalog.places as Record<string, object>).lateWater = {
       buildingId: null,
       floorId: null,
       category: "water",
@@ -1025,7 +1022,7 @@ describe("CampusMapSceneDriver", () => {
       },
     );
     expect(runtime.driver.getSnapshot().session).not.toMatchObject({
-      scene: { facilityId: "lateWater" },
+      scene: { placeId: "lateWater" },
     });
   });
 });

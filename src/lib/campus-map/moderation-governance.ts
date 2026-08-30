@@ -33,7 +33,7 @@ import {
   users,
 } from "@/db/schema";
 import { isAllowedEmail } from "@/lib/email";
-import { isCanonicalCampusMapUuid } from "./canonical-uuid";
+import { isCanonicalCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
 import {
   CAMPUS_MAP_MODERATION_TARGET_KINDS,
   CAMPUS_MAP_REPORT_SIGNALS,
@@ -51,8 +51,8 @@ import {
   type CampusMapModerationTarget,
   type CampusMapModerationTargetReadResult,
   type CampusMapReportSignal,
-} from "./moderation-governance-contract";
-import { consumeCampusMapReportRate } from "./moderation-rate-policy";
+} from "@/lib/campus-map/moderation-governance-contract";
+import { consumeCampusMapReportRate } from "@/lib/campus-map/moderation-rate-policy";
 
 export type {
   CampusMapContributorBlockScope,
@@ -70,7 +70,7 @@ export type {
   CampusMapModerationTargetReadResult,
   CampusMapReportSignal,
   CampusMapRevisionRedactionTrigger,
-} from "./moderation-governance-contract";
+} from "@/lib/campus-map/moderation-governance-contract";
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type EligibleActor = { id: string; nickname: string; role: string };

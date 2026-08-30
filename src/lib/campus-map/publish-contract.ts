@@ -27,7 +27,7 @@ import {
   CAMPUS_MAP_SOURCE_COORDINATE_CRS,
   CAMPUS_MAP_TEMPORARY_STATUSES,
   CAMPUS_MAP_WHEELCHAIR_ACCESS,
-} from "./controlled-values";
+} from "@/lib/campus-map/controlled-values";
 
 /** Runtime values shared by publish clients and versioned snapshot codecs. */
 export const CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES = {

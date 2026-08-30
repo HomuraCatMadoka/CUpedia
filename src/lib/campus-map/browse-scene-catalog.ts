@@ -1,5 +1,5 @@
-import type { CampusMapBrowseProjection } from "./browse-projection";
-import type { CampusMapSceneCatalog } from "./scene-kernel";
+import type { CampusMapBrowseProjection } from "@/lib/campus-map/browse-projection";
+import type { CampusMapSceneCatalog } from "@/lib/campus-map/scene-kernel";
 
 export function createCampusMapSceneCatalog(
   projection: CampusMapBrowseProjection,
@@ -18,7 +18,7 @@ export function createCampusMapSceneCatalog(
         { floorIds: building.floors.map((floor) => floor.floorId) },
       ]),
     ),
-    facilities: Object.fromEntries(
+    places: Object.fromEntries(
       projection.places.map((place) => [
         place.placeId,
         {
@@ -43,20 +43,20 @@ export function createCampusMapSceneCatalog(
 export class RefreshableCampusMapSceneCatalog implements CampusMapSceneCatalog {
   categories: CampusMapSceneCatalog["categories"];
   buildings: CampusMapSceneCatalog["buildings"];
-  facilities: CampusMapSceneCatalog["facilities"];
+  places: CampusMapSceneCatalog["places"];
   contents: CampusMapSceneCatalog["contents"];
 
   constructor(initial: CampusMapSceneCatalog) {
     this.categories = initial.categories;
     this.buildings = initial.buildings;
-    this.facilities = initial.facilities;
+    this.places = initial.places;
     this.contents = initial.contents;
   }
 
   replace(next: CampusMapSceneCatalog) {
     this.categories = next.categories;
     this.buildings = next.buildings;
-    this.facilities = next.facilities;
+    this.places = next.places;
     this.contents = next.contents;
   }
 }

@@ -37,7 +37,7 @@ export type CameraReason =
   | "map-selection"
   | "search-selection"
   | "deep-link"
-  | "facility-selection"
+  | "place-selection"
   | "sheet-layout"
   | "building-floor"
   | "building-amenity"
@@ -135,7 +135,7 @@ export function cameraPolicyFor(
   const padding = deriveCameraPadding(mapRect, panelRect);
   switch (reason) {
     case "map-selection":
-    case "facility-selection":
+    case "place-selection":
     case "sheet-layout":
       return { padding, zoom: { kind: "preserve" }, animate: true };
     case "search-selection":

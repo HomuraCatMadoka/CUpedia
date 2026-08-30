@@ -97,9 +97,7 @@ describe("campus map camera policy", () => {
     expect(cameraPolicyFor("map-selection", desktopMap, null)?.zoom).toEqual({
       kind: "preserve",
     });
-    expect(
-      cameraPolicyFor("facility-selection", desktopMap, null)?.zoom,
-    ).toEqual({
+    expect(cameraPolicyFor("place-selection", desktopMap, null)?.zoom).toEqual({
       kind: "preserve",
     });
     expect(cameraPolicyFor("sheet-layout", desktopMap, null)?.zoom).toEqual({

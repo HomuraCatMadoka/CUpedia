@@ -2,22 +2,23 @@
 
 import { headers } from "next/headers";
 
-import { getOptionalUser } from "@/lib/auth-guard";
-import { getCampusMapCurrentPlace } from "./fact-store";
+import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
+import { getCampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
 import {
   publishCampusMapChangeset,
   reconcileCampusMapPublishReceipt,
-} from "./publish";
+} from "@/lib/campus-map/publish";
 import type {
   CampusMapPublishActorIdentity,
   CampusMapPublishReconciliation,
   CampusMapPublishTransportResult,
-} from "./publish-receipt-consumer";
-import type { CampusMapIndoorLocationDisplay } from "./edit-session";
+} from "@/lib/campus-map/publish-receipt-consumer";
+import type { CampusMapIndoorLocationDisplay } from "@/lib/campus-map/edit-session";
 import type {
   CampusMapPublishCommand,
   CampusMapPublishFactInput,
-} from "./publish-contract";
+} from "@/lib/campus-map/publish-contract";
+import { requestClientIp } from "@/lib/campus-map/request-client-ip";
 
 export interface CampusMapEditablePlace {
   placeId: string;
@@ -30,6 +31,7 @@ export interface CampusMapEditablePlace {
 export async function loadCampusMapEditablePlace(
   placeId: string,
 ): Promise<CampusMapEditablePlace | null> {
+  await requireAuth();
   const place = await getCampusMapCurrentPlace(placeId);
   if (!place) return null;
   const buildingId =
@@ -78,14 +80,6 @@ export async function loadCampusMapEditablePlace(
       observedAt: place.observedAt?.toISOString() ?? null,
     },
   };
-}
-
-function requestClientIp(requestHeaders: Headers): string {
-  const forwarded = requestHeaders
-    .get("x-forwarded-for")
-    ?.split(",")[0]
-    ?.trim();
-  return forwarded || requestHeaders.get("x-real-ip")?.trim() || "unknown";
 }
 
 /** Thin trusted-context adapter; #718 remains the only publish implementation. */

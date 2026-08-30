@@ -1,7 +1,7 @@
 import type {
   CampusMapCurrentPlace,
   CampusMapCurrentPlaceLocation,
-} from "./fact-store";
+} from "@/lib/campus-map/fact-store";
 
 type CampusMapPinType = CampusMapCurrentPlace["pinType"];
 

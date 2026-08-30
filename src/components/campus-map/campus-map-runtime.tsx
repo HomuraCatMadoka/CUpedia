@@ -28,10 +28,10 @@ import {
   campusMapFloorLabel as floorLabel,
   campusMapPlaceLocationLabel as placeLocationLabel,
   knownCampusMapAmenity as knownAmenity,
-} from "./browse-card-presentation";
-import { AmapFacilityMarkerRuntime } from "./amap-facility-marker-runtime";
-import { CampusMapEditSheet } from "./edit-sheet";
-import { useCampusMapEditSessionOwner } from "./use-campus-map-edit-session-owner";
+} from "@/components/campus-map/browse-card-presentation";
+import { AmapFacilityMarkerRuntime } from "@/components/campus-map/amap-facility-marker-runtime";
+import { CampusMapEditSheet } from "@/components/campus-map/edit-sheet";
+import { useCampusMapEditSessionOwner } from "@/components/campus-map/use-campus-map-edit-session-owner";
 
 import {
   CameraRequestGate,
@@ -122,11 +122,11 @@ import { cn } from "@/lib/utils";
 
 type Amenity = CampusMapAmenity;
 type Building = CampusMapBrowseBuilding;
-type Facility = CampusMapBrowsePlace;
+type Place = CampusMapBrowsePlace;
 type Position = CampusMapPosition;
 type ResolvedMappedProviderTarget =
   | { kind: "building"; building: Building }
-  | { kind: "place"; facility: Facility };
+  | { kind: "place"; facility: Place };
 
 function findMappedProviderTarget(
   projection: CampusMapBrowseProjection,
@@ -252,7 +252,7 @@ function canonicalInitialSearch(
 type ProjectedCampusMapSelection =
   | { kind: "none" }
   | { kind: "building"; buildingId: string }
-  | { kind: "facility"; buildingId: string | null; facilityId: string }
+  | { kind: "place"; buildingId: string | null; placeId: string }
   | {
       kind: "external";
       externalId: string;
@@ -282,14 +282,14 @@ function projectedState(
   const scene = session.scene;
   const returnScene = returnTo?.mode === "browse" ? returnTo.scene : null;
   const facility =
-    scene.kind === "facility" ? catalog.facilities[scene.facilityId] : null;
+    scene.kind === "place" ? catalog.places[scene.placeId] : null;
   const selection: ProjectedCampusMapSelection =
     scene.kind === "building"
       ? { kind: "building", buildingId: scene.buildingId }
-      : scene.kind === "facility" && facility
+      : scene.kind === "place" && facility
         ? {
-            kind: "facility",
-            facilityId: scene.facilityId,
+            kind: "place",
+            placeId: scene.placeId,
             buildingId: facility.buildingId,
           }
         : scene.kind === "provider-poi"
@@ -318,7 +318,7 @@ function projectedState(
       floorId:
         scene.kind === "building"
           ? scene.floorId
-          : scene.kind === "facility" && facility
+          : scene.kind === "place" && facility
             ? facility.floorId
             : null,
     },
@@ -377,7 +377,7 @@ function buildingFor(
   buildings: readonly Building[],
 ) {
   const buildingId =
-    selection.kind === "building" || selection.kind === "facility"
+    selection.kind === "building" || selection.kind === "place"
       ? selection.buildingId
       : null;
   return (
@@ -387,12 +387,11 @@ function buildingFor(
 
 function facilityFor(
   selection: ProjectedCampusMapSelection,
-  facilities: readonly Facility[],
+  places: readonly Place[],
 ) {
-  return selection.kind === "facility"
-    ? (facilities.find(
-        (facility) => facility.placeId === selection.facilityId,
-      ) ?? null)
+  return selection.kind === "place"
+    ? (places.find((facility) => facility.placeId === selection.placeId) ??
+        null)
     : null;
 }
 
@@ -410,7 +409,7 @@ function facilityBackLabel(returnTo: CampusMapSession | null) {
   return "返回";
 }
 
-function accessLabel(facility: Facility) {
+function accessLabel(facility: Place) {
   if (facility.access.temporaryStatus === "temporarily-closed") {
     return "暂时停用";
   }
@@ -466,18 +465,15 @@ function publishedPlaceNotice(
     : `地点已发布 · ${building.name}`;
 }
 
-function groupBuildingFacilities(
-  building: Building,
-  facilities: readonly Facility[],
-) {
+function groupBuildingFacilities(building: Building, places: readonly Place[]) {
   const floorOrder = new Map(
     building.floors.map((floor, index) => [floor.floorId, index]),
   );
   const groups = new Map<
     string,
-    { floorId: string | null; label: string; places: Facility[] }
+    { floorId: string | null; label: string; places: Place[] }
   >();
-  for (const facility of facilities) {
+  for (const facility of places) {
     const key = facility.floorId ?? "__building";
     const group = groups.get(key) ?? {
       floorId: facility.floorId,
@@ -497,9 +493,9 @@ function groupBuildingFacilities(
   });
 }
 
-function summarizeFacilityTypes(facilities: readonly Facility[]) {
+function summarizeFacilityTypes(places: readonly Place[]) {
   const counts = new Map<Amenity, number>();
-  for (const facility of facilities) {
+  for (const facility of places) {
     counts.set(facility.pinType, (counts.get(facility.pinType) ?? 0) + 1);
   }
   return CATEGORIES.flatMap((category) => {
@@ -546,13 +542,13 @@ export function CampusMapRuntime({
       ).mapFilter.query,
   );
   const buildings = browseProjection.buildings;
-  const facilities = browseProjection.places;
+  const places = browseProjection.places;
   const buildingsRef = useRef(buildings);
-  const facilitiesRef = useRef(facilities);
+  const facilitiesRef = useRef(places);
   useEffect(() => {
     buildingsRef.current = buildings;
-    facilitiesRef.current = facilities;
-  }, [buildings, facilities]);
+    facilitiesRef.current = places;
+  }, [buildings, places]);
   const editSessionActiveRef = useRef(false);
   const editSessionPlacingRef = useRef(false);
   const exactProviderPlaceRef = useRef<AmapResolvedPlaceContext | null>(null);
@@ -1045,15 +1041,15 @@ export function CampusMapRuntime({
   const visiblePublishNotice =
     publishNotice &&
     session.mode === "browse" &&
-    session.scene.kind === "facility" &&
-    session.scene.facilityId === publishNotice.placeId
+    session.scene.kind === "place" &&
+    session.scene.placeId === publishNotice.placeId
       ? publishNotice
       : null;
   const state = projectedState(session, driverSnapshot.returnTo, sceneCatalog);
   const panelSnap =
     activeProviderTargetError?.snap ??
     (selectedProviderPoi ? "peek" : state.sheet.snap);
-  const selectedFacility = facilityFor(state.selection, facilities);
+  const selectedFacility = facilityFor(state.selection, places);
   const selectedBuilding = selectedFacility?.buildingId
     ? (buildings.find(
         (building) => building.buildingId === selectedFacility.buildingId,
@@ -1114,8 +1110,8 @@ export function CampusMapRuntime({
           const current = driver.getSnapshot().session;
           return (
             current.mode === "browse" &&
-            current.scene.kind === "facility" &&
-            current.scene.facilityId === placeId
+            current.scene.kind === "place" &&
+            current.scene.placeId === placeId
           );
         },
         readReceiptState: readBrowserCampusMapPublishReceiptState,
@@ -1335,7 +1331,7 @@ export function CampusMapRuntime({
   ]);
 
   const startEdit = useCallback(
-    (facility: Facility) => void startCanonicalEdit(facility.placeId),
+    (facility: Place) => void startCanonicalEdit(facility.placeId),
     [startCanonicalEdit],
   );
 
@@ -1366,10 +1362,10 @@ export function CampusMapRuntime({
   );
 
   const selectFacility = useCallback(
-    (facility: Facility, source: "category" | "building" | "search") => {
+    (facility: Place, source: "category" | "building" | "search") => {
       dispatch({
-        type: "OPEN_FACILITY",
-        facilityId: facility.placeId,
+        type: "OPEN_PLACE",
+        placeId: facility.placeId,
         source:
           source === "category"
             ? "map"
@@ -1907,7 +1903,7 @@ export function CampusMapRuntime({
         building,
       })),
       ...results.places.map((facility) => ({
-        kind: "facility" as const,
+        kind: "place" as const,
         facility,
         building:
           buildings.find(
@@ -2009,7 +2005,7 @@ export function CampusMapRuntime({
   } else if (selectedProviderPoi) {
     mobilePanelLayout = { kind: "provider-poi" };
   } else if (selectedFacility) {
-    mobilePanelLayout = { kind: "facility" };
+    mobilePanelLayout = { kind: "place" };
   } else if (selectedBuildingIsEmpty) {
     mobilePanelLayout = { kind: "empty-building" };
   } else if (selectedBuilding) {

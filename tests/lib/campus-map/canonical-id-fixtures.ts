@@ -74,7 +74,7 @@ export function buildNonCanonicalCampusMapIdentityCases(
       label: "facility ID",
       catalog: {
         ...catalog,
-        facilities: {
+        places: {
           " fountain ": {
             buildingId: "science",
             floorId: "1",
@@ -84,9 +84,9 @@ export function buildNonCanonicalCampusMapIdentityCases(
       },
       session: {
         mode: "browse",
-        scene: { kind: "facility", facilityId: " fountain ", snap: "peek" },
+        scene: { kind: "place", placeId: " fountain ", snap: "peek" },
       },
-      reason: "unknown-facility",
+      reason: "unknown-place",
     },
     {
       label: "content ID",
@@ -112,7 +112,7 @@ export function buildNonCanonicalCampusMapIdentityCases(
       catalog: {
         ...catalog,
         buildings: { " science ": { floorIds: ["1"] } },
-        facilities: {
+        places: {
           fountain: {
             buildingId: " science ",
             floorId: "1",
@@ -122,16 +122,16 @@ export function buildNonCanonicalCampusMapIdentityCases(
       },
       session: {
         mode: "browse",
-        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+        scene: { kind: "place", placeId: "fountain", snap: "peek" },
       },
-      reason: "unknown-facility",
+      reason: "unknown-place",
     },
     {
       label: "facility floor relation",
       catalog: {
         ...catalog,
         buildings: { science: { floorIds: [" 1 "] } },
-        facilities: {
+        places: {
           fountain: {
             buildingId: "science",
             floorId: " 1 ",
@@ -141,9 +141,9 @@ export function buildNonCanonicalCampusMapIdentityCases(
       },
       session: {
         mode: "browse",
-        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+        scene: { kind: "place", placeId: "fountain", snap: "peek" },
       },
-      reason: "unknown-facility",
+      reason: "unknown-place",
     },
     {
       label: "content category relation",

@@ -42,7 +42,7 @@ describe("Campus Map browse scene catalog", () => {
   it("adapts every stable Place with nullable browse and camera context", () => {
     const catalog = createCampusMapSceneCatalog(projection, ["water"]);
 
-    expect(catalog.facilities).toEqual({
+    expect(catalog.places).toEqual({
       indoor: {
         buildingId: "science",
         floorId: "G",
@@ -74,7 +74,7 @@ describe("Campus Map browse scene catalog", () => {
     };
 
     expect(
-      createCampusMapSceneCatalog(withoutAnchor, ["water"]).facilities[
+      createCampusMapSceneCatalog(withoutAnchor, ["water"]).places[
         "building-only"
       ],
     ).toMatchObject({

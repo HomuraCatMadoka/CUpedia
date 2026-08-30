@@ -2,13 +2,13 @@ import {
   EMPTY_CAMPUS_MAP_SCENE_SESSION,
   type CampusMapSceneCatalog,
   type CampusMapSession,
-} from "./scene-kernel";
+} from "@/lib/campus-map/scene-kernel";
 import {
   isCanonicalCampusMapId,
   resolveCampusMapSessionSemantics,
   type PersistableCampusMapSession,
-} from "./scene-semantics";
-import { isCanonicalCampusMapUuid } from "./canonical-uuid";
+} from "@/lib/campus-map/scene-semantics";
+import { isCanonicalCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
 
 export const CAMPUS_MAP_SCENE_CODEC_VERSION = 1 as const;
 
@@ -175,9 +175,9 @@ function encodePersistableCampusMapUrl(
     params.set("snap", scene.snap);
     return params;
   }
-  if (scene.kind === "facility") {
-    params.set("scene", "facility");
-    params.set("id", scene.facilityId);
+  if (scene.kind === "place") {
+    params.set("scene", "place");
+    params.set("id", scene.placeId);
     params.set("snap", scene.snap);
     return params;
   }
@@ -196,8 +196,8 @@ export function encodeCampusMapUrl(
   );
 }
 
-export function encodeCampusMapFacilityHref(
-  facilityId: string,
+export function encodeCampusMapPlaceHref(
+  placeId: string,
   head: {
     status: "active" | "retired" | "merged";
     visibility: "public" | "redacted";
@@ -206,10 +206,10 @@ export function encodeCampusMapFacilityHref(
   const params = encodePersistableCampusMapUrl(
     head?.status === "active" &&
       head.visibility === "public" &&
-      isCanonicalCampusMapId(facilityId)
+      isCanonicalCampusMapId(placeId)
       ? {
           mode: "browse",
-          scene: { kind: "facility", facilityId, snap: "peek" },
+          scene: { kind: "place", placeId, snap: "peek" },
         }
       : { mode: "browse", scene: { kind: "map" } },
   );
@@ -336,10 +336,7 @@ export function decodeCampusMapUrl(
       mode: "browse",
       scene: { kind: "building", buildingId, floorId, snap: panelSnap },
     };
-  } else if (
-    (sceneKind === "facility" || sceneKind === "content") &&
-    panelSnap
-  ) {
+  } else if ((sceneKind === "place" || sceneKind === "content") && panelSnap) {
     if (!hasOnlyUrlKeys(params, ["v", "scene", "id", "snap"])) {
       return fallback("conflicting-fields");
     }
@@ -348,10 +345,10 @@ export function decodeCampusMapUrl(
       return fallback("invalid-identity");
     }
     session =
-      sceneKind === "facility"
+      sceneKind === "place"
         ? {
             mode: "browse",
-            scene: { kind: "facility", facilityId: id, snap: panelSnap },
+            scene: { kind: "place", placeId: id, snap: panelSnap },
           }
         : {
             mode: "browse",

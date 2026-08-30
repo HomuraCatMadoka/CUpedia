@@ -1309,7 +1309,7 @@ describe("Campus Map AMap runtime effects", () => {
     });
 
     await screen.findByRole("heading", { name: "饮水机" });
-    expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
+    expect(window.location.search).toContain(`scene=place&id=${placeId}`);
   });
 
   it("refreshes a stale projection before opening a newly mapped canonical Place", async () => {
@@ -1341,9 +1341,7 @@ describe("Campus Map AMap runtime effects", () => {
     expect(
       await screen.findByRole("heading", { name: place.name }),
     ).not.toBeNull();
-    expect(window.location.search).toContain(
-      `scene=facility&id=${place.placeId}`,
-    );
+    expect(window.location.search).toContain(`scene=place&id=${place.placeId}`);
     expect(window.location.search).not.toContain("scene=building");
   });
 
@@ -1457,7 +1455,7 @@ describe("Campus Map AMap runtime effects", () => {
 
       expect(await screen.findByRole("heading", { name })).not.toBeNull();
       expect(window.location.search).toBe(
-        `?v=1&scene=facility&id=${placeId}&snap=peek`,
+        `?v=1&scene=place&id=${placeId}&snap=peek`,
       );
       if (entry === "search") {
         expect(
@@ -1500,7 +1498,7 @@ describe("Campus Map AMap runtime effects", () => {
       await screen.findByRole("heading", { name: "大堂饮水点" }),
     ).not.toBeNull();
     expect(window.location.search).toBe(
-      "?v=1&scene=facility&id=building-only-water&snap=peek",
+      "?v=1&scene=place&id=building-only-water&snap=peek",
     );
   });
 
@@ -1529,7 +1527,7 @@ describe("Campus Map AMap runtime effects", () => {
     });
     await runtime.flushAnimationFrames();
 
-    expect(window.location.search).toContain("scene=facility&id=outdoor-water");
+    expect(window.location.search).toContain("scene=place&id=outdoor-water");
     expect(
       await screen.findByRole("heading", { name: "林荫饮水点" }),
     ).not.toBeNull();
@@ -1561,21 +1559,21 @@ describe("Campus Map AMap runtime effects", () => {
     expect(
       await screen.findByRole("heading", { name: "林荫饮水点" }),
     ).not.toBeNull();
-    expect(window.location.search).toContain("scene=facility&id=outdoor-water");
+    expect(window.location.search).toContain("scene=place&id=outdoor-water");
   });
 
   it("restores an outdoor Place deep link after refresh", async () => {
     const projection = createNullablePlaceFixture();
     await renderWithRuntime({
       projection,
-      initialSearch: "?v=1&scene=facility&id=outdoor-water&snap=peek",
+      initialSearch: "?v=1&scene=place&id=outdoor-water&snap=peek",
     });
 
     expect(
       await screen.findByRole("heading", { name: "林荫饮水点" }),
     ).not.toBeNull();
     expect(window.location.search).toBe(
-      "?v=1&scene=facility&id=outdoor-water&snap=peek",
+      "?v=1&scene=place&id=outdoor-water&snap=peek",
     );
   });
 
@@ -1696,7 +1694,7 @@ describe("Campus Map AMap runtime effects", () => {
 
     expect(map.setBounds).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("heading", { name: "饮水点" })).not.toBeNull();
-    expect(window.location.search).not.toContain("scene=facility");
+    expect(window.location.search).not.toContain("scene=place");
   });
 
   it("fits co-located Places before opening their Building presence", async () => {
@@ -1822,7 +1820,7 @@ describe("Campus Map AMap runtime effects", () => {
     });
 
     const { runtime } = await renderWithRuntime({
-      initialSearch: `?v=1&scene=facility&id=${secondPlaceId}&snap=peek`,
+      initialSearch: `?v=1&scene=place&id=${secondPlaceId}&snap=peek`,
     });
 
     const selectedCluster = await waitFor(() => {
@@ -1896,7 +1894,7 @@ describe("Campus Map AMap runtime effects", () => {
 
     expect(screen.getByRole("heading", { name: "饮水机" })).not.toBeNull();
     expect(window.location.search).toContain(
-      "scene=facility&id=71000000-0000-4000-8000-000000000002",
+      "scene=place&id=71000000-0000-4000-8000-000000000002",
     );
     expect(push).toHaveBeenCalledTimes(1);
   });
