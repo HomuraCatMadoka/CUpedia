@@ -325,7 +325,7 @@ export class AmapFacilityMarkerRuntime {
             String(
               projection.markers.some(
                 (marker) =>
-                  markerKey(marker) === element.dataset.placeId &&
+                  markerKey(marker) === element.dataset.facilityId &&
                   selectedPlaceId !== null &&
                   markerContainsPlace(marker, selectedPlaceId),
               ),

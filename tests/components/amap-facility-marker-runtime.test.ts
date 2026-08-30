@@ -116,6 +116,32 @@ class StickyEmptyCluster {
 }
 
 describe("AmapFacilityMarkerRuntime", () => {
+  it("keeps the rendered marker selection in sync with its DOM identity", () => {
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      "MutationObserver",
+      class {
+        observe() {}
+        disconnect = disconnect;
+      },
+    );
+    const marker = {
+      dataset: { facilityId: `place:${placeId}` },
+      setAttribute: vi.fn(),
+    };
+    const container = {
+      querySelectorAll: vi.fn(() => [marker]),
+    } as unknown as HTMLElement;
+    const runtime = new AmapFacilityMarkerRuntime();
+
+    const cleanup = runtime.syncSelection(container, projection, placeId);
+
+    expect(marker.setAttribute).toHaveBeenCalledWith("aria-pressed", "true");
+    cleanup();
+    expect(disconnect).toHaveBeenCalledOnce();
+    vi.unstubAllGlobals();
+  });
+
   it("rebuilds a cluster when a published Place receives its provider position", () => {
     StickyEmptyCluster.instances = [];
     const runtime = new AmapFacilityMarkerRuntime();
