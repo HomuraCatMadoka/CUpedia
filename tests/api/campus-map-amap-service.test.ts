@@ -50,9 +50,11 @@ function sdkQuery(parameters: ReadonlyArray<readonly [string, string]>) {
 
 function reverseGeocodeRequest(
   init?: ConstructorParameters<typeof NextRequest>[1],
+  language = "zh_cn",
 ) {
   return request(
     `v3/geocode/regeo?${sdkQuery([
+      ["language", language],
       ["location", "114.2,22.4"],
       ["radius", "150"],
       ["extensions", "all"],
@@ -61,10 +63,10 @@ function reverseGeocodeRequest(
   );
 }
 
-function coordinateConvertRequest() {
+function coordinateConvertRequest(locations = "114.2,22.4") {
   return request(
     `v3/assistant/coordinate/convert?${sdkQuery([
-      ["locations", "114.2,22.4"],
+      ["locations", locations],
       ["coordsys", "gps"],
     ])}`,
   );
@@ -175,6 +177,32 @@ describe("campus map AMap same-origin service", () => {
     expect(upstreamUrl.searchParams.get("jscode")).toBe(
       "server-only-security-code",
     );
+  });
+
+  it("forwards the semicolon-separated coordinate batches emitted by the SDK", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response('{"status":"1","locations":"114.2,22.4"}'),
+    );
+
+    const response = await GET(
+      coordinateConvertRequest(
+        "114.2083333333,22.41819984;114.2077777778,22.4191666667",
+      ),
+      context("v3", "assistant", "coordinate", "convert"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a reverse-geocoding language the runtime does not use", async () => {
+    const response = await GET(
+      reverseGeocodeRequest(undefined, "en"),
+      context("v3", "geocode", "regeo"),
+    );
+
+    expect(response.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it.each([

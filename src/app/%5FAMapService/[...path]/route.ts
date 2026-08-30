@@ -30,6 +30,7 @@ const REQUEST_PARAMETER_COUNTS_BY_PATH = new Map<
     {
       ...SDK_METADATA_PARAMETER_COUNTS,
       extensions: 1,
+      language: 1,
       location: 1,
       radius: 1,
     },
@@ -41,7 +42,7 @@ function isCoordinatePair(value: string) {
   if (parts.length !== 2) return false;
   const [longitudeText, latitudeText] = parts;
   if (!longitudeText || !latitudeText) return false;
-  const coordinatePart = /^-?\d+(?:\.\d{1,6})?$/;
+  const coordinatePart = /^-?\d{1,3}(?:\.\d{1,15})?$/;
   if (
     !coordinatePart.test(longitudeText) ||
     !coordinatePart.test(latitudeText)
@@ -100,7 +101,7 @@ function matchesRuntimePayload(
   }
 
   if (upstreamPath === "v3/assistant/coordinate/convert") {
-    const locations = searchParams.get("locations")?.split("|") ?? [];
+    const locations = searchParams.get("locations")?.split(/[;|]/) ?? [];
     return (
       locations.length > 0 &&
       locations.length <= 40 &&
@@ -110,6 +111,7 @@ function matchesRuntimePayload(
   }
 
   return (
+    searchParams.get("language") === "zh_cn" &&
     isCoordinatePair(searchParams.get("location") ?? "") &&
     searchParams.get("radius") === "150" &&
     searchParams.get("extensions") === "all"
