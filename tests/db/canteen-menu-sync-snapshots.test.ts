@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   canteenDishComments,
@@ -404,19 +404,31 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
     expect(preserved.isAvailable).toBe(true);
   });
 
-  it("removes a historical breakfast after the source contracts to lunch and dinner (#782)", async () => {
+  it("removes a historical meal period after the source configuration contracts (#782)", async () => {
+    const clock = await db.execute<{ database_now: string | Date }>(
+      sql`select now() as database_now`,
+    );
+    const currentPeriod = menuSyncWindowAt(
+      new Date(String(clock.rows[0]?.database_now)),
+    ).period;
+    const historicalPeriod = (["breakfast", "lunch", "dinner"] as const).find(
+      (period) => period !== currentPeriod,
+    )!;
+    const configuredPeriods = (
+      ["breakfast", "lunch", "dinner"] as const
+    ).filter((period) => period !== historicalPeriod);
     await db
       .update(canteenMenuSources)
-      .set({ syncMealPeriods: ["lunch", "dinner"] })
+      .set({ syncMealPeriods: configuredPeriods })
       .where(eq(canteenMenuSources.id, sourceId));
-    const [historicalBreakfast] = await db
+    const [historicalItem] = await db
       .insert(canteenMenuItems)
       .values({
         canteenId,
         menuSourceId: sourceId,
-        externalProductId: "historical-breakfast",
-        name: "配置外早餐",
-        mealPeriods: ["breakfast"],
+        externalProductId: `historical-${historicalPeriod}`,
+        name: "配置外历史餐段",
+        mealPeriods: [historicalPeriod],
         isAvailable: true,
       })
       .returning({ id: canteenMenuItems.id });
@@ -439,11 +451,11 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
           isAvailable: canteenMenuItems.isAvailable,
         })
         .from(canteenMenuItems)
-        .where(eq(canteenMenuItems.id, historicalBreakfast.id)),
-    ).resolves.toEqual([{ id: historicalBreakfast.id, isAvailable: false }]);
+        .where(eq(canteenMenuItems.id, historicalItem.id)),
+    ).resolves.toEqual([{ id: historicalItem.id, isAvailable: false }]);
     expect(
       (await getCanteenMenuItems(canteenId)).some(
-        (entry) => entry.id === historicalBreakfast.id,
+        (entry) => entry.id === historicalItem.id,
       ),
     ).toBe(false);
   });

@@ -111,7 +111,17 @@ async function resetData(connectionUrl: string) {
     );
     if (!rows.length) return;
     const tables = rows.map((r) => `"${r.name}"`).join(", ");
-    await client.query(`truncate table ${tables} restart identity cascade`);
+    await client.query("begin");
+    try {
+      // The Campus Map ledger rejects ordinary mutation. E2E provisioning is
+      // an explicit maintenance operation against a disposable local database.
+      await client.query("set local session_replication_role = replica");
+      await client.query(`truncate table ${tables} restart identity cascade`);
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    }
   } finally {
     await client.end();
   }

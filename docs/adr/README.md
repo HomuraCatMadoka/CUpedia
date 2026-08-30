@@ -37,6 +37,8 @@ Architectural decision records (ADRs) explain why CUpedia accepted a durable bou
 - [0031: Separate canonical dishes from provider offerings](0031-separate-canonical-dishes-from-provider-offerings.md)
 - [0032: Audit canonical dish identity evolution](0032-audit-canonical-dish-identity-evolution.md)
 - [0033: Materialize professor portraits as owned assets](0033-materialize-professor-portraits-as-owned-assets.md)
+- [0034: Separate Campus Map canonical facts from providers and presentation](0034-campus-map-provider-neutral-place-facts.md)
+- [0035: Publish Campus Map facts with direct changesets](0035-campus-map-direct-changesets.md)
 
 ## Maintain the index
 

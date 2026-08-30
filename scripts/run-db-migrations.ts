@@ -3,6 +3,7 @@ import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
+import { assertCampusMapMigrationHistoryCompatible } from "./campus-map-migration-preflight";
 import { postgresErrorCode, runMigrationWithRetry } from "./migration-retry";
 
 config({ path: ".env.local" });
@@ -17,6 +18,7 @@ async function main() {
     allowExitOnIdle: true,
   });
   try {
+    await assertCampusMapMigrationHistoryCompatible(pool);
     await runMigrationWithRetry(
       () =>
         migrate(drizzle(pool), {

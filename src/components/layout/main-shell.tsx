@@ -12,11 +12,13 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   const focusedEditor = isFocusedWikiEditorRoute(pathname);
   const immersiveCampusBusRoute =
     pathname !== "/campus-bus/lab" && /^\/campus-bus\/[^/]+\/?$/.test(pathname);
-  const hidesSiteChrome = focusedEditor || immersiveCampusBusRoute;
+  const focusedCampusMap = pathname === "/campus-map";
+  const focusedSurface =
+    focusedEditor || immersiveCampusBusRoute || focusedCampusMap;
 
   return (
     <>
-      {!hidesSiteChrome && (
+      {!focusedSurface && (
         <>
           <a
             href="#main-content"
@@ -31,12 +33,13 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         id="main-content"
         className={cn(
           "flex min-w-0",
-          hidesSiteChrome
+          focusedSurface
             ? "min-h-dvh"
             : "min-h-[calc(100dvh-var(--navbar-height))]",
         )}
         data-focused-wiki-editor={focusedEditor ? "true" : undefined}
         data-immersive-campus-bus={immersiveCampusBusRoute ? "true" : undefined}
+        data-focused-campus-map={focusedCampusMap ? "true" : undefined}
       >
         {children}
       </main>
