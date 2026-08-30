@@ -2285,8 +2285,9 @@ describe("Campus Map AMap runtime effects", () => {
   it("keeps Current facts search and cards usable when the proxy-backed conversion fails", async () => {
     await renderWithRuntime({ convertFromFails: true });
 
-    const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toContain("地图服务暂时不可用");
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toContain("地图暂时不可用");
+    expect(status.textContent).not.toContain("高德");
 
     const search = screen.getByPlaceholderText("搜索建筑或地点…");
     expect(search.hasAttribute("disabled")).toBe(false);

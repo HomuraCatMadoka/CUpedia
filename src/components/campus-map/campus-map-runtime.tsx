@@ -2089,18 +2089,12 @@ export function CampusMapRuntime({
       {config.status === "missing" || mapLoadError ? (
         <div className="pointer-events-none absolute inset-x-0 top-[124px] z-40 flex justify-center px-3 md:top-[132px]">
           <div
-            role="alert"
+            role="status"
             className="pointer-events-auto max-w-md rounded-2xl border border-black/10 bg-white/95 p-4 shadow-xl backdrop-blur"
           >
-            <h2 className="text-base font-semibold">
-              {mapLoadError ? "高德地图加载失败" : "高德地图配置缺失"}
-            </h2>
+            <h2 className="text-base font-semibold">地图暂时不可用</h2>
             <p className="mt-1 text-sm leading-6 text-neutral-600">
-              {mapLoadError === "sdk"
-                ? "地图服务暂时不可用，但仍可搜索和查看校园地点卡片。可以稍后重新加载地图。"
-                : mapLoadError === "coordinates"
-                  ? "地图服务暂时不可用，但仍可搜索和查看校园地点卡片。请稍后重试。"
-                  : "地图服务尚未配置，但仍可搜索和查看校园地点卡片。"}
+              仍可搜索和查看校园地点卡片。请稍后重新加载地图。
             </p>
             {mapLoadError ? (
               <button
@@ -2108,7 +2102,7 @@ export function CampusMapRuntime({
                 className="mt-3 min-h-11 rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white"
                 onClick={retryMapLoad}
               >
-                重新加载高德地图
+                重新加载地图
               </button>
             ) : null}
           </div>
