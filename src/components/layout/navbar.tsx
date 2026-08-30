@@ -27,7 +27,6 @@ import { CommandSearch } from "@/components/layout/command-search";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { MobileProductMenu } from "./mobile-product-menu";
 import { AchievementAvatar } from "@/components/user/achievement-avatar";
-import { getAchievementNoticeCount } from "@/lib/achievement-notice-actions";
 import { DESKTOP_PRODUCT_NAVIGATION } from "@/lib/product-navigation";
 import { cn } from "@/lib/utils";
 
@@ -94,7 +93,23 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
       setAchievementNotice({ userId: sessionUserId, count: 0 });
     };
     window.addEventListener("achievement-notices-seen", handleNoticesSeen);
-    void getAchievementNoticeCount()
+    // A passive Server Action can apply a stale route tree if it finishes after
+    // the user navigates. Keep this badge refresh on an ordinary HTTP request.
+    void fetch("/api/achievement-notices/count", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok)
+          throw new Error("Achievement notice count unavailable");
+        const payload: unknown = await response.json();
+        if (
+          typeof payload !== "object" ||
+          payload === null ||
+          !("count" in payload) ||
+          typeof payload.count !== "number"
+        ) {
+          throw new Error("Invalid achievement notice count response");
+        }
+        return payload.count;
+      })
       .then((count) => {
         if (!cancelled) setAchievementNotice({ userId: sessionUserId, count });
       })
