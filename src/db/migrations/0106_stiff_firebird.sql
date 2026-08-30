@@ -1,0 +1,2 @@
+DROP INDEX "campus_map_changesets_actor_feed_idx";--> statement-breakpoint
+CREATE INDEX "campus_map_changesets_actor_feed_idx" ON "campus_map_changesets" USING btree ("actor_id_snapshot","published_at","id");

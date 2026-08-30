@@ -7,9 +7,11 @@ import {
   notifications,
   users,
   type AnnouncementNotificationMetadata,
+  type CampusMapNoteEventNotificationMetadata,
   type CourseReviewReplyNotificationMetadata,
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth-guard";
+import { deliverCampusMapNoteNotifications } from "@/lib/campus-map/map-notes";
 
 const PAGE_SIZE = 10;
 
@@ -26,11 +28,17 @@ export type NotificationView = NotificationViewBase &
         kind: "course_review_reply";
         actorNickname: string;
         actorAvatarUrl: string | null;
-        courseCode: string;
+        message: string;
       }
     | {
         kind: "announcement_published";
         title: string;
+      }
+    | {
+        kind: "campus_map_note_event";
+        actorNickname: string;
+        actorAvatarUrl: string | null;
+        message: string;
       }
   );
 
@@ -41,6 +49,7 @@ export type NotificationPage = {
 
 export async function getUnreadNotificationCount(): Promise<number> {
   const user = await requireAuth();
+  await projectPendingCampusMapNoteNotifications();
   const [row] = await db
     .select({ value: count() })
     .from(notifications)
@@ -52,6 +61,7 @@ export async function getUnreadNotificationCount(): Promise<number> {
 
 export async function getNotifications(offset = 0): Promise<NotificationPage> {
   const user = await requireAuth();
+  await projectPendingCampusMapNoteNotifications();
   const safeOffset = Number.isFinite(offset)
     ? Math.max(0, Math.floor(offset))
     : 0;
@@ -89,6 +99,18 @@ export async function getNotifications(offset = 0): Promise<NotificationPage> {
         };
       }
 
+      if (row.kind === "campus_map_note_event") {
+        const metadata = row.metadata as CampusMapNoteEventNotificationMetadata;
+        return {
+          ...base,
+          kind: "campus_map_note_event",
+          actorNickname: row.actorNickname || "用户",
+          actorAvatarUrl: row.actorAvatarUrl,
+          message: `${row.actorNickname || "用户"}更新了你订阅的地图备注`,
+          href: `/campus-map/notes/${encodeURIComponent(metadata.noteId)}#event-${encodeURIComponent(metadata.eventId)}`,
+        };
+      }
+
       const metadata = row.metadata as CourseReviewReplyNotificationMetadata;
       const query = new URLSearchParams({
         review: metadata.reviewId,
@@ -99,12 +121,19 @@ export async function getNotifications(offset = 0): Promise<NotificationPage> {
         kind: "course_review_reply",
         actorNickname: row.actorNickname || "用户",
         actorAvatarUrl: row.actorAvatarUrl,
-        courseCode: metadata.courseCode,
+        message: `${row.actorNickname || "用户"} 回复了你在 ${metadata.courseCode} 的评论`,
         href: `/courses/${encodeURIComponent(metadata.courseCode)}?${query.toString()}`,
       };
     }),
     hasMore: rows.length > PAGE_SIZE,
   };
+}
+
+async function projectPendingCampusMapNoteNotifications(): Promise<void> {
+  const result = await deliverCampusMapNoteNotifications(100);
+  if (result.failed > 0) {
+    throw new Error("地图备注通知暂时无法载入，请稍后重试");
+  }
 }
 
 export async function markNotificationRead(id: string): Promise<void> {

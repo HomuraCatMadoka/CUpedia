@@ -10,6 +10,7 @@ import {
 } from "@/lib/site-settings";
 import { canViewerEdit } from "@/lib/edit-permission";
 import { normalizeEmail } from "@/lib/email";
+import { safeAuthReturnPath } from "@/lib/auth-return";
 import { headers } from "next/headers";
 
 /** True if the email already has a password (credential) account — i.e. it
@@ -30,11 +31,18 @@ export async function isEmailRegistered(email: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-export async function requireAuth() {
+export async function requireAuth(callbackUrl?: string) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
-  if (!session?.user?.id) redirect("/login");
+  if (!session?.user?.id) {
+    const safeCallbackUrl = safeAuthReturnPath(callbackUrl);
+    redirect(
+      safeCallbackUrl === "/"
+        ? "/login"
+        : `/login?callbackUrl=${encodeURIComponent(safeCallbackUrl)}`,
+    );
+  }
 
   const dbUser = await db.query.users.findFirst({
     where: eq(users.id, session.user.id),

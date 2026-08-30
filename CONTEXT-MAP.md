@@ -1,6 +1,6 @@
 # CUpedia 上下文地图
 
-CUpedia 现有九个限界上下文。本文件是上下文清单和关系的唯一入口；每个 `CONTEXT.md` 负责本领域的语言与边界。
+CUpedia 现有十个限界上下文。本文件是上下文清单和关系的唯一入口；每个 `CONTEXT.md` 负责本领域的语言与边界。
 
 ## 上下文
 
@@ -11,6 +11,7 @@ CUpedia 现有九个限界上下文。本文件是上下文清单和关系的唯
 - [食堂](./docs/canteen/CONTEXT.md)：食堂、菜单、菜品评价、榜单与外部菜单同步
 - [通知](./docs/notifications/CONTEXT.md)：各业务上下文面向 User 的站内消息
 - [校园交通](./docs/campus-transport/CONTEXT.md)：CUHK 官方校巴服务和今日出行信息
+- [校园地图](./docs/campus-map/CONTEXT.md)：经核对的建筑、楼层、地点与访问事实
 - [产品更新](./docs/product-updates/CONTEXT.md)：已经上线的 CUpedia 产品变化
 - [公告](./docs/announcements/CONTEXT.md)：需要全站读者及时知道或采取行动的消息
 
@@ -24,7 +25,10 @@ CUpedia 现有九个限界上下文。本文件是上下文清单和关系的唯
 - **分院帽 ↔ 课程技能树**：两者都面向新生，但“专业大类”不是课程技能树的“主修”，数据和语言保持独立。
 - **食堂 → 权限与用户管理**：评论和已登录投票归属于 User；匿名投票使用独立会话，并继续受封禁规则约束。
 - **通知 → 权限与用户管理**：每条通知归属于唯一 User，只有该 User 能读取或改变阅读状态。
-- **校园交通 → 校园地图（尚未集成）**：校园交通拥有运营 Stop 与服务事实，只引用未来校园地图经复核的稳定 Place ID；地图不能反向改写线路、站序或班次。
+- **校园交通 → 校园地图**：校园交通拥有运营 Stop 与服务事实，只引用校园地图经复核的稳定 Place ID；地图不能反向改写线路、站序或班次。
+- **校园地图 → 权限与用户管理**：Current facts 与公开追溯资料的可见性不因查看者身份改变；消耗高德配额的 runtime、config 和 provider search 只向登录用户开放。
+- **校园地图 ↔ 地图供应商**：Campus Map 保存供应商无关的 canonical Building / Place 身份与 WGS84 室外事实；高德 POI、GCJ-02 和交互 scene 只通过 adapter 与显式映射投影。
+- **校园地图 ↔ 评论与评分**：评论和评分引用 canonical `placeId`，但不属于地点事实或其来源/修订历史。
 - **产品更新 → 权限与用户管理**：产品更新公开读取，只有 Admin 能编写与发布。
 - **产品更新 ↔ 公告**：产品更新记录已经上线的变化且不自动通知；公告承载需要及时知道或行动的消息。
 - **公告 → 权限与用户管理**：公告公开读取，只有 Admin 能编写和管理状态。
@@ -36,5 +40,6 @@ CUpedia 现有九个限界上下文。本文件是上下文清单和关系的唯
 - 食堂删除与开发模式见 [ADR 0023](./docs/adr/0023-canteen-hard-delete-and-mock-mode.md)，匿名投票边界见 [ADR 0024](./docs/adr/0024-canteen-anonymous-vote-only.md)
 - 通知与来源的生命周期见 [ADR 0016](./docs/adr/0016-notification-source-lifecycle.md)
 - 校园交通与地图的身份边界见 [ADR 0021](./docs/adr/0021-campus-transport-owns-operational-stops.md)
+- 校园地图的 canonical 事实与直接 Changeset 发布边界见 [ADR 0034](./docs/adr/0034-campus-map-provider-neutral-place-facts.md) 和 [ADR 0035](./docs/adr/0035-campus-map-direct-changesets.md)
 
 完整决策清单见 [ADR 索引](./docs/adr/README.md)。

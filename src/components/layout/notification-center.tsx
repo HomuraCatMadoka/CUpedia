@@ -224,7 +224,7 @@ export function NotificationCenter({
                     onClick={() => openNotification(notification)}
                     className="flex w-full touch-manipulation items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
                   >
-                    {notification.kind === "course_review_reply" ? (
+                    {notification.kind !== "announcement_published" ? (
                       <Avatar size="sm" className="mt-0.5">
                         {notification.actorAvatarUrl && (
                           <AvatarImage
@@ -248,15 +248,10 @@ export function NotificationCenter({
                           !notification.read && "font-semibold",
                         )}
                       >
-                        {notification.kind === "course_review_reply" ? (
-                          <>
-                            <span className="break-words">
-                              {notification.actorNickname}
-                            </span>{" "}
-                            回复了你在 {notification.courseCode} 的评论
-                          </>
-                        ) : (
+                        {notification.kind === "announcement_published" ? (
                           <>新公告：{notification.title}</>
+                        ) : (
+                          notification.message
                         )}
                       </span>
                       <span className="mt-1 block text-xs text-muted-foreground">

@@ -37,6 +37,7 @@ const unreadNotification = {
   actorNickname: "Alice",
   actorAvatarUrl: "/alice.png",
   courseCode: "CSCI3150",
+  message: "Alice 回复了你在 CSCI3150 的评论",
   createdAt: "2026-07-27T10:00:00.000Z",
   href: "/courses/CSCI3150?review=review-1&reply=reply-1",
   read: false,
@@ -49,6 +50,14 @@ const announcementNotification = {
   createdAt: "2026-08-12T10:00:00.000Z",
   href: "/announcements/announcement-1",
   read: false,
+};
+
+const mapNoteNotification = {
+  ...unreadNotification,
+  id: "notification-note-1",
+  kind: "campus_map_note_event" as const,
+  message: "Alice 更新了你订阅的地图备注",
+  href: "/campus-map/notes/note-1#event-event-1",
 };
 
 beforeEach(() => {
@@ -86,7 +95,9 @@ describe("NotificationCenter", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "通知" }));
 
-    expect(await screen.findByText("Alice")).toBeTruthy();
+    expect(
+      await screen.findByText("Alice 回复了你在 CSCI3150 的评论"),
+    ).toBeTruthy();
     expect(getCount).toHaveBeenCalledTimes(2);
     expect(getPage).toHaveBeenCalledWith(0);
   });
@@ -147,6 +158,20 @@ describe("NotificationCenter", () => {
 
     expect(await screen.findByText("新公告：迎新资料已更新")).toBeTruthy();
     expect(screen.queryByText("回复了你在")).toBeNull();
+  });
+
+  it("renders the typed Map Note notification message", async () => {
+    getPage.mockResolvedValue({
+      notifications: [mapNoteNotification],
+      hasMore: false,
+    });
+
+    render(<NotificationCenter />);
+    fireEvent.click(screen.getByRole("button", { name: "通知" }));
+
+    expect(
+      await screen.findByText("Alice 更新了你订阅的地图备注"),
+    ).toBeTruthy();
   });
 
   it("marks all unread history without showing a success message", async () => {
