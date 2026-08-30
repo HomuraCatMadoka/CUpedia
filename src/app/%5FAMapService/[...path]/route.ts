@@ -7,23 +7,70 @@ const responseHeaders = { "Cache-Control": "no-store" };
 const AMAP_UPSTREAM = "https://restapi.amap.com";
 const MAX_REQUEST_QUERY_BYTES = 8_192;
 const MAX_RESPONSE_BYTES = 1_048_576;
-const ALLOWED_PATHS = new Set([
-  "v3/assistant/coordinate/convert",
-  "v3/geocode/regeo",
+const ALLOWED_QUERY_KEYS_BY_PATH = new Map<string, ReadonlySet<string>>([
+  [
+    "v3/assistant/coordinate/convert",
+    new Set(["coordsys", "key", "locations"]),
+  ],
+  ["v3/geocode/regeo", new Set(["extensions", "key", "location", "radius"])],
 ]);
-const FORBIDDEN_QUERY_KEYS = new Set([
-  "host",
-  "hostname",
-  "jscode",
-  "proxy",
-  "scode",
-  "securitycode",
-  "securityjscode",
-  "target",
-  "upstream",
-  "uri",
-  "url",
-]);
+
+function isCoordinatePair(value: string) {
+  const parts = value.split(",");
+  if (parts.length !== 2) return false;
+  const [longitudeText, latitudeText] = parts;
+  if (!longitudeText || !latitudeText) return false;
+  const coordinatePart = /^-?\d+(?:\.\d{1,6})?$/;
+  if (
+    !coordinatePart.test(longitudeText) ||
+    !coordinatePart.test(latitudeText)
+  ) {
+    return false;
+  }
+  const longitude = Number(longitudeText);
+  const latitude = Number(latitudeText);
+  return (
+    longitude >= -180 && longitude <= 180 && latitude >= -90 && latitude <= 90
+  );
+}
+
+function hasOneValueForEveryKey(
+  searchParams: URLSearchParams,
+  allowedKeys: ReadonlySet<string>,
+) {
+  return (
+    [...searchParams.entries()].length === allowedKeys.size &&
+    [...allowedKeys].every((key) => searchParams.getAll(key).length === 1)
+  );
+}
+
+function matchesRuntimePayload(
+  upstreamPath: string,
+  searchParams: URLSearchParams,
+  webKey: string,
+) {
+  const allowedKeys = ALLOWED_QUERY_KEYS_BY_PATH.get(upstreamPath);
+  if (!allowedKeys || !hasOneValueForEveryKey(searchParams, allowedKeys)) {
+    return false;
+  }
+  if (searchParams.get("key") !== webKey) return false;
+
+  if (upstreamPath === "v3/assistant/coordinate/convert") {
+    const locations = searchParams.get("locations")?.split("|") ?? [];
+    return (
+      locations.length > 0 &&
+      locations.length <= 40 &&
+      locations.every(isCoordinatePair) &&
+      searchParams.get("coordsys") === "gps"
+    );
+  }
+
+  return (
+    isCoordinatePair(searchParams.get("location") ?? "") &&
+    searchParams.get("radius") === "150" &&
+    searchParams.get("extensions") === "all"
+  );
+}
 
 function errorResponse(status: number, error: string) {
   return NextResponse.json({ error }, { status, headers: responseHeaders });
@@ -82,7 +129,8 @@ export async function GET(
 
   const { path } = await context.params;
   const upstreamPath = path.join("/");
-  if (!ALLOWED_PATHS.has(upstreamPath)) {
+  const allowedQueryKeys = ALLOWED_QUERY_KEYS_BY_PATH.get(upstreamPath);
+  if (!allowedQueryKeys) {
     return errorResponse(404, "unsupported AMap service path");
   }
 
@@ -94,15 +142,23 @@ export async function GET(
   }
 
   if (
-    [...request.nextUrl.searchParams.keys()].some((key) =>
-      FORBIDDEN_QUERY_KEYS.has(key.toLowerCase()),
+    [...request.nextUrl.searchParams.keys()].some(
+      (key) => !allowedQueryKeys.has(key.toLowerCase()),
     )
   ) {
     return errorResponse(400, "unsupported AMap service request");
   }
 
+  const webKey = process.env.AMAP_WEB_KEY;
   const securityCode = process.env.AMAP_SECURITY_JS_CODE;
-  if (!securityCode) return errorResponse(503, "AMap service unavailable");
+  if (!webKey || !securityCode) {
+    return errorResponse(503, "AMap service unavailable");
+  }
+  if (
+    !matchesRuntimePayload(upstreamPath, request.nextUrl.searchParams, webKey)
+  ) {
+    return errorResponse(400, "unsupported AMap service request");
+  }
 
   const upstreamUrl = new URL(`/${upstreamPath}`, AMAP_UPSTREAM);
   request.nextUrl.searchParams.forEach((value, key) => {

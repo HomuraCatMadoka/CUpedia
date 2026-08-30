@@ -20,6 +20,9 @@ import {
 } from "@/app/%5FAMapService/[...path]/route";
 
 const originalSecurityCode = process.env.AMAP_SECURITY_JS_CODE;
+const originalWebKey = process.env.AMAP_WEB_KEY;
+const validReverseGeocodePath =
+  "v3/geocode/regeo?key=public-web-key&location=114.2%2C22.4&radius=150&extensions=all";
 
 function request(
   path: string,
@@ -36,6 +39,7 @@ beforeEach(() => {
   mockGetOptionalUser.mockReset();
   mockGetOptionalUser.mockResolvedValue({ id: "user-1" });
   process.env.AMAP_SECURITY_JS_CODE = "server-only-security-code";
+  process.env.AMAP_WEB_KEY = "public-web-key";
   vi.stubGlobal("fetch", vi.fn());
 });
 
@@ -43,6 +47,8 @@ afterEach(() => {
   if (originalSecurityCode === undefined)
     delete process.env.AMAP_SECURITY_JS_CODE;
   else process.env.AMAP_SECURITY_JS_CODE = originalSecurityCode;
+  if (originalWebKey === undefined) delete process.env.AMAP_WEB_KEY;
+  else process.env.AMAP_WEB_KEY = originalWebKey;
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -52,7 +58,7 @@ describe("campus map AMap same-origin service", () => {
     mockGetOptionalUser.mockResolvedValueOnce(null);
 
     const response = await GET(
-      request("v3/geocode/regeo?location=114.2,22.4"),
+      request(validReverseGeocodePath),
       context("v3", "geocode", "regeo"),
     );
 
@@ -71,7 +77,7 @@ describe("campus map AMap same-origin service", () => {
     );
 
     const response = await GET(
-      request("v3/geocode/regeo?location=114.2%2C22.4&extensions=all", {
+      request(validReverseGeocodePath, {
         headers: {
           Authorization: "Bearer client-secret",
           Cookie: "session=client-secret",
@@ -99,6 +105,32 @@ describe("campus map AMap same-origin service", () => {
     expect(await response.text()).toBe('{"status":"1","info":"OK"}');
   });
 
+  it("forwards only the coordinate-conversion parameters used by the SDK", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response('{"status":"1","locations":"114.2,22.4"}'),
+    );
+
+    const response = await GET(
+      request(
+        "v3/assistant/coordinate/convert?key=public-web-key&locations=114.2%2C22.4&coordsys=gps",
+      ),
+      context("v3", "assistant", "coordinate", "convert"),
+    );
+
+    expect(response.status).toBe(200);
+    const [upstream] = vi.mocked(fetch).mock.calls[0]!;
+    const upstreamUrl = new URL(String(upstream));
+    expect([...upstreamUrl.searchParams.keys()]).toEqual([
+      "key",
+      "locations",
+      "coordsys",
+      "jscode",
+    ]);
+    expect(upstreamUrl.searchParams.get("jscode")).toBe(
+      "server-only-security-code",
+    );
+  });
+
   it.each([
     {
       name: "an unsupported path",
@@ -122,6 +154,60 @@ describe("campus map AMap same-origin service", () => {
       name: "a client-supplied security code",
       url: "v3/geocode/regeo?jscode=client-secret",
       path: ["v3", "geocode", "regeo"],
+      status: 400,
+    },
+    {
+      name: "an unknown reverse-geocoding parameter",
+      url: "v3/geocode/regeo?location=114.2%2C22.4&unexpected=value",
+      path: ["v3", "geocode", "regeo"],
+      status: 400,
+    },
+    {
+      name: "a coordinate-conversion parameter on reverse geocoding",
+      url: "v3/geocode/regeo?location=114.2%2C22.4&coordsys=gps",
+      path: ["v3", "geocode", "regeo"],
+      status: 400,
+    },
+    {
+      name: "a reverse-geocoding parameter on coordinate conversion",
+      url: "v3/assistant/coordinate/convert?locations=114.2%2C22.4&radius=150",
+      path: ["v3", "assistant", "coordinate", "convert"],
+      status: 400,
+    },
+    {
+      name: "an empty reverse-geocoding payload",
+      url: "v3/geocode/regeo",
+      path: ["v3", "geocode", "regeo"],
+      status: 400,
+    },
+    {
+      name: "a request using a different Web Key",
+      url: "v3/geocode/regeo?key=another-key&location=114.2%2C22.4&radius=150&extensions=all",
+      path: ["v3", "geocode", "regeo"],
+      status: 400,
+    },
+    {
+      name: "a duplicate reverse-geocoding location",
+      url: "v3/geocode/regeo?key=public-web-key&location=114.2%2C22.4&location=114.3%2C22.5&radius=150&extensions=all",
+      path: ["v3", "geocode", "regeo"],
+      status: 400,
+    },
+    {
+      name: "a reverse-geocoding coordinate outside the world",
+      url: "v3/geocode/regeo?key=public-web-key&location=999%2C999&radius=150&extensions=all",
+      path: ["v3", "geocode", "regeo"],
+      status: 400,
+    },
+    {
+      name: "a reverse-geocoding radius outside the runtime contract",
+      url: "v3/geocode/regeo?key=public-web-key&location=114.2%2C22.4&radius=3000&extensions=all",
+      path: ["v3", "geocode", "regeo"],
+      status: 400,
+    },
+    {
+      name: "a coordinate conversion from an unused coordinate system",
+      url: "v3/assistant/coordinate/convert?key=public-web-key&locations=114.2%2C22.4&coordsys=baidu",
+      path: ["v3", "assistant", "coordinate", "convert"],
       status: 400,
     },
   ])("rejects $name before contacting AMap", async ({ url, path, status }) => {
@@ -160,7 +246,7 @@ describe("campus map AMap same-origin service", () => {
       }),
     );
     const oversizedResponse = await GET(
-      request("v3/geocode/regeo?location=114.2%2C22.4"),
+      request(validReverseGeocodePath),
       context("v3", "geocode", "regeo"),
     );
     expect(oversizedResponse.status).toBe(502);
@@ -180,7 +266,7 @@ describe("campus map AMap same-origin service", () => {
     );
 
     const upstreamFailure = await GET(
-      request("v3/geocode/regeo?location=114.2%2C22.4"),
+      request(validReverseGeocodePath),
       context("v3", "geocode", "regeo"),
     );
 
@@ -194,7 +280,7 @@ describe("campus map AMap same-origin service", () => {
       new Error("timeout with server-only-security-code"),
     );
     const timeout = await GET(
-      request("v3/geocode/regeo?location=114.2%2C22.4"),
+      request(validReverseGeocodePath),
       context("v3", "geocode", "regeo"),
     );
     expect(timeout.status).toBe(502);
