@@ -11,19 +11,21 @@ import {
 } from "@testing-library/react";
 
 const {
-  achievementNoticeCount,
+  fetchMock,
   markAchievementNoticesSeen,
   push,
   refresh,
+  pathnameState,
   sessionState,
   signOut,
   toastError,
   mountedState,
 } = vi.hoisted(() => ({
-  achievementNoticeCount: vi.fn(),
+  fetchMock: vi.fn(),
   markAchievementNoticesSeen: vi.fn(),
   push: vi.fn(),
   refresh: vi.fn(),
+  pathnameState: { current: "/courses" },
   sessionState: {
     current: {
       user: { email: "user@test.com", nickname: "TestUser", role: "user" },
@@ -35,7 +37,7 @@ const {
 }));
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/courses",
+  usePathname: () => pathnameState.current,
   useRouter: () => ({ push, refresh }),
 }));
 
@@ -57,7 +59,6 @@ vi.mock("sonner", () => ({
 }));
 
 vi.mock("@/lib/achievement-notice-actions", () => ({
-  getAchievementNoticeCount: achievementNoticeCount,
   markAchievementNoticesSeen,
 }));
 
@@ -158,10 +159,15 @@ import { AchievementNoticesSeen } from "@/components/courses/achievement-notices
 describe("Navbar sign-out", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ count: 0 }),
+    });
     signOut.mockResolvedValue({ error: null });
-    achievementNoticeCount.mockResolvedValue(0);
     markAchievementNoticesSeen.mockResolvedValue(undefined);
     mountedState.current = true;
+    pathnameState.current = "/courses";
     sessionState.current = {
       user: { email: "user@test.com", nickname: "TestUser", role: "user" },
     };
@@ -305,18 +311,48 @@ describe("Navbar sign-out", () => {
   });
 
   it("shows achievement notices on the visible account trigger", async () => {
-    achievementNoticeCount.mockResolvedValue(3);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ count: 3 }),
+    });
 
     render(<Navbar />);
 
     expect(
       (await screen.findByTestId("achievement-notice-badge")).textContent,
     ).toBe("3");
+    expect(fetchMock).toHaveBeenCalledWith("/api/achievement-notices/count", {
+      cache: "no-store",
+    });
+  });
+
+  it.each([
+    ["a non-success response", { ok: false, json: async () => ({ count: 0 }) }],
+    ["a malformed response", { ok: true, json: async () => ({}) }],
+  ])("keeps the current badge after %s", async (_name, failedResponse) => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ count: 3 }),
+    });
+    const { rerender } = render(<Navbar />);
+    await screen.findByTestId("achievement-notice-badge");
+
+    fetchMock.mockResolvedValueOnce(failedResponse);
+    pathnameState.current = "/wiki";
+    rerender(<Navbar />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId("achievement-notice-badge").textContent).toBe(
+      "3",
+    );
   });
 
   it("clears the badge after achievement notices are marked as seen", async () => {
     let finishMarking!: () => void;
-    achievementNoticeCount.mockResolvedValue(3);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ count: 3 }),
+    });
     markAchievementNoticesSeen.mockReturnValue(
       new Promise<void>((resolve) => {
         finishMarking = resolve;
