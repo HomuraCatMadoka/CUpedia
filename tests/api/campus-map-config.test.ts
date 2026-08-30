@@ -53,17 +53,19 @@ describe("campus map AMap config", () => {
     await expect(response.json()).resolves.toEqual({ configured: false });
   });
 
-  it("returns configured browser credentials without caching", async () => {
+  it("returns only the public key and same-origin service host without caching", async () => {
     process.env.AMAP_WEB_KEY = "web-key";
-    process.env.AMAP_SECURITY_JS_CODE = "security-code";
+    process.env.AMAP_SECURITY_JS_CODE = "server-only-security-code";
 
     const response = await GET();
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    await expect(response.json()).resolves.toEqual({
+    const serialized = await response.text();
+    expect(serialized).not.toContain("server-only-security-code");
+    expect(JSON.parse(serialized)).toEqual({
       configured: true,
       key: "web-key",
-      securityCode: "security-code",
+      serviceHost: "/_AMapService",
     });
   });
 });

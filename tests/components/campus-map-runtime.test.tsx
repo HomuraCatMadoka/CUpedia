@@ -157,7 +157,7 @@ beforeEach(() => {
       json: async () => ({
         configured: true,
         key: "test-key",
-        securityCode: "test-code",
+        serviceHost: "/_AMapService",
       }),
     }),
   );
@@ -2115,6 +2115,10 @@ describe("CampusMapRuntime", () => {
       );
       expect(script).not.toBeNull();
       expect(script?.src).toContain("https://webapi.amap.com/maps?v=2.0");
+      expect(window._AMapSecurityConfig).toEqual({
+        serviceHost: "/_AMapService",
+      });
+      expect(window._AMapSecurityConfig).not.toHaveProperty("securityJsCode");
     });
   });
 
@@ -2123,8 +2127,6 @@ describe("CampusMapRuntime", () => {
       ok: true,
       json: async () => ({
         configured: false,
-        key: "",
-        securityCode: "",
       }),
     } as Response);
 

@@ -236,7 +236,7 @@ interface AMapNamespace {
 declare global {
   interface Window {
     AMap?: AMapNamespace;
-    _AMapSecurityConfig?: { securityJsCode: string };
+    _AMapSecurityConfig?: { serviceHost: string };
   }
 }
 
@@ -567,7 +567,7 @@ export function CampusMapRuntime({
   const [config, setConfig] = useState<
     | { status: "loading" }
     | { status: "missing" }
-    | { status: "ready"; key: string; securityCode: string }
+    | { status: "ready"; key: string; serviceHost: string }
   >({ status: "loading" });
   const [mapLoadError, setMapLoadError] = useState<
     "sdk" | "coordinates" | null
@@ -1389,17 +1389,17 @@ export function CampusMapRuntime({
         return (await response.json()) as {
           configured: boolean;
           key: string;
-          securityCode: string;
+          serviceHost: string;
         };
       })
       .then((value) => {
         if (cancelled) return;
         if (value.configured) {
-          window._AMapSecurityConfig = { securityJsCode: value.securityCode };
+          window._AMapSecurityConfig = { serviceHost: value.serviceHost };
           setConfig({
             status: "ready",
             key: value.key,
-            securityCode: value.securityCode,
+            serviceHost: value.serviceHost,
           });
         } else {
           setConfig({ status: "missing" });
@@ -2087,22 +2087,25 @@ export function CampusMapRuntime({
       ) : null}
 
       {config.status === "missing" || mapLoadError ? (
-        <div className="absolute inset-0 z-50 grid place-items-center bg-white/94 p-6">
-          <div className="max-w-md rounded-2xl border border-black/10 bg-white p-6 shadow-xl">
-            <h1 className="text-lg font-semibold">
+        <div className="pointer-events-none absolute inset-x-0 top-[124px] z-40 flex justify-center px-3 md:top-[132px]">
+          <div
+            role="alert"
+            className="pointer-events-auto max-w-md rounded-2xl border border-black/10 bg-white/95 p-4 shadow-xl backdrop-blur"
+          >
+            <h2 className="text-base font-semibold">
               {mapLoadError ? "高德地图加载失败" : "高德地图配置缺失"}
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-neutral-600">
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-neutral-600">
               {mapLoadError === "sdk"
-                ? "高德 SDK 请求未完成，可能是短暂网络故障。可以直接重新加载。"
+                ? "地图服务暂时不可用，但仍可搜索和查看校园地点卡片。可以稍后重新加载地图。"
                 : mapLoadError === "coordinates"
-                  ? "底图已连接，但校园坐标转换失败。请稍后重新加载。"
-                  : "请在 .env.local 配置 AMAP_WEB_KEY 和 AMAP_SECURITY_JS_CODE，然后重新启动开发服务器。"}
+                  ? "地图服务暂时不可用，但仍可搜索和查看校园地点卡片。请稍后重试。"
+                  : "地图服务尚未配置，但仍可搜索和查看校园地点卡片。"}
             </p>
             {mapLoadError ? (
               <button
                 type="button"
-                className="mt-4 min-h-11 rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white"
+                className="mt-3 min-h-11 rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white"
                 onClick={retryMapLoad}
               >
                 重新加载高德地图

@@ -207,7 +207,7 @@ beforeEach(() => {
       json: async () => ({
         configured: true,
         key: "test-key",
-        securityCode: "test-code",
+        serviceHost: "/_AMapService",
       }),
     }),
   );
@@ -2282,11 +2282,19 @@ describe("Campus Map AMap runtime effects", () => {
     expect(map.panTo).not.toHaveBeenCalled();
   });
 
-  it("fails closed when coordinate conversion fails", async () => {
+  it("keeps Current facts search and cards usable when the proxy-backed conversion fails", async () => {
     await renderWithRuntime({ convertFromFails: true });
 
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("地图服务暂时不可用");
+
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
+    expect(search.hasAttribute("disabled")).toBe(false);
+    fireEvent.change(search, { target: { value: "科学馆" } });
+    fireEvent.click(await screen.findByRole("button", { name: /科学馆/ }));
+
     expect(
-      await screen.findByRole("heading", { name: "高德地图加载失败" }),
+      await screen.findByRole("heading", { name: "科学馆" }),
     ).not.toBeNull();
   });
 });

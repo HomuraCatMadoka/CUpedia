@@ -264,11 +264,11 @@ JS API 2.0 的类名是 `AMap.AutoComplete`，不是旧版 `AMap.Autocomplete`�
 
 生产环境的重要问题：高德官方明确说 `securityJsCode` 明文放在浏览器端不安全，强烈建议用 `window._AMapSecurityConfig.serviceHost` 走服务端代理。[安全密钥官方指南](https://lbs.amap.com/api/javascript-api-v2/guide/abc/jscode)
 
-当前 [`config/route.ts`](../../src/app/api/campus-map/config/route.ts) 把 key 和 `securityCode` 一起返回给浏览器，[`campus-map-runtime.tsx`](../../src/components/campus-map/campus-map-runtime.tsx) 再把它写进 `window._AMapSecurityConfig`。这是 #759 明确保留的生产安全缺口，本次 runtime 收口不改变该安全边界；发布前仍应：
+[`config/route.ts`](../../src/app/api/campus-map/config/route.ts) 只把公开 Web key 和同源 `/_AMapService` 返回给已登录浏览器，[`campus-map-runtime.tsx`](../../src/components/campus-map/campus-map-runtime.tsx) 在加载 SDK 前设置 `serviceHost`。同源代理只允许当前 runtime 使用的坐标转换与逆地理路径，并在服务端注入 security code。发布前仍应：
 
 1. 浏览器只拿 Web JS API key；
-2. 服务调用通过同域 `/_AMapService` 代理；
-3. security key 只保存在服务端环境变量；
+2. 保持服务调用通过同域 `/_AMapService` 代理；
+3. 保持 security key 只在服务端环境变量和固定高德 upstream 间流动；
 4. 高德控制台绑定允许域名，并为预览、生产分别使用受限 key；
 5. 日志和错误回执永远不输出 key/security key。
 
