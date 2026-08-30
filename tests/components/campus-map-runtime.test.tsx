@@ -8,6 +8,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { StrictMode, type ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -157,7 +158,7 @@ beforeEach(() => {
       json: async () => ({
         configured: true,
         key: "test-key",
-        securityCode: "test-code",
+        serviceHost: "/_AMapService",
       }),
     }),
   );
@@ -2115,24 +2116,32 @@ describe("CampusMapRuntime", () => {
       );
       expect(script).not.toBeNull();
       expect(script?.src).toContain("https://webapi.amap.com/maps?v=2.0");
+      expect(window._AMapSecurityConfig).toEqual({
+        serviceHost: "/_AMapService",
+      });
+      expect(window._AMapSecurityConfig).not.toHaveProperty("securityJsCode");
     });
   });
 
-  it("shows a fail-closed state when AMap browser credentials are missing", async () => {
+  it("shows an ordinary non-blocking state when map configuration is missing", async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         configured: false,
-        key: "",
-        securityCode: "",
       }),
     } as Response);
 
     render(<CampusMapRuntime />);
 
+    const status = await screen.findByRole("status");
     expect(
-      await screen.findByRole("heading", { name: "高德地图配置缺失" }),
+      within(status).getByRole("heading", { name: "地图暂时不可用" }),
     ).not.toBeNull();
+    expect(status.textContent).toContain(
+      "仍可搜索和查看校园地点卡片。请稍后重新加载地图。",
+    );
+    expect(status.textContent).not.toContain("配置");
+    expect(status.textContent).not.toContain("高德");
     expect(document.querySelector("script[data-amap-campus]")).toBeNull();
   });
 
@@ -2148,11 +2157,16 @@ describe("CampusMapRuntime", () => {
 
     fireEvent.error(script);
 
+    const status = await screen.findByRole("status");
     expect(
-      await screen.findByRole("heading", { name: "高德地图加载失败" }),
+      within(status).getByRole("heading", { name: "地图暂时不可用" }),
     ).not.toBeNull();
+    expect(status.textContent).toContain(
+      "仍可搜索和查看校园地点卡片。请稍后重新加载地图。",
+    );
+    expect(status.textContent).not.toContain("高德");
 
-    fireEvent.click(screen.getByRole("button", { name: "重新加载高德地图" }));
+    fireEvent.click(screen.getByRole("button", { name: "重新加载地图" }));
 
     await waitFor(() => {
       const replacement = document.querySelector<HTMLScriptElement>(
