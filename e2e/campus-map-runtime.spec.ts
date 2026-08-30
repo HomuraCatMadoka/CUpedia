@@ -351,7 +351,7 @@ test("search and marker open one canonical Place card", async ({ page }) => {
     .click();
 
   const canonicalUrl = new RegExp(
-    `/campus-map\\?v=1&scene=facility&id=${browseIds.place}&snap=peek$`,
+    `/campus-map\\?v=1&scene=place&id=${browseIds.place}&snap=peek$`,
   );
   await expect(page).toHaveURL(canonicalUrl);
   await expect(
@@ -407,7 +407,7 @@ test("Building expands into Place and Back restores the Building card", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   const buildingUrl = `/campus-map?v=1&scene=building&id=${browseIds.building}&snap=peek`;
   const placeUrl = new RegExp(
-    `/campus-map\\?v=1&scene=facility&id=${browseIds.place}&snap=peek$`,
+    `/campus-map\\?v=1&scene=place&id=${browseIds.place}&snap=peek$`,
   );
 
   await page.goto(buildingUrl);
@@ -470,7 +470,7 @@ test("Building expands into Place and Back restores the Building card", async ({
     0,
   );
 
-  await page.goto("/campus-map?v=1&scene=facility&id=missing-place&snap=peek");
+  await page.goto("/campus-map?v=1&scene=place&id=missing-place&snap=peek");
   await expect(page).toHaveURL(/\/campus-map\?v=1$/);
   await expect(
     page.locator("[aria-labelledby='campus-map-panel-title']").first(),
@@ -567,7 +567,7 @@ test("mapped and unmapped provider POIs never duplicate cards", async ({
 
   await expect(page).toHaveURL(
     new RegExp(
-      `/campus-map\\?v=1&scene=facility&id=${browseIds.place}&snap=peek$`,
+      `/campus-map\\?v=1&scene=place&id=${browseIds.place}&snap=peek$`,
     ),
   );
   await expect(
@@ -640,7 +640,7 @@ test("a rapid newer Place intent wins over a delayed provider result", async ({
     .click();
 
   const placeUrl = new RegExp(
-    `/campus-map\\?v=1&scene=facility&id=${browseIds.place}&snap=peek$`,
+    `/campus-map\\?v=1&scene=place&id=${browseIds.place}&snap=peek$`,
   );
   await expect(page).toHaveURL(placeUrl);
   await providerResponse;
@@ -728,7 +728,7 @@ test("publish handoff shows one success prompt and never restores the form", asy
     .click();
   await page.getByRole("button", { name: "发布设施" }).click();
 
-  await expect(page).toHaveURL(/scene=facility&id=[0-9a-f-]+&snap=peek$/);
+  await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
   const publishedUrl = new URL(page.url());
   const placeId = publishedUrl.searchParams.get("id");
   expect(placeId).toMatch(/^[0-9a-f-]{36}$/);
@@ -789,7 +789,7 @@ test("publish handoff shows one success prompt and never restores the form", asy
   await expect(publishedResult).toBeVisible();
   await publishedResult.click();
   await expect(page).toHaveURL(
-    new RegExp(`/campus-map\\?v=1&scene=facility&id=${placeId}&snap=peek$`),
+    new RegExp(`/campus-map\\?v=1&scene=place&id=${placeId}&snap=peek$`),
   );
 });
 
@@ -896,7 +896,7 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
     await place.press("Enter");
     await expect(page).toHaveURL(
       new RegExp(
-        `/campus-map\\?v=1&scene=facility&id=${browseIds.place}&snap=peek$`,
+        `/campus-map\\?v=1&scene=place&id=${browseIds.place}&snap=peek$`,
       ),
     );
     await expect(

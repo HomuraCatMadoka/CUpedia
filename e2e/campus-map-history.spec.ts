@@ -2,6 +2,8 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 
+import { loginWithPassword } from "./helpers/auth";
+
 const ids = {
   actor: "00000000-0000-4000-8000-000000007191",
   place: "00000000-0000-4000-8000-000000007192",
@@ -180,7 +182,10 @@ async function ensureFixture() {
   }
 }
 
-test.beforeEach(ensureFixture);
+test.beforeEach(async ({ page }) => {
+  await ensureFixture();
+  await loginWithPassword(page, "admin@test.com", "password123");
+});
 
 for (const viewport of [
   { name: "390px", width: 390, height: 844 },
