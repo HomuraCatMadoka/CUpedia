@@ -21,14 +21,53 @@ import {
 
 const originalSecurityCode = process.env.AMAP_SECURITY_JS_CODE;
 const originalWebKey = process.env.AMAP_WEB_KEY;
-const validReverseGeocodePath =
-  "v3/geocode/regeo?key=public-web-key&location=114.2%2C22.4&radius=150&extensions=all";
 
 function request(
   path: string,
   init?: ConstructorParameters<typeof NextRequest>[1],
 ) {
   return new NextRequest(`http://localhost:3000/_AMapService/${path}`, init);
+}
+
+function sdkQuery(parameters: ReadonlyArray<readonly [string, string]>) {
+  const searchParams = new URLSearchParams();
+  const sdkParameters: ReadonlyArray<readonly [string, string]> = [
+    ["platform", "JS"],
+    ["s", "rsx1"],
+    ["s", "rsv3"],
+    ["logversion", "2.0"],
+    ["key", "public-web-key"],
+    ["key", "public-web-key"],
+    ["sdkversion", "2.3.5.6"],
+    ["appname", encodeURIComponent("http://localhost:3000/campus-map")],
+    ["csid", "C15E9ECD-1EBB-4BC8-A875-C5A49E53EC4F"],
+  ];
+  for (const [key, value] of sdkParameters) searchParams.append(key, value);
+  for (const [key, value] of parameters) searchParams.append(key, value);
+  searchParams.append("callback", "jsonp_123456_1788092270566_");
+  return searchParams.toString();
+}
+
+function reverseGeocodeRequest(
+  init?: ConstructorParameters<typeof NextRequest>[1],
+) {
+  return request(
+    `v3/geocode/regeo?${sdkQuery([
+      ["location", "114.2,22.4"],
+      ["radius", "150"],
+      ["extensions", "all"],
+    ])}`,
+    init,
+  );
+}
+
+function coordinateConvertRequest() {
+  return request(
+    `v3/assistant/coordinate/convert?${sdkQuery([
+      ["locations", "114.2,22.4"],
+      ["coordsys", "gps"],
+    ])}`,
+  );
 }
 
 function context(...path: string[]) {
@@ -58,7 +97,7 @@ describe("campus map AMap same-origin service", () => {
     mockGetOptionalUser.mockResolvedValueOnce(null);
 
     const response = await GET(
-      request(validReverseGeocodePath),
+      reverseGeocodeRequest(),
       context("v3", "geocode", "regeo"),
     );
 
@@ -77,7 +116,7 @@ describe("campus map AMap same-origin service", () => {
     );
 
     const response = await GET(
-      request(validReverseGeocodePath, {
+      reverseGeocodeRequest({
         headers: {
           Authorization: "Bearer client-secret",
           Cookie: "session=client-secret",
@@ -111,9 +150,7 @@ describe("campus map AMap same-origin service", () => {
     );
 
     const response = await GET(
-      request(
-        "v3/assistant/coordinate/convert?key=public-web-key&locations=114.2%2C22.4&coordsys=gps",
-      ),
+      coordinateConvertRequest(),
       context("v3", "assistant", "coordinate", "convert"),
     );
 
@@ -121,9 +158,18 @@ describe("campus map AMap same-origin service", () => {
     const [upstream] = vi.mocked(fetch).mock.calls[0]!;
     const upstreamUrl = new URL(String(upstream));
     expect([...upstreamUrl.searchParams.keys()]).toEqual([
+      "platform",
+      "s",
+      "s",
+      "logversion",
       "key",
+      "key",
+      "sdkversion",
+      "appname",
+      "csid",
       "locations",
       "coordsys",
+      "callback",
       "jscode",
     ]);
     expect(upstreamUrl.searchParams.get("jscode")).toBe(
@@ -246,7 +292,7 @@ describe("campus map AMap same-origin service", () => {
       }),
     );
     const oversizedResponse = await GET(
-      request(validReverseGeocodePath),
+      reverseGeocodeRequest(),
       context("v3", "geocode", "regeo"),
     );
     expect(oversizedResponse.status).toBe(502);
@@ -266,7 +312,7 @@ describe("campus map AMap same-origin service", () => {
     );
 
     const upstreamFailure = await GET(
-      request(validReverseGeocodePath),
+      reverseGeocodeRequest(),
       context("v3", "geocode", "regeo"),
     );
 
@@ -280,7 +326,7 @@ describe("campus map AMap same-origin service", () => {
       new Error("timeout with server-only-security-code"),
     );
     const timeout = await GET(
-      request(validReverseGeocodePath),
+      reverseGeocodeRequest(),
       context("v3", "geocode", "regeo"),
     );
     expect(timeout.status).toBe(502);

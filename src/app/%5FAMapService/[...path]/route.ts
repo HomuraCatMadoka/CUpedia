@@ -7,12 +7,33 @@ const responseHeaders = { "Cache-Control": "no-store" };
 const AMAP_UPSTREAM = "https://restapi.amap.com";
 const MAX_REQUEST_QUERY_BYTES = 8_192;
 const MAX_RESPONSE_BYTES = 1_048_576;
-const ALLOWED_QUERY_KEYS_BY_PATH = new Map<string, ReadonlySet<string>>([
+const SDK_METADATA_PARAMETER_COUNTS = {
+  appname: 1,
+  callback: 1,
+  csid: 1,
+  key: 2,
+  logversion: 1,
+  platform: 1,
+  s: 2,
+  sdkversion: 1,
+} as const;
+const REQUEST_PARAMETER_COUNTS_BY_PATH = new Map<
+  string,
+  Readonly<Record<string, number>>
+>([
   [
     "v3/assistant/coordinate/convert",
-    new Set(["coordsys", "key", "locations"]),
+    { ...SDK_METADATA_PARAMETER_COUNTS, coordsys: 1, locations: 1 },
   ],
-  ["v3/geocode/regeo", new Set(["extensions", "key", "location", "radius"])],
+  [
+    "v3/geocode/regeo",
+    {
+      ...SDK_METADATA_PARAMETER_COUNTS,
+      extensions: 1,
+      location: 1,
+      radius: 1,
+    },
+  ],
 ]);
 
 function isCoordinatePair(value: string) {
@@ -34,26 +55,49 @@ function isCoordinatePair(value: string) {
   );
 }
 
-function hasOneValueForEveryKey(
+function hasExpectedParameterCounts(
   searchParams: URLSearchParams,
-  allowedKeys: ReadonlySet<string>,
+  expectedCounts: Readonly<Record<string, number>>,
 ) {
+  const expectedTotal = Object.values(expectedCounts).reduce(
+    (total, count) => total + count,
+    0,
+  );
   return (
-    [...searchParams.entries()].length === allowedKeys.size &&
-    [...allowedKeys].every((key) => searchParams.getAll(key).length === 1)
+    [...searchParams.entries()].length === expectedTotal &&
+    Object.entries(expectedCounts).every(
+      ([key, count]) => searchParams.getAll(key).length === count,
+    )
   );
 }
 
 function matchesRuntimePayload(
   upstreamPath: string,
+  expectedCounts: Readonly<Record<string, number>>,
   searchParams: URLSearchParams,
   webKey: string,
+  serviceOrigin: string,
 ) {
-  const allowedKeys = ALLOWED_QUERY_KEYS_BY_PATH.get(upstreamPath);
-  if (!allowedKeys || !hasOneValueForEveryKey(searchParams, allowedKeys)) {
+  if (!hasExpectedParameterCounts(searchParams, expectedCounts)) {
     return false;
   }
-  if (searchParams.get("key") !== webKey) return false;
+  if (!searchParams.getAll("key").every((value) => value === webKey)) {
+    return false;
+  }
+  if (
+    searchParams.get("platform") !== "JS" ||
+    searchParams.get("logversion") !== "2.0" ||
+    !/^\d+(?:\.\d+){1,3}$/.test(searchParams.get("sdkversion") ?? "") ||
+    searchParams.get("appname") !==
+      encodeURIComponent(`${serviceOrigin}/campus-map`) ||
+    !/^[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}$/i.test(
+      searchParams.get("csid") ?? "",
+    ) ||
+    !/^jsonp_\d+_\d+_$/.test(searchParams.get("callback") ?? "") ||
+    !searchParams.getAll("s").every((value) => /^[A-Za-z0-9_-]{4}$/.test(value))
+  ) {
+    return false;
+  }
 
   if (upstreamPath === "v3/assistant/coordinate/convert") {
     const locations = searchParams.get("locations")?.split("|") ?? [];
@@ -129,8 +173,9 @@ export async function GET(
 
   const { path } = await context.params;
   const upstreamPath = path.join("/");
-  const allowedQueryKeys = ALLOWED_QUERY_KEYS_BY_PATH.get(upstreamPath);
-  if (!allowedQueryKeys) {
+  const expectedParameterCounts =
+    REQUEST_PARAMETER_COUNTS_BY_PATH.get(upstreamPath);
+  if (!expectedParameterCounts) {
     return errorResponse(404, "unsupported AMap service path");
   }
 
@@ -143,7 +188,7 @@ export async function GET(
 
   if (
     [...request.nextUrl.searchParams.keys()].some(
-      (key) => !allowedQueryKeys.has(key.toLowerCase()),
+      (key) => !Object.hasOwn(expectedParameterCounts, key.toLowerCase()),
     )
   ) {
     return errorResponse(400, "unsupported AMap service request");
@@ -155,7 +200,13 @@ export async function GET(
     return errorResponse(503, "AMap service unavailable");
   }
   if (
-    !matchesRuntimePayload(upstreamPath, request.nextUrl.searchParams, webKey)
+    !matchesRuntimePayload(
+      upstreamPath,
+      expectedParameterCounts,
+      request.nextUrl.searchParams,
+      webKey,
+      request.nextUrl.origin,
+    )
   ) {
     return errorResponse(400, "unsupported AMap service request");
   }
