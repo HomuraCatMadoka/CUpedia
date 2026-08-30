@@ -38,10 +38,6 @@ export class AmapInteractionAdapter {
   }
 
   dispatchProviderTarget(action: () => void) {
-    return this.dispatchExclusiveAction(action);
-  }
-
-  dispatchExclusiveAction(action: () => void) {
     if (!this.activeGesture) this.beginPointerGesture();
     const gesture = this.activeGesture!;
     if (gesture.providerClaimed) return false;

@@ -95,6 +95,7 @@ import type {
   CampusMapPublishFactInput,
   CampusMapPublishSourceInput,
 } from "@/lib/campus-map/publish-contract";
+import { installAmapRuntime } from "../helpers/amap-runtime";
 import { createCampusMapBrowseFixture } from "../helpers/campus-map-browse-projection";
 
 function CampusMapRuntime(props: ComponentProps<typeof CampusMapRuntimeView>) {
@@ -599,6 +600,7 @@ describe("CampusMapRuntime", () => {
   });
 
   it("refetches Current facts after publish so a standalone Place is searchable", async () => {
+    const amapRuntime = installAmapRuntime();
     const placeId = "30000000-0000-4000-8000-000000000020";
     const initialProjectionObserver = vi.fn();
     const latestProjectionObserver = vi.fn();
@@ -674,6 +676,15 @@ describe("CampusMapRuntime", () => {
       screen.queryByRole("link", { name: "查看此次 Changeset" }),
     ).toBeNull();
     expect(window.location.search).toContain(`scene=facility&id=${placeId}`);
+    await waitFor(() =>
+      expect(
+        amapRuntime.markers.some(
+          (marker) =>
+            marker.content.includes(`data-facility-id="place:${placeId}"`) &&
+            marker.content.includes('aria-pressed="true"'),
+        ),
+      ).toBe(true),
+    );
     const search = screen.getByPlaceholderText("搜索建筑或地点…");
     expect(search.closest("header")?.hasAttribute("inert")).toBe(false);
     await act(async () => {

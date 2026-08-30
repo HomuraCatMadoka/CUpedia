@@ -946,43 +946,14 @@ describe("Campus Map AMap runtime effects", () => {
   });
 
   it.each(["longpress", "rightclick"])(
-    "opens Add once from a map %s at the pressed position",
-    async (gesture) => {
-      const push = vi.spyOn(window.history, "pushState");
-      const { map } = await renderWithRuntime({
-        convertFromOffset: { longitude: 0.01, latitude: 0.01 },
-      });
-      push.mockClear();
-
-      await act(async () =>
-        map.emit(gesture, {
-          lnglat: { lng: 114.225, lat: 22.435 },
-        }),
-      );
-
-      expect(
-        await screen.findByRole("heading", { name: "选择设施位置" }),
-      ).not.toBeNull();
-      expect(screen.getByText(/114\.215000, 22\.425000/)).not.toBeNull();
-      expect(map.setZoomAndCenter).toHaveBeenLastCalledWith(
-        map.getZoom(),
-        expect.objectContaining({ lng: 114.225, lat: 22.435 }),
-        true,
-        0,
-      );
-      expect(push).toHaveBeenCalledTimes(1);
-    },
-  );
-
-  it.each(["longpress", "rightclick"])(
-    "keeps a %s point while coordinate conversion is still pending",
+    "does not start a contribution from a map %s",
     async (gesture) => {
       const push = vi.spyOn(window.history, "pushState");
       const { runtime, map } = await renderWithRuntime({
-        deferConvertFrom: true,
         convertFromOffset: { longitude: 0.01, latitude: 0.01 },
       });
       push.mockClear();
+      map.setZoomAndCenter.mockClear();
 
       await act(async () => {
         map.emit(gesture, {
@@ -992,74 +963,16 @@ describe("Campus Map AMap runtime effects", () => {
           lnglat: { lng: 114.225, lat: 22.435 },
         });
       });
+      await runtime.flushAnimationFrames();
 
       expect(
         screen.queryByRole("heading", { name: "选择设施位置" }),
       ).toBeNull();
+      expect(window.location.search).toBe("?v=1");
+      expect(map.setZoomAndCenter).not.toHaveBeenCalled();
       expect(push).not.toHaveBeenCalled();
-
-      await runtime.flushCoordinateConversions();
-
-      expect(
-        await screen.findByRole("heading", { name: "选择设施位置" }),
-      ).not.toBeNull();
-      expect(screen.getByText(/114\.215000, 22\.425000/)).not.toBeNull();
-      expect(push).toHaveBeenCalledTimes(1);
-      expect(map.setZoomAndCenter).toHaveBeenLastCalledWith(
-        map.getZoom(),
-        expect.objectContaining({ lng: 114.225, lat: 22.435 }),
-        true,
-        0,
-      );
     },
   );
-
-  it("uses the latest map Add gesture while coordinate conversion is pending", async () => {
-    const push = vi.spyOn(window.history, "pushState");
-    const { runtime, map } = await renderWithRuntime({
-      deferConvertFrom: true,
-      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
-    });
-    push.mockClear();
-
-    await act(async () => {
-      map.emit("longpress", {
-        lnglat: { lng: 114.225, lat: 22.435 },
-      });
-      map.getContainer().dispatchEvent(new Event("pointerdown"));
-      map.emit("rightclick", {
-        lnglat: { lng: 114.229, lat: 22.439 },
-      });
-    });
-    await runtime.flushCoordinateConversions();
-
-    expect(screen.getByText(/114\.219000, 22\.429000/)).not.toBeNull();
-    expect(screen.queryByText(/114\.215000, 22\.425000/)).toBeNull();
-    expect(push).toHaveBeenCalledTimes(1);
-  });
-
-  it("discards a pending map Add after a newer canonical selection", async () => {
-    const { runtime, map } = await renderWithRuntime({
-      deferConvertFrom: true,
-      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
-    });
-
-    await act(async () =>
-      map.emit("longpress", {
-        lnglat: { lng: 114.225, lat: 22.435 },
-      }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
-    expect(
-      await screen.findByRole("heading", { name: "饮水点" }),
-    ).not.toBeNull();
-
-    await runtime.flushCoordinateConversions();
-
-    expect(screen.getByRole("heading", { name: "饮水点" })).not.toBeNull();
-    expect(screen.queryByRole("heading", { name: "选择设施位置" })).toBeNull();
-    expect(window.location.search).toContain("scene=category&id=water");
-  });
 
   it("opens Add once from an empty category", async () => {
     mutableFacilityFixtures.splice(
@@ -1893,6 +1806,36 @@ describe("Campus Map AMap runtime effects", () => {
     ).not.toBeNull();
     expect(screen.getByText(scienceWater.name)).not.toBeNull();
     expect(screen.getByText("东翼饮水机")).not.toBeNull();
+  });
+
+  it("shows one selected Building marker for a direct co-located Place", async () => {
+    const scienceWater = originalFacilityFixtures.find(
+      (facility) =>
+        facility.buildingId === "science-centre" &&
+        facility.category === "water",
+    )!;
+    const secondPlaceId = "71000000-0000-4000-8000-000000000006";
+    mutableFacilityFixtures.push({
+      ...scienceWater,
+      id: secondPlaceId,
+      name: "东翼饮水机",
+    });
+
+    const { runtime } = await renderWithRuntime({
+      initialSearch: `?v=1&scene=facility&id=${secondPlaceId}&snap=peek`,
+    });
+
+    const selectedCluster = await waitFor(() => {
+      const cluster = runtime.clusters.at(-1);
+      expect(cluster?.data).toHaveLength(1);
+      return cluster!;
+    });
+    expect(selectedCluster.singleMarkers).toHaveLength(1);
+    await waitFor(() =>
+      expect(selectedCluster.singleMarkers[0]?.content).toContain(
+        'aria-pressed="true"',
+      ),
+    );
   });
 
   it("projects the University Library water fixture at the library building anchor", async () => {
