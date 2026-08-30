@@ -1,9 +1,11 @@
 import { isValidElement } from "react";
+import { renderToString } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireAuth: vi.fn(),
   loadProjection: vi.fn(),
+  loadProviderPoiCard: vi.fn(),
   getFactSchema: vi.fn(),
   redirect: vi.fn(),
 }));
@@ -11,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/auth-guard", () => ({ requireAuth: mocks.requireAuth }));
 vi.mock("@/lib/campus-map/browse-actions", () => ({
   loadCampusMapBrowseProjection: mocks.loadProjection,
+  loadCampusMapAmapPoiCard: mocks.loadProviderPoiCard,
 }));
 vi.mock("@/lib/campus-map/fact-store", () => ({
   getCampusMapFactSchema: mocks.getFactSchema,
@@ -67,6 +70,23 @@ describe("formal Campus Map route", () => {
     await expect(
       CampusMapPage({ searchParams: Promise.resolve({ v: "1" }) }),
     ).rejects.toThrow("CAMPUS_MAP_SCHEMA_UNAVAILABLE");
+  });
+
+  it("does not render the server-only AMap security code into HTML", async () => {
+    const previous = process.env.AMAP_SECURITY_JS_CODE;
+    process.env.AMAP_SECURITY_JS_CODE = "server-only-html-leak-sentinel";
+    try {
+      const element = await CampusMapPage({
+        searchParams: Promise.resolve({ v: "1" }),
+      });
+      const html = renderToString(element);
+
+      expect(html).not.toContain("server-only-html-leak-sentinel");
+      expect(html).not.toContain("securityJsCode");
+    } finally {
+      if (previous === undefined) delete process.env.AMAP_SECURITY_JS_CODE;
+      else process.env.AMAP_SECURITY_JS_CODE = previous;
+    }
   });
 
   it("redirects the old product URL to the canonical runtime without owning state", async () => {

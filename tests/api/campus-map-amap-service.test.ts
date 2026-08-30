@@ -9,7 +9,15 @@ vi.mock("@/lib/auth-guard", () => ({
   getOptionalUser: mockGetOptionalUser,
 }));
 
-import { GET, POST } from "@/app/%5FAMapService/[...path]/route";
+import {
+  DELETE,
+  GET,
+  HEAD,
+  OPTIONS,
+  PATCH,
+  POST,
+  PUT,
+} from "@/app/%5FAMapService/[...path]/route";
 
 const originalSecurityCode = process.env.AMAP_SECURITY_JS_CODE;
 
@@ -128,10 +136,13 @@ describe("campus map AMap same-origin service", () => {
   });
 
   it("rejects methods the SDK does not need", async () => {
-    const response = await POST();
+    const handlers = [HEAD, POST, PUT, PATCH, DELETE, OPTIONS];
 
-    expect(response.status).toBe(405);
-    expect(response.headers.get("Allow")).toBe("GET");
+    for (const handler of handlers) {
+      const response = await handler();
+      expect(response.status).toBe(405);
+      expect(response.headers.get("Allow")).toBe("GET");
+    }
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -164,7 +175,7 @@ describe("campus map AMap same-origin service", () => {
       .mockImplementation(() => {});
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response("upstream echoed server-only-security-code", {
-        status: 500,
+        status: 200,
       }),
     );
 

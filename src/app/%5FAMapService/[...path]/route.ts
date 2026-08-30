@@ -59,12 +59,19 @@ async function readLimitedBody(response: Response) {
   return body;
 }
 
-export function POST() {
+function methodNotAllowed() {
   return NextResponse.json(
     { error: "method not allowed" },
     { status: 405, headers: { ...responseHeaders, Allow: "GET" } },
   );
 }
+
+export const HEAD = methodNotAllowed;
+export const POST = methodNotAllowed;
+export const PUT = methodNotAllowed;
+export const PATCH = methodNotAllowed;
+export const DELETE = methodNotAllowed;
+export const OPTIONS = methodNotAllowed;
 
 export async function GET(
   request: NextRequest,
@@ -113,6 +120,9 @@ export async function GET(
     if (!upstream.ok) return errorResponse(502, "AMap service unavailable");
     const body = await readLimitedBody(upstream);
     if (!body) return errorResponse(502, "AMap service unavailable");
+    if (new TextDecoder().decode(body).includes(securityCode)) {
+      return errorResponse(502, "AMap service unavailable");
+    }
     return new Response(body, {
       status: upstream.status,
       headers: {
