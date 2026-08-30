@@ -236,8 +236,8 @@ Browse
   的 limitation；不得伪装成现场观察或高德官方资料。
 - warning 只消费服务器签发的 code/fingerprint；确认使用新 publish attempt，相关输入变化会清除
   acknowledgement。认证返回不自动发布；transient retry 沿用幂等键；conflict 不自动合并。
-- 每个编辑任务只有一个 React session owner。搜索结果、marker、地点卡、类别空态、地图长按和
-  全局 Add 只产生一次 intent；browser history、camera、focus 和 sheet 仍只由 #645 canonical
+- 每个编辑任务只有一个 React session owner。搜索结果、marker、地点卡、类别空态和明确的
+  “新增设施”操作只产生一次 intent；长按或右键地图不直接开始贡献。browser history、camera、focus 和 sheet 仍只由 #645 canonical
   driver 执行，发布仍只由 #718 `publishCampusMapChangeset` 执行。
 - Back 返回任务前 scene；X/Escape 在 dirty 时允许继续编辑或丢弃。刷新、快速 Place 切换、地图
   手势与认证回跳不能覆盖已锁定 placement 或别的 Place draft。

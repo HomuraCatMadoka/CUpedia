@@ -184,8 +184,8 @@ test.beforeEach(ensureFixture);
 
 for (const viewport of [
   { name: "390px", width: 390, height: 844 },
-  { name: "720px", width: 720, height: 900 },
-  { name: "desktop", width: 1280, height: 900 },
+  { name: "720px", width: 720, height: 844 },
+  { name: "desktop", width: 1280, height: 800 },
 ]) {
   test(`${viewport.name} keeps Place history deep links usable`, async ({
     context,
@@ -205,6 +205,11 @@ for (const viewport of [
     );
     await expect(page.getByText("地点已停用", { exact: true })).toBeVisible();
     await expect(page.getByText("来源摘要：现场复核")).toBeVisible();
+    await expect(page.getByText(ids.retireRevision)).toHaveCount(0);
+    await expect(page.getByText(ids.retireChangeset)).toHaveCount(0);
+    await expect(page.getByText("查看 Changeset", { exact: true })).toHaveCount(
+      0,
+    );
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -213,7 +218,9 @@ for (const viewport of [
     await page.getByRole("button", { name: "复制稳定链接" }).click();
     await expect(page.getByText("链接已复制")).toBeVisible();
 
-    const revisionLink = page.getByRole("link", { name: "查看修订" }).first();
+    const revisionLink = page
+      .getByRole("link", { name: "查看修改详情" })
+      .first();
     await revisionLink.focus();
     await expect(revisionLink).toBeFocused();
     await revisionLink.press("Enter");

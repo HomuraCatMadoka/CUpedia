@@ -13,19 +13,23 @@ import {
 import {
   ArrowLeftIcon,
   CheckCircle2Icon,
-  DropletsIcon,
   LocateFixedIcon,
   MapPinIcon,
   MinusIcon,
   PlusIcon,
-  PrinterIcon,
   SearchIcon,
-  SchoolIcon,
-  ToiletIcon,
-  UsersRoundIcon,
   XIcon,
 } from "lucide-react";
 
+import {
+  CAMPUS_MAP_CATEGORIES as CATEGORIES,
+  CampusMapFacilityResultButton as FacilityResultButton,
+  campusMapAmenityStyle as amenityStyle,
+  campusMapFloorLabel as floorLabel,
+  campusMapPlaceLocationLabel as placeLocationLabel,
+  knownCampusMapAmenity as knownAmenity,
+} from "./browse-card-presentation";
+import { AmapFacilityMarkerRuntime } from "./amap-facility-marker-runtime";
 import { CampusMapEditSheet } from "./edit-sheet";
 import { useCampusMapEditSessionOwner } from "./use-campus-map-edit-session-owner";
 
@@ -41,6 +45,10 @@ import {
 } from "@/lib/campus-map/camera-policy";
 import { AmapInteractionAdapter } from "@/lib/campus-map/amap-interaction-adapter";
 import {
+  providerPositionToWgs84,
+  type CampusMapPosition,
+} from "@/lib/campus-map/amap-position";
+import {
   createAmapGeocoderAdapter,
   createAmapPlaceContextResolver,
   type AmapGeocoderService,
@@ -48,10 +56,7 @@ import {
   type AmapPlaceContextResult,
   type AmapResolvedPlaceContext,
 } from "@/lib/campus-map/amap-place-context";
-import {
-  facilityMarkerContent,
-  type CampusMapAmenity,
-} from "@/lib/campus-map/facility-marker";
+import type { CampusMapAmenity } from "@/lib/campus-map/facility-marker";
 import {
   loadCampusMapAmapPoiCard,
   loadCampusMapBrowseProjection,
@@ -65,7 +70,6 @@ import {
   EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
   queryCampusMapBrowse,
   type CampusMapBrowseBuilding,
-  type CampusMapBrowseMarker,
   type CampusMapBrowsePlace,
   type CampusMapBrowseProjection,
 } from "@/lib/campus-map/browse-projection";
@@ -84,7 +88,6 @@ import {
   publishCampusMapEdit,
   reconcileCampusMapEditPublish,
 } from "@/lib/campus-map/edit-actions";
-import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
 import {
   CampusMapPublishReceiptConsumer,
   bindBrowserCampusMapPublishActor,
@@ -120,7 +123,7 @@ import { cn } from "@/lib/utils";
 type Amenity = CampusMapAmenity;
 type Building = CampusMapBrowseBuilding;
 type Facility = CampusMapBrowsePlace;
-type Position = readonly [longitude: number, latitude: number];
+type Position = CampusMapPosition;
 type ResolvedMappedProviderTarget =
   | { kind: "building"; building: Building }
   | { kind: "place"; facility: Facility };
@@ -236,26 +239,6 @@ declare global {
     _AMapSecurityConfig?: { securityJsCode: string };
   }
 }
-
-const CATEGORY_PRESENTATION = {
-  toilet: { icon: ToiletIcon, color: "#1b6f55" },
-  water: { icon: DropletsIcon, color: "#227a9b" },
-  printer: { icon: PrinterIcon, color: "#675aa7" },
-  "common-space": { icon: UsersRoundIcon, color: "#9a5b32" },
-  classroom: { icon: SchoolIcon, color: "#a33f52" },
-} satisfies Record<
-  Amenity,
-  {
-    icon: typeof ToiletIcon;
-    color: string;
-  }
->;
-
-const CATEGORIES = CAMPUS_MAP_EDIT_SCHEMA.presets.map((preset) => ({
-  id: preset.pinType,
-  label: preset.label,
-  ...CATEGORY_PRESENTATION[preset.pinType],
-}));
 
 function canonicalInitialSearch(
   search: string,
@@ -413,14 +396,6 @@ function facilityFor(
     : null;
 }
 
-function amenityStyle(category: Amenity) {
-  return CATEGORIES.find((item) => item.id === category) ?? CATEGORIES[0];
-}
-
-function knownAmenity(value: string | null) {
-  return CATEGORIES.find((item) => item.id === value)?.id ?? null;
-}
-
 function facilityBackLabel(returnTo: CampusMapSession | null) {
   const returnScene = returnTo?.mode === "browse" ? returnTo.scene : null;
   if (returnScene?.kind === "search-results") return "返回搜索结果";
@@ -472,131 +447,6 @@ function accessLabel(facility: Facility) {
 
 function metadataLabel(...parts: Array<string | null | undefined>) {
   return parts.filter(Boolean).join(" · ");
-}
-
-function browseMarkerKey(marker: CampusMapBrowseMarker) {
-  return marker.kind === "place"
-    ? `place:${marker.placeId}`
-    : `building:${marker.buildingId}:${marker.pinType}`;
-}
-
-function amapPositionKey(position: AMapLngLat | Position) {
-  const longitude = "lng" in position ? position.lng : position[0];
-  const latitude = "lat" in position ? position.lat : position[1];
-  return `${longitude.toFixed(12)}:${latitude.toFixed(12)}`;
-}
-
-function browseMarkerView(
-  marker: CampusMapBrowseMarker,
-  projection: CampusMapBrowseProjection,
-) {
-  const style = amenityStyle(marker.pinType);
-  if (marker.kind === "place") {
-    const place = projection.places.find(
-      (candidate) => candidate.placeId === marker.placeId,
-    );
-    if (!place) return null;
-    return {
-      id: browseMarkerKey(marker),
-      name: place.name,
-      buildingName: "校内地点",
-      floorLabel:
-        marker.position.precision === "precise" ? "精确位置" : "约略位置",
-      category: marker.pinType,
-      color: style.color,
-      markerLabel: `${place.name}，${
-        marker.position.precision === "precise" ? "精确" : "约略"
-      } WGS84 地点`,
-    };
-  }
-  const building = projection.buildings.find(
-    (candidate) => candidate.buildingId === marker.buildingId,
-  );
-  if (!building) return null;
-  const markerPlaces = marker.placeIds.flatMap((placeId) => {
-    const place = projection.places.find(
-      (candidate) => candidate.placeId === placeId,
-    );
-    return place ? [place] : [];
-  });
-  if (markerPlaces.length === 0) return null;
-  const locationLabel =
-    markerPlaces.length === 1
-      ? floorLabel(markerPlaces[0]!.floorId, markerPlaces[0]!.floorLabel)
-      : `${markerPlaces.length} 个地点`;
-  return {
-    id: browseMarkerKey(marker),
-    name:
-      markerPlaces.length === 1
-        ? markerPlaces[0]!.name
-        : `${markerPlaces.length} 个${style.label}`,
-    buildingName: building.name,
-    floorLabel: locationLabel,
-    category: marker.pinType,
-    color: style.color,
-    markerLabel: `${building.name}有 ${markerPlaces.length} 个${style.label}，建筑位置参考`,
-  };
-}
-
-function floorLabel(floorId: string | null, displayLabel?: string | null) {
-  if (displayLabel) return displayLabel;
-  if (!floorId) return "建筑内";
-  return floorId.endsWith("/F") ? floorId : `${floorId}/F`;
-}
-
-function placeLocationLabel(place: Facility) {
-  switch (place.location.kind) {
-    case "outdoor-point":
-      return "室外位置";
-    case "building":
-      return "建筑内";
-    case "floor":
-      return place.location.floor.displayLabel;
-  }
-}
-
-function FacilityResultButton({
-  facility,
-  metadata,
-  variant,
-  onSelect,
-}: {
-  facility: Facility;
-  metadata: string;
-  variant: "category" | "building";
-  onSelect: () => void;
-}) {
-  const style = amenityStyle(facility.pinType);
-  const Icon = style.icon;
-  const showsIcon = variant === "building";
-  return (
-    <button
-      data-return-result={facility.placeId}
-      type="button"
-      className={cn(
-        "flex w-full items-center text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]",
-        showsIcon
-          ? "min-h-16 gap-3 py-3"
-          : "min-h-14 border-b border-black/8 py-2",
-      )}
-      onClick={onSelect}
-    >
-      {showsIcon ? (
-        <span
-          className="grid size-9 shrink-0 place-items-center rounded-full text-white"
-          style={{ background: style.color }}
-        >
-          <Icon aria-hidden="true" className="size-4" />
-        </span>
-      ) : null}
-      <span className="min-w-0 flex-1">
-        <strong className="block truncate text-sm">{facility.name}</strong>
-        <span className="mt-0.5 block truncate text-xs text-neutral-500">
-          {metadata}
-        </span>
-      </span>
-    </button>
-  );
 }
 
 function publishedPlaceNotice(
@@ -703,12 +553,6 @@ export function CampusMapRuntime({
     buildingsRef.current = buildings;
     facilitiesRef.current = facilities;
   }, [buildings, facilities]);
-  const startAddRef = useRef<(providerPosition?: AMapLngLat) => void>(() => {});
-  const pendingProviderAddRef = useRef<{
-    providerPosition: Position;
-    intentToken: number;
-    transitionToken: number;
-  } | null>(null);
   const editSessionActiveRef = useRef(false);
   const editSessionPlacingRef = useRef(false);
   const exactProviderPlaceRef = useRef<AmapResolvedPlaceContext | null>(null);
@@ -743,10 +587,7 @@ export function CampusMapRuntime({
   const mapRef = useRef<AMapMap | null>(null);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
-  const clusterRef = useRef<AMapMarkerCluster | null>(null);
-  const clusterCategoryRef = useRef<Amenity | null>(null);
-  const clusterProjectionRef = useRef<CampusMapBrowseProjection | null>(null);
-  const facilityMarkersRef = useRef(new Map<string, AMapMarker>());
+  const facilityMarkerRuntimeRef = useRef(new AmapFacilityMarkerRuntime());
   const cameraGateRef = useRef(new CameraRequestGate());
   const pendingDriverCameraRef = useRef<{
     command: CampusMapDriverCameraCommand;
@@ -791,11 +632,7 @@ export function CampusMapRuntime({
   const resetMapRuntime = useCallback(() => {
     pointerGestureCleanupRef.current?.();
     pointerGestureCleanupRef.current = null;
-    clusterRef.current?.setMap(null);
-    clusterRef.current = null;
-    clusterCategoryRef.current = null;
-    clusterProjectionRef.current = null;
-    facilityMarkersRef.current.clear();
+    facilityMarkerRuntimeRef.current.destroy();
     mapRef.current?.destroy();
     mapRef.current = null;
     placeContextResolverRef.current?.invalidate();
@@ -804,7 +641,6 @@ export function CampusMapRuntime({
     cameraGateRef.current.invalidate();
     pendingDriverCameraRef.current = null;
     pendingPlacementCameraRef.current = null;
-    pendingProviderAddRef.current = null;
     placementCameraTokenRef.current += 1;
     retiredPlacementCameraTargetsRef.current = [];
     lastSettledPlacementCameraTargetRef.current = null;
@@ -999,10 +835,10 @@ export function CampusMapRuntime({
           mapElement,
           AMap,
         );
-        const currentPosition: Position = [
-          currentProviderPosition.lng - offset[0],
-          currentProviderPosition.lat - offset[1],
-        ];
+        const currentPosition = providerPositionToWgs84(
+          [currentProviderPosition.lng, currentProviderPosition.lat],
+          offset,
+        );
         if (samePlacementPosition(currentPosition, camera.position)) {
           pendingPlacementCameraRef.current = null;
           setMapMoving(false);
@@ -1224,6 +1060,17 @@ export function CampusMapRuntime({
       ) ?? null)
     : buildingFor(state.selection, buildings);
   const activeAmenity = knownAmenity(state.mapFilter.category);
+  const selectedMarkerPlaceId = activeAmenity
+    ? null
+    : (selectedFacility?.placeId ?? null);
+  const visibleMarkerAmenity =
+    activeAmenity ??
+    (selectedMarkerPlaceId ? (selectedFacility?.pinType ?? null) : null);
+  const markerScope = activeAmenity
+    ? `category:${activeAmenity}`
+    : selectedMarkerPlaceId
+      ? `place:${selectedMarkerPlaceId}`
+      : null;
   const selectedFacilityBackLabel = selectedFacility
     ? facilityBackLabel(driverSnapshot.returnTo)
     : "返回地图";
@@ -1312,19 +1159,16 @@ export function CampusMapRuntime({
     const AMap = typeof window === "undefined" ? undefined : window.AMap;
     if (!map || !mapElement || !AMap) return null;
     const providerPosition = placementAnchorLngLat(map, mapElement, AMap);
+    const providerPositionTuple = [
+      providerPosition.lng,
+      providerPosition.lat,
+    ] as Position;
     return {
-      providerPosition: [
-        providerPosition.lng,
-        providerPosition.lat,
-      ] as Position,
-      wgs84Position: [
-        providerPosition.lng - offset[0],
-        providerPosition.lat - offset[1],
-      ] as Position,
+      providerPosition: providerPositionTuple,
+      wgs84Position: providerPositionToWgs84(providerPositionTuple, offset),
     };
   }, []);
   const startAddAtPlacementAnchor = useCallback(() => {
-    pendingProviderAddRef.current = null;
     const anchor =
       coordinateVersion > 0
         ? readVisiblePlacementAnchor(amapOffsetRef.current)
@@ -1346,37 +1190,6 @@ export function CampusMapRuntime({
     startAdd,
     startAddAtPosition,
   ]);
-  const startAddAtProviderPosition = useCallback(
-    (providerPoint: AMapLngLat) => {
-      if (editSessionActiveRef.current) return;
-      if (coordinateVersion === 0) {
-        pendingProviderAddRef.current = {
-          providerPosition: [providerPoint.lng, providerPoint.lat],
-          intentToken: driver.getIntentToken(),
-          transitionToken: driver.getSnapshot().transitionToken,
-        };
-        return;
-      }
-      pendingProviderAddRef.current = null;
-      const providerPosition = [
-        providerPoint.lng,
-        providerPoint.lat,
-      ] as Position;
-      const offset = amapOffsetRef.current;
-      const wgs84Position = [
-        providerPosition[0] - offset[0],
-        providerPosition[1] - offset[1],
-      ] as Position;
-      startAddAtPosition({
-        longitude: wgs84Position[0],
-        latitude: wgs84Position[1],
-        crs: "wgs84",
-        precision: "approximate",
-        method: "pointer",
-      });
-    },
-    [coordinateVersion, driver, startAddAtPosition],
-  );
   useEffect(() => {
     if (!publishNotice) return;
     const timeout = window.setTimeout(() => setPublishNotice(null), 4_000);
@@ -1416,36 +1229,8 @@ export function CampusMapRuntime({
   const placeContextMapRevision =
     editSessionStatus === "placing" ? mapCenterRevision : 0;
   useEffect(() => {
-    startAddRef.current = (providerPosition) => {
-      if (providerPosition) {
-        startAddAtProviderPosition(providerPosition);
-        return;
-      }
-      startAddAtPlacementAnchor();
-    };
-  }, [startAddAtPlacementAnchor, startAddAtProviderPosition]);
-  useEffect(() => {
-    if (coordinateVersion === 0 || editSession) return;
-    const pending = pendingProviderAddRef.current;
-    if (!pending) return;
-    if (
-      editSession ||
-      driver.getIntentToken() !== pending.intentToken ||
-      driver.getSnapshot().transitionToken !== pending.transitionToken
-    ) {
-      pendingProviderAddRef.current = null;
-      return;
-    }
-    pendingProviderAddRef.current = null;
-    startAddAtProviderPosition({
-      lng: pending.providerPosition[0],
-      lat: pending.providerPosition[1],
-    });
-  }, [coordinateVersion, driver, editSession, startAddAtProviderPosition]);
-  useEffect(() => {
     editSessionActiveRef.current = Boolean(editSession);
     editSessionPlacingRef.current = editSession?.status === "placing";
-    if (editSession) pendingProviderAddRef.current = null;
     if (!editSession) {
       exactProviderPlaceRef.current = null;
     }
@@ -1735,7 +1520,10 @@ export function CampusMapRuntime({
           setPlaceContext({ status: "resolved", context });
           const offset = amapOffsetRef.current;
           driver.recenterEditPosition(
-            [event.lnglat.lng - offset[0], event.lnglat.lat - offset[1]],
+            providerPositionToWgs84(
+              [event.lnglat.lng, event.lnglat.lat],
+              offset,
+            ),
             "provider-placement",
           );
           return;
@@ -1827,10 +1615,10 @@ export function CampusMapRuntime({
         ? placementAnchorLngLat(map, map.getContainer(), AMap)
         : map.getCenter();
       const offset = amapOffsetRef.current;
-      const position: Position = [
-        center.lng - offset[0],
-        center.lat - offset[1],
-      ];
+      const position = providerPositionToWgs84(
+        [center.lng, center.lat],
+        offset,
+      );
       if (mapDraggingRef.current) return;
       if (userGestureAwaitingMoveEndRef.current) {
         userGestureAwaitingMoveEndRef.current = false;
@@ -1884,20 +1672,6 @@ export function CampusMapRuntime({
       setProviderCenterPosition([center.lng, center.lat]);
       setMapCenterRevision((revision) => revision + 1);
     });
-    const startAddFromMapEvent = (event: AMapEvent) => {
-      const providerPosition = event.lnglat;
-      interactionAdapterRef.current.dispatchExclusiveAction(() => {
-        startAddRef.current(
-          providerPosition &&
-            Number.isFinite(providerPosition.lng) &&
-            Number.isFinite(providerPosition.lat)
-            ? providerPosition
-            : undefined,
-        );
-      });
-    };
-    map.on("longpress", startAddFromMapEvent);
-    map.on("rightclick", startAddFromMapEvent);
     const cancelForUserZoom = () => {
       driver.interruptCamera();
     };
@@ -2010,8 +1784,7 @@ export function CampusMapRuntime({
         } else if (
           shouldSetInitialCenter &&
           projectionStillOwnsScene &&
-          !editSessionActiveRef.current &&
-          !pendingProviderAddRef.current
+          !editSessionActiveRef.current
         ) {
           map.setZoomAndCenter(17.2, projection.center, true, 0);
         }
@@ -2033,230 +1806,54 @@ export function CampusMapRuntime({
       !mapRef.current
     )
       return;
-    const map = mapRef.current;
-    if (!activeAmenity) {
-      clusterRef.current?.setMap(null);
-      clusterRef.current = null;
-      clusterCategoryRef.current = null;
-      clusterProjectionRef.current = null;
-      facilityMarkersRef.current.clear();
-      return;
-    }
-    const projectedMarkers = browseProjection.markers.filter(
-      (marker) => marker.pinType === activeAmenity,
-    );
-    const markerByKey = new Map(
-      projectedMarkers.map((marker) => [browseMarkerKey(marker), marker]),
-    );
-    const markerTargets = projectedMarkers.flatMap((marker) => {
-      const position =
-        marker.kind === "place"
-          ? amapPositionsRef.current[`place:${marker.placeId}`]
-          : amapPositionsRef.current[`building:${marker.buildingId}`];
-      const markerKey = browseMarkerKey(marker);
-      if (!position) return [];
-      const placeIds =
-        marker.kind === "place" ? [marker.placeId] : marker.placeIds;
-      return placeIds.map((_, index) => ({
-        markerKey,
-        position,
-        showMarker: marker.kind === "place" || index === 0,
-      }));
+    const synced = facilityMarkerRuntimeRef.current.sync({
+      map: mapRef.current,
+      provider: window.AMap,
+      projection: browseProjection,
+      providerPositions: amapPositionsRef.current,
+      markerScope,
+      visibleAmenity: visibleMarkerAmenity,
+      selectedPlaceId: selectedMarkerPlaceId,
+      claimProviderTarget: (action) => {
+        interactionAdapterRef.current.dispatchProviderTarget(action);
+      },
+      selectBuilding: (buildingId) => {
+        const building = buildingsRef.current.find(
+          (candidate) => candidate.buildingId === buildingId,
+        );
+        if (building) selectBuilding(building);
+      },
+      selectPlace: (placeId) => {
+        const place = facilitiesRef.current.find(
+          (candidate) => candidate.placeId === placeId,
+        );
+        if (place) selectFacility(place, "category");
+      },
+      fitCluster: (positions) => dispatch({ type: "FIT_CLUSTER", positions }),
     });
-    const data = markerTargets.map(({ position }) => ({ lnglat: position }));
-    const markerTargetsByPosition = new Map<
-      string,
-      Array<(typeof markerTargets)[number]>
-    >();
-    for (const target of markerTargets) {
-      const key = amapPositionKey(target.position);
-      const targets = markerTargetsByPosition.get(key) ?? [];
-      targets.push(target);
-      markerTargetsByPosition.set(key, targets);
-    }
-
-    if (
-      clusterRef.current &&
-      (clusterCategoryRef.current !== activeAmenity ||
-        clusterProjectionRef.current !== browseProjection)
-    ) {
-      clusterRef.current.setMap(null);
-      clusterRef.current = null;
-      clusterCategoryRef.current = null;
-      clusterProjectionRef.current = null;
-      facilityMarkersRef.current.clear();
-    }
-
-    try {
-      if (!clusterRef.current) {
-        const style = amenityStyle(activeAmenity);
-        const markerTargetAssignments = new WeakMap<
-          AMapMarker,
-          (typeof markerTargets)[number]
-        >();
-        const nextMarkerTargetIndex = new Map<string, number>();
-        const cluster = new window.AMap.MarkerCluster(map, data, {
-          gridSize: 90,
-          maxZoom: 18,
-          averageCenter: true,
-          renderMarker: ({ marker }: { marker: AMapMarker }) => {
-            let markerTarget = markerTargetAssignments.get(marker);
-            if (!markerTarget) {
-              const position = marker.getPosition();
-              if (!position) return;
-              const positionKey = amapPositionKey(position);
-              const targets = markerTargetsByPosition.get(positionKey);
-              if (!targets?.length) return;
-              const targetIndex = nextMarkerTargetIndex.get(positionKey) ?? 0;
-              markerTarget = targets[targetIndex % targets.length];
-              nextMarkerTargetIndex.set(positionKey, targetIndex + 1);
-              markerTargetAssignments.set(marker, markerTarget);
-            }
-            const { markerKey, showMarker } = markerTarget;
-            const projectedMarker = markerKey
-              ? markerByKey.get(markerKey)
-              : undefined;
-            if (!markerKey || !projectedMarker) return;
-            if (!showMarker) {
-              marker.setContent(
-                '<span aria-hidden="true" style="display:none"></span>',
-              );
-              return;
-            }
-            const view = browseMarkerView(projectedMarker, browseProjection);
-            if (!view) return;
-            facilityMarkersRef.current.set(markerKey, marker);
-            marker.setContent(
-              facilityMarkerContent({
-                ...view,
-                selected: false,
-              }),
-            );
-            marker.on("click", () => {
-              interactionAdapterRef.current.dispatchProviderTarget(() => {
-                if (projectedMarker.kind === "building-presence") {
-                  const building = buildingsRef.current.find(
-                    (candidate) =>
-                      candidate.buildingId === projectedMarker.buildingId,
-                  );
-                  const onlyPlace =
-                    projectedMarker.placeIds.length === 1
-                      ? facilitiesRef.current.find(
-                          (candidate) =>
-                            candidate.placeId === projectedMarker.placeIds[0],
-                        )
-                      : null;
-                  if (onlyPlace) {
-                    selectFacility(onlyPlace, "category");
-                  } else if (building) {
-                    selectBuilding(building);
-                  }
-                  return;
-                }
-                const place = facilitiesRef.current.find(
-                  (candidate) => candidate.placeId === projectedMarker.placeId,
-                );
-                if (!place) return;
-                selectFacility(place, "category");
-              });
-            });
-          },
-          renderClusterMarker: ({
-            count,
-            marker,
-          }: {
-            count: number;
-            marker: AMapMarker;
-          }) => {
-            marker.setContent(
-              `<button type="button" data-cupedia-marker="true" aria-label="${count} 个${style.label}" style="display:grid;min-width:46px;height:46px;place-items:center;border:3px solid white;border-radius:999px;background:${style.color};color:white;font:700 14px system-ui;box-shadow:0 3px 12px rgba(0,0,0,.22);padding:0 12px">${count}</button>`,
-            );
-          },
-        });
-        cluster.on("click", (event) => {
-          interactionAdapterRef.current.dispatchProviderTarget(() => {
-            const positions = event.clusterData?.map(({ lnglat }) =>
-              "lng" in lnglat ? ([lnglat.lng, lnglat.lat] as Position) : lnglat,
-            );
-            if (positions?.length) {
-              dispatch({ type: "FIT_CLUSTER", positions });
-            }
-          });
-        });
-        clusterRef.current = cluster;
-        clusterCategoryRef.current = activeAmenity;
-        clusterProjectionRef.current = browseProjection;
-      } else {
-        clusterRef.current.setData(data);
-      }
-    } catch {
-      clusterRef.current = null;
-      clusterCategoryRef.current = null;
-      clusterProjectionRef.current = null;
-      facilityMarkersRef.current.clear();
+    if (!synced) {
       queueMicrotask(() => setClusterStatus("error"));
     }
   }, [
-    activeAmenity,
     browseProjection,
     buildings,
     clusterStatus,
     coordinateVersion,
     dispatch,
     mapReady,
+    markerScope,
+    selectedMarkerPlaceId,
     selectBuilding,
     selectFacility,
+    visibleMarkerAmenity,
   ]);
 
   useEffect(() => {
-    const syncSelectedMarker = () => {
-      document
-        .querySelectorAll<HTMLElement>("[data-facility-id]")
-        .forEach((element) => {
-          element.setAttribute(
-            "aria-pressed",
-            String(
-              browseProjection.markers.some(
-                (marker) =>
-                  browseMarkerKey(marker) === element.dataset.facilityId &&
-                  selectedFacility !== null &&
-                  (marker.kind === "place"
-                    ? marker.placeId === selectedFacility.placeId
-                    : marker.placeIds.includes(selectedFacility.placeId)),
-              ),
-            ),
-          );
-        });
-    };
-    syncSelectedMarker();
-    const observer = new MutationObserver(syncSelectedMarker);
-    if (mapElementRef.current) {
-      observer.observe(mapElementRef.current, {
-        childList: true,
-        subtree: true,
-      });
-    }
-    for (const projectedMarker of browseProjection.markers) {
-      const markerKey = browseMarkerKey(projectedMarker);
-      const marker = facilityMarkersRef.current.get(markerKey);
-      if (!marker) continue;
-      const selected = Boolean(
-        selectedFacility &&
-        (projectedMarker.kind === "place"
-          ? projectedMarker.placeId === selectedFacility.placeId
-          : projectedMarker.placeIds.includes(selectedFacility.placeId)),
-      );
-      const view = browseMarkerView(projectedMarker, browseProjection);
-      if (!view) continue;
-      marker.setzIndex(selected ? 220 : 160);
-      marker.setContent(
-        facilityMarkerContent({
-          ...view,
-          selected,
-        }),
-      );
-    }
-    return () => observer.disconnect();
+    return facilityMarkerRuntimeRef.current.syncSelection(
+      mapElementRef.current,
+      browseProjection,
+      selectedFacility?.placeId ?? null,
+    );
   }, [browseProjection, selectedFacility]);
 
   useEffect(() => {
@@ -2289,10 +1886,7 @@ export function CampusMapRuntime({
     () => () => {
       pointerGestureCleanupRef.current?.();
       pointerGestureCleanupRef.current = null;
-      clusterRef.current?.setMap(null);
-      clusterRef.current = null;
-      clusterCategoryRef.current = null;
-      clusterProjectionRef.current = null;
+      facilityMarkerRuntimeRef.current.destroy();
       providerPoiCardResolverRef.current.invalidate();
       coordinateProjectorRef.current.invalidate();
       mapRef.current?.destroy();
@@ -3183,34 +2777,21 @@ export function CampusMapRuntime({
                     buildingOverviewDirectory?.status === "ready" ? (
                       <div className="md:hidden">
                         {buildingPreviewFacility ? (
-                          <button
-                            type="button"
-                            data-building-preview={
-                              buildingPreviewFacility.placeId
-                            }
-                            data-return-result={buildingPreviewFacility.placeId}
-                            aria-label={`查看设施：${buildingPreviewFacility.name}，${placeLocationLabel(buildingPreviewFacility)}`}
-                            className="flex min-h-14 w-full items-center border-b border-black/8 py-2 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
-                            onClick={() =>
+                          <FacilityResultButton
+                            facility={buildingPreviewFacility}
+                            metadata={metadataLabel(
+                              placeLocationLabel(buildingPreviewFacility),
+                              amenityStyle(buildingPreviewFacility.pinType)
+                                .label,
+                            )}
+                            variant="preview"
+                            onSelect={() =>
                               selectFacility(
                                 buildingPreviewFacility,
                                 "building",
                               )
                             }
-                          >
-                            <span className="min-w-0 flex-1">
-                              <strong className="block truncate text-sm">
-                                {buildingPreviewFacility.name}
-                              </strong>
-                              <span className="mt-0.5 block truncate text-xs text-neutral-500">
-                                {metadataLabel(
-                                  placeLocationLabel(buildingPreviewFacility),
-                                  amenityStyle(buildingPreviewFacility.pinType)
-                                    .label,
-                                )}
-                              </span>
-                            </span>
-                          </button>
+                          />
                         ) : null}
                         <button
                           type="button"

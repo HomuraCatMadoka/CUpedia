@@ -357,6 +357,11 @@ test("search and marker open one canonical Place card", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "正式测试饮水点" }),
   ).toBeVisible();
+  const currentPlaceMarker = page.locator(
+    `[data-facility-id="building:${browseIds.building}:water"]`,
+  );
+  await expect(currentPlaceMarker).toBeVisible();
+  await expect(currentPlaceMarker).toHaveAttribute("aria-pressed", "true");
   await expect(
     page.getByRole("region", { name: "正式测试饮水点" }),
   ).toContainText("饮水点");
@@ -472,7 +477,7 @@ test("Building expands into Place and Back restores the Building card", async ({
   ).toBeHidden();
 });
 
-test("long-press and right-click start one Add task at the pressed position", async ({
+test("long-press and right-click leave contribution to the explicit Add action", async ({
   page,
 }) => {
   for (const scenario of [
@@ -489,30 +494,23 @@ test("long-press and right-click start one Add task at the pressed position", as
   ]) {
     await page.setViewportSize(scenario.viewport);
     await page.goto("/campus-map");
-    const before = await readAmapSnapshot(page);
-
     await emitAmapEvent(page, scenario.event, {
+      lnglat: scenario.position,
+    });
+    await emitAmapEvent(page, "click", {
       lnglat: scenario.position,
     });
 
     await expect(
       page.getByRole("heading", { name: "选择设施位置" }),
-    ).toBeVisible();
+    ).toHaveCount(0);
+    await expect(page).toHaveURL(/\/campus-map\?v=1$/);
+
+    await page.getByRole("button", { name: "新增设施" }).click();
     await expect(
-      page.getByRole("region", { name: "选择设施位置" }),
-    ).toHaveCount(1);
+      page.getByRole("heading", { name: "选择设施位置" }),
+    ).toBeVisible();
     await expect(page).toHaveURL(/task=create/);
-    await expect(
-      page.getByText(
-        new RegExp(
-          `${scenario.position.lng.toFixed(6)}, ${scenario.position.lat.toFixed(6)}`,
-        ),
-      ),
-    ).toBeVisible();
-    const after = await readAmapSnapshot(page);
-    expect(after.center[0]).toBeCloseTo(scenario.position.lng, 10);
-    expect(after.center[1]).toBeCloseTo(scenario.position.lat, 10);
-    expect(after.setZoomAndCenterCount).toBe(before.setZoomAndCenterCount + 1);
 
     await page.evaluate(() => window.sessionStorage.clear());
   }
@@ -650,6 +648,11 @@ test("a rapid newer Place intent wins over a delayed provider result", async ({
   await expect(
     page.getByRole("heading", { name: "正式测试饮水点" }),
   ).toBeVisible();
+  const currentPlaceMarker = page.locator(
+    `[data-facility-id="building:${browseIds.building}:water"]`,
+  );
+  await expect(currentPlaceMarker).toBeVisible();
+  await expect(currentPlaceMarker).toHaveAttribute("aria-pressed", "true");
 });
 
 test("three peek/full rounds and ResizeObserver callbacks do not accumulate camera drift", async ({
@@ -733,6 +736,9 @@ test("publish handoff shows one success prompt and never restores the form", asy
     page.getByRole("heading", { name: publishedName }),
   ).toBeVisible();
   await expect(page.getByRole("status")).toContainText("地点已发布");
+  const selectedMarker = page.locator(`[data-facility-id="place:${placeId}"]`);
+  await expect(selectedMarker).toBeVisible();
+  await expect(selectedMarker).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText("PUBLISHED")).toHaveCount(0);
   const publishNoticeBox = await page.getByRole("status").boundingBox();
   const publishedCardBox = await page
@@ -765,10 +771,14 @@ test("publish handoff shows one success prompt and never restores the form", asy
 
   await page.goForward();
   await expect(page).toHaveURL(publishedUrl.toString());
+  await expect(selectedMarker).toBeVisible();
+  await expect(selectedMarker).toHaveAttribute("aria-pressed", "true");
   await page.reload();
   await expect(
     page.getByRole("heading", { name: publishedName }),
   ).toBeVisible();
+  await expect(selectedMarker).toBeVisible();
+  await expect(selectedMarker).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("status")).toHaveCount(0);
 
   await page

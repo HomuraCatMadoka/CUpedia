@@ -56,7 +56,7 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
     expect(screen.queryByText("查看这个地点过去的公开修改。")).toBeNull();
   });
 
-  it("shows the Changeset explanation and safe source summary on revisions", () => {
+  it("keeps raw revision identity behind the ordinary history detail action", () => {
     render(
       <CampusMapHistoryPage
         placeId="00000000-0000-4000-8000-000000007192"
@@ -97,13 +97,13 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
     ).toBeTruthy();
     expect(document.body.textContent).not.toContain("地点 00000000");
     expect(screen.getByText("来源摘要：现场观察")).toBeTruthy();
-    expect(
-      screen.getByText(
-        (_content, element) =>
-          element?.tagName === "P" &&
-          element.textContent ===
-            "Changeset：00000000-0000-4000-8000-000000007193",
-      ),
-    ).toBeTruthy();
+    expect(document.body.textContent).not.toContain(
+      "00000000-0000-4000-8000-000000007198",
+    );
+    expect(document.body.textContent).not.toContain(
+      "00000000-0000-4000-8000-000000007193",
+    );
+    expect(document.body.textContent).not.toContain("Changeset");
+    expect(screen.getByRole("link", { name: "查看修改详情" })).toBeTruthy();
   });
 });

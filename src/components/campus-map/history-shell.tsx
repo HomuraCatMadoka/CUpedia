@@ -90,16 +90,11 @@ export function CampusMapHistoryPage({
               <p className="mt-1 text-sm text-muted-foreground">
                 来源摘要：{item.sourceSummary}
               </p>
-              <StableId label="Revision" value={item.id} />
-              <StableId label="Changeset" value={item.changesetId} />
               <div className="mt-4 flex flex-wrap gap-2">
                 <ReadLink
                   href={`/campus-map/places/${placeId}/history/${item.id}`}
                 >
-                  查看修订
-                </ReadLink>
-                <ReadLink href={`/campus-map/changesets/${item.changesetId}`}>
-                  查看 Changeset
+                  查看修改详情
                 </ReadLink>
               </div>
             </li>
