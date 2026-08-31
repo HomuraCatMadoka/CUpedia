@@ -22,6 +22,7 @@ export interface CampusMapPlaceLifecycleInput {
   baseRevisionId: string;
   reason: string;
   idempotencyKey: string;
+  sourceAccessedOn: string;
 }
 
 export type CampusMapPlaceLifecycleActionResult =
@@ -108,11 +109,7 @@ async function publishLifecycleChange(
     headers(),
     getCampusMapPlaceRevision(input.placeId, input.baseRevisionId),
   ]);
-  const source = lifecycleSource(
-    input,
-    user.id,
-    baseRevision?.publishedAt ?? null,
-  );
+  const source = lifecycleSource(input, user.id);
   let changes: CampusMapPublishCommand["changes"];
 
   if (operation === "restore") {
@@ -166,7 +163,6 @@ async function publishLifecycleChange(
 function lifecycleSource(
   input: CampusMapPlaceLifecycleInput,
   actorId: string,
-  basePublishedAt: Date | null,
 ): CampusMapPublishSourceInput {
   return {
     kind: "other",
@@ -180,9 +176,10 @@ function lifecycleSource(
     owner: "CUpedia administrators",
     version: null,
     snapshotHash: null,
-    // Use the immutable base publication date so an idempotent retry builds
-    // the same command even if it happens on a later calendar day.
-    accessedOn: dateInHongKong(basePublishedAt ?? new Date(0)),
+    // The client creates this alongside the idempotency key. Reusing both
+    // values keeps a retry byte-for-byte stable across a Hong Kong date change.
+    // The publish seam still validates the date before writing.
+    accessedOn: input.sourceAccessedOn,
     observedAt: null,
     rightsStatus: "unknown",
     limitations: "Administrative lifecycle decision; not location evidence.",
@@ -197,15 +194,6 @@ function lifecycleSourceIdentity(actorId: string, idempotencyKey: string) {
     .update("\0")
     .update(idempotencyKey)
     .digest("hex");
-}
-
-function dateInHongKong(value: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Hong_Kong",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(value);
 }
 
 function restorationFact(
