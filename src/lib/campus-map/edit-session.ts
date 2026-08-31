@@ -14,6 +14,11 @@ import {
   firstInvalidCampusMapEditField,
   type CampusMapEditFieldKey,
 } from "@/lib/campus-map/edit-schema";
+import {
+  campusMapFactFieldLabel,
+  campusMapPinTypeLabel,
+  campusMapProvenanceKindLabel,
+} from "@/lib/campus-map/display-registry";
 
 export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 4 as const;
 
@@ -1246,38 +1251,22 @@ export function transitionCampusMapEdit(
   return rejected(session);
 }
 
-const FIELD_LABELS: Array<[keyof CampusMapPublishFactInput, string]> = [
-  ["name", "名称"],
-  ["pinType", "地点类型"],
-  ["buildingId", "建筑"],
-  ["floorId", "楼层"],
-  ["capabilities", "服务能力"],
-  ["gender", "性别属性"],
-  ["wheelchairAccess", "无障碍通行"],
-  ["audience", "开放对象"],
-  ["credentialRequirement", "凭证要求"],
-  ["accessSchedule", "开放时间"],
-  ["reservationRequirement", "预约要求"],
-  ["temporaryStatus", "临时状态"],
-  ["location", "位置"],
-  ["observedAt", "观察时间"],
+const PUBLISH_FACT_FIELDS: Array<keyof CampusMapPublishFactInput> = [
+  "name",
+  "pinType",
+  "buildingId",
+  "floorId",
+  "capabilities",
+  "gender",
+  "wheelchairAccess",
+  "audience",
+  "credentialRequirement",
+  "accessSchedule",
+  "reservationRequirement",
+  "temporaryStatus",
+  "location",
+  "observedAt",
 ];
-
-const PIN_LABELS: Record<CampusMapPublishFactInput["pinType"], string> = {
-  toilet: "洗手间",
-  water: "饮水点",
-  printer: "打印服务",
-  "common-space": "公共空间",
-  classroom: "课室",
-};
-
-const SOURCE_LABELS: Record<CampusMapPublishSourceInput["kind"], string> = {
-  official: "官方资料",
-  "field-observation": "现场观察",
-  "open-data": "开放数据",
-  "provider-candidate": "地图供应商候选",
-  other: "其他资料",
-};
 
 export function deriveCampusMapPublishCommand(
   draft: CampusMapEditDraft,
@@ -1285,13 +1274,13 @@ export function deriveCampusMapPublishCommand(
   if (!draft.fact.location)
     throw new Error("Campus Map edit draft has no location");
   const fact = draft.fact as CampusMapPublishFactInput;
-  const changedFields = FIELD_LABELS.filter(([field]) => {
+  const changedFields = PUBLISH_FACT_FIELDS.filter((field) => {
     if (!draft.baselineFact) return true;
     return stable(fact[field]) !== stable(draft.baselineFact[field]);
-  }).map(([, label]) => label);
+  }).map(campusMapFactFieldLabel);
   const comment =
     draft.mode === "add"
-      ? `新增地点：${fact.name}（${PIN_LABELS[fact.pinType]}）`
+      ? `新增地点：${fact.name}（${campusMapPinTypeLabel(fact.pinType)}）`
       : `更新地点：${changedFields.join("、") || "来源"}`;
   const sourceLabels = Array.from(
     new Set(
@@ -1299,7 +1288,7 @@ export function deriveCampusMapPublishCommand(
         item.kind === "other" &&
         item.ref.startsWith(MAP_SUBMISSION_SOURCE_PREFIX)
           ? "地图提交"
-          : SOURCE_LABELS[item.kind],
+          : campusMapProvenanceKindLabel(item.kind),
       ),
     ),
   );

@@ -1,9 +1,6 @@
-export type CampusMapAmenity =
-  | "toilet"
-  | "water"
-  | "printer"
-  | "common-space"
-  | "classroom";
+import type { CAMPUS_MAP_PIN_TYPES } from "@/lib/campus-map/controlled-values";
+
+export type CampusMapAmenity = (typeof CAMPUS_MAP_PIN_TYPES)[number];
 
 const PATHS: Record<CampusMapAmenity, string> = {
   toilet:

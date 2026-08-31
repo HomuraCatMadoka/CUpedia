@@ -7,7 +7,10 @@ import {
 } from "lucide-react";
 
 import type { CampusMapBrowsePlace } from "@/lib/campus-map/browse-projection";
-import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
+import {
+  campusMapPinTypeLabel,
+  CAMPUS_MAP_DISPLAY_REGISTRY,
+} from "@/lib/campus-map/display-registry";
 import type { CampusMapAmenity } from "@/lib/campus-map/facility-marker";
 import { cn } from "@/lib/utils";
 
@@ -25,13 +28,12 @@ const CATEGORY_PRESENTATION = {
   }
 >;
 
-export const CAMPUS_MAP_CATEGORIES = CAMPUS_MAP_EDIT_SCHEMA.presets.map(
-  (preset) => ({
-    id: preset.pinType,
-    label: preset.label,
-    ...CATEGORY_PRESENTATION[preset.pinType],
-  }),
-);
+export const CAMPUS_MAP_CATEGORIES =
+  CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories.map((pinType) => ({
+    id: pinType,
+    label: campusMapPinTypeLabel(pinType),
+    ...CATEGORY_PRESENTATION[pinType],
+  }));
 
 export function campusMapAmenityStyle(category: CampusMapAmenity) {
   return (

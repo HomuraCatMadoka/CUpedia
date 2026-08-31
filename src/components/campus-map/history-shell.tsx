@@ -8,6 +8,7 @@ import type {
   CampusMapPublicChangeset,
 } from "@/lib/campus-map/fact-store";
 import { CopyDeepLinkButton } from "@/components/campus-map/copy-deep-link-button";
+import { displayCampusMapFactValue } from "@/lib/campus-map/display-registry";
 
 const operationLabels = {
   create: "建立地点",
@@ -171,6 +172,7 @@ export function CampusMapRevisionPage({
             {Object.entries(revision.fieldDiff).map(([key, value]) => (
               <DiffRow
                 key={key}
+                field={key}
                 label={value.label}
                 before={value.before}
                 after={value.after}
@@ -261,6 +263,7 @@ function CampusMapChangeCard({ change }: { change: CampusMapPublicChange }) {
         {Object.entries(change.diff.fields).map(([key, value]) => (
           <DiffRow
             key={key}
+            field={key}
             label={value.label}
             before={value.before}
             after={value.after}
@@ -464,10 +467,12 @@ function StableId({ label, value }: { label: string; value: string }) {
 }
 
 function DiffRow({
+  field,
   label,
   before,
   after,
 }: {
+  field?: string;
   label: string;
   before: unknown;
   after: unknown;
@@ -477,10 +482,10 @@ function DiffRow({
       <dt className="text-xs font-semibold text-muted-foreground">{label}</dt>
       <dd className="mt-2 grid min-w-0 gap-1 text-sm">
         <span className="break-words text-red-700 line-through dark:text-red-300">
-          {displayValue(before)}
+          {displayValue(displayCampusMapFactValue(field ?? "", before))}
         </span>
         <span className="break-words text-emerald-800 dark:text-emerald-200">
-          {displayValue(after)}
+          {displayValue(displayCampusMapFactValue(field ?? "", after))}
         </span>
       </dd>
     </div>
