@@ -2175,6 +2175,36 @@ describe("Campus Map AMap runtime effects", () => {
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();
   });
 
+  it.each(["panel close", "browser history"])(
+    "cancels a queued location camera move after %s",
+    async (dismissal) => {
+      const { runtime, map } = await renderWithRuntime({
+        projectedPoint: { x: 700, y: 800 },
+      });
+      map.panTo.mockClear();
+      map.setZoomAndCenter.mockClear();
+      fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+      fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+      await act(async () => {
+        positionCallbacks[0]!.success(geolocationPosition(114.2072, 22.4191));
+      });
+
+      if (dismissal === "panel close") {
+        fireEvent.click(screen.getByRole("button", { name: "关闭饮水点列表" }));
+      } else {
+        await act(async () => {
+          window.dispatchEvent(
+            new PopStateEvent("popstate", { state: window.history.state }),
+          );
+        });
+      }
+      await runtime.flushAnimationFrames();
+
+      expect(map.panTo).not.toHaveBeenCalled();
+      expect(map.setZoomAndCenter).not.toHaveBeenCalled();
+    },
+  );
+
   it("does not cancel a newer canonical camera when clearing location", async () => {
     const projection = createNullablePlaceFixture();
     const { runtime, map } = await renderWithRuntime({

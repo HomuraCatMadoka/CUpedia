@@ -837,6 +837,8 @@ export function CampusMapRuntime({
 
   const cancelPendingUserLocation = useCallback(() => {
     userLocationRequestRef.current += 1;
+    userLocationCameraCancelRef.current?.();
+    userLocationCameraCancelRef.current = null;
     setUserLocation((current) =>
       current.status === "locating" ? { status: "idle" } : current,
     );
