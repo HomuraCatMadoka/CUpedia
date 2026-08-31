@@ -821,6 +821,8 @@ export function CampusMapRuntime({
 
   const clearUserLocation = useCallback(() => {
     userLocationRequestRef.current += 1;
+    cameraGateRef.current.invalidate();
+    pendingSelectionTokenRef.current = null;
     setUserLocation({ status: "idle" });
   }, []);
 
@@ -1555,8 +1557,9 @@ export function CampusMapRuntime({
   }, [cancelPendingUserLocation, dispatch]);
 
   const navigateEntityBack = useCallback(() => {
+    cancelPendingUserLocation();
     dispatch({ type: "NAVIGATE_BACK" });
-  }, [dispatch]);
+  }, [cancelPendingUserLocation, dispatch]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1569,17 +1572,17 @@ export function CampusMapRuntime({
       const currentSnapshot = driver.getSnapshot();
       if (currentSnapshot.transientPanel) {
         event.preventDefault();
-        dispatch({ type: "DISMISS" });
+        closeSelection();
         return;
       }
       const current = currentSnapshot.session;
       if (current.mode === "browse" && current.scene.kind !== "map") {
-        dispatch({ type: "DISMISS" });
+        closeSelection();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dispatch, dispatchEditEvent, driver, editSession]);
+  }, [closeSelection, dispatchEditEvent, driver, editSession]);
 
   const initialiseMap = useCallback(() => {
     if (!window.AMap || mapRef.current) return;
@@ -1720,7 +1723,7 @@ export function CampusMapRuntime({
         if (event.originEvent?.target?.closest?.("[data-cupedia-marker]"))
           return;
         if (editSessionActiveRef.current) return;
-        dispatch({ type: "DISMISS" });
+        closeSelection();
       });
     });
     map.on("dragstart", () => {
@@ -1817,7 +1820,14 @@ export function CampusMapRuntime({
       container.removeEventListener("touchstart", cancelForUserZoom);
       interactionAdapterRef.current.reset();
     };
-  }, [dispatch, driver, projectionStore, selectBuilding, selectFacility]);
+  }, [
+    closeSelection,
+    dispatch,
+    driver,
+    projectionStore,
+    selectBuilding,
+    selectFacility,
+  ]);
 
   useEffect(() => {
     if (config.status !== "ready" || mapRef.current) return;
@@ -2429,13 +2439,15 @@ export function CampusMapRuntime({
                     : "border-black/10 bg-white text-neutral-700 hover:bg-neutral-50",
                 )}
                 onClick={() => {
-                  dispatch(
+                  if (
                     session.mode === "browse" &&
-                      session.scene.kind === "category-results" &&
-                      session.scene.category === category.id
-                      ? { type: "DISMISS" }
-                      : { type: "OPEN_CATEGORY", category: category.id },
-                  );
+                    session.scene.kind === "category-results" &&
+                    session.scene.category === category.id
+                  ) {
+                    closeSelection();
+                  } else {
+                    dispatch({ type: "OPEN_CATEGORY", category: category.id });
+                  }
                 }}
               >
                 <Icon
@@ -2613,7 +2625,10 @@ export function CampusMapRuntime({
             <button
               type="button"
               className="mt-4 min-h-11 rounded-xl border border-black/15 px-4 text-sm font-semibold"
-              onClick={() => dispatch({ type: "DISMISS_TRANSIENT_PANEL" })}
+              onClick={() => {
+                cancelPendingUserLocation();
+                dispatch({ type: "DISMISS_TRANSIENT_PANEL" });
+              }}
             >
               关闭
             </button>
@@ -2661,7 +2676,7 @@ export function CampusMapRuntime({
               type="button"
               aria-label="关闭地点详情"
               className="grid size-11 shrink-0 place-items-center rounded-full hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-              onClick={() => dispatch({ type: "DISMISS" })}
+              onClick={closeSelection}
             >
               <XIcon aria-hidden="true" className="size-5" />
             </button>

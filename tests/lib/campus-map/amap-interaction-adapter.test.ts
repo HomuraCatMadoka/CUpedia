@@ -72,6 +72,20 @@ describe("AmapInteractionAdapter", () => {
     expect(commands).toEqual([]);
   });
 
+  it("expires an abandoned pointer gesture before a later provider callback", () => {
+    const settlement = manualSettlement();
+    const adapter = new AmapInteractionAdapter(settlement.schedule);
+    const commands: string[] = [];
+
+    adapter.beginPointerGesture();
+    settlement.flush();
+
+    expect(
+      adapter.dispatchProviderTarget(() => commands.push("open-provider")),
+    ).toBe(false);
+    expect(commands).toEqual([]);
+  });
+
   it("settles an unclaimed blank-map click as one dismiss command", () => {
     const settlement = manualSettlement();
     const adapter = new AmapInteractionAdapter(settlement.schedule);

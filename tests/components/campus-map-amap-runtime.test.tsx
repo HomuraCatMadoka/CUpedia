@@ -2003,6 +2003,9 @@ describe("Campus Map AMap runtime effects", () => {
     const canonicalSearch = window.location.search;
 
     fireEvent.click(screen.getByRole("button", { name: "定位地点" }));
+    map
+      .getContainer()
+      .dispatchEvent(new Event("pointerdown", { bubbles: true }));
     await runtime.flushAnimationFrames();
     await act(async () => {
       map.emit("hotspotclick", {
@@ -2153,6 +2156,22 @@ describe("Campus Map AMap runtime effects", () => {
 
     expect(screen.queryByText(/直线距离/u)).toBeNull();
     expect(screen.getByRole("button", { name: "使用我的位置" })).not.toBeNull();
+  });
+
+  it("cancels a queued location camera move when the user clears location", async () => {
+    const { runtime, map } = await renderWithRuntime();
+    map.panTo.mockClear();
+    map.setZoomAndCenter.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+    await act(async () => {
+      positionCallbacks[0]!.success(geolocationPosition(114.2072, 22.4191));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "清除位置" }));
+    await runtime.flushAnimationFrames();
+
+    expect(map.panTo).not.toHaveBeenCalled();
+    expect(map.setZoomAndCenter).not.toHaveBeenCalled();
   });
 
   it("does not restore a pending location after closing the panel, Back, or unmount", async () => {

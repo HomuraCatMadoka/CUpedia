@@ -12,6 +12,7 @@ function scheduleAfterProviderEvents(callback: () => void) {
 type ActiveGesture = {
   providerClaimed: boolean;
   pendingMapAction: (() => void) | null;
+  cancelExpiry: (() => void) | null;
   cancelSettlement: (() => void) | null;
 };
 
@@ -30,11 +31,19 @@ export class AmapInteractionAdapter {
 
   beginPointerGesture() {
     this.settlePendingMapAction();
-    this.activeGesture = {
+    const gesture: ActiveGesture = {
       providerClaimed: false,
       pendingMapAction: null,
+      cancelExpiry: null,
       cancelSettlement: null,
     };
+    this.activeGesture = gesture;
+    gesture.cancelExpiry = this.scheduleSettlement(() => {
+      if (this.activeGesture === gesture && !gesture.pendingMapAction) {
+        this.activeGesture = null;
+      }
+      gesture.cancelExpiry = null;
+    });
   }
 
   dispatchProviderTarget(action: () => void) {
@@ -42,6 +51,8 @@ export class AmapInteractionAdapter {
     if (!gesture) return false;
     if (gesture.providerClaimed) return false;
     gesture.providerClaimed = true;
+    gesture.cancelExpiry?.();
+    gesture.cancelExpiry = null;
     gesture.cancelSettlement?.();
     gesture.cancelSettlement = null;
     gesture.pendingMapAction = null;
@@ -52,6 +63,8 @@ export class AmapInteractionAdapter {
   dispatchMapClick(action: () => void) {
     if (!this.activeGesture) this.beginPointerGesture();
     const gesture = this.activeGesture!;
+    gesture.cancelExpiry?.();
+    gesture.cancelExpiry = null;
     if (gesture.providerClaimed) {
       this.activeGesture = null;
       return false;
@@ -69,6 +82,7 @@ export class AmapInteractionAdapter {
   }
 
   reset() {
+    this.activeGesture?.cancelExpiry?.();
     this.activeGesture?.cancelSettlement?.();
     this.activeGesture = null;
   }
@@ -76,11 +90,13 @@ export class AmapInteractionAdapter {
   private settlePendingMapAction() {
     const gesture = this.activeGesture;
     if (!gesture?.pendingMapAction || gesture.providerClaimed) {
+      gesture?.cancelExpiry?.();
       gesture?.cancelSettlement?.();
       this.activeGesture = null;
       return;
     }
     const action = gesture.pendingMapAction;
+    gesture.cancelExpiry?.();
     gesture.cancelSettlement?.();
     this.activeGesture = null;
     action();

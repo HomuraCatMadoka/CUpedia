@@ -24,6 +24,9 @@ export function installAmapRuntime(options?: {
   const rafQueue: FrameRequestCallback[] = [];
   const coordinateConversionQueue: Array<() => void> = [];
   const resizeObservers: Array<{ callback: ResizeObserverCallback }> = [];
+  const beginPointerGesture = (element: Element | null) => {
+    element?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+  };
 
   class MockLngLat implements LngLat {
     constructor(
@@ -87,9 +90,7 @@ export function installAmapRuntime(options?: {
 
     emit(event: string, payload: Record<string, unknown>) {
       if (event === "hotspotclick" && payload.programmatic !== true) {
-        this.getContainer().dispatchEvent(
-          new Event("pointerdown", { bubbles: true }),
-        );
+        beginPointerGesture(this.getContainer());
       }
       for (const handler of this.handlers.get(event) ?? []) handler(payload);
     }
@@ -177,9 +178,7 @@ export function installAmapRuntime(options?: {
 
     emit(event: string) {
       if (event === "click") {
-        document
-          .getElementById("amap-campus-canvas")
-          ?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+        beginPointerGesture(document.getElementById("amap-campus-canvas"));
       }
       for (const handler of this.handlers.get(event) ?? []) handler();
     }
@@ -246,9 +245,7 @@ export function installAmapRuntime(options?: {
 
     emit(event: string, payload: Record<string, unknown>) {
       if (event === "click") {
-        this.map
-          .getContainer()
-          .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+        beginPointerGesture(this.map.getContainer());
       }
       for (const handler of this.handlers.get(event) ?? []) handler(payload);
     }
