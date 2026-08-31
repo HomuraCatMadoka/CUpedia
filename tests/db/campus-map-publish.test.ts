@@ -1770,6 +1770,70 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     expect((await getCampusMapPlaceHistory(placeId)).items).toHaveLength(2);
   });
 
+  it("restores an unchanged precise outdoor fact with lifecycle provenance", async () => {
+    const adminId = await createActor({ role: "admin" });
+    const create = createCommand();
+    placeCreateAtPreciseOutdoorPoint(create);
+    const created = await publishCampusMapChangeset(create, {
+      actorId: adminId,
+      clientIp: "203.0.113.215",
+    });
+    if (created.status !== "published") throw new Error("create failed");
+    const [{ placeId, revisionId: activeRevisionId }] = created.changes;
+
+    const retire = createCommand();
+    retire.comment = "精确室外地点暂时停用";
+    retire.changes = [
+      {
+        operation: "retire",
+        placeId,
+        baseRevisionId: activeRevisionId,
+        sources: retire.changes[0].sources.map((source) => ({
+          ...source,
+          kind: "other",
+          rightsStatus: "unknown",
+        })),
+      },
+    ];
+    const retired = await publishCampusMapChangeset(retire, {
+      actorId: adminId,
+      clientIp: "203.0.113.215",
+    });
+    if (retired.status !== "published") throw new Error("retire failed");
+
+    const restore = createCommand();
+    const restoreSource = restore.changes[0].sources;
+    const originalFact = create.changes[0];
+    if (originalFact.operation !== "create") throw new Error("bad fixture");
+    restore.comment = "精确室外地点恢复开放";
+    restore.changes = [
+      {
+        operation: "restore",
+        placeId,
+        baseRevisionId: retired.changes[0].revisionId,
+        fact: originalFact.fact,
+        sources: restoreSource.map((source) => ({
+          ...source,
+          kind: "other",
+          rightsStatus: "unknown",
+        })),
+      },
+    ];
+
+    const restored = await publishCampusMapChangeset(restore, {
+      actorId: adminId,
+      clientIp: "203.0.113.215",
+    });
+
+    expect(restored).toMatchObject({ status: "published" });
+    await expect(getCampusMapCurrentPlace(placeId)).resolves.toMatchObject({
+      location: {
+        kind: "outdoor-point",
+        point: { precision: "precise" },
+      },
+    });
+  });
+
   it("does not replay a completed lifecycle request after an admin is demoted", async () => {
     const adminId = await createActor({ role: "admin" });
     const created = await publishCampusMapChangeset(createCommand(), {

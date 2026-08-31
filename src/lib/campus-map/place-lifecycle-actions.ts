@@ -5,7 +5,8 @@ import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
-import { getAuthenticatedUserForApi } from "@/lib/auth-guard";
+import { getAuthenticatedUserStateForApi } from "@/lib/auth-guard";
+import { isCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
 import { getCampusMapPlaceRevision } from "@/lib/campus-map/fact-store";
 import { publishCampusMapChangeset } from "@/lib/campus-map/publish";
 import type {
@@ -65,15 +66,40 @@ async function publishLifecycleChange(
   operation: "retire" | "restore",
   input: CampusMapPlaceLifecycleInput,
 ): Promise<CampusMapPublishResult> {
-  const user = await getAuthenticatedUserForApi();
+  const user = await getAuthenticatedUserStateForApi();
   if (!user) {
     return {
       status: "authentication-required",
       code: "authentication-required",
     };
   }
+  if (user.banned) {
+    return { status: "forbidden", code: "actor-banned" };
+  }
   if (user.role !== "admin") {
     return { status: "forbidden", code: "admin-required" };
+  }
+
+  const identityErrors = [];
+  if (!isCampusMapUuid(input.placeId)) {
+    identityErrors.push({
+      code: "invalid-place-id",
+      anchor: { changeIndex: 0, field: "placeId" },
+    });
+  }
+  if (!isCampusMapUuid(input.baseRevisionId)) {
+    identityErrors.push({
+      code: "invalid-base-revision-id",
+      anchor: { changeIndex: 0, field: "baseRevisionId" },
+    });
+  }
+  if (identityErrors.length > 0) {
+    return {
+      status: "validation-failed",
+      errors: identityErrors,
+      warnings: [],
+      suggestions: [],
+    };
   }
 
   // Authorize before reading a client-selected historical revision. The

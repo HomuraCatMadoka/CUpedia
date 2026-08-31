@@ -925,43 +925,6 @@ async function publishCampusMapChangesetInternal(
           suggestions: [],
         } as const;
       }
-      const precisionErrors = command.changes.flatMap((change, changeIndex) => {
-        if (
-          change.operation === "merge" ||
-          (change.operation === "retire" &&
-            !retireFactPlaceIds.has(change.placeId)) ||
-          change.fact!.location.kind !== "outdoor-point" ||
-          change.fact!.location.precision !== "precise"
-        ) {
-          return [];
-        }
-        const supported = change.sources.some(
-          (source) =>
-            (source.kind === "field-observation" &&
-              source.rightsStatus === "original-observation") ||
-            ((source.kind === "official" || source.kind === "open-data") &&
-              source.sourceCoordinate !== null &&
-              (source.rightsStatus === "public-domain" ||
-                source.rightsStatus === "permission-granted")),
-        );
-        return supported
-          ? []
-          : [
-              {
-                code: "precision-not-supported",
-                anchor: { changeIndex, field: "location.precision" },
-              },
-            ];
-      });
-      if (precisionErrors.length > 0) {
-        return {
-          status: "validation-failed",
-          errors: precisionErrors,
-          warnings: [],
-          suggestions: [],
-        } as const;
-      }
-
       const suggestions: CampusMapPublishValidationIssue[] =
         command.changes.flatMap((change, changeIndex) =>
           change.operation !== "merge" &&
@@ -1085,6 +1048,53 @@ async function publishCampusMapChangesetInternal(
         return {
           status: "validation-failed",
           errors: transitionErrors,
+          warnings: [],
+          suggestions: [],
+        } as const;
+      }
+      const precisionErrors = command.changes.flatMap((change, changeIndex) => {
+        if (
+          change.operation === "merge" ||
+          (change.operation === "retire" &&
+            !retireFactPlaceIds.has(change.placeId)) ||
+          change.fact!.location.kind !== "outdoor-point" ||
+          change.fact!.location.precision !== "precise"
+        ) {
+          return [];
+        }
+        const supportedBySubmittedSource = change.sources.some(
+          (source) =>
+            (source.kind === "field-observation" &&
+              source.rightsStatus === "original-observation") ||
+            ((source.kind === "official" || source.kind === "open-data") &&
+              source.sourceCoordinate !== null &&
+              (source.rightsStatus === "public-domain" ||
+                source.rightsStatus === "permission-granted")),
+        );
+        const current =
+          change.operation === "create"
+            ? null
+            : (lockedByPlace.get(change.placeId) ?? null);
+        // A restore may reuse a precise point without inventing new location
+        // evidence only when the trusted, locked retired fact is unchanged.
+        const restoresLockedFactExactly =
+          change.operation === "restore" &&
+          current !== null &&
+          Object.keys(createFieldDiff(current.fact, toAppendFact(change.fact)))
+            .length === 0;
+        return supportedBySubmittedSource || restoresLockedFactExactly
+          ? []
+          : [
+              {
+                code: "precision-not-supported",
+                anchor: { changeIndex, field: "location.precision" },
+              },
+            ];
+      });
+      if (precisionErrors.length > 0) {
+        return {
+          status: "validation-failed",
+          errors: precisionErrors,
           warnings: [],
           suggestions: [],
         } as const;

@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth-guard", () => ({
-  getAuthenticatedUserForApi: mocks.getViewer,
+  getAuthenticatedUserStateForApi: mocks.getViewer,
 }));
 vi.mock("@/lib/campus-map/fact-store", () => ({
   getCampusMapPlaceRevision: mocks.getRevision,
@@ -74,7 +74,11 @@ function publicRevision() {
 describe("Campus Map Place lifecycle actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getViewer.mockResolvedValue({ id: "admin-1", role: "admin" });
+    mocks.getViewer.mockResolvedValue({
+      id: "admin-1",
+      role: "admin",
+      banned: false,
+    });
     mocks.headers.mockResolvedValue(new Headers());
     mocks.requestClientIp.mockReturnValue("203.0.113.8");
     mocks.getRevision.mockResolvedValue(publicRevision());
@@ -129,10 +133,55 @@ describe("Campus Map Place lifecycle actions", () => {
     });
     expect(mocks.getRevision).not.toHaveBeenCalled();
 
-    mocks.getViewer.mockResolvedValueOnce({ id: "user-1", role: "user" });
+    mocks.getViewer.mockResolvedValueOnce({
+      id: "user-1",
+      role: "user",
+      banned: false,
+    });
     await expect(restoreCampusMapPlace(input)).resolves.toEqual({
       status: "forbidden",
       code: "admin-required",
+    });
+    expect(mocks.getRevision).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
+  });
+
+  it("distinguishes a banned caller from an anonymous caller", async () => {
+    mocks.getViewer.mockResolvedValueOnce({
+      id: "banned-1",
+      role: "admin",
+      banned: true,
+    });
+
+    await expect(retireCampusMapPlace(input)).resolves.toEqual({
+      status: "forbidden",
+      code: "actor-banned",
+    });
+    expect(mocks.getRevision).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed revision identities before reading Postgres", async () => {
+    await expect(
+      restoreCampusMapPlace({
+        ...input,
+        placeId: "not-a-place-id",
+        baseRevisionId: "not-a-revision-id",
+      }),
+    ).resolves.toEqual({
+      status: "validation-failed",
+      errors: [
+        {
+          code: "invalid-place-id",
+          anchor: { changeIndex: 0, field: "placeId" },
+        },
+        {
+          code: "invalid-base-revision-id",
+          anchor: { changeIndex: 0, field: "baseRevisionId" },
+        },
+      ],
+      warnings: [],
+      suggestions: [],
     });
     expect(mocks.getRevision).not.toHaveBeenCalled();
     expect(mocks.publish).not.toHaveBeenCalled();
@@ -207,7 +256,11 @@ describe("Campus Map Place lifecycle actions", () => {
 
     await retireCampusMapPlace(input);
     const firstRef = mocks.publish.mock.calls[0][0].changes[0].sources[0].ref;
-    mocks.getViewer.mockResolvedValueOnce({ id: "admin-2", role: "admin" });
+    mocks.getViewer.mockResolvedValueOnce({
+      id: "admin-2",
+      role: "admin",
+      banned: false,
+    });
     await retireCampusMapPlace(input);
     const secondRef = mocks.publish.mock.calls[1][0].changes[0].sources[0].ref;
 
