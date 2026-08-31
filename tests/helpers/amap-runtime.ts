@@ -26,6 +26,7 @@ export function installAmapRuntime(options?: {
   const resizeObservers: Array<{ callback: ResizeObserverCallback }> = [];
   const beginPointerGesture = (element: Element | null) => {
     element?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    element?.dispatchEvent(new Event("pointerup", { bubbles: true }));
   };
 
   class MockLngLat implements LngLat {

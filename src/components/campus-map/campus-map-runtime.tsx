@@ -628,6 +628,7 @@ export function CampusMapRuntime({
     status: "idle",
   });
   const userLocationRequestRef = useRef(0);
+  const userLocationCameraCancelRef = useRef<(() => void) | null>(null);
   const mapRef = useRef<AMapMap | null>(null);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
@@ -683,6 +684,7 @@ export function CampusMapRuntime({
     placeContextResolverRef.current = null;
     amapPositionsRef.current = {};
     cameraGateRef.current.invalidate();
+    userLocationCameraCancelRef.current = null;
     pendingDriverCameraRef.current = null;
     pendingPlacementCameraRef.current = null;
     placementCameraTokenRef.current += 1;
@@ -724,7 +726,7 @@ export function CampusMapRuntime({
     ) => {
       const map = mapRef.current;
       const mapElement = mapElementRef.current;
-      if (!map || !mapElement) return;
+      if (!map || !mapElement) return null;
       const request = cameraGateRef.current.begin();
       if (reason !== "sheet-layout")
         pendingSelectionTokenRef.current = request.token;
@@ -815,14 +817,21 @@ export function CampusMapRuntime({
           });
         }),
       );
+      return () => {
+        if (!request.isCurrent()) return;
+        cameraGateRef.current.invalidate();
+        if (pendingSelectionTokenRef.current === request.token) {
+          pendingSelectionTokenRef.current = null;
+        }
+      };
     },
     [],
   );
 
   const clearUserLocation = useCallback(() => {
     userLocationRequestRef.current += 1;
-    cameraGateRef.current.invalidate();
-    pendingSelectionTokenRef.current = null;
+    userLocationCameraCancelRef.current?.();
+    userLocationCameraCancelRef.current = null;
     setUserLocation({ status: "idle" });
   }, []);
 
@@ -835,6 +844,8 @@ export function CampusMapRuntime({
 
   const requestUserLocation = useCallback(() => {
     const requestId = ++userLocationRequestRef.current;
+    userLocationCameraCancelRef.current?.();
+    userLocationCameraCancelRef.current = null;
     if (!("geolocation" in navigator) || !navigator.geolocation) {
       setUserLocation({ status: "error", reason: "unsupported" });
       return;
@@ -866,7 +877,7 @@ export function CampusMapRuntime({
             accuracyMeters,
           });
           const offset = amapOffsetRef.current;
-          requestCamera(
+          userLocationCameraCancelRef.current = requestCamera(
             [longitude + offset[0], latitude + offset[1]],
             "map-selection",
           );
@@ -1727,6 +1738,7 @@ export function CampusMapRuntime({
       });
     });
     map.on("dragstart", () => {
+      interactionAdapterRef.current.reset();
       mapDraggingRef.current = true;
       userGestureAwaitingMoveEndRef.current = true;
       exactProviderPlaceRef.current = null;
@@ -1805,7 +1817,19 @@ export function CampusMapRuntime({
     const beginPointerGesture = () => {
       interactionAdapterRef.current.beginPointerGesture();
     };
+    const endPointerGesture = () => {
+      interactionAdapterRef.current.endPointerGesture();
+    };
+    const cancelPointerGesture = () => {
+      interactionAdapterRef.current.reset();
+    };
     container.addEventListener("pointerdown", beginPointerGesture, {
+      capture: true,
+    });
+    container.addEventListener("pointerup", endPointerGesture, {
+      capture: true,
+    });
+    container.addEventListener("pointercancel", cancelPointerGesture, {
       capture: true,
     });
     container.addEventListener("wheel", cancelForUserZoom, { passive: true });
@@ -1814,6 +1838,12 @@ export function CampusMapRuntime({
     });
     pointerGestureCleanupRef.current = () => {
       container.removeEventListener("pointerdown", beginPointerGesture, {
+        capture: true,
+      });
+      container.removeEventListener("pointerup", endPointerGesture, {
+        capture: true,
+      });
+      container.removeEventListener("pointercancel", cancelPointerGesture, {
         capture: true,
       });
       container.removeEventListener("wheel", cancelForUserZoom);

@@ -78,6 +78,7 @@ describe("AmapInteractionAdapter", () => {
     const commands: string[] = [];
 
     adapter.beginPointerGesture();
+    adapter.endPointerGesture();
     settlement.flush();
 
     expect(

@@ -2006,6 +2006,7 @@ describe("Campus Map AMap runtime effects", () => {
     map
       .getContainer()
       .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    map.getContainer().dispatchEvent(new Event("pointerup", { bubbles: true }));
     await runtime.flushAnimationFrames();
     await act(async () => {
       map.emit("hotspotclick", {
@@ -2172,6 +2173,27 @@ describe("Campus Map AMap runtime effects", () => {
 
     expect(map.panTo).not.toHaveBeenCalled();
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();
+  });
+
+  it("does not cancel a newer canonical camera when clearing location", async () => {
+    const projection = createNullablePlaceFixture();
+    const { runtime, map } = await renderWithRuntime({
+      projection,
+      projectedPoint: { x: 700, y: 800 },
+    });
+    map.panTo.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+    await act(async () => {
+      positionCallbacks[0]!.success(geolocationPosition(114.20781, 22.41881));
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^林荫饮水点/u }));
+    fireEvent.click(screen.getByRole("button", { name: "清除位置" }));
+
+    await runtime.flushAnimationFrames();
+
+    expect(screen.getByRole("heading", { name: "林荫饮水点" })).not.toBeNull();
+    expect(map.panTo).toHaveBeenCalledTimes(1);
   });
 
   it("does not restore a pending location after closing the panel, Back, or unmount", async () => {

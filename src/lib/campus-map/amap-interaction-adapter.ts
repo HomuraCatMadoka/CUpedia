@@ -31,13 +31,18 @@ export class AmapInteractionAdapter {
 
   beginPointerGesture() {
     this.settlePendingMapAction();
-    const gesture: ActiveGesture = {
+    this.activeGesture = {
       providerClaimed: false,
       pendingMapAction: null,
       cancelExpiry: null,
       cancelSettlement: null,
     };
-    this.activeGesture = gesture;
+  }
+
+  endPointerGesture() {
+    const gesture = this.activeGesture;
+    if (!gesture || gesture.providerClaimed || gesture.pendingMapAction) return;
+    gesture.cancelExpiry?.();
     gesture.cancelExpiry = this.scheduleSettlement(() => {
       if (this.activeGesture === gesture && !gesture.pendingMapAction) {
         this.activeGesture = null;
