@@ -494,6 +494,17 @@ describe("Campus Map AMap runtime effects", () => {
 
   it("focuses and announces the missing Building from the real publish path", async () => {
     const { runtime } = await renderWithRuntime();
+    const expectFocus = async (target: HTMLElement) => {
+      for (
+        let attempt = 0;
+        attempt < 5 && document.activeElement !== target;
+        attempt += 1
+      ) {
+        await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+        await runtime.flushAnimationFrames();
+      }
+      expect(document.activeElement).toBe(target);
+    };
     fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await waitFor(() =>
       expect(
@@ -507,9 +518,7 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.change(name, { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
 
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-    await runtime.flushAnimationFrames();
-    await waitFor(() => expect(document.activeElement).toBe(name));
+    await expectFocus(name);
     expect(screen.getByRole("alert").textContent).toContain(
       "请填写能辨认这处设施的名称或编号。",
     );
@@ -518,9 +527,7 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
 
     const building = await screen.findByRole("combobox", { name: "建筑" });
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-    await runtime.flushAnimationFrames();
-    await waitFor(() => expect(document.activeElement).toBe(building));
+    await expectFocus(building);
     expect(building.getAttribute("aria-invalid")).toBe("true");
     expect(screen.getAllByText("请选择建筑").length).toBeGreaterThan(0);
   });
