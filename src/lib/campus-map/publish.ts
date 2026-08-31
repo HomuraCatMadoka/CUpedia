@@ -57,6 +57,7 @@ import type {
 } from "@/lib/campus-map/publish-contract";
 import { consumePublishRate } from "@/lib/campus-map/publish-rate-policy";
 import { findActiveCampusMapContributorBlock } from "@/lib/campus-map/moderation-governance";
+import { createCampusMapLifecycleSource } from "@/lib/campus-map/place-lifecycle-source";
 import type { CampusMapPublishReconciliation } from "@/lib/campus-map/publish-receipt-consumer";
 
 export type {
@@ -196,8 +197,8 @@ export async function governCampusMapFacts(
       prepareCampusMapRevert(command, store),
     );
   }
-  return publishCampusMapGovernanceIntent(command, context, (store) =>
-    prepareCampusMapMerge(command, store),
+  return publishCampusMapGovernanceIntent(command, context, (store, actorId) =>
+    prepareCampusMapMerge(command, store, actorId),
   );
 }
 
@@ -259,6 +260,7 @@ async function prepareCampusMapRevert(
 async function prepareCampusMapMerge(
   command: Extract<CampusMapFactGovernanceCommand, { kind: "merge" }>,
   store: CampusMapFactStoreTransaction,
+  actorId: string,
 ): Promise<PreparedCampusMapGovernancePublish | CampusMapPublishResult> {
   if (command.survivor.placeId === command.loser.placeId) {
     return governanceValidationFailure("merge-place-must-differ");
@@ -298,6 +300,7 @@ async function prepareCampusMapMerge(
     return governanceValidationFailure("merge-field-resolution-mismatch");
   }
 
+  const lifecycleSource = createCampusMapLifecycleSource(command, actorId);
   const publishCommand: CampusMapPublishCommand = {
     kind: "bulk",
     idempotencyKey: command.idempotencyKey,
@@ -312,14 +315,14 @@ async function prepareCampusMapMerge(
         placeId: command.survivor.placeId,
         baseRevisionId: command.survivor.baseRevisionId,
         fact: command.survivor.fact,
-        sources: command.survivor.sources,
+        sources: [...command.survivor.sources, lifecycleSource],
       },
       {
         operation: "merge",
         placeId: command.loser.placeId,
         baseRevisionId: command.loser.baseRevisionId,
         mergedIntoPlaceId: command.survivor.placeId,
-        sources: command.loser.sources,
+        sources: [...command.loser.sources, lifecycleSource],
       },
     ],
   };
@@ -473,6 +476,7 @@ function publishCampusMapGovernanceIntent(
   context: CampusMapPublishContext,
   prepare: (
     store: CampusMapFactStoreTransaction,
+    actorId: string,
   ) => Promise<PreparedCampusMapGovernancePublish | CampusMapPublishResult>,
 ): Promise<CampusMapPublishResult> {
   const commandKind = command.kind === "merge" ? "bulk" : "single";
@@ -524,6 +528,7 @@ async function publishCampusMapChangesetInternal(
     };
     prepare?: (
       store: CampusMapFactStoreTransaction,
+      actorId: string,
     ) => Promise<PreparedCampusMapGovernancePublish | CampusMapPublishResult>;
   },
 ): Promise<CampusMapPublishResult> {
@@ -717,6 +722,7 @@ async function publishCampusMapChangesetInternal(
       if (options.prepare) {
         const prepared = await options.prepare(
           new CampusMapFactStoreTransaction(transaction),
+          actor.id,
         );
         if ("status" in prepared) return prepared;
         command = normalizePublishCommandIdentifiers(prepared.command);

@@ -58,6 +58,8 @@ const fact: CampusMapHistoricalFact = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-08-31T15:59:00.000Z"));
   lifecycleAction.mockResolvedValue({
     status: "published",
     changesetId: "00000000-0000-4000-8000-000000008164",
@@ -65,9 +67,12 @@ beforeEach(() => {
   });
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
-describe("Campus Map Place detail (#816)", () => {
+describe("Campus Map Place detail (#816, #825)", () => {
   it("shows canonical facts and one ordinary history entry without highlighting internal revision terms", () => {
     render(
       <CampusMapPlaceDetail
@@ -170,8 +175,18 @@ describe("Campus Map Place detail (#816)", () => {
     const trigger = screen.getByRole("button", { name: "停用地点" });
     fireEvent.click(trigger);
     const reason = await screen.findByLabelText("停用原因");
+    expect(reason.getAttribute("name")).toBe("place-lifecycle-reason");
+    expect(reason.getAttribute("autocomplete")).toBe("off");
+    expect(reason.getAttribute("placeholder")).toBe(
+      "例如：地点已拆除或不再提供这项服务…",
+    );
+    expect(reason.closest('[role="alertdialog"]')?.className).toContain(
+      "overscroll-contain",
+    );
     await waitFor(() => expect(document.activeElement).toBe(reason));
-    fireEvent.click(screen.getByRole("button", { name: /确认停用：停用原因/ }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /确认停用：停用原因/ }),
+    );
     expect((await screen.findByRole("alert")).textContent).toContain(
       "请填写原因",
     );
@@ -225,7 +240,9 @@ describe("Campus Map Place detail (#816)", () => {
       baseRevisionId: revisionId,
       reason: "地点已拆除",
       idempotencyKey: expect.any(String),
+      sourceAccessedOn: "2026-08-31",
     });
+    const completedRequest = lifecycleAction.mock.calls[0][0];
     resolveAction?.({ status: "published" });
     await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
     await waitFor(() =>
@@ -250,17 +267,46 @@ describe("Campus Map Place detail (#816)", () => {
     expect(screen.getByLabelText("停用原因").hasAttribute("aria-invalid")).toBe(
       false,
     );
+    const retryableRequest = lifecycleAction.mock.calls.at(-1)![0];
+    expect(retryableRequest).toMatchObject({
+      sourceAccessedOn: "2026-08-31",
+    });
+    expect(retryableRequest.idempotencyKey).not.toBe(
+      completedRequest.idempotencyKey,
+    );
+
+    vi.setSystemTime(new Date("2026-08-31T16:01:00.000Z"));
 
     lifecycleAction.mockRejectedValueOnce(new Error("connection lost"));
-    fireEvent.change(screen.getByLabelText("停用原因"), {
-      target: { value: "网络失败后保持原因重试" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /确认停用：停用原因/ }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /确认停用：停用原因/ }),
+    );
     expect((await screen.findByRole("alert")).textContent).toContain(
       "网络连接中断",
     );
     expect(screen.getByLabelText("停用原因").hasAttribute("aria-invalid")).toBe(
       false,
+    );
+    expect(lifecycleAction.mock.calls.at(-1)?.[0]).toMatchObject({
+      sourceAccessedOn: "2026-08-31",
+      idempotencyKey: retryableRequest.idempotencyKey,
+    });
+
+    lifecycleAction.mockResolvedValueOnce({
+      status: "forbidden",
+      code: "admin-required",
+    });
+    fireEvent.change(screen.getByLabelText("停用原因"), {
+      target: { value: "香港日期改变后开始新操作" },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", { name: /确认停用：停用原因/ }),
+    );
+    expect(lifecycleAction.mock.calls.at(-1)?.[0]).toMatchObject({
+      sourceAccessedOn: "2026-09-01",
+    });
+    expect(lifecycleAction.mock.calls.at(-1)?.[0].idempotencyKey).not.toBe(
+      retryableRequest.idempotencyKey,
     );
   });
 });

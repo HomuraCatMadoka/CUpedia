@@ -155,6 +155,7 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
     return {
       kind: "merge",
       idempotencyKey: randomUUID(),
+      sourceAccessedOn: "2026-09-01",
       reason: "人工核对后确认两个稳定 ID 是同一地点",
       client: { name: "governance-test", version: "1" },
       survivor: {
@@ -231,7 +232,15 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
         );
       }
       await client.query(
-        "delete from campus_map_provenance_sources where source_ref like 'test:campus-map-governance:%'",
+        `delete from campus_map_provenance_sources
+          where (
+            source_ref like 'test:campus-map-governance:%'
+            or source_ref like 'campus-map-admin-lifecycle:%'
+          )
+            and not exists (
+              select 1 from campus_map_revision_provenance rp
+               where rp.provenance_id = campus_map_provenance_sources.id
+            )`,
       );
       await client.query("commit");
     } catch (error) {
@@ -620,6 +629,54 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
     });
     expect(merged).toMatchObject({ status: "published" });
     if (merged.status !== "published") throw new Error("merge failed");
+    const mergedRevisions = await Promise.all(
+      merged.changes.map(({ placeId, revisionId }) =>
+        getCampusMapPlaceRevision(placeId, revisionId),
+      ),
+    );
+    for (const revision of mergedRevisions) {
+      expect(revision).toMatchObject({
+        content: {
+          visibility: "public",
+          fact: {
+            provenance: expect.arrayContaining([
+              expect.objectContaining({
+                kind: "other",
+                accessedOn: "2026-09-01",
+              }),
+            ]),
+          },
+        },
+      });
+    }
+    const lifecycleProvenance = await pool.query<{
+      revision_id: string;
+      source_ref: string;
+      accessed_on: string;
+      note: string;
+    }>(
+      `select rp.revision_id, ps.source_ref, ps.accessed_on::text, ps.note
+         from campus_map_revision_provenance rp
+         join campus_map_provenance_sources ps on ps.id = rp.provenance_id
+        where rp.revision_id = any($1::uuid[])
+          and ps.source_kind = 'other'`,
+      [merged.changes.map(({ revisionId }) => revisionId)],
+    );
+    expect(lifecycleProvenance.rows).toHaveLength(2);
+    expect(lifecycleProvenance.rows).toEqual(
+      expect.arrayContaining(
+        merged.changes.map(({ revisionId }) =>
+          expect.objectContaining({
+            revision_id: revisionId,
+            source_ref: expect.stringMatching(
+              /^campus-map-admin-lifecycle:[0-9a-f]{64}$/,
+            ),
+            accessed_on: "2026-09-01",
+            note: command.reason,
+          }),
+        ),
+      ),
+    );
     await expect(
       getCampusMapCurrentPlace(survivor.placeId),
     ).resolves.toMatchObject({
