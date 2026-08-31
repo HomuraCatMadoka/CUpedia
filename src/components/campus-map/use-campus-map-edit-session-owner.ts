@@ -110,6 +110,7 @@ export function useCampusMapEditSessionOwner({
   const restoredRef = useRef(false);
   const editLoadTokenRef = useRef(0);
   const rateLimitTimerRef = useRef<number | null>(null);
+  const focusCommandTokenRef = useRef(0);
   const mountedRef = useRef(false);
   const [announcement, setAnnouncement] = useState("");
   const [restoreNotice, setRestoreNotice] = useState("");
@@ -220,6 +221,7 @@ export function useCampusMapEditSessionOwner({
       const previousSession = sessionRef.current;
       const transition = transitionCampusMapEdit(previousSession, event);
       if (!transition.accepted) return;
+      const focusCommandToken = ++focusCommandTokenRef.current;
       sessionRef.current = transition.session;
       setSession(transition.session);
 
@@ -248,6 +250,7 @@ export function useCampusMapEditSessionOwner({
           const intentToken = driver.getIntentToken();
           window.setTimeout(() => {
             if (
+              focusCommandTokenRef.current !== focusCommandToken ||
               sessionRef.current !== transition.session ||
               driver.getIntentToken() !== intentToken
             ) {
