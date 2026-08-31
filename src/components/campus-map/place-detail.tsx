@@ -244,6 +244,7 @@ export function CampusMapPlaceDetail({
         <div>
           <Link
             href={`/campus-map/places/${placeId}/history`}
+            aria-label="查看编辑记录 / History"
             className="inline-flex min-h-11 items-center rounded-xl bg-foreground px-4 text-sm font-semibold text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             查看编辑记录

@@ -96,9 +96,9 @@ describe("Campus Map Place detail (#816)", () => {
     expect(
       screen.getByRole("link", { name: "返回地图" }).getAttribute("href"),
     ).toBe(`/campus-map?v=1&scene=place&id=${placeId}&snap=peek`);
-    expect(screen.getAllByRole("link", { name: "查看编辑记录" })).toHaveLength(
-      1,
-    );
+    expect(
+      screen.getAllByRole("link", { name: "查看编辑记录 / History" }),
+    ).toHaveLength(1);
     expect(screen.queryByText(placeId)).toBeNull();
     expect(document.body.textContent).not.toMatch(/Revision|Changeset/);
     expect(screen.queryByRole("button", { name: "停用地点" })).toBeNull();

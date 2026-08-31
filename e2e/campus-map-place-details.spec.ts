@@ -136,12 +136,13 @@ async function resetPlaceFixture() {
             name, pin_type, capabilities, gender, wheelchair_access, audience,
             credential_requirement, access_schedule, reservation_requirement,
             temporary_status, location_kind, point_precision, longitude,
-            latitude, coordinate_crs, observed_at, verified_at, created_at)
+            latitude, coordinate_crs, observed_at, verified_at,
+            verified_by_actor_id_snapshot, created_at)
          values ($1, $2, $3, $4, 816, '{}', 'active', $5, '地图贡献者',
            $6, 'water', '{}', 'unknown', 'yes', 'cuhk-member', 'campus-card',
            '{"kind":"always"}', 'none', 'normal', 'outdoor-point', 'precise',
            114.208321, 22.419876, 'wgs84', '2026-08-30T00:00:00Z',
-           '2026-08-30T01:00:00Z', '2026-08-30T01:00:00Z')`,
+           '2026-08-30T01:00:00Z', $5, '2026-08-30T01:00:00Z')`,
         [
           ids.revision,
           ids.place,
@@ -166,13 +167,14 @@ async function resetPlaceFixture() {
             capabilities, gender, wheelchair_access, audience,
             credential_requirement, access_schedule, reservation_requirement,
             temporary_status, location_kind, point_precision, longitude,
-            latitude, coordinate_crs, observed_at, verified_at, published_at)
+            latitude, coordinate_crs, observed_at, verified_at,
+            verified_by_actor_id_snapshot, published_at)
          values ($1, $2, 816, $3, 'water', '{}', 'unknown', 'yes',
            'cuhk-member', 'campus-card', '{"kind":"always"}', 'none', 'normal',
            'outdoor-point', 'precise', 114.208321, 22.419876, 'wgs84',
-           '2026-08-30T00:00:00Z', '2026-08-30T01:00:00Z',
+           '2026-08-30T00:00:00Z', '2026-08-30T01:00:00Z', $4,
            '2026-08-30T01:00:00Z')`,
-        [ids.place, ids.revision, placeName],
+        [ids.place, ids.revision, placeName, ids.actor],
       );
       await client.query("commit");
     } catch (error) {
@@ -216,23 +218,24 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
       await loginAsUser(page);
 
       await page.goto(`/campus-map/places/${ids.place}`);
+      const detail = page.locator("#main-content");
       await expect(
-        page.getByRole("heading", { name: placeName }),
+        detail.getByRole("heading", { name: placeName }),
       ).toBeVisible();
-      await expect(page.getByText("使用中", { exact: true })).toBeVisible();
-      await expect(page.getByText("饮水点", { exact: true })).toBeVisible();
-      await expect(page.getByText("室外 · 精确位置")).toBeVisible();
-      await expect(page.getByText("中大成员", { exact: true })).toBeVisible();
-      await expect(page.getByText("校园卡", { exact: true })).toBeVisible();
+      await expect(detail.getByText("使用中", { exact: true })).toBeVisible();
+      await expect(detail.getByText("饮水点", { exact: true })).toBeVisible();
+      await expect(detail.getByText("室外 · 精确位置")).toBeVisible();
+      await expect(detail.getByText("中大成员", { exact: true })).toBeVisible();
+      await expect(detail.getByText("校园卡", { exact: true })).toBeVisible();
       await expect(
-        page.getByRole("link", { name: "查看编辑记录" }),
+        detail.getByRole("link", { name: "查看编辑记录 / History" }),
       ).toHaveAttribute("href", `/campus-map/places/${ids.place}/history`);
-      await expect(page.getByRole("button", { name: "停用地点" })).toHaveCount(
-        0,
-      );
-      await expect(page.getByRole("button", { name: "恢复地点" })).toHaveCount(
-        0,
-      );
+      await expect(
+        detail.getByRole("button", { name: "停用地点" }),
+      ).toHaveCount(0);
+      await expect(
+        detail.getByRole("button", { name: "恢复地点" }),
+      ).toHaveCount(0);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -241,9 +244,9 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
 
       await page.reload();
       await expect(
-        page.getByRole("heading", { name: placeName }),
+        detail.getByRole("heading", { name: placeName }),
       ).toBeVisible();
-      await expect(page.getByText("使用中", { exact: true })).toBeVisible();
+      await expect(detail.getByText("使用中", { exact: true })).toBeVisible();
     });
   }
 
@@ -316,15 +319,16 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
       await route.continue();
     });
     await retireSubmit.click();
-    await expect(retireSubmit).toContainText("正在停用…");
-    await expect(retireSubmit).toBeDisabled();
+    const pendingRetire = page.getByRole("button", { name: "正在停用…" });
+    await expect(pendingRetire).toBeVisible();
+    await expect(pendingRetire).toBeDisabled();
     await expect(page.getByText("这个地点已停用")).toBeVisible();
     await page.unroute("**/campus-map/places/**");
 
     await expect(page.getByText(`停用原因：${retirementReason}`)).toBeVisible();
     await expect(page.getByText(`稳定地点编号：${ids.place}`)).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "查看编辑记录" }),
+      page.getByRole("link", { name: "查看编辑记录 / History" }),
     ).toHaveAttribute("href", `/campus-map/places/${ids.place}/history`);
     await page.reload();
     await expect(page.getByText("这个地点已停用")).toBeVisible();
@@ -347,7 +351,7 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
       readerPage.getByText(`稳定地点编号：${ids.place}`),
     ).toBeVisible();
     await expect(
-      readerPage.getByRole("link", { name: "查看编辑记录" }),
+      readerPage.getByRole("link", { name: "查看编辑记录 / History" }),
     ).toBeVisible();
     await expect(
       readerPage.getByRole("button", { name: "恢复地点" }),
@@ -369,7 +373,9 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await expect(restoreReason).toBeFocused();
     await restoreReason.fill("现场确认已重新开放");
     await page.getByRole("button", { name: "确认恢复：恢复原因" }).click();
-    await expect(page.getByText("使用中", { exact: true })).toBeVisible();
+    await expect(
+      page.locator("#main-content").getByText("使用中", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText("这个地点已停用")).toHaveCount(0);
 
     await page.getByRole("link", { name: "返回地图" }).click();
