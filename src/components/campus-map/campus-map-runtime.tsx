@@ -828,26 +828,27 @@ export function CampusMapRuntime({
     [],
   );
 
-  const clearUserLocation = useCallback(() => {
-    userLocationRequestRef.current += 1;
-    userLocationCameraCancelRef.current?.();
-    userLocationCameraCancelRef.current = null;
-    setUserLocation({ status: "idle" });
-  }, []);
-
-  const cancelPendingUserLocation = useCallback(() => {
-    userLocationRequestRef.current += 1;
-    userLocationCameraCancelRef.current?.();
-    userLocationCameraCancelRef.current = null;
-    setUserLocation((current) =>
-      current.status === "locating" ? { status: "idle" } : current,
-    );
-  }, []);
-
-  const requestUserLocation = useCallback(() => {
+  const invalidateUserLocationActivity = useCallback(() => {
     const requestId = ++userLocationRequestRef.current;
     userLocationCameraCancelRef.current?.();
     userLocationCameraCancelRef.current = null;
+    return requestId;
+  }, []);
+
+  const clearUserLocation = useCallback(() => {
+    invalidateUserLocationActivity();
+    setUserLocation({ status: "idle" });
+  }, [invalidateUserLocationActivity]);
+
+  const cancelPendingUserLocation = useCallback(() => {
+    invalidateUserLocationActivity();
+    setUserLocation((current) =>
+      current.status === "locating" ? { status: "idle" } : current,
+    );
+  }, [invalidateUserLocationActivity]);
+
+  const requestUserLocation = useCallback(() => {
+    const requestId = invalidateUserLocationActivity();
     if (!("geolocation" in navigator) || !navigator.geolocation) {
       setUserLocation({ status: "error", reason: "unsupported" });
       return;
@@ -903,7 +904,7 @@ export function CampusMapRuntime({
         setUserLocation({ status: "error", reason: "unavailable" });
       }
     }
-  }, [requestCamera]);
+  }, [invalidateUserLocationActivity, requestCamera]);
 
   const executeDriverCamera = useCallback(
     (
@@ -1299,6 +1300,7 @@ export function CampusMapRuntime({
     };
   }, []);
   const startAddAtPlacementAnchor = useCallback(() => {
+    cancelPendingUserLocation();
     const anchor =
       coordinateVersion > 0
         ? readVisiblePlacementAnchor(amapOffsetRef.current)
@@ -1315,6 +1317,7 @@ export function CampusMapRuntime({
     }
     startAdd();
   }, [
+    cancelPendingUserLocation,
     coordinateVersion,
     readVisiblePlacementAnchor,
     startAdd,
@@ -1465,8 +1468,11 @@ export function CampusMapRuntime({
   ]);
 
   const startEdit = useCallback(
-    (facility: Place) => void startCanonicalEdit(facility.placeId),
-    [startCanonicalEdit],
+    (facility: Place) => {
+      cancelPendingUserLocation();
+      void startCanonicalEdit(facility.placeId);
+    },
+    [cancelPendingUserLocation, startCanonicalEdit],
   );
 
   useEffect(() => {
@@ -1828,12 +1834,13 @@ export function CampusMapRuntime({
     container.addEventListener("pointerdown", beginPointerGesture, {
       capture: true,
     });
-    container.addEventListener("pointerup", endPointerGesture, {
+    window.addEventListener("pointerup", endPointerGesture, {
       capture: true,
     });
-    container.addEventListener("pointercancel", cancelPointerGesture, {
+    window.addEventListener("pointercancel", cancelPointerGesture, {
       capture: true,
     });
+    window.addEventListener("blur", cancelPointerGesture);
     container.addEventListener("wheel", cancelForUserZoom, { passive: true });
     container.addEventListener("touchstart", cancelForUserZoom, {
       passive: true,
@@ -1842,12 +1849,13 @@ export function CampusMapRuntime({
       container.removeEventListener("pointerdown", beginPointerGesture, {
         capture: true,
       });
-      container.removeEventListener("pointerup", endPointerGesture, {
+      window.removeEventListener("pointerup", endPointerGesture, {
         capture: true,
       });
-      container.removeEventListener("pointercancel", cancelPointerGesture, {
+      window.removeEventListener("pointercancel", cancelPointerGesture, {
         capture: true,
       });
+      window.removeEventListener("blur", cancelPointerGesture);
       container.removeEventListener("wheel", cancelForUserZoom);
       container.removeEventListener("touchstart", cancelForUserZoom);
       interactionAdapterRef.current.reset();

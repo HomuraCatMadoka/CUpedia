@@ -2030,6 +2030,37 @@ describe("Campus Map AMap runtime effects", () => {
     );
   });
 
+  it("expires a map gesture when the pointer is released outside the map", async () => {
+    const projection = createNullablePlaceFixture();
+    const place = projection.places.find(
+      (candidate) => candidate.placeId === "outdoor-water",
+    )!;
+    const { runtime, map } = await renderWithRuntime({
+      projection,
+      initialSearch: `?v=1&scene=place&id=${place.placeId}&snap=peek`,
+    });
+
+    await screen.findByRole("heading", { name: place.name });
+    const canonicalSearch = window.location.search;
+    map
+      .getContainer()
+      .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    document.dispatchEvent(new Event("pointerup", { bubbles: true }));
+    await runtime.flushAnimationFrames();
+    await act(async () => {
+      map.emit("hotspotclick", {
+        programmatic: true,
+        id: "provider-east-wing",
+        name: "科学馆东座",
+        lnglat: { lng: 114.2084, lat: 22.4198 },
+      });
+    });
+
+    expect(screen.getByRole("heading", { name: place.name })).not.toBeNull();
+    expect(screen.queryByRole("heading", { name: "科学馆东座" })).toBeNull();
+    expect(window.location.search).toBe(canonicalSearch);
+  });
+
   it("requests one browser position only after the user asks", async () => {
     await renderWithRuntime();
 
@@ -2173,6 +2204,44 @@ describe("Campus Map AMap runtime effects", () => {
 
     expect(map.panTo).not.toHaveBeenCalled();
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();
+  });
+
+  it("does not let a late browse location change a new edit placement draft", async () => {
+    const { runtime, map } = await renderWithRuntime({
+      projectedPoint: { x: 700, y: 800 },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
+    await screen.findByRole("heading", { name: "选择设施位置" });
+    const storageKey = "cupedia:campus-map:edit-session:v1";
+    await waitFor(() =>
+      expect(
+        JSON.parse(window.sessionStorage.getItem(storageKey)!).session.draft
+          .placementCandidate,
+      ).not.toBeNull(),
+    );
+    const initialCandidate = JSON.parse(
+      window.sessionStorage.getItem(storageKey)!,
+    ).session.draft.placementCandidate;
+    map.panTo.mockClear();
+
+    await act(async () => {
+      positionCallbacks[0]!.success(geolocationPosition(114.215, 22.425));
+    });
+    await runtime.flushAnimationFrames();
+    const lateCameraTarget = map.panTo.mock.calls.at(-1)?.[0];
+    if (lateCameraTarget && typeof lateCameraTarget === "object") {
+      await act(async () => {
+        map.center = lateCameraTarget as { lng: number; lat: number };
+        map.emit("moveend", {});
+      });
+    }
+
+    const persistedCandidate = JSON.parse(
+      window.sessionStorage.getItem(storageKey)!,
+    ).session.draft.placementCandidate;
+    expect(persistedCandidate).toEqual(initialCandidate);
+    expect(map.panTo).not.toHaveBeenCalled();
   });
 
   it.each(["panel close", "browser history"])(
