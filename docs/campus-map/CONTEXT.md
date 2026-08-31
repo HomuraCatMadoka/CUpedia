@@ -14,8 +14,8 @@ _Avoid_: 用建筑名称、高德 POI ID 或代表坐标作为身份；设施 Pl
 与排序可修订。
 _Avoid_: 把 `G`、`LG`、`1/F` 等显示标签作为跨建筑身份
 
-**地点（Place）**: 用户可以独立选择、核对、纠错、停用或评价的一个物理服务位置，使用
-不可变、供应商无关的 `placeId`；同楼、同层、同类型可以有多个 Place。
+**地点（Place）**: 用户可以独立选择、核对、纠错或评价，并由管理员停用或恢复的一个物理服务
+位置，使用不可变、供应商无关的 `placeId`；同楼、同层、同类型可以有多个 Place。
 _Avoid_: Facility identity；类别聚合；以名称、距离或 `(buildingId, floorId, pinType)` 作唯一键
 
 **图钉类型（Pin type）**: Place 的主要浏览类别与图标所引用的受控 key；首批为 `toilet`、
@@ -101,8 +101,10 @@ _Avoid_: 静默覆盖；自动字段合并；部分发布同一个 Changeset
 而不删除、移动或改写既有历史。
 _Avoid_: Rollback pointer；删除错误 revision；把本地 Undo 当公开 revert
 
-**停用（Retirement）**: 表示 Place 已拆除、永久关闭或不再是独立服务位置的可恢复事实
-修订；它从默认地图结果移除，但稳定 ID、deep link 和历史继续存在。
+**停用（Retirement）**: 管理员用必填理由表示 Place 已拆除、永久关闭或不再是独立
+服务位置的可恢复事实修订；它从默认地图结果移除，但稳定 ID、deep link 和历史
+继续存在。原 deep link 显示包含名称、状态、停用理由、稳定 ID 和公开历史的可读 tombstone；
+只有管理员可以追加恢复修订。
 _Avoid_: 临时故障；hard delete；重复 Place 合并
 
 **内容隐藏（Redaction）**: 管理员因隐私、版权或法律原因限制某个历史版本内容的高风险
@@ -163,7 +165,8 @@ _Avoid_: 发布回执；审批结果；没有理由的关闭
 _Avoid_: Note 参与者身份；阅读状态；删除历史
 
 **公开事实（Current fact）**: active Current revision 形成的公开搜索与地图投影；retired
-Place 只保留 tombstone/deep link，Edit draft、供应商候选、讨论和评分均不属于地点事实。
+Place 不再进入该投影，但保留可读 tombstone/deep link 与公开历史。Edit draft、供应商候选、
+讨论和评分均不属于地点事实。
 _Avoid_: 把直接发布称为批准；把 Review request 当可见性状态；用通用 audit log 代替事实修订
 
 ### 集成边界

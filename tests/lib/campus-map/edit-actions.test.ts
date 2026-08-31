@@ -2,25 +2,123 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getCampusMapCurrentPlace: vi.fn(),
+  getOptionalUser: vi.fn(),
+  getViewer: vi.fn(),
+  publish: vi.fn(),
+  headers: vi.fn(),
 }));
 
 vi.mock("@/lib/campus-map/fact-store", () => ({
   getCampusMapCurrentPlace: mocks.getCampusMapCurrentPlace,
 }));
 vi.mock("@/lib/auth-guard", () => ({
-  getOptionalUser: vi.fn(),
+  getOptionalUser: mocks.getOptionalUser,
+  getAuthenticatedUserForApi: mocks.getViewer,
   requireAuth: vi.fn().mockResolvedValue({ id: "user-1" }),
 }));
 vi.mock("@/lib/campus-map/publish", () => ({
-  publishCampusMapChangeset: vi.fn(),
+  publishCampusMapChangeset: mocks.publish,
 }));
-vi.mock("next/headers", () => ({ headers: vi.fn() }));
+vi.mock("next/headers", () => ({ headers: mocks.headers }));
 
-import { loadCampusMapEditablePlace } from "@/lib/campus-map/edit-actions";
+import {
+  loadCampusMapEditablePlace,
+  publishCampusMapEdit,
+} from "@/lib/campus-map/edit-actions";
 
 describe("Campus Map edit action adapter", () => {
   beforeEach(() => {
-    mocks.getCampusMapCurrentPlace.mockReset();
+    vi.clearAllMocks();
+    mocks.getOptionalUser.mockResolvedValue({ id: "user-1", role: "user" });
+    mocks.getViewer.mockResolvedValue({ id: "user-1", role: "user" });
+    mocks.headers.mockResolvedValue(new Headers());
+  });
+
+  it("keeps lifecycle commands out of the general contributor edit action", async () => {
+    const command = {
+      kind: "single" as const,
+      idempotencyKey: "10000000-0000-4000-8000-000000000001",
+      comment: "停用地点",
+      sourceSummary: "现场核对",
+      reviewRequested: false,
+      client: { name: "test", version: "1" },
+      warningAcknowledgements: [],
+      changes: [
+        {
+          operation: "retire" as const,
+          placeId: "20000000-0000-4000-8000-000000000001",
+          baseRevisionId: "30000000-0000-4000-8000-000000000001",
+          sources: [],
+        },
+      ],
+    };
+
+    mocks.publish.mockResolvedValueOnce({
+      status: "forbidden",
+      code: "admin-required",
+    });
+    await expect(publishCampusMapEdit(command, "user-1")).resolves.toEqual({
+      status: "forbidden",
+      code: "admin-required",
+    });
+    expect(mocks.publish).toHaveBeenCalledOnce();
+
+    mocks.publish.mockClear();
+    mocks.getOptionalUser.mockResolvedValueOnce({
+      id: "admin-1",
+      role: "admin",
+    });
+    mocks.getViewer.mockResolvedValueOnce({ id: "admin-1", role: "admin" });
+    await expect(publishCampusMapEdit(command, "admin-1")).resolves.toEqual({
+      status: "validation-failed",
+      errors: [
+        {
+          code: "lifecycle-action-required",
+          anchor: { field: "operation", placeId: command.changes[0].placeId },
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    });
+    expect(mocks.publish).not.toHaveBeenCalled();
+  });
+
+  it("preserves publish-seam validation and banned-user semantics", async () => {
+    const invalidCommand = null as unknown as Parameters<
+      typeof publishCampusMapEdit
+    >[0];
+    mocks.publish.mockResolvedValueOnce({
+      status: "validation-failed",
+      errors: [{ code: "invalid-command" }],
+      warnings: [],
+      suggestions: [],
+    });
+    await expect(
+      publishCampusMapEdit(invalidCommand, "user-1"),
+    ).resolves.toMatchObject({
+      status: "validation-failed",
+      errors: [{ code: "invalid-command" }],
+    });
+
+    mocks.publish.mockResolvedValueOnce({
+      status: "forbidden",
+      code: "actor-banned",
+    });
+    await expect(
+      publishCampusMapEdit(
+        {
+          kind: "single",
+          idempotencyKey: "10000000-0000-4000-8000-000000000001",
+          comment: "更新",
+          sourceSummary: "现场核对",
+          reviewRequested: false,
+          client: { name: "test", version: "1" },
+          warningAcknowledgements: [],
+          changes: [],
+        },
+        "user-1",
+      ),
+    ).resolves.toEqual({ status: "forbidden", code: "actor-banned" });
   });
 
   it("projects canonical building and floor labels alongside stable IDs", async () => {

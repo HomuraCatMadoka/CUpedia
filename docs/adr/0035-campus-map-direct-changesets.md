@@ -9,8 +9,10 @@ Campus Map 不再采用管理员预审 Application，而采用 CUpedia 自有数
 
 ## 决议
 
-完成贡献者资料的 CUHK User 可以把通过校验的 Place 新增、字段修正、位置修正、停用和恢复
-直接发布到 CUpedia 自有 Campus Map 数据库，不经过管理员预审。一次用户任务作为一个
+完成贡献者资料的 CUHK User 可以把通过校验的 Place 新增、字段修正和位置修正直接
+发布到 CUpedia 自有 Campus Map 数据库，不经过管理员预审。单个 Place 的停用与恢复
+改为管理员专用生命周期动作；这不改变普通贡献者新增、修改结构化字段或修正位置的
+权限。一次用户任务作为一个
 Changeset 原子发布：它保存作者、必填说明、来源摘要和可选 Review request，并为每个受影响
 Place 追加不可变 Fact revision、推进 Current revision；active revision 更新 Current fact，
 retired 或 merged revision 移除 active 投影。普通贡献者的一个 Changeset 只包含一个 Place；
@@ -23,10 +25,15 @@ retired 或 merged revision 移除 active 投影。普通贡献者的一个 Chan
 服务器不自动合并不同字段，因为合并后的事实组合没有被用户作为一个整体复核。
 
 公开错误通过后续 Changeset 修正。Revert 复制目标旧值形成新的 Fact revision，不删除或移动
-历史；Retirement 与 restore 同样是可追踪修订。普通贡献者可以发布单个 Place 的新增、修正、
-停用和恢复；stable-ID merge、Changeset 级批量 revert、bulk edit、schema 变更、Redaction、
+历史；Retirement 与 restore 同样是可追踪修订，必须保存管理员填写的理由。普通贡献者可以
+发布单个 Place 的新增、结构化字段修正和位置修正；单 Place 停用与恢复、stable-ID
+merge、Changeset 级批量 revert、bulk edit、schema 变更、Redaction、
 封禁和解除封禁仅限管理员。Merge loser 永久重定向到 survivor，不能由 restore 或 revert
 复活；误合并只能建立新 Place 并保留旧 redirect 历史。
+
+停用只从默认地图、搜索和路线候选中移除 active 投影。稳定 Place ID 与 deep link 不变；
+详情页继续提供可读 tombstone，展示名称、停用状态、理由、稳定 ID 和公开历史。
+只有管理员能从该 tombstone 追加 restore revision；普通读者不应收到空白页或 404。
 
 Changeset、Fact revision、来源安全投影和讨论默认公开；发布接口使用的幂等键、Edit draft、
 认证恢复数据和 abuse 调查材料保持私有。地图备注、Changeset discussion、举报和评分不属于

@@ -2,7 +2,11 @@
 
 import { headers } from "next/headers";
 
-import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
+import {
+  getAuthenticatedUserForApi,
+  getOptionalUser,
+  requireAuth,
+} from "@/lib/auth-guard";
 import { getCampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
 import {
   publishCampusMapChangeset,
@@ -98,10 +102,49 @@ export async function publishCampusMapEdit(
     };
   }
   if (user.id !== expectedActorId) return { status: "identity-mismatch" };
+  const lifecycleChange = findLifecycleChange(command);
+  if (lifecycleChange) {
+    const freshUser = await getAuthenticatedUserForApi();
+    if (freshUser?.role === "admin") {
+      return {
+        status: "validation-failed",
+        errors: [
+          {
+            code: "lifecycle-action-required",
+            anchor: {
+              field: "operation",
+              ...(lifecycleChange.placeId
+                ? { placeId: lifecycleChange.placeId }
+                : {}),
+            },
+          },
+        ],
+        warnings: [],
+        suggestions: [],
+      };
+    }
+  }
   return publishCampusMapChangeset(command, {
     actorId: user.id,
     clientIp: requestClientIp(requestHeaders),
   });
+}
+
+function findLifecycleChange(command: unknown): { placeId?: string } | null {
+  if (!command || typeof command !== "object") return null;
+  const changes = (command as { changes?: unknown }).changes;
+  if (!Array.isArray(changes)) return null;
+  for (const change of changes) {
+    if (!change || typeof change !== "object") continue;
+    const candidate = change as { operation?: unknown; placeId?: unknown };
+    if (candidate.operation !== "retire" && candidate.operation !== "restore") {
+      continue;
+    }
+    return typeof candidate.placeId === "string"
+      ? { placeId: candidate.placeId }
+      : {};
+  }
+  return null;
 }
 
 /** Reconciles the original command identity without creating another request. */

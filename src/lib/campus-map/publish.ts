@@ -540,6 +540,12 @@ async function publishCampusMapChangesetInternal(
   const normalizedCommand = hasValidStructure
     ? normalizePublishCommandIdentifiers(command)
     : command;
+  const requiresLifecycleAdmin =
+    hasValidStructure &&
+    normalizedCommand.changes.some(
+      (change) =>
+        change.operation === "retire" || change.operation === "restore",
+    );
   let revertsChangesetId = options.revertsChangesetId;
   let noOpUpdatePlaceIds = options.noOpUpdatePlaceIds;
   let retireFactPlaceIds = options.retireFactPlaceIds;
@@ -555,6 +561,7 @@ async function publishCampusMapChangesetInternal(
       let command = normalizedCommand;
       let requestFingerprint: string | null = null;
       let reusedRequest: StoredPublishRequest | null = null;
+      let completedLifecycleRequest: StoredPublishRequest | null = null;
       if (
         hasValidStructure &&
         serializedCommand !== null &&
@@ -567,27 +574,35 @@ async function publishCampusMapChangesetInternal(
           requestIdempotencyKey,
         );
         if (existingRequest?.requestFingerprint === requestFingerprint) {
-          return replayPublishRequest(existingRequest, requestFingerprint);
+          if (!requiresLifecycleAdmin) {
+            return replayPublishRequest(existingRequest, requestFingerprint);
+          }
+          completedLifecycleRequest = existingRequest;
         }
-        await acquireTransactionAdvisoryLock(
-          transaction,
-          `publish-request\u0000${actorId}\u0000${requestIdempotencyKey}`,
-        );
-        const requestPublishedWhileWaiting = await findPublishRequest(
-          transaction,
-          actorId,
-          requestIdempotencyKey,
-        );
-        if (
-          requestPublishedWhileWaiting?.requestFingerprint ===
-          requestFingerprint
-        ) {
-          return replayPublishRequest(
-            requestPublishedWhileWaiting,
-            requestFingerprint,
+        if (!completedLifecycleRequest) {
+          await acquireTransactionAdvisoryLock(
+            transaction,
+            `publish-request\u0000${actorId}\u0000${requestIdempotencyKey}`,
           );
+          const requestPublishedWhileWaiting = await findPublishRequest(
+            transaction,
+            actorId,
+            requestIdempotencyKey,
+          );
+          if (
+            requestPublishedWhileWaiting?.requestFingerprint ===
+            requestFingerprint
+          ) {
+            if (!requiresLifecycleAdmin) {
+              return replayPublishRequest(
+                requestPublishedWhileWaiting,
+                requestFingerprint,
+              );
+            }
+            completedLifecycleRequest = requestPublishedWhileWaiting;
+          }
+          reusedRequest = requestPublishedWhileWaiting;
         }
-        reusedRequest = requestPublishedWhileWaiting;
       }
       const [actor] = await transaction
         .select({
@@ -639,6 +654,18 @@ async function publishCampusMapChangesetInternal(
         .limit(1);
       if (actor.nickname.trim() === "" || !credential) {
         return { status: "forbidden", code: "profile-incomplete" } as const;
+      }
+      // Retiring and restoring are lifecycle governance operations. Check the
+      // fresh database role before replaying a completed request so a former
+      // admin cannot use an old idempotency key to bypass a later demotion.
+      if (requiresLifecycleAdmin && actor.role !== "admin") {
+        return { status: "forbidden", code: "admin-required" } as const;
+      }
+      if (completedLifecycleRequest && requestFingerprint !== null) {
+        return replayPublishRequest(
+          completedLifecycleRequest,
+          requestFingerprint,
+        );
       }
       if (
         hasValidStructure &&
