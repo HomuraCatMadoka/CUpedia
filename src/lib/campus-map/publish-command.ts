@@ -26,6 +26,7 @@ import {
   canonicalizeCampusMapUuid,
   isCampusMapUuid,
 } from "@/lib/campus-map/canonical-uuid";
+import { campusMapFactNameError } from "@/lib/campus-map/edit-schema";
 
 const MAX_COMMENT_BYTES = 2_000;
 const MAX_SOURCE_SUMMARY_BYTES = 2_000;
@@ -35,7 +36,6 @@ const MAX_WARNING_CODE_BYTES = 120;
 const MAX_WARNING_ACKNOWLEDGEMENTS = 25;
 const MAX_SINGLE_COMMAND_BYTES = 32 * 1_024;
 const MAX_BULK_COMMAND_BYTES = 512 * 1_024;
-const MAX_FACT_NAME_BYTES = 240;
 const MAX_SOURCE_REF_BYTES = 512;
 const MAX_SOURCE_URL_BYTES = 2_048;
 const MAX_SOURCE_OWNER_BYTES = 240;
@@ -368,13 +368,8 @@ export function validateFact(
     changeIndex,
     field,
   });
-  if (typeof fact.name !== "string" || fact.name.trim() === "") {
-    errors.push({ code: "fact-name-required", anchor: anchor("name") });
-  } else if (containsInvalidPostgresText(fact.name)) {
-    errors.push({ code: "fact-name-invalid", anchor: anchor("name") });
-  } else if (utf8Bytes(fact.name) > MAX_FACT_NAME_BYTES) {
-    errors.push({ code: "fact-name-too-long", anchor: anchor("name") });
-  }
+  const nameError = campusMapFactNameError(fact.name);
+  if (nameError) errors.push({ code: nameError, anchor: anchor("name") });
   if (!CAMPUS_MAP_PIN_TYPES.includes(fact.pinType)) {
     errors.push({ code: "invalid-pin-type", anchor: anchor("pinType") });
   }

@@ -424,11 +424,8 @@ function transitionFactChange(
 function normalizeServerErrorTarget(field: string | undefined): string {
   if (!field) return "form-heading";
   const path = field.split(/[^A-Za-z]+/).filter(Boolean);
-  if (
-    path.includes("location") ||
-    path.includes("buildingId") ||
-    path.includes("floorId")
-  ) {
+  if (path.includes("buildingId")) return "building";
+  if (path.includes("location") || path.includes("floorId")) {
     return "location";
   }
   if (path.includes("pinType")) return "pinType";
@@ -712,7 +709,11 @@ export function transitionCampusMapEdit(
       commands: [
         { kind: "persist-snapshot" },
         { kind: "focus", target: normalizeServerErrorTarget(event.field) },
-        { kind: "announce", message: "请检查这个字段" },
+        {
+          kind: "announce",
+          message:
+            event.field === "buildingId" ? "请选择建筑" : "请检查这个字段",
+        },
       ],
     };
   }

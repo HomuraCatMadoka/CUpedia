@@ -12,6 +12,8 @@ const fixtureNames = [
   "QA 814 楼层饮水机",
   "QA 814 室外饮水机",
 ] as const;
+const updatedFixtureName = "QA 821 已更新楼层饮水机";
+const cleanupNames = [...fixtureNames, updatedFixtureName];
 
 async function withClient<T>(operation: (client: Client) => Promise<T>) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
@@ -30,7 +32,7 @@ async function cleanupFixtures() {
       await client.query("set local session_replication_role = replica");
       const places = await client.query<{ place_id: string }>(
         "select place_id from campus_map_current_facts where name = any($1::text[])",
-        [fixtureNames],
+        [cleanupNames],
       );
       const placeIds = places.rows.map((row) => row.place_id);
       if (placeIds.length) {
@@ -247,5 +249,63 @@ for (const scenario of [
         scenario.kind === "floor" ? floorId : "",
       );
     }
+
+    if (scenario.kind !== "building") return;
+
+    await page
+      .getByRole("textbox", { name: "设施名称或编号" })
+      .fill(updatedFixtureName);
+    await page.getByRole("combobox", { name: "楼层" }).selectOption(floorId);
+    await page
+      .getByRole("combobox", { name: "开放对象" })
+      .selectOption("public");
+    await page.getByRole("combobox", { name: "凭证要求" }).selectOption("none");
+    await page.getByRole("combobox", { name: "预约要求" }).selectOption("none");
+    await page
+      .getByRole("combobox", { name: "开放时间" })
+      .selectOption("always");
+    await page.getByRole("button", { name: "发布修改" }).click();
+    await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
+    await expect(
+      page.getByRole("heading", { name: updatedFixtureName }),
+    ).toBeVisible();
+
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: updatedFixtureName }),
+    ).toBeVisible();
+    const updatedSearch = page.locator(
+      'input[placeholder="搜索建筑或地点…"]:visible',
+    );
+    await updatedSearch.fill(updatedFixtureName);
+    const updatedResult = page.locator("[data-search-result]").filter({
+      hasText: updatedFixtureName,
+    });
+    await expect(updatedResult).toBeVisible();
+    await updatedResult.click();
+    await page.getByRole("button", { name: "建议修改" }).click();
+
+    await expect(
+      page.getByRole("textbox", { name: "设施名称或编号" }),
+    ).toHaveValue(updatedFixtureName);
+    await expect(page.getByRole("radio", { name: "建筑内" })).toBeChecked();
+    await expect(page.getByRole("combobox", { name: "建筑" })).toHaveValue(
+      buildingId,
+    );
+    await expect(page.getByRole("combobox", { name: "楼层" })).toHaveValue(
+      floorId,
+    );
+    await expect(page.getByRole("combobox", { name: "开放对象" })).toHaveValue(
+      "public",
+    );
+    await expect(page.getByRole("combobox", { name: "凭证要求" })).toHaveValue(
+      "none",
+    );
+    await expect(page.getByRole("combobox", { name: "预约要求" })).toHaveValue(
+      "none",
+    );
+    await expect(page.getByRole("combobox", { name: "开放时间" })).toHaveValue(
+      "always",
+    );
   });
 }

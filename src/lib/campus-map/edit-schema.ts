@@ -32,6 +32,45 @@ export interface CampusMapEditPreset {
   requiredFields: CampusMapEditFieldKey[];
 }
 
+export type CampusMapFactNameErrorCode =
+  | "fact-name-required"
+  | "fact-name-invalid"
+  | "fact-name-too-long";
+
+export const CAMPUS_MAP_FACT_NAME_MAX_BYTES = 240;
+
+function containsUnpairedSurrogate(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      if (index + 1 >= value.length) return true;
+      const next = value.charCodeAt(index + 1);
+      if (next < 0xdc00 || next > 0xdfff) return true;
+      index += 1;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function campusMapFactNameError(
+  value: unknown,
+): CampusMapFactNameErrorCode | null {
+  if (typeof value !== "string" || value.trim() === "") {
+    return "fact-name-required";
+  }
+  if (value.includes("\u0000") || containsUnpairedSurrogate(value)) {
+    return "fact-name-invalid";
+  }
+  if (
+    new TextEncoder().encode(value).byteLength > CAMPUS_MAP_FACT_NAME_MAX_BYTES
+  ) {
+    return "fact-name-too-long";
+  }
+  return null;
+}
+
 const REQUIRED_EDIT_FIELDS = [
   "name",
   "pinType",
@@ -68,7 +107,7 @@ export const CAMPUS_MAP_EDIT_SCHEMA = {
     name: {
       label: "设施名称或编号",
       isValid: (draft, required) =>
-        !required || Boolean(draft.fact.name.trim()),
+        !required || campusMapFactNameError(draft.fact.name) === null,
     },
     pinType: {
       label: "设施类型",

@@ -492,6 +492,27 @@ describe("Campus Map AMap runtime effects", () => {
     ).toBe("饮水机");
   });
 
+  it("focuses and announces the missing Building from the real publish path", async () => {
+    const { runtime } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "使用此位置" }),
+      ).not.toHaveProperty("disabled", true),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
+    await runtime.flushAnimationFrames();
+    fireEvent.click(await screen.findByRole("radio", { name: "建筑内" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
+
+    const building = await screen.findByRole("combobox", { name: "建筑" });
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    await runtime.flushAnimationFrames();
+    await waitFor(() => expect(document.activeElement).toBe(building));
+    expect(building.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getAllByText("请选择建筑").length).toBeGreaterThan(0);
+  });
+
   it("lets Add select an exact AMap label without publishing provider identity", async () => {
     const { runtime, map } = await renderWithRuntime({
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
@@ -2094,6 +2115,7 @@ describe("Campus Map AMap runtime effects", () => {
     const projection = createNullablePlaceFixture();
     const { runtime } = await renderWithRuntime({ projection });
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    expect(screen.queryByText(/约.*米/u)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
     await act(async () => {
@@ -2109,6 +2131,15 @@ describe("Campus Map AMap runtime effects", () => {
     expect(
       screen.getAllByText(/约 \d+ 米（直线距离）/u).length,
     ).toBeGreaterThan(0);
+    const buildingOnlyResult = document.querySelector<HTMLElement>(
+      '[data-return-result="building-only-water"]',
+    );
+    const outdoorResult = document.querySelector<HTMLElement>(
+      '[data-return-result="outdoor-water"]',
+    );
+    expect(buildingOnlyResult?.textContent).toMatch(/约距所在建筑 \d+ 米/u);
+    expect(buildingOnlyResult?.textContent).not.toContain("直线距离");
+    expect(outdoorResult?.textContent).toMatch(/约 \d+ 米（直线距离）/u);
     expect(screen.queryByText(/步行/u)).toBeNull();
     const resultIds = Array.from(
       document.querySelectorAll<HTMLElement>("[data-return-result]"),

@@ -1049,6 +1049,23 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
+  it("focuses and announces the Building control for indoor intent without a selection", () => {
+    const reported = transitionCampusMapEdit(editSession(), {
+      type: "REPORT_LOCAL_ERROR",
+      field: "buildingId",
+    });
+
+    expect(reported.session).toMatchObject({ localError: "buildingId" });
+    expect(reported.commands).toContainEqual({
+      kind: "focus",
+      target: "building",
+    });
+    expect(reported.commands).toContainEqual({
+      kind: "announce",
+      message: "请选择建筑",
+    });
+  });
+
   it("clears stale validation feedback when the contributor changes a fact", () => {
     const invalidDraft = createCampusMapEditDraft({
       mode: "add",
