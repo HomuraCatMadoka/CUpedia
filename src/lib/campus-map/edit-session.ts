@@ -163,6 +163,7 @@ export type CampusMapEditEvent =
       type: "CHANGE_FACT";
       fact: CampusMapEditDraft["fact"];
       idempotencyKey?: string;
+      locationDisplay?: CampusMapIndoorLocationDisplay | null;
     }
   | {
       type: "CHANGE_PIN_TYPE";
@@ -403,6 +404,7 @@ function transitionFactChange(
   session: CampusMapEditSession,
   fact: CampusMapEditDraft["fact"],
   idempotencyKey: string | undefined,
+  locationDisplay?: CampusMapIndoorLocationDisplay | null,
 ): CampusMapEditTransition {
   const attemptDraft = draftForPayloadChange(session, idempotencyKey);
   if (!attemptDraft) return rejected(session);
@@ -414,7 +416,7 @@ function transitionFactChange(
       fact: clone(fact),
       locationDisplay: samePlacement(next.draft.fact, fact)
         ? next.draft.locationDisplay
-        : null,
+        : matchingLocationDisplay(fact, locationDisplay),
     },
   });
 }
@@ -430,6 +432,16 @@ function normalizeServerErrorTarget(field: string | undefined): string {
     return "location";
   }
   if (path.includes("pinType")) return "pinType";
+  if (path.includes("name")) return "name";
+  if (path.includes("audience")) return "audience";
+  if (path.includes("credentialRequirement")) {
+    return "credentialRequirement";
+  }
+  if (path.includes("accessSchedule")) return "accessSchedule";
+  if (path.includes("reservationRequirement")) {
+    return "reservationRequirement";
+  }
+  if (path.includes("temporaryStatus")) return "temporaryStatus";
   return "form-heading";
 }
 
@@ -500,7 +512,7 @@ function mapSubmissionSource(accessedOn: string): CampusMapPublishSourceInput {
     observedAt: null,
     rightsStatus: "unknown",
     limitations:
-      "用户仅通过 Campus Map 提交位置与设施类型；未提供独立资料来源。",
+      "用户通过 Campus Map 提交名称、位置、设施类型与结构化访问条件；未提供独立资料来源。",
     note: null,
     sourceCoordinate: null,
   };
@@ -706,7 +718,12 @@ export function transitionCampusMapEdit(
   }
 
   if (event.type === "CHANGE_FACT") {
-    return transitionFactChange(session, event.fact, event.idempotencyKey);
+    return transitionFactChange(
+      session,
+      event.fact,
+      event.idempotencyKey,
+      event.locationDisplay,
+    );
   }
   if (event.type === "CHANGE_PIN_TYPE") {
     const currentPreset = CAMPUS_MAP_EDIT_SCHEMA.presets.find(
@@ -1317,12 +1334,15 @@ function validUuid(value: unknown): boolean {
   return isCampusMapUuid(value);
 }
 
-function looksLikeFact(value: unknown, allowNullLocation: boolean): boolean {
+function looksLikeFact(
+  value: unknown,
+  allowIncompleteDraftFields: boolean,
+): boolean {
   if (!isRecord(value)) return false;
   const fact = value;
   const location = isRecord(fact.location) ? fact.location : null;
   const validLocation =
-    (allowNullLocation && fact.location === null) ||
+    (allowIncompleteDraftFields && fact.location === null) ||
     (location !== null &&
       ((location.kind === "building" &&
         typeof fact.buildingId === "string" &&
@@ -1354,12 +1374,13 @@ function looksLikeFact(value: unknown, allowNullLocation: boolean): boolean {
       (fact.accessSchedule.kind === "weekly" &&
         fact.accessSchedule.timezone === "Asia/Hong_Kong" &&
         Array.isArray(fact.accessSchedule.intervals) &&
-        fact.accessSchedule.intervals.length > 0 &&
+        (allowIncompleteDraftFields ||
+          fact.accessSchedule.intervals.length > 0) &&
         fact.accessSchedule.intervals.every(
           (interval) =>
             isRecord(interval) &&
             Array.isArray(interval.days) &&
-            interval.days.length > 0 &&
+            (allowIncompleteDraftFields || interval.days.length > 0) &&
             interval.days.every((day) =>
               ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].includes(
                 String(day),
@@ -1367,9 +1388,19 @@ function looksLikeFact(value: unknown, allowNullLocation: boolean): boolean {
             ) &&
             typeof interval.opensAt === "string" &&
             typeof interval.closesAt === "string" &&
-            /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(interval.opensAt) &&
-            /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(interval.closesAt) &&
-            interval.opensAt !== interval.closesAt,
+            (allowIncompleteDraftFields
+              ? interval.opensAt === "" ||
+                /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(interval.opensAt)
+              : /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(interval.opensAt)) &&
+            (allowIncompleteDraftFields
+              ? interval.closesAt === "" ||
+                /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(interval.closesAt)
+              : /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(interval.closesAt)) &&
+            (allowIncompleteDraftFields
+              ? interval.opensAt === "" ||
+                interval.closesAt === "" ||
+                interval.opensAt !== interval.closesAt
+              : interval.opensAt !== interval.closesAt),
         )));
   return (
     typeof fact.name === "string" &&

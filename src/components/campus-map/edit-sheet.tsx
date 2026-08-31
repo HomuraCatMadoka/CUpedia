@@ -13,7 +13,10 @@ import {
   type CampusMapIndoorLocationDisplay,
   type CampusMapEditSession,
 } from "@/lib/campus-map/edit-session";
-import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
+import {
+  CAMPUS_MAP_EDIT_ACCESS_FIELDS,
+  CAMPUS_MAP_EDIT_SCHEMA,
+} from "@/lib/campus-map/edit-schema";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
 
@@ -55,7 +58,7 @@ const WEEKDAYS = [
 
 function messageForError(code: string): string {
   const messages: Record<string, string> = {
-    "fact-name-required": "设施资料不完整，请重新选择类型。",
+    "fact-name-required": "请填写能辨认这处设施的名称或编号。",
     "source-required": "发布资料不完整，请重试。",
     "invalid-location": "位置资料不完整，请修改位置。",
     "base-revision-conflict": "地点资料已被其他人更新，请刷新后重试。",
@@ -432,12 +435,49 @@ export function CampusMapEditSheet({
   }>({ key: "", fields: [] });
   const draft = session.draft;
   const fact = draft.fact;
+  const [isChoosingIndoorLocation, setIsChoosingIndoorLocation] =
+    useState(false);
   const serverRequiredFields =
     factSchema?.definition.pinTypes[fact.pinType].requiredFields;
   const freshAttempt = () =>
     session.status === "temporarily-unavailable"
       ? { idempotencyKey: crypto.randomUUID() }
       : {};
+  const changeFact = (
+    patch: Partial<CampusMapEditSession["draft"]["fact"]>,
+    locationDisplay?: CampusMapIndoorLocationDisplay | null,
+  ) => {
+    if (patch.location !== undefined) setIsChoosingIndoorLocation(false);
+    onEvent({
+      type: "CHANGE_FACT",
+      fact: { ...fact, ...patch },
+      ...freshAttempt(),
+      ...(locationDisplay !== undefined ? { locationDisplay } : {}),
+    });
+  };
+  const activePreset =
+    CAMPUS_MAP_EDIT_SCHEMA.presets.find(
+      (preset) => preset.pinType === fact.pinType,
+    ) ?? CAMPUS_MAP_EDIT_SCHEMA.presets[0];
+  const applicableFields = new Set(
+    factSchema?.definition.pinTypes[fact.pinType].applicableFields ??
+      activePreset.fields,
+  );
+  const showsAccessFields = CAMPUS_MAP_EDIT_ACCESS_FIELDS.some((field) =>
+    applicableFields.has(field),
+  );
+  const indoorSelected =
+    isChoosingIndoorLocation ||
+    fact.location?.kind === "building" ||
+    fact.location?.kind === "floor";
+  const selectedBuilding = buildings.find(
+    (building) => building.buildingId === fact.buildingId,
+  );
+  const selectedFloors = [...(selectedBuilding?.floors ?? [])].sort(
+    (left, right) => left.sortOrder - right.sortOrder,
+  );
+  const weeklySchedule =
+    fact.accessSchedule.kind === "weekly" ? fact.accessSchedule : null;
   const conflictKey =
     session.status === "conflict" && session.conflict?.kind === "current"
       ? `${session.draft.idempotencyKey}:${session.conflict.currentRevisionId}`
@@ -589,7 +629,7 @@ export function CampusMapEditSheet({
             : placeContext?.status === "empty"
               ? "高德地图未找到附近地点，仍可使用此位置"
               : null;
-  const lockedOutdoorLabel =
+  const lockedProviderCandidate =
     !isPlacing &&
     fact.location?.kind === "outdoor-point" &&
     resolvedContext?.label &&
@@ -922,12 +962,13 @@ export function CampusMapEditSheet({
             <button
               type="button"
               className={secondaryClass}
-              onClick={() =>
+              onClick={() => {
+                setIsChoosingIndoorLocation(false);
                 onEvent({
                   type: "USE_CURRENT_FACT",
                   idempotencyKey: crypto.randomUUID(),
-                })
-              }
+                });
+              }}
             >
               采用最新资料
             </button>
@@ -935,6 +976,7 @@ export function CampusMapEditSheet({
               type="button"
               className={primaryClass}
               onClick={() => {
+                setIsChoosingIndoorLocation(false);
                 const keptFactFields = new Set(
                   changedFields
                     .filter(({ key }) => conflictKeepFields.includes(key))
@@ -1050,12 +1092,11 @@ export function CampusMapEditSheet({
               ) : (
                 <>
                   <p className="font-semibold" aria-live="polite">
-                    {lockedOutdoorLabel ??
-                      friendlyLocationLabel(
-                        fact,
-                        draft.locationDisplay,
-                        buildings,
-                      )}
+                    {friendlyLocationLabel(
+                      fact,
+                      draft.locationDisplay,
+                      buildings,
+                    )}
                   </p>
                   <p
                     className="mt-0.5 truncate text-xs text-neutral-600"
@@ -1063,6 +1104,12 @@ export function CampusMapEditSheet({
                   >
                     {describeLocation(fact, draft.locationDisplay)}
                   </p>
+                  {lockedProviderCandidate ? (
+                    <p className="mt-0.5 flex gap-1 text-xs text-neutral-500">
+                      <span>高德候选：</span>
+                      <span>{lockedProviderCandidate}</span>
+                    </p>
+                  ) : null}
                 </>
               )}
             </div>
@@ -1070,9 +1117,10 @@ export function CampusMapEditSheet({
               <button
                 type="button"
                 className="min-h-11 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-                onClick={() =>
-                  onEvent({ type: "START_REPOSITION", ...freshAttempt() })
-                }
+                onClick={() => {
+                  setIsChoosingIndoorLocation(false);
+                  onEvent({ type: "START_REPOSITION", ...freshAttempt() });
+                }}
               >
                 修改位置
               </button>
@@ -1081,6 +1129,38 @@ export function CampusMapEditSheet({
         </div>
         {coordinateEntry}
         <div hidden={isPlacing} className="space-y-3 md:space-y-4">
+          <label
+            className="block text-sm font-medium"
+            htmlFor={`${fieldPrefix}-name`}
+          >
+            设施名称或编号
+            <input
+              id={`${fieldPrefix}-name`}
+              name="campus-map-place-name"
+              type="text"
+              autoComplete="off"
+              required
+              data-edit-field="name"
+              aria-invalid={session.localError === "name" || undefined}
+              aria-describedby={
+                session.localError === "name"
+                  ? `${fieldPrefix}-name-error`
+                  : undefined
+              }
+              className={fieldClass}
+              value={fact.name}
+              onChange={(event) => changeFact({ name: event.target.value })}
+            />
+            {session.localError === "name" ? (
+              <span
+                id={`${fieldPrefix}-name-error`}
+                className="mt-1 block text-xs text-red-700"
+              >
+                请填写能辨认这处设施的名称或编号。
+              </span>
+            ) : null}
+          </label>
+
           <fieldset
             data-edit-field="pinType"
             tabIndex={-1}
@@ -1120,6 +1200,455 @@ export function CampusMapEditSheet({
               ))}
             </div>
           </fieldset>
+
+          <fieldset
+            data-edit-field="location"
+            tabIndex={-1}
+            className="rounded-xl border border-black/10 p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+          >
+            <legend className="px-1 text-sm font-medium">位置类型</legend>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex min-h-11 items-center gap-2 rounded-lg border border-black/10 px-3 text-sm">
+                <input
+                  type="radio"
+                  name={`${fieldPrefix}-location-kind`}
+                  value="outdoor"
+                  checked={!indoorSelected}
+                  onChange={() => {
+                    setIsChoosingIndoorLocation(false);
+                    if (fact.location?.kind !== "outdoor-point") {
+                      onEvent({ type: "START_REPOSITION", ...freshAttempt() });
+                    }
+                  }}
+                />
+                室外
+              </label>
+              <label className="flex min-h-11 items-center gap-2 rounded-lg border border-black/10 px-3 text-sm">
+                <input
+                  type="radio"
+                  name={`${fieldPrefix}-location-kind`}
+                  value="indoor"
+                  checked={indoorSelected}
+                  onChange={() => setIsChoosingIndoorLocation(true)}
+                />
+                建筑内
+              </label>
+            </div>
+            {indoorSelected ? (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className="text-sm" htmlFor={`${fieldPrefix}-building`}>
+                  建筑
+                  <select
+                    id={`${fieldPrefix}-building`}
+                    name="campus-map-building"
+                    className={fieldClass}
+                    value={fact.buildingId ?? ""}
+                    onChange={(event) => {
+                      const building = buildings.find(
+                        (candidate) =>
+                          candidate.buildingId === event.target.value,
+                      );
+                      if (!building) return;
+                      changeFact(
+                        {
+                          buildingId: building.buildingId,
+                          floorId: null,
+                          location: { kind: "building" },
+                        },
+                        {
+                          buildingId: building.buildingId,
+                          buildingName: building.name,
+                          floorId: null,
+                          floorLabel: null,
+                        },
+                      );
+                    }}
+                  >
+                    <option value="">请选择建筑</option>
+                    {buildings.map((building) => (
+                      <option
+                        key={building.buildingId}
+                        value={building.buildingId}
+                      >
+                        {building.name}
+                        {building.code ? `（${building.code}）` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm" htmlFor={`${fieldPrefix}-floor`}>
+                  楼层
+                  <select
+                    id={`${fieldPrefix}-floor`}
+                    name="campus-map-floor"
+                    className={fieldClass}
+                    disabled={!selectedBuilding}
+                    value={fact.floorId ?? ""}
+                    onChange={(event) => {
+                      if (!selectedBuilding) return;
+                      const floor = selectedFloors.find(
+                        (candidate) => candidate.floorId === event.target.value,
+                      );
+                      changeFact(
+                        {
+                          buildingId: selectedBuilding.buildingId,
+                          floorId: floor?.floorId ?? null,
+                          location: floor
+                            ? { kind: "floor" }
+                            : { kind: "building" },
+                        },
+                        {
+                          buildingId: selectedBuilding.buildingId,
+                          buildingName: selectedBuilding.name,
+                          floorId: floor?.floorId ?? null,
+                          floorLabel: floor?.displayLabel ?? null,
+                        },
+                      );
+                    }}
+                  >
+                    <option value="">楼层未知（只确认建筑）</option>
+                    {selectedFloors.map((floor) => (
+                      <option key={floor.floorId} value={floor.floorId}>
+                        {floor.displayLabel}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {!buildings.length ? (
+                  <p className="text-xs text-neutral-600 sm:col-span-2">
+                    暂时无法读取建筑目录，请稍后重试。
+                  </p>
+                ) : !selectedBuilding ? (
+                  <p className="text-xs text-red-700 sm:col-span-2">
+                    请选择建筑；楼层不确定时可以只保存建筑。
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </fieldset>
+
+          {showsAccessFields ? (
+            <fieldset className="rounded-xl border border-black/10 p-3">
+              <legend className="px-1 text-sm font-medium">
+                开放与使用条件
+              </legend>
+              <p className="mb-3 text-xs leading-5 text-neutral-600">
+                不确定时请选择“未知”；未知不会被当成无限制开放。
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {applicableFields.has("audience") ? (
+                  <label
+                    className="text-sm"
+                    htmlFor={`${fieldPrefix}-audience`}
+                  >
+                    开放对象
+                    <select
+                      id={`${fieldPrefix}-audience`}
+                      name="campus-map-audience"
+                      data-edit-field="audience"
+                      className={fieldClass}
+                      value={fact.audience}
+                      onChange={(event) =>
+                        changeFact({
+                          audience: event.target
+                            .value as CampusMapPublishFactInput["audience"],
+                        })
+                      }
+                    >
+                      {CAMPUS_MAP_EDIT_SCHEMA.options.audience.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                {applicableFields.has("credentialRequirement") ? (
+                  <label
+                    className="text-sm"
+                    htmlFor={`${fieldPrefix}-credential`}
+                  >
+                    凭证要求
+                    <select
+                      id={`${fieldPrefix}-credential`}
+                      name="campus-map-credential-requirement"
+                      data-edit-field="credentialRequirement"
+                      className={fieldClass}
+                      value={fact.credentialRequirement}
+                      onChange={(event) =>
+                        changeFact({
+                          credentialRequirement: event.target
+                            .value as CampusMapPublishFactInput["credentialRequirement"],
+                        })
+                      }
+                    >
+                      {CAMPUS_MAP_EDIT_SCHEMA.options.credentialRequirement.map(
+                        (option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </label>
+                ) : null}
+                {applicableFields.has("reservationRequirement") ? (
+                  <label
+                    className="text-sm"
+                    htmlFor={`${fieldPrefix}-reservation`}
+                  >
+                    预约要求
+                    <select
+                      id={`${fieldPrefix}-reservation`}
+                      name="campus-map-reservation-requirement"
+                      data-edit-field="reservationRequirement"
+                      className={fieldClass}
+                      value={fact.reservationRequirement}
+                      onChange={(event) =>
+                        changeFact({
+                          reservationRequirement: event.target
+                            .value as CampusMapPublishFactInput["reservationRequirement"],
+                        })
+                      }
+                    >
+                      {CAMPUS_MAP_EDIT_SCHEMA.options.reservationRequirement.map(
+                        (option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </label>
+                ) : null}
+                {applicableFields.has("temporaryStatus") ? (
+                  <label
+                    className="text-sm"
+                    htmlFor={`${fieldPrefix}-temporary-status`}
+                  >
+                    临时状态
+                    <select
+                      id={`${fieldPrefix}-temporary-status`}
+                      name="campus-map-temporary-status"
+                      data-edit-field="temporaryStatus"
+                      className={fieldClass}
+                      value={fact.temporaryStatus}
+                      onChange={(event) =>
+                        changeFact({
+                          temporaryStatus: event.target
+                            .value as CampusMapPublishFactInput["temporaryStatus"],
+                        })
+                      }
+                    >
+                      {CAMPUS_MAP_EDIT_SCHEMA.options.temporaryStatus.map(
+                        (option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </label>
+                ) : null}
+              </div>
+              {applicableFields.has("accessSchedule") ? (
+                <div
+                  className="mt-3"
+                  data-edit-field="accessSchedule"
+                  tabIndex={-1}
+                >
+                  <label
+                    className="text-sm"
+                    htmlFor={`${fieldPrefix}-access-schedule`}
+                  >
+                    开放时间
+                    <select
+                      id={`${fieldPrefix}-access-schedule`}
+                      name="campus-map-access-schedule"
+                      className={fieldClass}
+                      aria-invalid={
+                        session.localError === "accessSchedule" || undefined
+                      }
+                      value={fact.accessSchedule.kind}
+                      onChange={(event) => {
+                        const kind = event.target.value;
+                        changeFact({
+                          accessSchedule:
+                            kind === "weekly"
+                              ? {
+                                  kind: "weekly",
+                                  timezone: "Asia/Hong_Kong",
+                                  intervals: [
+                                    { days: [], opensAt: "", closesAt: "" },
+                                  ],
+                                }
+                              : kind === "always"
+                                ? { kind: "always" }
+                                : { kind: "unknown" },
+                        });
+                      }}
+                    >
+                      {CAMPUS_MAP_EDIT_SCHEMA.options.accessSchedule.map(
+                        (option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </label>
+                  {weeklySchedule ? (
+                    <div className="mt-3 space-y-3">
+                      {weeklySchedule.intervals.map((interval, index) => (
+                        <fieldset
+                          key={index}
+                          className="rounded-lg bg-neutral-50 p-3"
+                        >
+                          <legend className="px-1 text-xs font-medium">
+                            时段 {index + 1}
+                          </legend>
+                          <div className="flex flex-wrap gap-x-3 gap-y-2">
+                            {WEEKDAYS.map(([day, label]) => (
+                              <label
+                                key={day}
+                                className="flex min-h-11 items-center gap-1.5 text-sm"
+                              >
+                                <input
+                                  type="checkbox"
+                                  name={`${fieldPrefix}-schedule-${index}-days`}
+                                  value={day}
+                                  checked={interval.days.includes(day)}
+                                  onChange={(event) => {
+                                    const intervals =
+                                      weeklySchedule.intervals.map(
+                                        (item, itemIndex) =>
+                                          itemIndex === index
+                                            ? {
+                                                ...item,
+                                                days: event.target.checked
+                                                  ? [...item.days, day]
+                                                  : item.days.filter(
+                                                      (candidate) =>
+                                                        candidate !== day,
+                                                    ),
+                                              }
+                                            : item,
+                                      );
+                                    changeFact({
+                                      accessSchedule: {
+                                        ...weeklySchedule,
+                                        intervals,
+                                      },
+                                    });
+                                  }}
+                                />
+                                周{label}
+                              </label>
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <label className="text-xs">
+                              开始
+                              <input
+                                type="time"
+                                name={`${fieldPrefix}-schedule-${index}-opens`}
+                                autoComplete="off"
+                                className={fieldClass}
+                                value={interval.opensAt}
+                                onChange={(event) =>
+                                  changeFact({
+                                    accessSchedule: {
+                                      ...weeklySchedule,
+                                      intervals: weeklySchedule.intervals.map(
+                                        (item, itemIndex) =>
+                                          itemIndex === index
+                                            ? {
+                                                ...item,
+                                                opensAt: event.target.value,
+                                              }
+                                            : item,
+                                      ),
+                                    },
+                                  })
+                                }
+                              />
+                            </label>
+                            <label className="text-xs">
+                              结束
+                              <input
+                                type="time"
+                                name={`${fieldPrefix}-schedule-${index}-closes`}
+                                autoComplete="off"
+                                className={fieldClass}
+                                value={interval.closesAt}
+                                onChange={(event) =>
+                                  changeFact({
+                                    accessSchedule: {
+                                      ...weeklySchedule,
+                                      intervals: weeklySchedule.intervals.map(
+                                        (item, itemIndex) =>
+                                          itemIndex === index
+                                            ? {
+                                                ...item,
+                                                closesAt: event.target.value,
+                                              }
+                                            : item,
+                                      ),
+                                    },
+                                  })
+                                }
+                              />
+                            </label>
+                          </div>
+                          {weeklySchedule.intervals.length > 1 ? (
+                            <button
+                              type="button"
+                              className={cn(secondaryClass, "mt-3")}
+                              aria-label={`移除时段 ${index + 1}`}
+                              onClick={() =>
+                                changeFact({
+                                  accessSchedule: {
+                                    ...weeklySchedule,
+                                    intervals: weeklySchedule.intervals.filter(
+                                      (_, itemIndex) => itemIndex !== index,
+                                    ),
+                                  },
+                                })
+                              }
+                            >
+                              移除时段
+                            </button>
+                          ) : null}
+                        </fieldset>
+                      ))}
+                      <button
+                        type="button"
+                        className={secondaryClass}
+                        onClick={() =>
+                          changeFact({
+                            accessSchedule: {
+                              ...weeklySchedule,
+                              intervals: [
+                                ...weeklySchedule.intervals,
+                                { days: [], opensAt: "", closesAt: "" },
+                              ],
+                            },
+                          })
+                        }
+                      >
+                        添加时段
+                      </button>
+                    </div>
+                  ) : null}
+                  {session.localError === "accessSchedule" ? (
+                    <p className="mt-1 text-xs text-red-700">
+                      每个时段都要选择日期，并填写不同的开始和结束时间。
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </fieldset>
+          ) : null}
         </div>
       </div>
       {showFixedFooter ? (
@@ -1130,7 +1659,11 @@ export function CampusMapEditSheet({
             disabled={
               isPlacing
                 ? placementPending
-                : session.status !== "editing" || !isCampusMapEditDirty(session)
+                : session.status !== "editing" ||
+                  !isCampusMapEditDirty(session) ||
+                  (indoorSelected &&
+                    fact.location?.kind !== "building" &&
+                    fact.location?.kind !== "floor")
             }
             onClick={() =>
               onEvent(

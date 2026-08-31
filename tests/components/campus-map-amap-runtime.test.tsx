@@ -484,8 +484,12 @@ describe("Campus Map AMap runtime effects", () => {
     expect(screen.queryByText(/高德地图参考/)).toBeNull();
     expect(screen.getByRole("radio", { name: "饮水点" })).not.toBeNull();
     expect(
-      screen.queryByRole("textbox", { name: "设施名称或编号" }),
-    ).toBeNull();
+      (
+        screen.getByRole("textbox", {
+          name: "设施名称或编号",
+        }) as HTMLInputElement
+      ).value,
+    ).toBe("饮水机");
   });
 
   it("lets Add select an exact AMap label without publishing provider identity", async () => {

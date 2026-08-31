@@ -329,6 +329,160 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
+  it("keeps an explicitly selected canonical Building or Floor label with the fact", () => {
+    const buildingId = "50000000-0000-4000-8000-000000000001";
+    const floorId = "60000000-0000-4000-8000-000000000001";
+    const started = editSession();
+    const buildingFact: CampusMapPublishFactInput = {
+      ...started.draft.fact,
+      buildingId,
+      floorId: null,
+      location: { kind: "building" },
+    } as CampusMapPublishFactInput;
+    const building = transitionCampusMapEdit(started, {
+      type: "CHANGE_FACT",
+      fact: buildingFact,
+      locationDisplay: {
+        buildingId,
+        buildingName: "科学馆",
+        floorId: null,
+        floorLabel: null,
+      },
+    });
+
+    expect(building.session?.draft).toMatchObject({
+      fact: { buildingId, floorId: null, location: { kind: "building" } },
+      locationDisplay: {
+        buildingId,
+        buildingName: "科学馆",
+        floorId: null,
+        floorLabel: null,
+      },
+    });
+
+    const floorFact: CampusMapPublishFactInput = {
+      ...buildingFact,
+      floorId,
+      location: { kind: "floor" },
+    };
+    const floor = transitionCampusMapEdit(building.session, {
+      type: "CHANGE_FACT",
+      fact: floorFact,
+      locationDisplay: {
+        buildingId,
+        buildingName: "科学馆",
+        floorId,
+        floorLabel: "1/F",
+      },
+    });
+    expect(floor.session?.draft.locationDisplay).toEqual({
+      buildingId,
+      buildingName: "科学馆",
+      floorId,
+      floorLabel: "1/F",
+    });
+    expect(
+      deriveCampusMapPublishCommand(floor.session!.draft).changes[0],
+    ).toMatchObject({
+      operation: "update",
+      fact: {
+        name: fact.name,
+        buildingId,
+        floorId,
+        location: { kind: "floor" },
+      },
+    });
+  });
+
+  it("maps every editable access condition into the canonical publish fact", () => {
+    const edited = transitionCampusMapEdit(editSession(), {
+      type: "CHANGE_FACT",
+      fact: {
+        ...fact,
+        name: "大学图书馆 1/F 饮水机 A",
+        audience: "cuhk-member",
+        credentialRequirement: "campus-card",
+        accessSchedule: {
+          kind: "weekly",
+          timezone: "Asia/Hong_Kong",
+          intervals: [
+            {
+              days: ["mon", "tue", "wed", "thu", "fri"],
+              opensAt: "08:30",
+              closesAt: "22:00",
+            },
+          ],
+        },
+        reservationRequirement: "none",
+        temporaryStatus: "normal",
+      },
+    }).session!;
+
+    expect(
+      deriveCampusMapPublishCommand(edited.draft).changes[0],
+    ).toMatchObject({
+      operation: "update",
+      fact: {
+        name: "大学图书馆 1/F 饮水机 A",
+        audience: "cuhk-member",
+        credentialRequirement: "campus-card",
+        accessSchedule: {
+          kind: "weekly",
+          timezone: "Asia/Hong_Kong",
+          intervals: [
+            {
+              days: ["mon", "tue", "wed", "thu", "fri"],
+              opensAt: "08:30",
+              closesAt: "22:00",
+            },
+          ],
+        },
+        reservationRequirement: "none",
+        temporaryStatus: "normal",
+      },
+    });
+  });
+
+  it("restores an incomplete weekly schedule draft but blocks it from publishing", () => {
+    const edited = transitionCampusMapEdit(editSession(), {
+      type: "CHANGE_FACT",
+      fact: {
+        ...fact,
+        name: "大学图书馆平日饮水机",
+        accessSchedule: {
+          kind: "weekly",
+          timezone: "Asia/Hong_Kong",
+          intervals: [{ days: [], opensAt: "", closesAt: "" }],
+        },
+      },
+    }).session!;
+
+    expect(
+      decodeCampusMapEditSnapshot(encodeCampusMapEditSnapshot(edited)),
+    ).toMatchObject({
+      status: "restored",
+      session: {
+        draft: {
+          fact: {
+            accessSchedule: {
+              kind: "weekly",
+              intervals: [{ days: [], opensAt: "", closesAt: "" }],
+            },
+          },
+        },
+      },
+    });
+    expect(
+      transitionCampusMapEdit(edited, { type: "REQUEST_PUBLISH" }),
+    ).toMatchObject({
+      accepted: true,
+      session: { status: "editing", localError: "accessSchedule" },
+      commands: expect.arrayContaining([
+        { kind: "focus", target: "accessSchedule" },
+      ]),
+    });
+  });
+
   it("preserves hidden Edit facts across a facility-type round trip", () => {
     const printerFact: CampusMapPublishFactInput = {
       ...fact,
@@ -858,6 +1012,8 @@ describe("Campus Map edit session transition", () => {
                 accessedOn: "2026-08-26",
                 observedAt: null,
                 rightsStatus: "unknown",
+                limitations:
+                  "用户通过 Campus Map 提交名称、位置、设施类型与结构化访问条件；未提供独立资料来源。",
               }),
             ],
           }),
@@ -889,8 +1045,39 @@ describe("Campus Map edit session transition", () => {
     });
     expect(invalid.commands).toContainEqual({
       kind: "focus",
-      target: "form-heading",
+      target: "name",
     });
+  });
+
+  it("clears stale validation feedback when the contributor changes a fact", () => {
+    const invalidDraft = createCampusMapEditDraft({
+      mode: "add",
+      idempotencyKey: firstKey,
+      fact: { ...fact, name: "" },
+      sources: [],
+    });
+    const invalid = transitionCampusMapEdit(
+      { status: "editing", draft: invalidDraft },
+      { type: "REQUEST_PUBLISH" },
+    ).session!;
+    const corrected = transitionCampusMapEdit(
+      {
+        ...invalid,
+        serverErrors: [
+          {
+            code: "fact-name-required",
+            anchor: { field: "changes.0.fact.name" },
+          },
+        ],
+      },
+      {
+        type: "CHANGE_FACT",
+        fact: { ...invalid.draft.fact, name: "科学馆饮水机 A" },
+      },
+    );
+
+    expect(corrected.session).not.toHaveProperty("localError");
+    expect(corrected.session).not.toHaveProperty("serverErrors");
   });
 
   it("derives local required-field checks from the active fact schema", () => {
@@ -928,7 +1115,7 @@ describe("Campus Map edit session transition", () => {
     ["changes.0.fact.floorId", "location"],
     ["sources.0.url", "form-heading"],
     ["sources.0.observedAt", "form-heading"],
-    ["changes.0.fact.accessSchedule.intervals.0.opensAt", "form-heading"],
+    ["changes.0.fact.accessSchedule.intervals.0.opensAt", "accessSchedule"],
     ["changes.0.fact.pinType", "pinType"],
     ["comment", "form-heading"],
   ])(
