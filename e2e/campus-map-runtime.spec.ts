@@ -8,6 +8,7 @@ import {
 import { loginWithPassword } from "./helpers/auth";
 import {
   emitAmapEvent,
+  emitAmapProviderClick,
   installFakeCampusMapAmap,
   readAmapProjectedPoint,
   readAmapSnapshot,
@@ -522,7 +523,7 @@ test("one provider callback produces one canonical effect and a map gesture clos
   await page.goto("/campus-map");
   const historyBefore = await page.evaluate(() => window.history.length);
 
-  await emitAmapEvent(page, "hotspotclick", {
+  await emitAmapProviderClick(page, {
     id: mappedBuildingProviderId,
     name: "高德正式测试楼",
     lnglat: { lng: 114.2072, lat: 22.4191 },
@@ -559,7 +560,7 @@ test("mapped and unmapped provider POIs never duplicate cards", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/campus-map");
 
-  await emitAmapEvent(page, "hotspotclick", {
+  await emitAmapProviderClick(page, {
     id: mappedPlaceProviderId,
     name: "高德测试饮水点",
     lnglat: { lng: 114.2072, lat: 22.4191 },
@@ -582,8 +583,7 @@ test("mapped and unmapped provider POIs never duplicate cards", async ({
     () => window.history.length,
   );
 
-  await visibleMapCanvas(page).dispatchEvent("pointerdown");
-  await emitAmapEvent(page, "hotspotclick", {
+  await emitAmapProviderClick(page, {
     id: unmappedProviderId,
     name: "未映射高德参考点",
     lnglat: { lng: 114.2074, lat: 22.4193 },
@@ -629,7 +629,7 @@ test("a rapid newer Place intent wins over a delayed provider result", async ({
       response.request().method() === "POST" &&
       new URL(response.url()).pathname === "/campus-map",
   );
-  await emitAmapEvent(page, "hotspotclick", {
+  await emitAmapProviderClick(page, {
     id: mappedBuildingProviderId,
     name: "高德正式测试楼",
     lnglat: { lng: 114.2072, lat: 22.4191 },

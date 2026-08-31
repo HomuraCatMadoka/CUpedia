@@ -48,6 +48,23 @@ export async function emitAmapEvent(
   );
 }
 
+export async function emitAmapProviderClick(
+  page: Page,
+  payload: Record<string, unknown>,
+) {
+  await waitForFakeMap(page);
+  await page.evaluate((eventPayload) => {
+    const runtime = window as typeof window & {
+      __campusMapE2eMap: CampusMapE2eMap;
+    };
+    const canvas = document.getElementById("amap-campus-canvas");
+    if (!canvas) throw new Error("Campus Map canvas is unavailable");
+    canvas.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    canvas.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+    runtime.__campusMapE2eMap.emit("hotspotclick", eventPayload);
+  }, payload);
+}
+
 export async function readAmapSnapshot(page: Page) {
   await waitForFakeMap(page);
   return page.evaluate(() => {
