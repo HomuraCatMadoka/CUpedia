@@ -25,6 +25,7 @@ describe("Campus Map fact governance boundary", () => {
       {
         kind: "merge",
         idempotencyKey: "00000000-0000-4000-8000-000000000005",
+        sourceAccessedOn: "2026-09-01",
         reason: "两项记录代表同一个饮水点",
         client: { name: "admin-test", version: "1" },
         survivor: {

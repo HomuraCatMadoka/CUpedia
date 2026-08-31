@@ -160,17 +160,25 @@ describe("Campus Map Place lifecycle actions", () => {
   });
 
   it("builds the same publish command when one operation retries after midnight", async () => {
+    vi.useFakeTimers();
     mocks.publish.mockResolvedValue({
       status: "temporarily-unavailable",
       code: "publish-unavailable",
       retryable: true,
     });
 
-    await retireCampusMapPlace(input);
-    const firstCommand = structuredClone(mocks.publish.mock.calls[0][0]);
-    await retireCampusMapPlace(input);
+    try {
+      vi.setSystemTime(new Date("2026-08-31T15:59:00.000Z"));
+      await retireCampusMapPlace(input);
+      const firstCommand = structuredClone(mocks.publish.mock.calls[0][0]);
 
-    expect(mocks.publish.mock.calls[1][0]).toEqual(firstCommand);
+      vi.setSystemTime(new Date("2026-08-31T16:01:00.000Z"));
+      await retireCampusMapPlace(input);
+
+      expect(mocks.publish.mock.calls[1][0]).toEqual(firstCommand);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("authorizes before reading a client-selected restore revision", async () => {

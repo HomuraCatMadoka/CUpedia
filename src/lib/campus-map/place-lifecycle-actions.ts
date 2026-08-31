@@ -1,28 +1,26 @@
 "use server";
 
-import { createHash } from "node:crypto";
-
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
 import { getAuthenticatedUserStateForApi } from "@/lib/auth-guard";
 import { isCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
 import { getCampusMapPlaceRevision } from "@/lib/campus-map/fact-store";
+import {
+  createCampusMapLifecycleSource,
+  type CampusMapLifecycleOperationIdentity,
+} from "@/lib/campus-map/place-lifecycle-source";
 import { publishCampusMapChangeset } from "@/lib/campus-map/publish";
 import type {
   CampusMapPublishCommand,
   CampusMapPublishFactInput,
   CampusMapPublishResult,
-  CampusMapPublishSourceInput,
 } from "@/lib/campus-map/publish-contract";
 import { requestClientIp } from "@/lib/campus-map/request-client-ip";
 
-export interface CampusMapPlaceLifecycleInput {
+export interface CampusMapPlaceLifecycleInput extends CampusMapLifecycleOperationIdentity {
   placeId: string;
   baseRevisionId: string;
-  reason: string;
-  idempotencyKey: string;
-  sourceAccessedOn: string;
 }
 
 export type CampusMapPlaceLifecycleActionResult =
@@ -109,7 +107,7 @@ async function publishLifecycleChange(
     headers(),
     getCampusMapPlaceRevision(input.placeId, input.baseRevisionId),
   ]);
-  const source = lifecycleSource(input, user.id);
+  const source = createCampusMapLifecycleSource(input, user.id);
   let changes: CampusMapPublishCommand["changes"];
 
   if (operation === "restore") {
@@ -158,42 +156,6 @@ async function publishLifecycleChange(
     revalidatePath(`/campus-map/places/${input.placeId}/history`);
   }
   return result;
-}
-
-function lifecycleSource(
-  input: CampusMapPlaceLifecycleInput,
-  actorId: string,
-): CampusMapPublishSourceInput {
-  return {
-    kind: "other",
-    // The public provenance identity is stable per actor and retry without
-    // persisting the private idempotency key itself.
-    ref: `campus-map-admin-lifecycle:${lifecycleSourceIdentity(
-      actorId,
-      input.idempotencyKey,
-    )}`,
-    url: null,
-    owner: "CUpedia administrators",
-    version: null,
-    snapshotHash: null,
-    // The client creates this alongside the idempotency key. Reusing both
-    // values keeps a retry byte-for-byte stable across a Hong Kong date change.
-    // The publish seam still validates the date before writing.
-    accessedOn: input.sourceAccessedOn,
-    observedAt: null,
-    rightsStatus: "unknown",
-    limitations: "Administrative lifecycle decision; not location evidence.",
-    note: input.reason,
-    sourceCoordinate: null,
-  };
-}
-
-function lifecycleSourceIdentity(actorId: string, idempotencyKey: string) {
-  return createHash("sha256")
-    .update(actorId)
-    .update("\0")
-    .update(idempotencyKey)
-    .digest("hex");
 }
 
 function restorationFact(

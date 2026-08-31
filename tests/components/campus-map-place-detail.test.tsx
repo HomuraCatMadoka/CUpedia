@@ -267,14 +267,20 @@ describe("Campus Map Place detail (#816, #825)", () => {
     expect(screen.getByLabelText("停用原因").hasAttribute("aria-invalid")).toBe(
       false,
     );
+    const retryableRequest = lifecycleAction.mock.calls.at(-1)![0];
+    expect(retryableRequest).toMatchObject({
+      sourceAccessedOn: "2026-08-31",
+    });
+    expect(retryableRequest.idempotencyKey).not.toBe(
+      completedRequest.idempotencyKey,
+    );
 
     vi.setSystemTime(new Date("2026-08-31T16:01:00.000Z"));
 
     lifecycleAction.mockRejectedValueOnce(new Error("connection lost"));
-    fireEvent.change(screen.getByLabelText("停用原因"), {
-      target: { value: "网络失败后保持原因重试" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /确认停用：停用原因/ }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /确认停用：停用原因/ }),
+    );
     expect((await screen.findByRole("alert")).textContent).toContain(
       "网络连接中断",
     );
@@ -282,23 +288,25 @@ describe("Campus Map Place detail (#816, #825)", () => {
       false,
     );
     expect(lifecycleAction.mock.calls.at(-1)?.[0]).toMatchObject({
-      sourceAccessedOn: "2026-09-01",
+      sourceAccessedOn: "2026-08-31",
+      idempotencyKey: retryableRequest.idempotencyKey,
     });
-    const retryableRequest = lifecycleAction.mock.calls.at(-1)![0];
-    expect(retryableRequest.idempotencyKey).not.toBe(
-      completedRequest.idempotencyKey,
-    );
 
     lifecycleAction.mockResolvedValueOnce({
       status: "forbidden",
       code: "admin-required",
+    });
+    fireEvent.change(screen.getByLabelText("停用原因"), {
+      target: { value: "香港日期改变后开始新操作" },
     });
     fireEvent.click(
       await screen.findByRole("button", { name: /确认停用：停用原因/ }),
     );
     expect(lifecycleAction.mock.calls.at(-1)?.[0]).toMatchObject({
       sourceAccessedOn: "2026-09-01",
-      idempotencyKey: retryableRequest.idempotencyKey,
     });
+    expect(lifecycleAction.mock.calls.at(-1)?.[0].idempotencyKey).not.toBe(
+      retryableRequest.idempotencyKey,
+    );
   });
 });
