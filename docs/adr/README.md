@@ -39,6 +39,7 @@ Architectural decision records (ADRs) explain why CUpedia accepted a durable bou
 - [0033: Materialize professor portraits as owned assets](0033-materialize-professor-portraits-as-owned-assets.md)
 - [0034: Separate Campus Map canonical facts from providers and presentation](0034-campus-map-provider-neutral-place-facts.md)
 - [0035: Publish Campus Map facts with direct changesets](0035-campus-map-direct-changesets.md)
+- [0036: Model Campus Map ratings and reviews as one current Place feedback](0036-model-campus-map-place-feedback-as-one-current-submission.md)
 
 ## Maintain the index
 
