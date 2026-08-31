@@ -126,6 +126,14 @@ _Avoid_: 用通用 audit log 替代；改写旧裁决；没有 decision ref 的�
 Notes 或两者的管理员裁决；撤销只追加裁决和撤销 metadata，既有公开事实与署名保持不变。
 _Avoid_: 全站账号删除；抹除旧署名；只在页面加载时检查一次
 
+**地点反馈（Place feedback）**: 符合资格的 User 对一个 Place 维护的一份当前主观体验，包含
+必填的 1–5 整数星级和可选评价文字；它引用稳定 `placeId`，但不属于 Place fact 或其修订历史。
+_Avoid_: Map Note；Fact revision；一个用户在同一 Place 的多条并行评价；匿名反馈
+
+**反馈隐藏（Feedback hide）**: 管理员让整份 Place feedback 退出公开读取和评分聚合的治理状态；
+用户后续编辑不会自动恢复公开。
+_Avoid_: 只隐藏评价文字但继续计算其星级；用户删除；Place retirement
+
 **安全占位（Safe placeholder）**: 内容被隐藏后在原 stable ID、deep link 与时间线位置返回的固定
 公开投影；不包含原文、证据或可识别作者，但让读者知道历史链没有被删除。
 _Avoid_: 404 假装记录从未存在；把原文藏在搜索索引、excerpt 或通知 metadata

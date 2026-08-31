@@ -40,6 +40,9 @@ CUpedia 现有十个限界上下文。本文件是上下文清单和关系的唯
 - 食堂删除与开发模式见 [ADR 0023](./docs/adr/0023-canteen-hard-delete-and-mock-mode.md)，匿名投票边界见 [ADR 0024](./docs/adr/0024-canteen-anonymous-vote-only.md)
 - 通知与来源的生命周期见 [ADR 0016](./docs/adr/0016-notification-source-lifecycle.md)
 - 校园交通与地图的身份边界见 [ADR 0021](./docs/adr/0021-campus-transport-owns-operational-stops.md)
-- 校园地图的 canonical 事实与直接 Changeset 发布边界见 [ADR 0034](./docs/adr/0034-campus-map-provider-neutral-place-facts.md) 和 [ADR 0035](./docs/adr/0035-campus-map-direct-changesets.md)
+- 校园地图的 canonical 事实、直接 Changeset 发布与主观 Place feedback 边界见
+  [ADR 0034](./docs/adr/0034-campus-map-provider-neutral-place-facts.md)、
+  [ADR 0035](./docs/adr/0035-campus-map-direct-changesets.md) 和
+  [ADR 0036](./docs/adr/0036-model-campus-map-place-feedback-as-one-current-submission.md)
 
 完整决策清单见 [ADR 索引](./docs/adr/README.md)。
