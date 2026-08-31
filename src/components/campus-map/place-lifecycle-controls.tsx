@@ -25,7 +25,7 @@ const lifecycleCopy = {
     description:
       "停用后，它会从地图和默认搜索结果中消失；稳定链接和公开编辑记录仍会保留。",
     reasonLabel: "停用原因",
-    reasonPlaceholder: "例如：地点已拆除或不再提供这项服务",
+    reasonPlaceholder: "例如：地点已拆除或不再提供这项服务…",
     submit: "确认停用",
     pending: "正在停用…",
   },
@@ -35,11 +35,20 @@ const lifecycleCopy = {
     description:
       "恢复会追加一条新的公开修订，并让地点重新出现在地图和搜索结果中。",
     reasonLabel: "恢复原因",
-    reasonPlaceholder: "例如：现场确认地点已重新开放",
+    reasonPlaceholder: "例如：现场确认地点已重新开放…",
     submit: "确认恢复",
     pending: "正在恢复…",
   },
 } as const;
+
+function currentHongKongDate(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
 
 function lifecycleError(code: string): {
   message: string;
@@ -94,7 +103,10 @@ export function PlaceLifecycleControls({
   const reasonRef = useRef<HTMLTextAreaElement>(null);
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
-  const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
+  const [requestIdentity, setRequestIdentity] = useState<{
+    idempotencyKey: string;
+    sourceAccessedOn: string;
+  } | null>(null);
   const [error, setError] = useState<{
     message: string;
     kind: "reason" | "action";
@@ -107,7 +119,7 @@ export function PlaceLifecycleControls({
     setError(null);
     if (!nextOpen) {
       setReason("");
-      setIdempotencyKey(null);
+      setRequestIdentity(null);
     }
   }
 
@@ -118,8 +130,11 @@ export function PlaceLifecycleControls({
       reasonRef.current?.focus();
       return;
     }
-    const requestKey = idempotencyKey ?? crypto.randomUUID();
-    setIdempotencyKey(requestKey);
+    const request = requestIdentity ?? {
+      idempotencyKey: crypto.randomUUID(),
+      sourceAccessedOn: currentHongKongDate(),
+    };
+    setRequestIdentity(request);
     setError(null);
     startTransition(async () => {
       try {
@@ -128,12 +143,12 @@ export function PlaceLifecycleControls({
           placeId,
           baseRevisionId,
           reason: normalizedReason,
-          idempotencyKey: requestKey,
+          ...request,
         });
         if (result.status === "published") {
           setOpen(false);
           setReason("");
-          setIdempotencyKey(null);
+          setRequestIdentity(null);
           router.refresh();
           return;
         }
@@ -162,7 +177,7 @@ export function PlaceLifecycleControls({
       <AlertDialogContent
         initialFocus={reasonRef}
         finalFocus={triggerRef}
-        className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain"
       >
         <AlertDialogHeader>
           <AlertDialogTitle>{copy.title}</AlertDialogTitle>
@@ -172,6 +187,8 @@ export function PlaceLifecycleControls({
           {copy.reasonLabel}
           <textarea
             ref={reasonRef}
+            name="place-lifecycle-reason"
+            autoComplete="off"
             value={reason}
             required
             rows={4}
@@ -185,7 +202,7 @@ export function PlaceLifecycleControls({
             onChange={(event) => {
               setReason(event.target.value);
               setError(null);
-              setIdempotencyKey(null);
+              setRequestIdentity(null);
             }}
           />
         </label>

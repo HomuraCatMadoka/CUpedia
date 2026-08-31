@@ -28,6 +28,7 @@ export type CampusMapFactGovernanceCommand =
     })
   | (CampusMapGovernanceCommandBase & {
       kind: "merge";
+      sourceAccessedOn: string;
       survivor: {
         placeId: string;
         baseRevisionId: string;

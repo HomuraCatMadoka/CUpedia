@@ -35,6 +35,7 @@ const input = {
   baseRevisionId: "20000000-0000-4000-8000-000000000001",
   reason: "现场确认设施已经永久关闭",
   idempotencyKey: "30000000-0000-4000-8000-000000000001",
+  sourceAccessedOn: "2026-09-01",
 };
 
 function publicRevision() {
@@ -110,7 +111,7 @@ describe("Campus Map Place lifecycle actions", () => {
                 ref: expect.stringMatching(
                   /^campus-map-admin-lifecycle:[0-9a-f]{64}$/,
                 ),
-                accessedOn: "2026-08-31",
+                accessedOn: "2026-09-01",
                 note: input.reason,
                 sourceCoordinate: null,
               }),
@@ -123,6 +124,61 @@ describe("Campus Map Place lifecycle actions", () => {
     const sourceRef = mocks.publish.mock.calls[0][0].changes[0].sources[0].ref;
     expect(sourceRef).not.toContain(input.idempotencyKey);
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("uses the operation date instead of the base publication date", async () => {
+    mocks.publish.mockResolvedValue({
+      status: "forbidden",
+      code: "admin-required",
+    });
+
+    await retireCampusMapPlace(input);
+
+    expect(
+      mocks.publish.mock.calls[0][0].changes[0].sources[0].accessedOn,
+    ).toBe("2026-09-01");
+    expect(publicRevision().publishedAt.toISOString()).toBe(
+      "2026-08-30T23:30:00.000Z",
+    );
+  });
+
+  it("does not invent an epoch date when the base has no publication date", async () => {
+    mocks.publish.mockResolvedValue({
+      status: "forbidden",
+      code: "admin-required",
+    });
+    mocks.getRevision.mockResolvedValue({
+      ...publicRevision(),
+      publishedAt: null,
+    });
+
+    await retireCampusMapPlace(input);
+
+    expect(
+      mocks.publish.mock.calls[0][0].changes[0].sources[0].accessedOn,
+    ).toBe("2026-09-01");
+  });
+
+  it("builds the same publish command when one operation retries after midnight", async () => {
+    vi.useFakeTimers();
+    mocks.publish.mockResolvedValue({
+      status: "temporarily-unavailable",
+      code: "publish-unavailable",
+      retryable: true,
+    });
+
+    try {
+      vi.setSystemTime(new Date("2026-08-31T15:59:00.000Z"));
+      await retireCampusMapPlace(input);
+      const firstCommand = structuredClone(mocks.publish.mock.calls[0][0]);
+
+      vi.setSystemTime(new Date("2026-08-31T16:01:00.000Z"));
+      await retireCampusMapPlace(input);
+
+      expect(mocks.publish.mock.calls[1][0]).toEqual(firstCommand);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("authorizes before reading a client-selected restore revision", async () => {
@@ -240,6 +296,7 @@ describe("Campus Map Place lifecycle actions", () => {
         location: { kind: "floor" },
         observedAt: "2026-08-29T00:00:00.000Z",
       },
+      sources: [expect.objectContaining({ accessedOn: "2026-09-01" })],
     });
     expect(mocks.revalidatePath.mock.calls).toEqual([
       ["/campus-map"],
