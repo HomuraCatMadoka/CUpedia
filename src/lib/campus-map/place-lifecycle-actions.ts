@@ -5,17 +5,9 @@ import { headers } from "next/headers";
 
 import { getAuthenticatedUserStateForApi } from "@/lib/auth-guard";
 import { isCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
-import { getCampusMapPlaceRevision } from "@/lib/campus-map/fact-store";
-import {
-  createCampusMapLifecycleSource,
-  type CampusMapLifecycleOperationIdentity,
-} from "@/lib/campus-map/place-lifecycle-source";
-import { publishCampusMapChangeset } from "@/lib/campus-map/publish";
-import type {
-  CampusMapPublishCommand,
-  CampusMapPublishFactInput,
-  CampusMapPublishResult,
-} from "@/lib/campus-map/publish-contract";
+import type { CampusMapLifecycleOperationIdentity } from "@/lib/campus-map/place-lifecycle-source";
+import { governCampusMapFacts } from "@/lib/campus-map/publish";
+import type { CampusMapPublishResult } from "@/lib/campus-map/publish-contract";
 import { requestClientIp } from "@/lib/campus-map/request-client-ip";
 
 export interface CampusMapPlaceLifecycleInput extends CampusMapLifecycleOperationIdentity {
@@ -101,48 +93,15 @@ async function publishLifecycleChange(
     };
   }
 
-  // Authorize before reading a client-selected historical revision. The
-  // publish seam repeats the fresh role check immediately before the write.
-  const [requestHeaders, baseRevision] = await Promise.all([
-    headers(),
-    getCampusMapPlaceRevision(input.placeId, input.baseRevisionId),
-  ]);
-  const source = createCampusMapLifecycleSource(input, user.id);
-  let changes: CampusMapPublishCommand["changes"];
-
-  if (operation === "restore") {
-    const fact = restorationFact(baseRevision);
-    if (!fact) return lifecycleSnapshotUnavailable(input.placeId);
-    changes = [
-      {
-        operation: "restore",
-        placeId: input.placeId,
-        baseRevisionId: input.baseRevisionId,
-        fact,
-        sources: [source],
-      },
-    ];
-  } else {
-    changes = [
-      {
-        operation: "retire",
-        placeId: input.placeId,
-        baseRevisionId: input.baseRevisionId,
-        sources: [source],
-      },
-    ];
-  }
-
-  const result = await publishCampusMapChangeset(
+  const requestHeaders = await headers();
+  const result = await governCampusMapFacts(
     {
-      kind: "single",
+      kind: operation,
       idempotencyKey: input.idempotencyKey,
-      comment: input.reason,
-      sourceSummary: "管理员地点生命周期操作",
-      reviewRequested: false,
+      reason: input.reason,
       client: CLIENT,
-      warningAcknowledgements: [],
-      changes,
+      placeId: input.placeId,
+      baseRevisionId: input.baseRevisionId,
     },
     {
       actorId: user?.id ?? null,
@@ -156,63 +115,4 @@ async function publishLifecycleChange(
     revalidatePath(`/campus-map/places/${input.placeId}/history`);
   }
   return result;
-}
-
-function restorationFact(
-  revision: Awaited<ReturnType<typeof getCampusMapPlaceRevision>>,
-): CampusMapPublishFactInput | null {
-  if (!revision || revision.content.visibility !== "public") return null;
-  const fact = revision.content.fact;
-  let location: CampusMapPublishFactInput["location"];
-  if (fact.locationKind === "building") {
-    location = { kind: "building" };
-  } else if (fact.locationKind === "floor") {
-    location = { kind: "floor" };
-  } else if (
-    fact.locationKind === "outdoor-point" &&
-    fact.longitude !== null &&
-    fact.latitude !== null &&
-    fact.coordinateCrs === "wgs84" &&
-    fact.pointPrecision !== null
-  ) {
-    location = {
-      kind: "outdoor-point",
-      longitude: fact.longitude,
-      latitude: fact.latitude,
-      crs: "wgs84",
-      precision: fact.pointPrecision,
-    };
-  } else {
-    return null;
-  }
-  return {
-    name: fact.name,
-    buildingId: fact.buildingId,
-    floorId: fact.floorId,
-    pinType: fact.pinType,
-    capabilities: fact.capabilities,
-    gender: fact.gender,
-    wheelchairAccess: fact.wheelchairAccess,
-    audience: fact.audience,
-    credentialRequirement: fact.credentialRequirement,
-    accessSchedule: fact.accessSchedule,
-    reservationRequirement: fact.reservationRequirement,
-    temporaryStatus: fact.temporaryStatus,
-    location,
-    observedAt: fact.observedAt?.toISOString() ?? null,
-  };
-}
-
-function lifecycleSnapshotUnavailable(placeId: string): CampusMapPublishResult {
-  return {
-    status: "validation-failed",
-    errors: [
-      {
-        code: "lifecycle-base-revision-unavailable",
-        anchor: { placeId, field: "baseRevisionId" },
-      },
-    ],
-    warnings: [],
-    suggestions: [],
-  };
 }

@@ -4,7 +4,6 @@ import type { CampusMapPublishSourceInput } from "@/lib/campus-map/publish-contr
 
 export interface CampusMapLifecycleOperationIdentity {
   idempotencyKey: string;
-  sourceAccessedOn: string;
   reason: string;
 }
 
@@ -24,16 +23,32 @@ export function createCampusMapLifecycleSource(
     owner: "CUpedia administrators",
     version: null,
     snapshotHash: null,
-    // The caller creates this alongside the idempotency key. Reusing both
-    // values keeps a retry byte-for-byte stable across a Hong Kong date change.
-    // The publish seam still validates the date before writing.
-    accessedOn: input.sourceAccessedOn,
+    // This audit date belongs to the trusted publish transaction. The raw
+    // request fingerprint excludes it, so a completed retry replays the first
+    // committed result even when Hong Kong's calendar date has changed.
+    accessedOn: hongKongCalendarDate(new Date()),
     observedAt: null,
     rightsStatus: "unknown",
     limitations: "Administrative lifecycle decision; not location evidence.",
     note: input.reason,
     sourceCoordinate: null,
   };
+}
+
+function hongKongCalendarDate(now: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) {
+    throw new Error("Hong Kong calendar date could not be formatted");
+  }
+  return `${year}-${month}-${day}`;
 }
 
 function lifecycleSourceIdentity(actorId: string, idempotencyKey: string) {

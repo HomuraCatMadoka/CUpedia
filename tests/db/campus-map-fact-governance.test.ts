@@ -1,6 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import {
   governCampusMapFacts,
@@ -22,6 +30,15 @@ import {
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 const buildingId = "72000000-0000-4000-8000-000000000001";
+
+function currentHongKongDate(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
 
 function source(): CampusMapPublishSourceInput {
   return {
@@ -155,7 +172,6 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
     return {
       kind: "merge",
       idempotencyKey: randomUUID(),
-      sourceAccessedOn: "2026-09-01",
       reason: "人工核对后确认两个稳定 ID 是同一地点",
       client: { name: "governance-test", version: "1" },
       survivor: {
@@ -170,6 +186,25 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
         sources: [source()],
       },
       fieldResolutions,
+    };
+  }
+
+  function lifecycleCommand(input: {
+    kind: "retire" | "restore";
+    placeId: string;
+    baseRevisionId: string;
+    idempotencyKey?: string;
+  }): Extract<CampusMapFactGovernanceCommand, { kind: "retire" | "restore" }> {
+    return {
+      kind: input.kind,
+      idempotencyKey: input.idempotencyKey ?? randomUUID(),
+      reason:
+        input.kind === "retire"
+          ? "现场确认设施已经永久关闭"
+          : "现场确认设施已经重新开放",
+      client: { name: "governance-test", version: "1" },
+      placeId: input.placeId,
+      baseRevisionId: input.baseRevisionId,
     };
   }
 
@@ -601,6 +636,122 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
     ).resolves.toEqual(reverted);
   });
 
+  it("binds lifecycle dates on the server and replays across Hong Kong midnight", async () => {
+    const adminId = await createActor();
+    const created = await createPlace(adminId, "server lifecycle date");
+    const retire = {
+      ...lifecycleCommand({
+        kind: "retire",
+        placeId: created.placeId,
+        baseRevisionId: created.revisionId,
+      }),
+      sourceAccessedOn: "1970-01-01",
+    } as unknown as CampusMapFactGovernanceCommand;
+
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-08-31T15:59:00.000Z"));
+      const retired = await governCampusMapFacts(retire, {
+        actorId: adminId,
+        clientIp: "203.0.113.130",
+      });
+      expect(retired).toMatchObject({ status: "published" });
+      if (retired.status !== "published") throw new Error("retire failed");
+      await expect(
+        getCampusMapPlaceRevision(
+          created.placeId,
+          retired.changes[0].revisionId,
+        ),
+      ).resolves.toMatchObject({
+        status: "retired",
+        content: {
+          visibility: "public",
+          fact: {
+            provenance: expect.arrayContaining([
+              expect.objectContaining({
+                kind: "other",
+                accessedOn: "2026-08-31",
+              }),
+            ]),
+          },
+        },
+      });
+
+      vi.setSystemTime(new Date("2026-08-31T16:01:00.000Z"));
+      await expect(
+        governCampusMapFacts(
+          { ...retire, sourceAccessedOn: "2099-12-31" } as never,
+          { actorId: adminId, clientIp: "203.0.113.130" },
+        ),
+      ).resolves.toEqual(retired);
+      await expect(
+        getCampusMapPlaceHistory(created.placeId),
+      ).resolves.toMatchObject({
+        items: [
+          { id: retired.changes[0].revisionId },
+          { id: created.revisionId },
+        ],
+      });
+
+      const restored = await governCampusMapFacts(
+        lifecycleCommand({
+          kind: "restore",
+          placeId: created.placeId,
+          baseRevisionId: retired.changes[0].revisionId,
+        }),
+        { actorId: adminId, clientIp: "203.0.113.130" },
+      );
+      expect(restored).toMatchObject({ status: "published" });
+      if (restored.status !== "published") throw new Error("restore failed");
+      await expect(
+        getCampusMapPlaceRevision(
+          created.placeId,
+          restored.changes[0].revisionId,
+        ),
+      ).resolves.toMatchObject({
+        status: "active",
+        content: {
+          visibility: "public",
+          fact: {
+            name: "server lifecycle date",
+            provenance: expect.arrayContaining([
+              expect.objectContaining({
+                kind: "other",
+                accessedOn: "2026-09-01",
+              }),
+            ]),
+          },
+        },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rechecks admin authority before replaying a lifecycle result", async () => {
+    const adminId = await createActor();
+    const created = await createPlace(adminId, "demotion replay");
+    const command = lifecycleCommand({
+      kind: "retire",
+      placeId: created.placeId,
+      baseRevisionId: created.revisionId,
+    });
+    await expect(
+      governCampusMapFacts(command, {
+        actorId: adminId,
+        clientIp: "203.0.113.131",
+      }),
+    ).resolves.toMatchObject({ status: "published" });
+
+    await pool.query("update users set role = 'user' where id = $1", [adminId]);
+    await expect(
+      governCampusMapFacts(command, {
+        actorId: adminId,
+        clientIp: "203.0.113.131",
+      }),
+    ).resolves.toEqual({ status: "forbidden", code: "admin-required" });
+  });
+
   it("atomically merges stable IDs and preserves both histories and deep links", async () => {
     const adminId = await createActor();
     const survivor = await createPlace(adminId, "merge survivor old");
@@ -642,7 +793,7 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
             provenance: expect.arrayContaining([
               expect.objectContaining({
                 kind: "other",
-                accessedOn: "2026-09-01",
+                accessedOn: currentHongKongDate(),
               }),
             ]),
           },
@@ -671,7 +822,7 @@ describe.skipIf(!hasDb)("Campus Map fact governance", () => {
             source_ref: expect.stringMatching(
               /^campus-map-admin-lifecycle:[0-9a-f]{64}$/,
             ),
-            accessed_on: "2026-09-01",
+            accessed_on: currentHongKongDate(),
             note: command.reason,
           }),
         ),

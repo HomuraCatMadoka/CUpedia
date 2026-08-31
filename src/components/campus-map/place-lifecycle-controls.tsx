@@ -41,15 +41,6 @@ const lifecycleCopy = {
   },
 } as const;
 
-function currentHongKongDate(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Hong_Kong",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
 function lifecycleError(code: string): {
   message: string;
   kind: "reason" | "action";
@@ -103,10 +94,7 @@ export function PlaceLifecycleControls({
   const reasonRef = useRef<HTMLTextAreaElement>(null);
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
-  const [requestIdentity, setRequestIdentity] = useState<{
-    idempotencyKey: string;
-    sourceAccessedOn: string;
-  } | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
   const [error, setError] = useState<{
     message: string;
     kind: "reason" | "action";
@@ -119,7 +107,7 @@ export function PlaceLifecycleControls({
     setError(null);
     if (!nextOpen) {
       setReason("");
-      setRequestIdentity(null);
+      setIdempotencyKey(null);
     }
   }
 
@@ -130,11 +118,8 @@ export function PlaceLifecycleControls({
       reasonRef.current?.focus();
       return;
     }
-    const request = requestIdentity ?? {
-      idempotencyKey: crypto.randomUUID(),
-      sourceAccessedOn: currentHongKongDate(),
-    };
-    setRequestIdentity(request);
+    const requestKey = idempotencyKey ?? crypto.randomUUID();
+    setIdempotencyKey(requestKey);
     setError(null);
     startTransition(async () => {
       try {
@@ -143,12 +128,12 @@ export function PlaceLifecycleControls({
           placeId,
           baseRevisionId,
           reason: normalizedReason,
-          ...request,
+          idempotencyKey: requestKey,
         });
         if (result.status === "published") {
           setOpen(false);
           setReason("");
-          setRequestIdentity(null);
+          setIdempotencyKey(null);
           router.refresh();
           return;
         }
@@ -202,7 +187,7 @@ export function PlaceLifecycleControls({
             onChange={(event) => {
               setReason(event.target.value);
               setError(null);
-              setRequestIdentity(null);
+              setIdempotencyKey(null);
             }}
           />
         </label>

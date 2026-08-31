@@ -266,8 +266,10 @@ describe("Campus Map Place detail (#816, #825)", () => {
       baseRevisionId: revisionId,
       reason: "地点已拆除",
       idempotencyKey: expect.any(String),
-      sourceAccessedOn: "2026-08-31",
     });
+    expect(lifecycleAction.mock.calls[0][0]).not.toHaveProperty(
+      "sourceAccessedOn",
+    );
     const completedRequest = lifecycleAction.mock.calls[0][0];
     resolveAction?.({ status: "published" });
     await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
@@ -294,9 +296,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
       false,
     );
     const retryableRequest = lifecycleAction.mock.calls.at(-1)![0];
-    expect(retryableRequest).toMatchObject({
-      sourceAccessedOn: "2026-08-31",
-    });
+    expect(retryableRequest).not.toHaveProperty("sourceAccessedOn");
     expect(retryableRequest.idempotencyKey).not.toBe(
       completedRequest.idempotencyKey,
     );
@@ -314,7 +314,6 @@ describe("Campus Map Place detail (#816, #825)", () => {
       false,
     );
     expect(lifecycleAction.mock.calls.at(-1)?.[0]).toMatchObject({
-      sourceAccessedOn: "2026-08-31",
       idempotencyKey: retryableRequest.idempotencyKey,
     });
 
@@ -328,9 +327,9 @@ describe("Campus Map Place detail (#816, #825)", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: /确认停用：停用原因/ }),
     );
-    expect(lifecycleAction.mock.calls.at(-1)?.[0]).toMatchObject({
-      sourceAccessedOn: "2026-09-01",
-    });
+    expect(lifecycleAction.mock.calls.at(-1)?.[0]).not.toHaveProperty(
+      "sourceAccessedOn",
+    );
     expect(lifecycleAction.mock.calls.at(-1)?.[0].idempotencyKey).not.toBe(
       retryableRequest.idempotencyKey,
     );
