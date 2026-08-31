@@ -222,7 +222,9 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
       await expect(
         detail.getByRole("heading", { name: placeName }),
       ).toBeVisible();
-      await expect(detail.getByText("使用中", { exact: true })).toBeVisible();
+      await expect(
+        detail.getByText("地图已收录", { exact: true }),
+      ).toBeVisible();
       await expect(detail.getByText("饮水点", { exact: true })).toBeVisible();
       await expect(detail.getByText("室外 · 精确位置")).toBeVisible();
       await expect(detail.getByText("中大成员", { exact: true })).toBeVisible();
@@ -246,7 +248,9 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
       await expect(
         detail.getByRole("heading", { name: placeName }),
       ).toBeVisible();
-      await expect(detail.getByText("使用中", { exact: true })).toBeVisible();
+      await expect(
+        detail.getByText("地图已收录", { exact: true }),
+      ).toBeVisible();
     });
   }
 
@@ -374,7 +378,7 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await restoreReason.fill("现场确认已重新开放");
     await page.getByRole("button", { name: "确认恢复：恢复原因" }).click();
     await expect(
-      page.locator("#main-content").getByText("使用中", { exact: true }),
+      page.locator("#main-content").getByText("地图已收录", { exact: true }),
     ).toBeVisible();
     await expect(page.getByText("这个地点已停用")).toHaveCount(0);
 

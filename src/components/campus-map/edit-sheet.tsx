@@ -473,6 +473,10 @@ export function CampusMapEditSheet({
     isChoosingIndoorLocation ||
     fact.location?.kind === "building" ||
     fact.location?.kind === "floor";
+  const isMissingIndoorBuilding =
+    indoorSelected &&
+    fact.location?.kind !== "building" &&
+    fact.location?.kind !== "floor";
   const selectedBuilding = buildings.find(
     (building) => building.buildingId === fact.buildingId,
   );
@@ -1697,7 +1701,8 @@ export function CampusMapEditSheet({
             disabled={
               isPlacing
                 ? placementPending
-                : session.status !== "editing" || !isCampusMapEditDirty(session)
+                : session.status !== "editing" ||
+                  (!isCampusMapEditDirty(session) && !isMissingIndoorBuilding)
             }
             onClick={() => {
               onEvent(
@@ -1709,9 +1714,7 @@ export function CampusMapEditSheet({
                       ...(serverRequiredFields
                         ? { requiredFields: serverRequiredFields }
                         : {}),
-                      ...(indoorSelected &&
-                      fact.location?.kind !== "building" &&
-                      fact.location?.kind !== "floor"
+                      ...(isMissingIndoorBuilding
                         ? { blockingField: "buildingId" as const }
                         : {}),
                     },

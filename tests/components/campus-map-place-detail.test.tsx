@@ -88,6 +88,8 @@ describe("Campus Map Place detail (#816)", () => {
     );
 
     expect(screen.getByRole("heading", { name: fact.name })).toBeTruthy();
+    expect(screen.getByText("地图已收录", { exact: true })).toBeTruthy();
+    expect(screen.queryByText("使用中", { exact: true })).toBeNull();
     expect(screen.getByText("饮水点")).toBeTruthy();
     expect(screen.getByText("联合书院图书馆 · 1/F")).toBeTruthy();
     expect(screen.getByText("中大成员")).toBeTruthy();
@@ -102,6 +104,30 @@ describe("Campus Map Place detail (#816)", () => {
     expect(screen.queryByText(placeId)).toBeNull();
     expect(document.body.textContent).not.toMatch(/Revision|Changeset/);
     expect(screen.queryByRole("button", { name: "停用地点" })).toBeNull();
+  });
+
+  it("separates map inclusion from a temporary closure", () => {
+    render(
+      <CampusMapPlaceDetail
+        placeId={placeId}
+        head={{
+          revisionId,
+          status: "active",
+          visibility: "public",
+          mergedIntoPlaceId: null,
+          name: fact.name,
+        }}
+        fact={{ ...fact, temporaryStatus: "temporarily-closed" }}
+        retirementReason={null}
+        mapHref="/campus-map?v=1"
+        building={{ name: "联合书院图书馆", floorLabel: "1/F" }}
+        isAdmin={false}
+      />,
+    );
+
+    expect(screen.getByText("地图已收录", { exact: true })).toBeTruthy();
+    expect(screen.getByText("暂时关闭", { exact: true })).toBeTruthy();
+    expect(screen.queryByText("使用中", { exact: true })).toBeNull();
   });
 
   it("keeps a readable retired tombstone and only gives an admin the restore entry", () => {

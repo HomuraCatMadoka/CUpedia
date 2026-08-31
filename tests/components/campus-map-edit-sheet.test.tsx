@@ -592,7 +592,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
   });
 
-  it("routes an indoor placement without a Building through accessible validation", () => {
+  it("routes a clean Edit switched indoors without a Building through accessible validation", () => {
     const onEvent = vi.fn();
     const outdoorFact = {
       ...draft().fact,
@@ -605,11 +605,18 @@ describe("Campus Map single-page edit Sheet", () => {
         precision: "approximate" as const,
       },
     };
+    const cleanEditDraft = createCampusMapEditDraft({
+      mode: "edit",
+      idempotencyKey: "10000000-0000-4000-8000-000000000001",
+      placeId,
+      baseRevisionId: revisionId,
+      fact: outdoorFact,
+    });
     const view = render(
       <CampusMapEditSheet
         session={{
           status: "editing",
-          draft: { ...draft(), fact: outdoorFact },
+          draft: cleanEditDraft,
         }}
         centerPosition={[114.209, 22.419]}
         buildings={buildings}
@@ -618,7 +625,7 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     fireEvent.click(screen.getByRole("radio", { name: "建筑内" }));
-    const publish = screen.getByRole("button", { name: "发布设施" });
+    const publish = screen.getByRole("button", { name: "发布修改" });
     expect(publish).not.toHaveProperty("disabled", true);
     fireEvent.click(publish);
     expect(onEvent).toHaveBeenLastCalledWith({
@@ -632,7 +639,7 @@ describe("Campus Map single-page edit Sheet", () => {
         session={{
           status: "editing",
           localError: "buildingId",
-          draft: { ...draft(), fact: outdoorFact },
+          draft: cleanEditDraft,
         }}
         centerPosition={[114.209, 22.419]}
         buildings={buildings}

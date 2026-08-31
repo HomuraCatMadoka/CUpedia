@@ -78,6 +78,7 @@ import {
   CampusMapBrowseProjectionStore,
   type CampusMapBrowseRefreshResult,
 } from "@/lib/campus-map/browse-projection-store";
+import { summarizeCampusMapAccess } from "@/lib/campus-map/access-summary";
 import { projectCampusMapBuildingDirectory } from "@/lib/campus-map/building-directory";
 import {
   CAMPUS_MAP_CATEGORY_PEEK_RESULT_LIMIT,
@@ -463,38 +464,7 @@ function facilityBackLabel(returnTo: CampusMapSession | null) {
 }
 
 function accessLabel(facility: Place) {
-  if (facility.access.temporaryStatus === "temporarily-closed") {
-    return "暂时停用";
-  }
-  if (
-    facility.access.audience === "unknown" ||
-    facility.access.credentialRequirement === "unknown" ||
-    facility.access.schedule.kind === "unknown" ||
-    facility.access.reservationRequirement === "unknown" ||
-    facility.access.temporaryStatus === "unknown"
-  ) {
-    return null;
-  }
-  const conditions: string[] = [];
-  if (facility.access.audience === "cuhk-member") {
-    conditions.push("限中大成员");
-  } else if (facility.access.audience === "library-member") {
-    conditions.push("限图书馆成员");
-  }
-  if (facility.access.credentialRequirement === "campus-card") {
-    conditions.push("需校园卡");
-  } else if (facility.access.credentialRequirement === "library-card") {
-    conditions.push("需图书证");
-  } else if (facility.access.credentialRequirement === "other") {
-    conditions.push("需其他凭证");
-  }
-  if (facility.access.schedule.kind === "weekly") {
-    conditions.push("按时段开放");
-  }
-  if (facility.access.reservationRequirement === "required") {
-    conditions.push("需要预约");
-  }
-  return conditions.length > 0 ? conditions.join(" · ") : "公众可达";
+  return summarizeCampusMapAccess(facility.access);
 }
 
 function metadataLabel(...parts: Array<string | null | undefined>) {
@@ -1194,6 +1164,9 @@ export function CampusMapRuntime({
     activeProviderTargetError?.snap ??
     (selectedProviderPoi ? "peek" : state.sheet.snap);
   const selectedFacility = facilityFor(state.selection, places);
+  const selectedAccessLabel = selectedFacility
+    ? summarizeCampusMapAccess(selectedFacility.access)
+    : null;
   const selectedBuilding = selectedFacility?.buildingId
     ? (buildings.find(
         (building) => building.buildingId === selectedFacility.buildingId,
@@ -2938,26 +2911,25 @@ export function CampusMapRuntime({
 
             {selectedFacility ? (
               <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:pb-5">
-                {accessLabel(selectedFacility) ? (
+                {selectedAccessLabel ? (
                   <p className="pt-4 text-sm text-neutral-600">
-                    {accessLabel(selectedFacility)}
+                    {selectedAccessLabel}
                   </p>
                 ) : null}
                 <div
                   role="group"
                   aria-label="地点操作"
                   className={cn(
-                    "grid grid-cols-3 gap-2",
-                    accessLabel(selectedFacility) ? "mt-3" : "mt-4",
+                    "grid grid-cols-2 gap-2",
+                    selectedAccessLabel ? "mt-3" : "mt-4",
                   )}
                 >
-                  <button
-                    type="button"
-                    className="min-h-11 touch-manipulation rounded-xl bg-[#174b38] px-2 text-sm font-semibold text-white hover:bg-[#123d2e] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 motion-reduce:transform-none"
-                    onClick={() => startEdit(selectedFacility)}
+                  <Link
+                    href={`/campus-map/places/${selectedFacility.placeId}`}
+                    className="col-span-2 flex min-h-11 touch-manipulation items-center justify-center rounded-xl bg-[#174b38] px-3 text-center text-sm font-semibold text-white hover:bg-[#123d2e] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 motion-reduce:transform-none"
                   >
-                    建议修改
-                  </button>
+                    查看完整详情
+                  </Link>
                   <button
                     type="button"
                     className="min-h-11 touch-manipulation rounded-xl border border-[#174b38] px-2 text-sm font-semibold text-[#174b38] hover:bg-[#edf5f1] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none"
@@ -2969,12 +2941,13 @@ export function CampusMapRuntime({
                       ? "定位地点"
                       : "定位所属建筑"}
                   </button>
-                  <Link
-                    href={`/campus-map/places/${selectedFacility.placeId}`}
-                    className="flex min-h-11 touch-manipulation items-center justify-center rounded-xl border border-black/15 px-2 text-center text-sm font-semibold text-neutral-700 hover:bg-neutral-50 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none"
+                  <button
+                    type="button"
+                    className="min-h-11 touch-manipulation justify-self-end rounded-xl px-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-100 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none"
+                    onClick={() => startEdit(selectedFacility)}
                   >
-                    查看完整详情
-                  </Link>
+                    建议修改
+                  </button>
                 </div>
               </div>
             ) : selectedBuilding ? (
