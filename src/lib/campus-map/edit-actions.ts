@@ -12,12 +12,13 @@ import {
   publishCampusMapChangeset,
   reconcileCampusMapPublishReceipt,
 } from "@/lib/campus-map/publish";
+import type { CampusMapIndoorLocationDisplay } from "@/lib/campus-map/edit-session";
+import { toCampusMapRepublishableFact } from "@/lib/campus-map/place-fact-conversion";
 import type {
   CampusMapPublishActorIdentity,
   CampusMapPublishReconciliation,
   CampusMapPublishTransportResult,
 } from "@/lib/campus-map/publish-receipt-consumer";
-import type { CampusMapIndoorLocationDisplay } from "@/lib/campus-map/edit-session";
 import type {
   CampusMapPublishCommand,
   CampusMapPublishFactInput,
@@ -38,18 +39,11 @@ export async function loadCampusMapEditablePlace(
   await requireAuth();
   const place = await getCampusMapCurrentPlace(placeId);
   if (!place) return null;
-  const buildingId =
-    place.location.kind === "building" || place.location.kind === "floor"
-      ? place.location.building.id
-      : null;
-  const floorId =
-    place.location.kind === "floor" ? place.location.floor.id : null;
-  const location: CampusMapPublishFactInput["location"] =
-    place.location.kind === "outdoor-point"
-      ? { kind: "outdoor-point", ...place.location.point }
-      : place.location.kind === "floor"
-        ? { kind: "floor" }
-        : { kind: "building" };
+  const converted = toCampusMapRepublishableFact({
+    kind: "current",
+    fact: place,
+  });
+  if (!converted.ok) return null;
   const locationDisplay: CampusMapIndoorLocationDisplay | null =
     place.location.kind === "outdoor-point"
       ? null
@@ -67,22 +61,7 @@ export async function loadCampusMapEditablePlace(
     placeId: place.id,
     baseRevisionId: place.revisionId,
     locationDisplay,
-    fact: {
-      name: place.name,
-      buildingId,
-      floorId,
-      pinType: place.pinType,
-      capabilities: place.capabilities,
-      gender: place.facets.gender,
-      wheelchairAccess: place.facets.wheelchairAccess,
-      audience: place.access.audience,
-      credentialRequirement: place.access.credentialRequirement,
-      accessSchedule: place.access.schedule,
-      reservationRequirement: place.access.reservationRequirement,
-      temporaryStatus: place.access.temporaryStatus,
-      location,
-      observedAt: place.observedAt?.toISOString() ?? null,
-    },
+    fact: converted.fact,
   };
 }
 

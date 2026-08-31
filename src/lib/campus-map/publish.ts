@@ -57,6 +57,7 @@ import type {
 } from "@/lib/campus-map/publish-contract";
 import { consumePublishRate } from "@/lib/campus-map/publish-rate-policy";
 import { findActiveCampusMapContributorBlock } from "@/lib/campus-map/moderation-governance";
+import { toCampusMapRepublishableFact } from "@/lib/campus-map/place-fact-conversion";
 import { createCampusMapLifecycleSource } from "@/lib/campus-map/place-lifecycle-source";
 import type { CampusMapPublishReconciliation } from "@/lib/campus-map/publish-receipt-consumer";
 
@@ -223,14 +224,16 @@ async function prepareCampusMapLifecycle(
     const [base] = await store.lockGovernanceRevisionSnapshots([
       { placeId: command.placeId, revisionId: command.baseRevisionId },
     ]);
-    const fact =
-      base?.visibility === "public" ? toRestorablePublishFact(base.fact) : null;
-    if (!fact) return lifecycleSnapshotUnavailable(command.placeId);
+    const converted =
+      base?.visibility === "public"
+        ? toCampusMapRepublishableFact({ kind: "stored", fact: base.fact })
+        : null;
+    if (!converted?.ok) return lifecycleSnapshotUnavailable(command.placeId);
     change = {
       operation: "restore",
       placeId: command.placeId,
       baseRevisionId: command.baseRevisionId,
-      fact,
+      fact: converted.fact,
       sources: [lifecycleSource],
     };
   } else {
@@ -284,7 +287,13 @@ async function prepareCampusMapRevert(
   if (operation === null) {
     return governanceValidationFailure("revision-status-not-revertible");
   }
-  const targetFact = toPublishFact(target.fact);
+  const convertedTarget = toCampusMapRepublishableFact({
+    kind: "stored",
+    fact: target.fact,
+  });
+  if (!convertedTarget.ok) {
+    return governanceValidationFailure("revision-fact-unavailable");
+  }
   const publishCommand: CampusMapPublishCommand = {
     kind: "single",
     idempotencyKey: command.idempotencyKey,
@@ -298,7 +307,7 @@ async function prepareCampusMapRevert(
         operation,
         placeId: command.placeId,
         baseRevisionId: command.baseRevisionId,
-        fact: targetFact,
+        fact: convertedTarget.fact,
         sources: command.sources,
       },
     ],
@@ -343,11 +352,22 @@ async function prepareCampusMapMerge(
   ) {
     return governanceValidationFailure("redacted-revision-not-mergeable");
   }
+  const convertedSurvivor = toCampusMapRepublishableFact({
+    kind: "stored",
+    fact: survivorBase.fact,
+  });
+  const convertedLoser = toCampusMapRepublishableFact({
+    kind: "stored",
+    fact: loserBase.fact,
+  });
+  if (!convertedSurvivor.ok || !convertedLoser.ok) {
+    return governanceValidationFailure("revision-fact-unavailable");
+  }
   if (
     !hasConsistentFieldResolution(
       command.survivor.fact,
-      toPublishFact(survivorBase.fact),
-      toPublishFact(loserBase.fact),
+      convertedSurvivor.fact,
+      convertedLoser.fact,
       command.fieldResolutions,
     )
   ) {
@@ -499,49 +519,6 @@ function hasConsistentFieldResolution(
     }
     return !(resolution.field in createFieldDiff(sourceFact, resolvedFact));
   });
-}
-
-function toPublishFact(fact: CampusMapAppendFact): CampusMapPublishFactInput {
-  return {
-    name: fact.name,
-    buildingId: fact.buildingId,
-    floorId: fact.floorId,
-    pinType: fact.pinType,
-    capabilities: [...fact.capabilities],
-    gender: fact.gender,
-    wheelchairAccess: fact.wheelchairAccess,
-    audience: fact.audience,
-    credentialRequirement: fact.credentialRequirement,
-    accessSchedule: fact.accessSchedule,
-    reservationRequirement: fact.reservationRequirement,
-    temporaryStatus: fact.temporaryStatus,
-    location:
-      fact.locationKind === "outdoor-point"
-        ? {
-            kind: "outdoor-point",
-            longitude: fact.longitude!,
-            latitude: fact.latitude!,
-            crs: "wgs84",
-            precision: fact.pointPrecision!,
-          }
-        : { kind: fact.locationKind },
-    observedAt: fact.observedAt?.toISOString() ?? null,
-  };
-}
-
-function toRestorablePublishFact(
-  fact: CampusMapAppendFact,
-): CampusMapPublishFactInput | null {
-  if (
-    fact.locationKind === "outdoor-point" &&
-    (fact.longitude === null ||
-      fact.latitude === null ||
-      fact.coordinateCrs !== "wgs84" ||
-      fact.pointPrecision === null)
-  ) {
-    return null;
-  }
-  return toPublishFact(fact);
 }
 
 function lifecycleSnapshotUnavailable(placeId: string): CampusMapPublishResult {
@@ -1943,23 +1920,12 @@ function locationDiffValue(fact: CampusMapAppendFact): unknown {
 
 function toSafeSnapshot(
   current: CampusMapLockedRevisionSnapshot,
-): CampusMapPublishSafeSnapshot {
-  const fact = current.fact;
-  return {
-    factSchemaVersion: current.factSchemaVersion,
-    name: fact.name,
-    buildingId: fact.buildingId,
-    floorId: fact.floorId,
-    pinType: fact.pinType,
-    capabilities: fact.capabilities,
-    gender: fact.gender,
-    wheelchairAccess: fact.wheelchairAccess,
-    audience: fact.audience,
-    credentialRequirement: fact.credentialRequirement,
-    accessSchedule: fact.accessSchedule,
-    reservationRequirement: fact.reservationRequirement,
-    temporaryStatus: fact.temporaryStatus,
-    location: locationDiffValue(fact) as CampusMapPublishFactInput["location"],
-    observedAt: fact.observedAt?.toISOString() ?? null,
-  };
+): CampusMapPublishSafeSnapshot | null {
+  const converted = toCampusMapRepublishableFact({
+    kind: "stored",
+    fact: current.fact,
+  });
+  return converted.ok
+    ? { factSchemaVersion: current.factSchemaVersion, ...converted.fact }
+    : null;
 }
