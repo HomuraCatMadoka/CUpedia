@@ -2647,10 +2647,8 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
           currentSnapshot: expect.objectContaining({
             factSchemaVersion: 1,
             name: "先发布的名称",
-            location: {
-              kind: "building",
-              buildingId: "00000000-0000-4000-8000-000000000802",
-            },
+            buildingId: "00000000-0000-4000-8000-000000000802",
+            location: { kind: "building" },
           }),
         },
       ],
