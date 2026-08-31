@@ -1049,6 +1049,53 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
+  it("focuses and announces the Building control for indoor intent without a selection", () => {
+    const session = editSession();
+    const reported = transitionCampusMapEdit(
+      {
+        ...session,
+        draft: {
+          ...session.draft,
+          fact: { ...session.draft.fact, name: `${session.draft.fact.name} A` },
+        },
+      },
+      {
+        type: "REQUEST_PUBLISH",
+        blockingField: "buildingId",
+      },
+    );
+
+    expect(reported.session).toMatchObject({ localError: "buildingId" });
+    expect(reported.commands).toContainEqual({
+      kind: "focus",
+      target: "building",
+    });
+    expect(reported.commands).toContainEqual({
+      kind: "announce",
+      message: "请选择建筑",
+    });
+  });
+
+  it("keeps an invalid name ahead of a missing Building in publish order", () => {
+    const session = editSession();
+    const invalidName = transitionCampusMapEdit(
+      {
+        ...session,
+        draft: {
+          ...session.draft,
+          fact: { ...session.draft.fact, name: "" },
+        },
+      },
+      { type: "REQUEST_PUBLISH", blockingField: "buildingId" },
+    );
+
+    expect(invalidName.session).toMatchObject({ localError: "name" });
+    expect(invalidName.commands).toContainEqual({
+      kind: "focus",
+      target: "name",
+    });
+  });
+
   it("clears stale validation feedback when the contributor changes a fact", () => {
     const invalidDraft = createCampusMapEditDraft({
       mode: "add",

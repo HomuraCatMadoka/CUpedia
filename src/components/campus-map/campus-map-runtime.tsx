@@ -270,6 +270,15 @@ function approximateDistanceLabel(distanceMeters: number) {
   return `约 ${roundedLocationMeters(distanceMeters)} 米（直线距离）`;
 }
 
+function nearbyDistanceLabel(distance: {
+  distanceMeters: number;
+  distanceEvidence: "place-point" | "building-anchor";
+}) {
+  return distance.distanceEvidence === "place-point"
+    ? approximateDistanceLabel(distance.distanceMeters)
+    : `约距所在建筑 ${roundedLocationMeters(distance.distanceMeters)} 米`;
+}
+
 function userLocationStatusText(state: UserLocationState) {
   if (state.status === "locating") return "正在读取你这一次的位置…";
   if (state.status === "located") {
@@ -2143,15 +2152,21 @@ export function CampusMapRuntime({
     : null;
   const categoryDistanceByPlaceId = useMemo(() => {
     if (!activeAmenity || userLocation.status !== "located") {
-      return new Map<string, number>();
+      return new Map<
+        string,
+        {
+          distanceMeters: number;
+          distanceEvidence: "place-point" | "building-anchor";
+        }
+      >();
     }
     return new Map(
       queryCampusMapNearby(browseProjection, {
         ...userLocation.position,
         pinType: activeAmenity,
-      }).places.map(({ place, distanceMeters }) => [
+      }).places.map(({ place, distanceMeters, distanceEvidence }) => [
         place.placeId,
-        distanceMeters,
+        { distanceMeters, distanceEvidence },
       ]),
     );
   }, [activeAmenity, browseProjection, userLocation]);
@@ -2164,7 +2179,7 @@ export function CampusMapRuntime({
       if (firstDistance === undefined)
         return secondDistance === undefined ? 0 : 1;
       if (secondDistance === undefined) return -1;
-      return firstDistance - secondDistance;
+      return firstDistance.distanceMeters - secondDistance.distanceMeters;
     });
   }, [categoryDistanceByPlaceId, categoryResults]);
   const visibleCategoryFacilities =
@@ -2784,7 +2799,7 @@ export function CampusMapRuntime({
                     facility={facility}
                     metadata={metadataLabel(
                       categoryDistanceByPlaceId.has(facility.placeId)
-                        ? approximateDistanceLabel(
+                        ? nearbyDistanceLabel(
                             categoryDistanceByPlaceId.get(facility.placeId)!,
                           )
                         : null,

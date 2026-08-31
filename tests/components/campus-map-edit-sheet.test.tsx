@@ -592,6 +592,62 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
   });
 
+  it("routes an indoor placement without a Building through accessible validation", () => {
+    const onEvent = vi.fn();
+    const outdoorFact = {
+      ...draft().fact,
+      name: "准备改到室内的饮水机",
+      location: {
+        kind: "outdoor-point" as const,
+        longitude: 114.209,
+        latitude: 22.419,
+        crs: "wgs84" as const,
+        precision: "approximate" as const,
+      },
+    };
+    const view = render(
+      <CampusMapEditSheet
+        session={{
+          status: "editing",
+          draft: { ...draft(), fact: outdoorFact },
+        }}
+        centerPosition={[114.209, 22.419]}
+        buildings={buildings}
+        onEvent={onEvent}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: "建筑内" }));
+    const publish = screen.getByRole("button", { name: "发布设施" });
+    expect(publish).not.toHaveProperty("disabled", true);
+    fireEvent.click(publish);
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "REQUEST_PUBLISH",
+      accessedOn: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      blockingField: "buildingId",
+    });
+
+    view.rerender(
+      <CampusMapEditSheet
+        session={{
+          status: "editing",
+          localError: "buildingId",
+          draft: { ...draft(), fact: outdoorFact },
+        }}
+        centerPosition={[114.209, 22.419]}
+        buildings={buildings}
+        onEvent={onEvent}
+      />,
+    );
+    const building = screen.getByRole("combobox", { name: "建筑" });
+    expect(building.getAttribute("aria-invalid")).toBe("true");
+    const describedBy = building.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy!)?.textContent).toContain(
+      "请选择建筑",
+    );
+  });
+
   it("keeps the edit heading programmatically focusable", () => {
     render(
       <CampusMapEditSheet
@@ -1025,6 +1081,68 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(alert.textContent).not.toContain("Place");
     expect(alert.textContent).not.toContain("invalid-place-id");
     expect(alert.textContent).not.toContain("internal-opaque-code");
+  });
+
+  it.each([
+    ["fact-name-required", "请填写能辨认这处设施的名称或编号。"],
+    ["fact-name-invalid", "名称含有无法保存的字符，请删除后重试。"],
+    ["fact-name-too-long", "名称过长，请缩短后重试。"],
+  ])("shows accurate top and field feedback for %s", (code, message) => {
+    const session = {
+      status: "editing",
+      localError: "name",
+      draft: draft(),
+      serverErrors: [
+        {
+          code,
+          anchor: { changeIndex: 0, field: "name" },
+        },
+      ],
+    } as CampusMapEditSession;
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alert").textContent).toContain(message);
+    const name = document.querySelector<HTMLInputElement>(
+      'input[name="campus-map-place-name"]',
+    )!;
+    const describedBy = name.getAttribute("aria-describedby");
+    expect(document.getElementById(describedBy!)?.textContent).toContain(
+      message,
+    );
+  });
+
+  it.each([
+    ["", "请填写能辨认这处设施的名称或编号。"],
+    ["名称\u0000", "名称含有无法保存的字符，请删除后重试。"],
+    ["你".repeat(81), "名称过长，请缩短后重试。"],
+  ])("shows accurate local top and field feedback for %j", (name, message) => {
+    const session = {
+      status: "editing",
+      localError: "name",
+      draft: { ...draft(), fact: { ...draft().fact, name } },
+    } as CampusMapEditSession;
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alert").textContent).toContain(message);
+    const input = document.querySelector<HTMLInputElement>(
+      'input[name="campus-map-place-name"]',
+    )!;
+    const describedBy = input.getAttribute("aria-describedby");
+    expect(document.getElementById(describedBy!)?.textContent).toContain(
+      message,
+    );
   });
 
   it("keeps provenance controls out while exposing canonical access controls", () => {

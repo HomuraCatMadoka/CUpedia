@@ -16,6 +16,7 @@ import {
 import {
   CAMPUS_MAP_EDIT_ACCESS_FIELDS,
   CAMPUS_MAP_EDIT_SCHEMA,
+  campusMapFactNameError,
 } from "@/lib/campus-map/edit-schema";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
@@ -59,6 +60,8 @@ const WEEKDAYS = [
 function messageForError(code: string): string {
   const messages: Record<string, string> = {
     "fact-name-required": "请填写能辨认这处设施的名称或编号。",
+    "fact-name-invalid": "名称含有无法保存的字符，请删除后重试。",
+    "fact-name-too-long": "名称过长，请缩短后重试。",
     "source-required": "发布资料不完整，请重试。",
     "invalid-location": "位置资料不完整，请修改位置。",
     "base-revision-conflict": "地点资料已被其他人更新，请刷新后重试。",
@@ -484,6 +487,17 @@ export function CampusMapEditSheet({
       : "";
   const conflictKeepFields =
     conflictSelection.key === conflictKey ? conflictSelection.fields : [];
+  const serverNameError = session.serverErrors?.find((error) =>
+    (error.anchor.field ?? "").includes("name"),
+  );
+  const nameErrorMessage =
+    session.localError === "name"
+      ? messageForError(
+          serverNameError?.code ??
+            campusMapFactNameError(fact.name) ??
+            "fact-name-required",
+        )
+      : null;
 
   if (session.status === "published" && session.receipt) {
     return null;
@@ -1056,6 +1070,14 @@ export function CampusMapEditSheet({
             ))}
           </div>
         ) : null}
+        {!session.serverErrors?.length && nameErrorMessage ? (
+          <div
+            className="rounded-xl bg-red-50 p-3 text-sm text-red-900"
+            role="alert"
+          >
+            {nameErrorMessage}
+          </div>
+        ) : null}
         <div
           data-edit-field="location"
           tabIndex={-1}
@@ -1141,22 +1163,20 @@ export function CampusMapEditSheet({
               autoComplete="off"
               required
               data-edit-field="name"
-              aria-invalid={session.localError === "name" || undefined}
+              aria-invalid={nameErrorMessage ? true : undefined}
               aria-describedby={
-                session.localError === "name"
-                  ? `${fieldPrefix}-name-error`
-                  : undefined
+                nameErrorMessage ? `${fieldPrefix}-name-error` : undefined
               }
               className={fieldClass}
               value={fact.name}
               onChange={(event) => changeFact({ name: event.target.value })}
             />
-            {session.localError === "name" ? (
+            {nameErrorMessage ? (
               <span
                 id={`${fieldPrefix}-name-error`}
                 className="mt-1 block text-xs text-red-700"
               >
-                请填写能辨认这处设施的名称或编号。
+                {nameErrorMessage}
               </span>
             ) : null}
           </label>
@@ -1241,7 +1261,17 @@ export function CampusMapEditSheet({
                   <select
                     id={`${fieldPrefix}-building`}
                     name="campus-map-building"
+                    aria-label="建筑"
+                    data-edit-field="building"
                     className={fieldClass}
+                    aria-invalid={
+                      session.localError === "buildingId" || undefined
+                    }
+                    aria-describedby={
+                      session.localError === "buildingId"
+                        ? `${fieldPrefix}-building-error`
+                        : undefined
+                    }
                     value={fact.buildingId ?? ""}
                     onChange={(event) => {
                       const building = buildings.find(
@@ -1275,6 +1305,14 @@ export function CampusMapEditSheet({
                       </option>
                     ))}
                   </select>
+                  {session.localError === "buildingId" ? (
+                    <span
+                      id={`${fieldPrefix}-building-error`}
+                      className="mt-1 block text-xs text-red-700"
+                    >
+                      请选择建筑。
+                    </span>
+                  ) : null}
                 </label>
                 <label className="text-sm" htmlFor={`${fieldPrefix}-floor`}>
                   楼层
@@ -1659,13 +1697,9 @@ export function CampusMapEditSheet({
             disabled={
               isPlacing
                 ? placementPending
-                : session.status !== "editing" ||
-                  !isCampusMapEditDirty(session) ||
-                  (indoorSelected &&
-                    fact.location?.kind !== "building" &&
-                    fact.location?.kind !== "floor")
+                : session.status !== "editing" || !isCampusMapEditDirty(session)
             }
-            onClick={() =>
+            onClick={() => {
               onEvent(
                 isPlacing
                   ? { type: "CONFIRM_POSITION", position: placementPosition }
@@ -1675,9 +1709,14 @@ export function CampusMapEditSheet({
                       ...(serverRequiredFields
                         ? { requiredFields: serverRequiredFields }
                         : {}),
+                      ...(indoorSelected &&
+                      fact.location?.kind !== "building" &&
+                      fact.location?.kind !== "floor"
+                        ? { blockingField: "buildingId" as const }
+                        : {}),
                     },
-              )
-            }
+              );
+            }}
           >
             {isPlacing
               ? placementPending
