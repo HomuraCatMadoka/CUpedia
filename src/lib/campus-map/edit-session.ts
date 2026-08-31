@@ -452,7 +452,9 @@ function publishTransition(
   if (session.status === "published" || session.status === "publishing") {
     return rejected(session);
   }
-  if (!isCampusMapEditDirty(session)) return rejected(session);
+  if (!isCampusMapEditDirty(session) && !blockingField) {
+    return rejected(session);
+  }
   const draft =
     session.draft.sources.length === 0 && isDateOnly(accessedOn)
       ? {

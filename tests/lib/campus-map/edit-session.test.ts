@@ -1051,19 +1051,10 @@ describe("Campus Map edit session transition", () => {
 
   it("focuses and announces the Building control for indoor intent without a selection", () => {
     const session = editSession();
-    const reported = transitionCampusMapEdit(
-      {
-        ...session,
-        draft: {
-          ...session.draft,
-          fact: { ...session.draft.fact, name: `${session.draft.fact.name} A` },
-        },
-      },
-      {
-        type: "REQUEST_PUBLISH",
-        blockingField: "buildingId",
-      },
-    );
+    const reported = transitionCampusMapEdit(session, {
+      type: "REQUEST_PUBLISH",
+      blockingField: "buildingId",
+    });
 
     expect(reported.session).toMatchObject({ localError: "buildingId" });
     expect(reported.commands).toContainEqual({
@@ -1074,6 +1065,7 @@ describe("Campus Map edit session transition", () => {
       kind: "announce",
       message: "请选择建筑",
     });
+    expect(isCampusMapEditDirty(session)).toBe(false);
   });
 
   it("keeps an invalid name ahead of a missing Building in publish order", () => {

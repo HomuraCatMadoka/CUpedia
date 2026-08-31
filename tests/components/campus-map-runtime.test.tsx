@@ -598,6 +598,24 @@ describe("CampusMapRuntime", () => {
     expect(
       screen.getByRole("link", { name: "查看完整详情" }).getAttribute("href"),
     ).toBe(`/campus-map/places/${placeId}`);
+    const actions = screen.getByRole("group", { name: "地点操作" });
+    const controls = Array.from(actions.children) as HTMLElement[];
+    expect(controls.map((control) => control.textContent)).toEqual([
+      "查看完整详情",
+      "定位所属建筑",
+      "建议修改",
+    ]);
+    expect(
+      controls.every((control) => control.classList.contains("min-h-11")),
+    ).toBe(true);
+    expect(controls[0]?.classList.contains("bg-[#174b38]")).toBe(true);
+    expect(controls[1]?.classList.contains("border-[#174b38]")).toBe(true);
+    expect(controls[2]?.classList.contains("text-neutral-700")).toBe(true);
+    expect(
+      controls[2]?.className
+        .split(" ")
+        .some((token) => /(?:^|:)(?:bg|border|text)-(?:red|rose)-/.test(token)),
+    ).toBe(false);
   });
 
   it("refetches Current facts after publish so a standalone Place is searchable", async () => {

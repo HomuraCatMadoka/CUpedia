@@ -96,10 +96,10 @@ export function CampusMapPlaceDetail({
 }) {
   const statusLabel =
     head.status === "active"
-      ? "使用中"
+      ? "地图已收录"
       : head.status === "retired"
-        ? "已停用"
-        : "已合并";
+        ? "地图已停用"
+        : "地图已合并";
 
   return (
     <main className="w-full min-w-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_oklab,var(--color-emerald-500)_10%,transparent),transparent_42%)] px-4 py-8 sm:px-6 lg:py-12">
