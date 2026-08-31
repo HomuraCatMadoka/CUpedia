@@ -463,10 +463,6 @@ function facilityBackLabel(returnTo: CampusMapSession | null) {
   return "返回";
 }
 
-function accessLabel(facility: Place) {
-  return summarizeCampusMapAccess(facility.access);
-}
-
 function metadataLabel(...parts: Array<string | null | undefined>) {
   return parts.filter(Boolean).join(" · ");
 }
@@ -2383,7 +2379,7 @@ export function CampusMapRuntime({
                       : metadataLabel(
                           result.building?.name,
                           placeLocationLabel(result.facility),
-                          accessLabel(result.facility),
+                          summarizeCampusMapAccess(result.facility.access),
                         );
                   const content = (
                     <>
@@ -2778,7 +2774,7 @@ export function CampusMapRuntime({
                         : null,
                       building?.name,
                       placeLocationLabel(facility),
-                      accessLabel(facility),
+                      summarizeCampusMapAccess(facility.access),
                     )}
                     variant="category"
                     onSelect={() => selectFacility(facility, "category")}
@@ -3107,7 +3103,7 @@ export function CampusMapRuntime({
                                     facility={facility}
                                     metadata={metadataLabel(
                                       amenityStyle(facility.pinType).label,
-                                      accessLabel(facility),
+                                      summarizeCampusMapAccess(facility.access),
                                     )}
                                     variant="building"
                                     onSelect={() =>
