@@ -62,6 +62,16 @@ describe("AmapInteractionAdapter", () => {
     expect(commands).toEqual(["open-marker"]);
   });
 
+  it("ignores a provider callback that has no explicit pointer gesture", () => {
+    const adapter = new AmapInteractionAdapter();
+    const commands: string[] = [];
+
+    expect(
+      adapter.dispatchProviderTarget(() => commands.push("open-provider")),
+    ).toBe(false);
+    expect(commands).toEqual([]);
+  });
+
   it("settles an unclaimed blank-map click as one dismiss command", () => {
     const settlement = manualSettlement();
     const adapter = new AmapInteractionAdapter(settlement.schedule);

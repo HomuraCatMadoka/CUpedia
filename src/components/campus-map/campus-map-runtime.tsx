@@ -69,6 +69,7 @@ import {
   CAMPUS_MAP_DEFAULT_VIEW_CENTER as CAMPUS_CENTER,
   EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
   queryCampusMapBrowse,
+  queryCampusMapNearby,
   type CampusMapBrowseBuilding,
   type CampusMapBrowsePlace,
   type CampusMapBrowseProjection,
@@ -124,6 +125,18 @@ type Amenity = CampusMapAmenity;
 type Building = CampusMapBrowseBuilding;
 type Place = CampusMapBrowsePlace;
 type Position = CampusMapPosition;
+type UserLocationState =
+  | { status: "idle" }
+  | { status: "locating" }
+  | {
+      status: "located";
+      position: { longitude: number; latitude: number };
+      accuracyMeters: number;
+    }
+  | {
+      status: "error";
+      reason: "denied" | "timeout" | "unavailable" | "unsupported";
+    };
 type ResolvedMappedProviderTarget =
   | { kind: "building"; building: Building }
   | { kind: "place"; facility: Place };
@@ -247,6 +260,37 @@ function canonicalInitialSearch(
   const params = new URLSearchParams(search);
   if (params.get("v") === "1") return search;
   return `?${encodeCampusMapUrl(EMPTY_CAMPUS_MAP_SCENE_SESSION, catalog)}`;
+}
+
+function roundedLocationMeters(value: number) {
+  return Math.max(10, Math.round(value / 10) * 10);
+}
+
+function approximateDistanceLabel(distanceMeters: number) {
+  return `约 ${roundedLocationMeters(distanceMeters)} 米（直线距离）`;
+}
+
+function userLocationStatusText(state: UserLocationState) {
+  if (state.status === "locating") return "正在读取你这一次的位置…";
+  if (state.status === "located") {
+    const accuracy = roundedLocationMeters(state.accuracyMeters);
+    return state.accuracyMeters > 100
+      ? `已显示当前位置。定位精度较低（约 ${accuracy} 米），距离仅供参考。`
+      : `已显示当前位置，定位精度约 ${accuracy} 米。距离为直线距离。`;
+  }
+  if (state.status === "error") {
+    switch (state.reason) {
+      case "denied":
+        return "未获定位权限。搜索、分类和手动选点仍可使用。";
+      case "timeout":
+        return "定位超时。搜索、分类和手动选点仍可使用。";
+      case "unsupported":
+        return "此浏览器不支持定位。搜索、分类和手动选点仍可使用。";
+      case "unavailable":
+        return "暂时无法取得位置。搜索、分类和手动选点仍可使用。";
+    }
+  }
+  return "";
 }
 
 type ProjectedCampusMapSelection =
@@ -580,6 +624,10 @@ export function CampusMapRuntime({
     placeId: string;
     message: string;
   } | null>(null);
+  const [userLocation, setUserLocation] = useState<UserLocationState>({
+    status: "idle",
+  });
+  const userLocationRequestRef = useRef(0);
   const mapRef = useRef<AMapMap | null>(null);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
@@ -770,6 +818,77 @@ export function CampusMapRuntime({
     },
     [],
   );
+
+  const clearUserLocation = useCallback(() => {
+    userLocationRequestRef.current += 1;
+    setUserLocation({ status: "idle" });
+  }, []);
+
+  const cancelPendingUserLocation = useCallback(() => {
+    userLocationRequestRef.current += 1;
+    setUserLocation((current) =>
+      current.status === "locating" ? { status: "idle" } : current,
+    );
+  }, []);
+
+  const requestUserLocation = useCallback(() => {
+    const requestId = ++userLocationRequestRef.current;
+    if (!("geolocation" in navigator) || !navigator.geolocation) {
+      setUserLocation({ status: "error", reason: "unsupported" });
+      return;
+    }
+    setUserLocation({ status: "locating" });
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (result) => {
+          if (userLocationRequestRef.current !== requestId) return;
+          const longitude = result.coords.longitude;
+          const latitude = result.coords.latitude;
+          const accuracyMeters = result.coords.accuracy;
+          if (
+            !Number.isFinite(longitude) ||
+            !Number.isFinite(latitude) ||
+            longitude < -180 ||
+            longitude > 180 ||
+            latitude < -90 ||
+            latitude > 90 ||
+            !Number.isFinite(accuracyMeters) ||
+            accuracyMeters < 0
+          ) {
+            setUserLocation({ status: "error", reason: "unavailable" });
+            return;
+          }
+          setUserLocation({
+            status: "located",
+            position: { longitude, latitude },
+            accuracyMeters,
+          });
+          const offset = amapOffsetRef.current;
+          requestCamera(
+            [longitude + offset[0], latitude + offset[1]],
+            "map-selection",
+          );
+        },
+        (error) => {
+          if (userLocationRequestRef.current !== requestId) return;
+          setUserLocation({
+            status: "error",
+            reason:
+              error.code === 1
+                ? "denied"
+                : error.code === 3
+                  ? "timeout"
+                  : "unavailable",
+          });
+        },
+        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
+      );
+    } catch {
+      if (userLocationRequestRef.current === requestId) {
+        setUserLocation({ status: "error", reason: "unavailable" });
+      }
+    }
+  }, [requestCamera]);
 
   const executeDriverCamera = useCallback(
     (
@@ -1411,6 +1530,7 @@ export function CampusMapRuntime({
 
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
+      cancelPendingUserLocation();
       setPublishNotice(null);
       const restored = driver.restore(window.location.search, event.state);
       if (editSession && !restored.preservedReplacementTask) {
@@ -1421,11 +1541,18 @@ export function CampusMapRuntime({
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [dispatch, dispatchEditEvent, driver, editSession]);
+  }, [
+    cancelPendingUserLocation,
+    dispatch,
+    dispatchEditEvent,
+    driver,
+    editSession,
+  ]);
 
   const closeSelection = useCallback(() => {
+    cancelPendingUserLocation();
     dispatch({ type: "DISMISS" });
-  }, [dispatch]);
+  }, [cancelPendingUserLocation, dispatch]);
 
   const navigateEntityBack = useCallback(() => {
     dispatch({ type: "NAVIGATE_BACK" });
@@ -1794,6 +1921,26 @@ export function CampusMapRuntime({
   ]);
 
   useEffect(() => {
+    if (userLocation.status !== "located") return;
+    const map = mapRef.current;
+    const AMap = window.AMap;
+    if (!mapReady || !map || !AMap || coordinateVersion === 0) return;
+    const offset = amapOffsetRef.current;
+    const marker = new AMap.Marker({
+      position: new AMap.LngLat(
+        userLocation.position.longitude + offset[0],
+        userLocation.position.latitude + offset[1],
+      ),
+      content:
+        '<div data-campus-map-user-location aria-hidden="true" style="width:20px;height:20px;border:4px solid white;border-radius:9999px;background:#176346;box-shadow:0 2px 8px rgba(23,33,28,.35)"></div>',
+      zIndex: 220,
+    });
+    marker.setzIndex(220);
+    map.add(marker);
+    return () => map.remove([marker]);
+  }, [coordinateVersion, mapReady, userLocation]);
+
+  useEffect(() => {
     if (
       !mapReady ||
       clusterStatus !== "ready" ||
@@ -1880,6 +2027,7 @@ export function CampusMapRuntime({
 
   useEffect(
     () => () => {
+      userLocationRequestRef.current += 1;
       pointerGestureCleanupRef.current?.();
       pointerGestureCleanupRef.current = null;
       facilityMarkerRuntimeRef.current.destroy();
@@ -1943,7 +2091,32 @@ export function CampusMapRuntime({
   const categoryResults = activeAmenity
     ? queryCampusMapBrowse(browseProjection, { pinType: activeAmenity })
     : null;
-  const categoryFacilities = categoryResults?.places ?? [];
+  const categoryDistanceByPlaceId = useMemo(() => {
+    if (!activeAmenity || userLocation.status !== "located") {
+      return new Map<string, number>();
+    }
+    return new Map(
+      queryCampusMapNearby(browseProjection, {
+        ...userLocation.position,
+        pinType: activeAmenity,
+      }).places.map(({ place, distanceMeters }) => [
+        place.placeId,
+        distanceMeters,
+      ]),
+    );
+  }, [activeAmenity, browseProjection, userLocation]);
+  const categoryFacilities = useMemo(() => {
+    const places = categoryResults?.places ?? [];
+    if (!categoryDistanceByPlaceId.size) return places;
+    return [...places].sort((first, second) => {
+      const firstDistance = categoryDistanceByPlaceId.get(first.placeId);
+      const secondDistance = categoryDistanceByPlaceId.get(second.placeId);
+      if (firstDistance === undefined)
+        return secondDistance === undefined ? 0 : 1;
+      if (secondDistance === undefined) return -1;
+      return firstDistance - secondDistance;
+    });
+  }, [categoryDistanceByPlaceId, categoryResults]);
   const visibleCategoryFacilities =
     state.sheet.snap === "full"
       ? categoryFacilities
@@ -2289,6 +2462,50 @@ export function CampusMapRuntime({
           editSession && "invisible pointer-events-none opacity-0",
         )}
       >
+        {userLocation.status !== "idle" ? (
+          <div
+            role={userLocation.status === "error" ? "alert" : "status"}
+            aria-live="polite"
+            className="pointer-events-auto max-w-[min(320px,calc(100vw-24px))] rounded-xl border border-black/10 bg-white p-3 text-sm shadow-[0_4px_16px_rgba(23,33,28,.18)]"
+          >
+            <p>{userLocationStatusText(userLocation)}</p>
+            {userLocation.status === "located" ? (
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  className="min-h-11 rounded-lg border border-[#174b38] px-3 font-semibold text-[#174b38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                  onClick={requestUserLocation}
+                >
+                  重新定位
+                </button>
+                <button
+                  type="button"
+                  className="min-h-11 rounded-lg border border-black/15 px-3 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                  onClick={clearUserLocation}
+                >
+                  清除位置
+                </button>
+              </div>
+            ) : userLocation.status === "error" ? (
+              <button
+                type="button"
+                className="mt-2 min-h-11 rounded-lg border border-[#174b38] px-3 font-semibold text-[#174b38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                onClick={requestUserLocation}
+              >
+                重试定位
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        <button
+          type="button"
+          disabled={userLocation.status === "locating"}
+          className="pointer-events-auto flex min-h-11 items-center gap-2 rounded-xl border border-black/10 bg-white px-3 text-sm font-semibold shadow-[0_4px_16px_rgba(23,33,28,.18)] hover:bg-neutral-50 disabled:cursor-wait disabled:text-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
+          onClick={requestUserLocation}
+        >
+          <LocateFixedIcon aria-hidden="true" className="size-5" />
+          {userLocation.status === "locating" ? "正在定位…" : "使用我的位置"}
+        </button>
         <button
           type="button"
           aria-label="新增设施"
@@ -2481,7 +2698,7 @@ export function CampusMapRuntime({
                 type="button"
                 aria-label={`关闭${activeCategoryStyle.label}列表`}
                 className="grid size-11 place-items-center rounded-full hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-                onClick={() => dispatch({ type: "DISMISS" })}
+                onClick={closeSelection}
               >
                 <XIcon className="size-5" />
               </button>
@@ -2511,6 +2728,11 @@ export function CampusMapRuntime({
                     key={facility.placeId}
                     facility={facility}
                     metadata={metadataLabel(
+                      categoryDistanceByPlaceId.has(facility.placeId)
+                        ? approximateDistanceLabel(
+                            categoryDistanceByPlaceId.get(facility.placeId)!,
+                          )
+                        : null,
                       building?.name,
                       placeLocationLabel(facility),
                       accessLabel(facility),

@@ -38,8 +38,8 @@ export class AmapInteractionAdapter {
   }
 
   dispatchProviderTarget(action: () => void) {
-    if (!this.activeGesture) this.beginPointerGesture();
-    const gesture = this.activeGesture!;
+    const gesture = this.activeGesture;
+    if (!gesture) return false;
     if (gesture.providerClaimed) return false;
     gesture.providerClaimed = true;
     gesture.cancelSettlement?.();

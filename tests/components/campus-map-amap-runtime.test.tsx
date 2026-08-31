@@ -138,6 +138,31 @@ const mutableFacilityFixtures = CAMPUS_MAP_TEST_FACILITIES as unknown as Array<
 >;
 const originalFacilityFixtures = [...CAMPUS_MAP_TEST_FACILITIES];
 const scrollIntoView = vi.fn();
+type PositionCallbacks = {
+  success: PositionCallback;
+  error: PositionErrorCallback;
+};
+let positionCallbacks: PositionCallbacks[];
+let getCurrentPosition: ReturnType<typeof vi.fn>;
+
+function geolocationPosition(
+  longitude: number,
+  latitude: number,
+  accuracy = 24,
+) {
+  return {
+    coords: { longitude, latitude, accuracy },
+  } as GeolocationPosition;
+}
+
+function geolocationError(code: number) {
+  return {
+    code,
+    PERMISSION_DENIED: 1,
+    POSITION_UNAVAILABLE: 2,
+    TIMEOUT: 3,
+  } as GeolocationPositionError;
+}
 
 function restoreFacilityFixtures() {
   mutableFacilityFixtures.splice(
@@ -157,6 +182,16 @@ beforeEach(() => {
   window.sessionStorage.clear();
   window.history.replaceState(null, "", "/campus-map");
   restoreFacilityFixtures();
+  positionCallbacks = [];
+  getCurrentPosition = vi.fn(
+    (success: PositionCallback, error: PositionErrorCallback) => {
+      positionCallbacks.push({ success, error });
+    },
+  );
+  Object.defineProperty(window.navigator, "geolocation", {
+    configurable: true,
+    value: { getCurrentPosition },
+  });
   mockLoadBrowseProjection.mockReset();
   mockLoadBrowseProjection.mockImplementation(async () =>
     createCampusMapBrowseFixture(),
@@ -1952,6 +1987,199 @@ describe("Campus Map AMap runtime effects", () => {
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();
     expect(map.panTo).not.toHaveBeenCalled();
     expect(map.setBounds).not.toHaveBeenCalled();
+  });
+
+  it("keeps the canonical Place selected when programmatic reframe emits a hotspot", async () => {
+    const projection = createNullablePlaceFixture();
+    const place = projection.places.find(
+      (candidate) => candidate.placeId === "outdoor-water",
+    )!;
+    const { runtime, map } = await renderWithRuntime({
+      projection,
+      initialSearch: `?v=1&scene=place&id=${place.placeId}&snap=peek`,
+    });
+
+    await screen.findByRole("heading", { name: place.name });
+    const canonicalSearch = window.location.search;
+
+    fireEvent.click(screen.getByRole("button", { name: "定位地点" }));
+    await runtime.flushAnimationFrames();
+    await act(async () => {
+      map.emit("hotspotclick", {
+        programmatic: true,
+        id: "provider-east-wing",
+        name: "科学馆东座",
+        lnglat: { lng: 114.2084, lat: 22.4198 },
+      });
+    });
+
+    expect(screen.getByRole("heading", { name: place.name })).not.toBeNull();
+    expect(screen.queryByRole("heading", { name: "科学馆东座" })).toBeNull();
+    expect(window.location.search).toBe(canonicalSearch);
+    const selectedMarker = runtime.clusters
+      .at(-1)
+      ?.singleMarkers.find((marker) =>
+        marker.content.includes('aria-pressed="true"'),
+      );
+    expect(selectedMarker?.content).toContain(
+      `data-facility-id="place:${place.placeId}"`,
+    );
+  });
+
+  it("requests one browser position only after the user asks", async () => {
+    await renderWithRuntime();
+
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByPlaceholderText("搜索建筑或地点…"), {
+      target: { value: "科学馆" },
+    });
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(getCurrentPosition.mock.calls[0]?.[2]).toEqual({
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 10_000,
+    });
+    expect(screen.getByRole("button", { name: "正在定位…" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+  });
+
+  it("shows the current position and sorts category Places by approximate straight-line distance", async () => {
+    const projection = createNullablePlaceFixture();
+    const { runtime } = await renderWithRuntime({ projection });
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+    await act(async () => {
+      positionCallbacks[0]!.success(
+        geolocationPosition(114.20781, 22.41881, 24),
+      );
+    });
+    await runtime.flushAnimationFrames();
+
+    expect(screen.getByRole("status").textContent).toContain(
+      "定位精度约 20 米",
+    );
+    expect(
+      screen.getAllByText(/约 \d+ 米（直线距离）/u).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText(/步行/u)).toBeNull();
+    const resultIds = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-return-result]"),
+    ).map((element) => element.dataset.returnResult);
+    expect(resultIds[0]).toBe("outdoor-water");
+    expect(
+      runtime.markers.some((marker) =>
+        marker.content.includes("data-campus-map-user-location"),
+      ),
+    ).toBe(true);
+  });
+
+  it("warns when browser location accuracy is low", async () => {
+    await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+    await act(async () => {
+      positionCallbacks[0]!.success(
+        geolocationPosition(114.2072, 22.4191, 240),
+      );
+    });
+
+    expect(screen.getByRole("status").textContent).toContain(
+      "定位精度较低（约 240 米）",
+    );
+  });
+
+  it.each([
+    [1, "未获定位权限"],
+    [2, "暂时无法取得位置"],
+    [3, "定位超时"],
+  ])(
+    "keeps browse controls usable after geolocation error %s",
+    async (code, message) => {
+      await renderWithRuntime();
+      fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+      await act(async () => {
+        positionCallbacks[0]!.error(geolocationError(code));
+      });
+
+      expect(screen.getByRole("alert").textContent).toContain(message);
+      expect(screen.getByRole("button", { name: "重试定位" })).not.toBeNull();
+      expect(
+        screen.getByPlaceholderText("搜索建筑或地点…").hasAttribute("disabled"),
+      ).toBe(false);
+    },
+  );
+
+  it("reports unsupported geolocation without making a request", async () => {
+    Reflect.deleteProperty(window.navigator, "geolocation");
+    await renderWithRuntime();
+
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "此浏览器不支持定位",
+    );
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+  });
+
+  it("ignores stale callbacks and clears the in-memory position", async () => {
+    const projection = createNullablePlaceFixture();
+    const { runtime } = await renderWithRuntime({ projection });
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+    await act(async () => {
+      positionCallbacks[0]!.error(geolocationError(3));
+    });
+    fireEvent.click(screen.getByRole("button", { name: "重试定位" }));
+
+    await act(async () => {
+      positionCallbacks[0]!.success(geolocationPosition(114.20781, 22.41881));
+    });
+    expect(screen.getByText(/正在读取你这一次的位置/u)).not.toBeNull();
+
+    await act(async () => {
+      positionCallbacks[1]!.success(geolocationPosition(114.20781, 22.41881));
+    });
+    await runtime.flushAnimationFrames();
+    expect(screen.getByText(/定位精度约/u)).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "清除位置" }));
+
+    expect(screen.queryByText(/直线距离/u)).toBeNull();
+    expect(screen.getByRole("button", { name: "使用我的位置" })).not.toBeNull();
+  });
+
+  it("does not restore a pending location after closing the panel, Back, or unmount", async () => {
+    await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+    fireEvent.click(screen.getByRole("button", { name: "关闭饮水点列表" }));
+    await act(async () => {
+      positionCallbacks[0]!.success(geolocationPosition(114.2072, 22.4191));
+    });
+    expect(screen.queryByText(/定位精度约/u)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+    await act(async () => {
+      window.dispatchEvent(
+        new PopStateEvent("popstate", { state: window.history.state }),
+      );
+      positionCallbacks[1]!.success(geolocationPosition(114.2072, 22.4191));
+    });
+    expect(screen.queryByText(/定位精度约/u)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+    cleanup();
+    await act(async () => {
+      positionCallbacks[2]!.success(geolocationPosition(114.2072, 22.4191));
+    });
+    expect(document.body.textContent).not.toContain("定位精度约");
   });
 
   it("keeps an unlinked provider POI transient in the shared card shell", async () => {

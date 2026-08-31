@@ -86,6 +86,11 @@ export function installAmapRuntime(options?: {
     }
 
     emit(event: string, payload: Record<string, unknown>) {
+      if (event === "hotspotclick" && payload.programmatic !== true) {
+        this.getContainer().dispatchEvent(
+          new Event("pointerdown", { bubbles: true }),
+        );
+      }
       for (const handler of this.handlers.get(event) ?? []) handler(payload);
     }
 
@@ -159,6 +164,8 @@ export function installAmapRuntime(options?: {
     zIndex = 0;
 
     constructor(private readonly markerOptions: Record<string, unknown> = {}) {
+      this.content =
+        typeof markerOptions.content === "string" ? markerOptions.content : "";
       runtime.markers.push(this);
     }
 
@@ -169,6 +176,11 @@ export function installAmapRuntime(options?: {
     }
 
     emit(event: string) {
+      if (event === "click") {
+        document
+          .getElementById("amap-campus-canvas")
+          ?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      }
       for (const handler of this.handlers.get(event) ?? []) handler();
     }
 
@@ -233,6 +245,11 @@ export function installAmapRuntime(options?: {
     }
 
     emit(event: string, payload: Record<string, unknown>) {
+      if (event === "click") {
+        this.map
+          .getContainer()
+          .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      }
       for (const handler of this.handlers.get(event) ?? []) handler(payload);
     }
 
