@@ -207,7 +207,8 @@ describe("Campus Map Place detail (#816)", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "停用地点" }));
+    const trigger = screen.getByRole("button", { name: "停用地点" });
+    fireEvent.click(trigger);
     fireEvent.change(await screen.findByLabelText("停用原因"), {
       target: { value: "地点已拆除" },
     });
@@ -227,12 +228,18 @@ describe("Campus Map Place detail (#816)", () => {
     });
     resolveAction?.({ status: "published" });
     await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(trigger.getAttribute("aria-expanded")).toBe("false"),
+    );
 
     lifecycleAction.mockResolvedValueOnce({
       status: "forbidden",
       code: "admin-required",
     });
-    fireEvent.click(screen.getByRole("button", { name: "停用地点" }));
+    fireEvent.click(trigger);
+    await waitFor(() =>
+      expect(trigger.getAttribute("aria-expanded")).toBe("true"),
+    );
     fireEvent.change(await screen.findByLabelText("停用原因"), {
       target: { value: "再次尝试" },
     });

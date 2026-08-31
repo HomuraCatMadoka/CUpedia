@@ -2045,6 +2045,9 @@ describe("Campus Map AMap runtime effects", () => {
 
     await screen.findByRole("heading", { name: place.name });
     const canonicalSearch = window.location.search;
+    expect(
+      screen.getByRole("link", { name: "查看完整详情" }).getAttribute("href"),
+    ).toBe(`/campus-map/places/${place.placeId}`);
 
     fireEvent.click(screen.getByRole("button", { name: "定位地点" }));
     map
@@ -2393,7 +2396,7 @@ describe("Campus Map AMap runtime effects", () => {
     });
     expect(screen.getByText("高德地图地点")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "建议修改" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "查看编辑记录" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "查看完整详情" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
 
     await runtime.flushAnimationFrames();

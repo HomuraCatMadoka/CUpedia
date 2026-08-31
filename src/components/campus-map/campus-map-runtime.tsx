@@ -2943,24 +2943,24 @@ export function CampusMapRuntime({
                     {accessLabel(selectedFacility)}
                   </p>
                 ) : null}
-                <button
-                  type="button"
-                  className={cn(
-                    "min-h-11 w-full touch-manipulation rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white hover:bg-[#123d2e] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 motion-reduce:transform-none",
-                    accessLabel(selectedFacility) ? "mt-3" : "mt-4",
-                  )}
-                  onClick={() => startEdit(selectedFacility)}
-                >
-                  建议修改
-                </button>
                 <div
                   role="group"
-                  aria-label="更多地点操作"
-                  className="mt-2 grid grid-cols-2 gap-2"
+                  aria-label="地点操作"
+                  className={cn(
+                    "grid grid-cols-3 gap-2",
+                    accessLabel(selectedFacility) ? "mt-3" : "mt-4",
+                  )}
                 >
                   <button
                     type="button"
-                    className="min-h-11 touch-manipulation rounded-xl border border-[#174b38] px-3 text-sm font-semibold text-[#174b38] hover:bg-[#edf5f1] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none"
+                    className="min-h-11 touch-manipulation rounded-xl bg-[#174b38] px-2 text-sm font-semibold text-white hover:bg-[#123d2e] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 motion-reduce:transform-none"
+                    onClick={() => startEdit(selectedFacility)}
+                  >
+                    建议修改
+                  </button>
+                  <button
+                    type="button"
+                    className="min-h-11 touch-manipulation rounded-xl border border-[#174b38] px-2 text-sm font-semibold text-[#174b38] hover:bg-[#edf5f1] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none"
                     onClick={() =>
                       dispatch({ type: "REFRAME", reason: "map-selection" })
                     }
@@ -2970,10 +2970,10 @@ export function CampusMapRuntime({
                       : "定位所属建筑"}
                   </button>
                   <Link
-                    href={`/campus-map/places/${selectedFacility.placeId}/history`}
-                    className="flex min-h-11 touch-manipulation items-center justify-center rounded-xl border border-black/15 px-3 text-center text-sm font-semibold text-neutral-700 hover:bg-neutral-50 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none"
+                    href={`/campus-map/places/${selectedFacility.placeId}`}
+                    className="flex min-h-11 touch-manipulation items-center justify-center rounded-xl border border-black/15 px-2 text-center text-sm font-semibold text-neutral-700 hover:bg-neutral-50 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none"
                   >
-                    查看编辑记录
+                    查看完整详情
                   </Link>
                 </div>
               </div>
