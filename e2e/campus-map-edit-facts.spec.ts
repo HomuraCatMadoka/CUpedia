@@ -1,4 +1,4 @@
-// ref #814
+// ref #814, #821
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 
@@ -262,6 +262,9 @@ for (const scenario of [
     await page.getByRole("combobox", { name: "凭证要求" }).selectOption("none");
     await page.getByRole("combobox", { name: "预约要求" }).selectOption("none");
     await page
+      .getByRole("combobox", { name: "临时状态" })
+      .selectOption("temporarily-closed");
+    await page
       .getByRole("combobox", { name: "开放时间" })
       .selectOption("always");
     await page.getByRole("button", { name: "发布修改" }).click();
@@ -306,6 +309,9 @@ for (const scenario of [
     );
     await expect(page.getByRole("combobox", { name: "开放时间" })).toHaveValue(
       "always",
+    );
+    await expect(page.getByRole("combobox", { name: "临时状态" })).toHaveValue(
+      "temporarily-closed",
     );
   });
 }

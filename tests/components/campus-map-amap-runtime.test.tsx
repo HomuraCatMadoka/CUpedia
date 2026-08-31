@@ -503,6 +503,18 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
     await runtime.flushAnimationFrames();
     fireEvent.click(await screen.findByRole("radio", { name: "建筑内" }));
+    const name = screen.getByRole("textbox", { name: "设施名称或编号" });
+    fireEvent.change(name, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
+
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    await runtime.flushAnimationFrames();
+    await waitFor(() => expect(document.activeElement).toBe(name));
+    expect(screen.getByRole("alert").textContent).toContain(
+      "请填写能辨认这处设施的名称或编号。",
+    );
+
+    fireEvent.change(name, { target: { value: "室内饮水机" } });
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
 
     const building = await screen.findByRole("combobox", { name: "建筑" });

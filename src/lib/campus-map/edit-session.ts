@@ -182,6 +182,7 @@ export type CampusMapEditEvent =
       type: "REQUEST_PUBLISH";
       requiredFields?: readonly CampusMapEditFieldKey[];
       accessedOn?: string;
+      blockingField?: "buildingId";
     }
   | {
       type: "PUBLISH_RESULT";
@@ -446,6 +447,7 @@ function publishTransition(
   session: CampusMapEditSession,
   requiredFields: readonly CampusMapEditFieldKey[] = [],
   accessedOn?: string,
+  blockingField?: "buildingId",
 ): CampusMapEditTransition {
   if (session.status === "published" || session.status === "publishing") {
     return rejected(session);
@@ -458,7 +460,8 @@ function publishTransition(
           sources: [mapSubmissionSource(accessedOn)],
         }
       : session.draft;
-  const error = firstInvalidCampusMapEditField(draft, requiredFields);
+  const error =
+    firstInvalidCampusMapEditField(draft, requiredFields) ?? blockingField;
   if (error) {
     const next = { ...editable(session), draft, localError: error };
     return {
@@ -467,7 +470,10 @@ function publishTransition(
       commands: [
         { kind: "persist-snapshot" },
         { kind: "focus", target: normalizeServerErrorTarget(error) },
-        { kind: "announce", message: "请先完成必填资料" },
+        {
+          kind: "announce",
+          message: error === "buildingId" ? "请选择建筑" : "请先完成必填资料",
+        },
       ],
     };
   }
@@ -846,7 +852,12 @@ export function transitionCampusMapEdit(
 
   if (event.type === "REQUEST_PUBLISH") {
     if (session.status !== "editing") return rejected(session);
-    return publishTransition(session, event.requiredFields, event.accessedOn);
+    return publishTransition(
+      session,
+      event.requiredFields,
+      event.accessedOn,
+      event.blockingField,
+    );
   }
 
   if (event.type === "PUBLISH_RESULT") {

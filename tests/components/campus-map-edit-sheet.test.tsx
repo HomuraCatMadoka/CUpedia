@@ -622,8 +622,9 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(publish).not.toHaveProperty("disabled", true);
     fireEvent.click(publish);
     expect(onEvent).toHaveBeenLastCalledWith({
-      type: "REPORT_LOCAL_ERROR",
-      field: "buildingId",
+      type: "REQUEST_PUBLISH",
+      accessedOn: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      blockingField: "buildingId",
     });
 
     view.rerender(
@@ -1111,6 +1112,34 @@ describe("Campus Map single-page edit Sheet", () => {
       'input[name="campus-map-place-name"]',
     )!;
     const describedBy = name.getAttribute("aria-describedby");
+    expect(document.getElementById(describedBy!)?.textContent).toContain(
+      message,
+    );
+  });
+
+  it.each([
+    ["", "请填写能辨认这处设施的名称或编号。"],
+    ["名称\u0000", "名称含有无法保存的字符，请删除后重试。"],
+    ["你".repeat(81), "名称过长，请缩短后重试。"],
+  ])("shows accurate local top and field feedback for %j", (name, message) => {
+    const session = {
+      status: "editing",
+      localError: "name",
+      draft: { ...draft(), fact: { ...draft().fact, name } },
+    } as CampusMapEditSession;
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alert").textContent).toContain(message);
+    const input = document.querySelector<HTMLInputElement>(
+      'input[name="campus-map-place-name"]',
+    )!;
+    const describedBy = input.getAttribute("aria-describedby");
     expect(document.getElementById(describedBy!)?.textContent).toContain(
       message,
     );

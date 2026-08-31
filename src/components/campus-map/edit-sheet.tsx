@@ -1070,6 +1070,14 @@ export function CampusMapEditSheet({
             ))}
           </div>
         ) : null}
+        {!session.serverErrors?.length && nameErrorMessage ? (
+          <div
+            className="rounded-xl bg-red-50 p-3 text-sm text-red-900"
+            role="alert"
+          >
+            {nameErrorMessage}
+          </div>
+        ) : null}
         <div
           data-edit-field="location"
           tabIndex={-1}
@@ -1692,15 +1700,6 @@ export function CampusMapEditSheet({
                 : session.status !== "editing" || !isCampusMapEditDirty(session)
             }
             onClick={() => {
-              if (
-                !isPlacing &&
-                indoorSelected &&
-                fact.location?.kind !== "building" &&
-                fact.location?.kind !== "floor"
-              ) {
-                onEvent({ type: "REPORT_LOCAL_ERROR", field: "buildingId" });
-                return;
-              }
               onEvent(
                 isPlacing
                   ? { type: "CONFIRM_POSITION", position: placementPosition }
@@ -1709,6 +1708,11 @@ export function CampusMapEditSheet({
                       accessedOn: today(),
                       ...(serverRequiredFields
                         ? { requiredFields: serverRequiredFields }
+                        : {}),
+                      ...(indoorSelected &&
+                      fact.location?.kind !== "building" &&
+                      fact.location?.kind !== "floor"
+                        ? { blockingField: "buildingId" as const }
                         : {}),
                     },
               );
