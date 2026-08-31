@@ -1,47 +1,27 @@
 import Link from "next/link";
 
 import { PlaceLifecycleControls } from "@/components/campus-map/place-lifecycle-controls";
-import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
+import {
+  campusMapDisplayOptionLabel,
+  campusMapFactFieldLabel,
+  campusMapPinTypeLabel,
+  CAMPUS_MAP_DISPLAY_REGISTRY,
+} from "@/lib/campus-map/display-registry";
 import type {
   CampusMapHistoricalFact,
   CampusMapPlaceHistoryHead,
 } from "@/lib/campus-map/fact-store";
 
-const weekdayLabels = {
-  mon: "周一",
-  tue: "周二",
-  wed: "周三",
-  thu: "周四",
-  fri: "周五",
-  sat: "周六",
-  sun: "周日",
-} as const;
-
-function optionLabel(
-  options: readonly { value: string; label: string }[],
-  value: string,
-) {
-  return options.find((option) => option.value === value)?.label ?? value;
-}
-
-function pinTypeLabel(value: CampusMapHistoricalFact["pinType"]) {
-  return (
-    CAMPUS_MAP_EDIT_SCHEMA.presets.find((preset) => preset.pinType === value)
-      ?.label ?? value
-  );
-}
-
 function scheduleLabel(schedule: CampusMapHistoricalFact["accessSchedule"]) {
   if (schedule.kind !== "weekly") {
-    return optionLabel(
-      CAMPUS_MAP_EDIT_SCHEMA.options.accessSchedule,
-      schedule.kind,
-    );
+    return campusMapDisplayOptionLabel("accessSchedule", schedule.kind);
   }
   return schedule.intervals
     .map(
       (interval) =>
-        `${interval.days.map((day) => weekdayLabels[day]).join("、")} ${interval.opensAt}–${interval.closesAt}`,
+        `${interval.days
+          .map((day) => CAMPUS_MAP_DISPLAY_REGISTRY.weekdays[day])
+          .join("、")} ${interval.opensAt}–${interval.closesAt}`,
     )
     .join("；");
 }
@@ -170,66 +150,63 @@ export function CampusMapPlaceDetail({
           <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold">地点资料</h2>
             <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-              <FactRow label="地点类型" value={pinTypeLabel(fact.pinType)} />
-              <FactRow label="位置" value={locationLabel(fact, building)} />
               <FactRow
-                label="服务能力"
+                label={campusMapFactFieldLabel("pinType")}
+                value={campusMapPinTypeLabel(fact.pinType)}
+              />
+              <FactRow
+                label={campusMapFactFieldLabel("location")}
+                value={locationLabel(fact, building)}
+              />
+              <FactRow
+                label={campusMapFactFieldLabel("capabilities")}
                 value={
                   fact.capabilities.length > 0
                     ? fact.capabilities
                         .map((value) =>
-                          optionLabel(
-                            CAMPUS_MAP_EDIT_SCHEMA.options.capabilities,
-                            value,
-                          ),
+                          campusMapDisplayOptionLabel("capabilities", value),
                         )
                         .join("、")
                     : "未记录"
                 }
               />
               <FactRow
-                label="性别属性"
-                value={optionLabel(
-                  CAMPUS_MAP_EDIT_SCHEMA.options.gender,
-                  fact.gender,
-                )}
+                label={campusMapFactFieldLabel("gender")}
+                value={campusMapDisplayOptionLabel("gender", fact.gender)}
               />
               <FactRow
-                label="开放对象"
-                value={optionLabel(
-                  CAMPUS_MAP_EDIT_SCHEMA.options.audience,
-                  fact.audience,
-                )}
+                label={campusMapFactFieldLabel("audience")}
+                value={campusMapDisplayOptionLabel("audience", fact.audience)}
               />
               <FactRow
-                label="凭证要求"
-                value={optionLabel(
-                  CAMPUS_MAP_EDIT_SCHEMA.options.credentialRequirement,
+                label={campusMapFactFieldLabel("credentialRequirement")}
+                value={campusMapDisplayOptionLabel(
+                  "credentialRequirement",
                   fact.credentialRequirement,
                 )}
               />
               <FactRow
-                label="开放时间"
+                label={campusMapFactFieldLabel("accessSchedule")}
                 value={scheduleLabel(fact.accessSchedule)}
               />
               <FactRow
-                label="预约要求"
-                value={optionLabel(
-                  CAMPUS_MAP_EDIT_SCHEMA.options.reservationRequirement,
+                label={campusMapFactFieldLabel("reservationRequirement")}
+                value={campusMapDisplayOptionLabel(
+                  "reservationRequirement",
                   fact.reservationRequirement,
                 )}
               />
               <FactRow
-                label="临时状态"
-                value={optionLabel(
-                  CAMPUS_MAP_EDIT_SCHEMA.options.temporaryStatus,
+                label={campusMapFactFieldLabel("temporaryStatus")}
+                value={campusMapDisplayOptionLabel(
+                  "temporaryStatus",
                   fact.temporaryStatus,
                 )}
               />
               <FactRow
-                label="无障碍通行"
-                value={optionLabel(
-                  CAMPUS_MAP_EDIT_SCHEMA.options.wheelchairAccess,
+                label={campusMapFactFieldLabel("wheelchairAccess")}
+                value={campusMapDisplayOptionLabel(
+                  "wheelchairAccess",
                   fact.wheelchairAccess,
                 )}
               />

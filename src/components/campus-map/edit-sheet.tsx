@@ -18,6 +18,11 @@ import {
   CAMPUS_MAP_EDIT_SCHEMA,
   campusMapFactNameError,
 } from "@/lib/campus-map/edit-schema";
+import {
+  campusMapFactFieldLabel,
+  campusMapPinTypeLabel,
+  CAMPUS_MAP_DISPLAY_REGISTRY,
+} from "@/lib/campus-map/display-registry";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
 
@@ -37,6 +42,7 @@ const primaryClass =
   "min-h-11 w-full touch-manipulation rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white hover:bg-[#123d2e] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 motion-reduce:transform-none";
 const secondaryClass =
   "min-h-11 touch-manipulation rounded-xl border border-black/15 bg-white px-4 text-sm font-semibold hover:bg-neutral-50 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none";
+const displayOptions = CAMPUS_MAP_DISPLAY_REGISTRY.options;
 
 function today(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -47,15 +53,7 @@ function today(): string {
   }).format(new Date());
 }
 
-const WEEKDAYS = [
-  ["mon", "一"],
-  ["tue", "二"],
-  ["wed", "三"],
-  ["thu", "四"],
-  ["fri", "五"],
-  ["sat", "六"],
-  ["sun", "日"],
-] as const;
+const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
 function messageForError(code: string): string {
   const messages: Record<string, string> = {
@@ -249,10 +247,14 @@ function conflictFields(session: CampusMapEditSession): ConflictChoice[] {
       ? [
           {
             key: "capabilities",
-            label: "服务能力",
+            label: campusMapFactFieldLabel("capabilities"),
             fields: ["capabilities"],
           },
-          { key: "gender", label: "性别属性", fields: ["gender"] },
+          {
+            key: "gender",
+            label: campusMapFactFieldLabel("gender"),
+            fields: ["gender"],
+          },
         ]
       : [
           {
@@ -262,40 +264,52 @@ function conflictFields(session: CampusMapEditSession): ConflictChoice[] {
           },
         ];
   const choices: ConflictChoice[] = [
-    { key: "name", label: "名称", fields: ["name"] },
+    {
+      key: "name",
+      label: campusMapFactFieldLabel("name"),
+      fields: ["name"],
+    },
     ...presetChoices,
     {
       key: "wheelchairAccess",
-      label: "无障碍通行",
+      label: campusMapFactFieldLabel("wheelchairAccess"),
       fields: ["wheelchairAccess"],
     },
-    { key: "audience", label: "开放对象", fields: ["audience"] },
+    {
+      key: "audience",
+      label: campusMapFactFieldLabel("audience"),
+      fields: ["audience"],
+    },
     {
       key: "credentialRequirement",
-      label: "凭证要求",
+      label: campusMapFactFieldLabel("credentialRequirement"),
       fields: ["credentialRequirement"],
     },
     {
       key: "accessSchedule",
-      label: "开放时间",
+      label: campusMapFactFieldLabel("accessSchedule"),
       fields: ["accessSchedule"],
     },
     {
       key: "reservationRequirement",
-      label: "预约要求",
+      label: campusMapFactFieldLabel("reservationRequirement"),
       fields: ["reservationRequirement"],
     },
     {
       key: "temporaryStatus",
-      label: "临时状态",
+      label: campusMapFactFieldLabel("temporaryStatus"),
       fields: ["temporaryStatus"],
     },
     {
       key: "placement",
-      label: "位置",
+      label: campusMapFactFieldLabel("location"),
       fields: ["buildingId", "floorId", "location"],
     },
-    { key: "observedAt", label: "观察时间", fields: ["observedAt"] },
+    {
+      key: "observedAt",
+      label: campusMapFactFieldLabel("observedAt"),
+      fields: ["observedAt"],
+    },
   ];
   return choices.filter((choice) =>
     choice.fields.some(
@@ -316,19 +330,16 @@ function optionLabel(
 function presetConflictValue(
   fact: CampusMapEditSession["draft"]["fact"],
 ): string {
-  const label =
-    CAMPUS_MAP_EDIT_SCHEMA.presets.find(
-      (preset) => preset.pinType === fact.pinType,
-    )?.label ?? fact.pinType;
+  const label = campusMapPinTypeLabel(fact.pinType);
   if (fact.pinType === "printer") {
     const capabilities = fact.capabilities.map((capability) =>
-      optionLabel(CAMPUS_MAP_EDIT_SCHEMA.options.capabilities, capability),
+      optionLabel(displayOptions.capabilities, capability),
     );
     return `${label} · 服务：${capabilities.join("、") || "未填写"}`;
   }
   if (fact.pinType === "toilet") {
     return `${label} · 性别：${optionLabel(
-      CAMPUS_MAP_EDIT_SCHEMA.options.gender,
+      displayOptions.gender,
       fact.gender,
     )}`;
   }
@@ -339,18 +350,13 @@ function scheduleConflictValue(
   fact: CampusMapEditSession["draft"]["fact"],
 ): string {
   if (fact.accessSchedule.kind !== "weekly") {
-    return optionLabel(
-      CAMPUS_MAP_EDIT_SCHEMA.options.accessSchedule,
-      fact.accessSchedule.kind,
-    );
+    return optionLabel(displayOptions.accessSchedule, fact.accessSchedule.kind);
   }
   if (!fact.accessSchedule.intervals.length) return "每周时段（未填写）";
   return fact.accessSchedule.intervals
     .map((interval) => {
       const days = interval.days
-        .map(
-          (day) => `周${WEEKDAYS.find(([value]) => value === day)?.[1] ?? day}`,
-        )
+        .map((day) => CAMPUS_MAP_DISPLAY_REGISTRY.weekdays[day] ?? day)
         .join("、");
       return `${days} ${interval.opensAt}–${interval.closesAt}`;
     })
@@ -372,42 +378,33 @@ function conflictValue(
       return (
         fact.capabilities
           .map((capability) =>
-            optionLabel(
-              CAMPUS_MAP_EDIT_SCHEMA.options.capabilities,
-              capability,
-            ),
+            optionLabel(displayOptions.capabilities, capability),
           )
           .join("、") || "未填写"
       );
     case "gender":
-      return optionLabel(CAMPUS_MAP_EDIT_SCHEMA.options.gender, fact.gender);
+      return optionLabel(displayOptions.gender, fact.gender);
     case "wheelchairAccess":
       return optionLabel(
-        CAMPUS_MAP_EDIT_SCHEMA.options.wheelchairAccess,
+        displayOptions.wheelchairAccess,
         fact.wheelchairAccess,
       );
     case "audience":
-      return optionLabel(
-        CAMPUS_MAP_EDIT_SCHEMA.options.audience,
-        fact.audience,
-      );
+      return optionLabel(displayOptions.audience, fact.audience);
     case "credentialRequirement":
       return optionLabel(
-        CAMPUS_MAP_EDIT_SCHEMA.options.credentialRequirement,
+        displayOptions.credentialRequirement,
         fact.credentialRequirement,
       );
     case "accessSchedule":
       return scheduleConflictValue(fact);
     case "reservationRequirement":
       return optionLabel(
-        CAMPUS_MAP_EDIT_SCHEMA.options.reservationRequirement,
+        displayOptions.reservationRequirement,
         fact.reservationRequirement,
       );
     case "temporaryStatus":
-      return optionLabel(
-        CAMPUS_MAP_EDIT_SCHEMA.options.temporaryStatus,
-        fact.temporaryStatus,
-      );
+      return optionLabel(displayOptions.temporaryStatus, fact.temporaryStatus);
     case "placement":
       return describeLocation(fact, display);
     case "observedAt":
@@ -1219,7 +1216,7 @@ export function CampusMapEditSheet({
                       })
                     }
                   />
-                  {item.label}
+                  {campusMapPinTypeLabel(item.pinType)}
                 </label>
               ))}
             </div>
@@ -1261,11 +1258,11 @@ export function CampusMapEditSheet({
             {indoorSelected ? (
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <label className="text-sm" htmlFor={`${fieldPrefix}-building`}>
-                  建筑
+                  {campusMapFactFieldLabel("buildingId")}
                   <select
                     id={`${fieldPrefix}-building`}
                     name="campus-map-building"
-                    aria-label="建筑"
+                    aria-label={campusMapFactFieldLabel("buildingId")}
                     data-edit-field="building"
                     className={fieldClass}
                     aria-invalid={
@@ -1319,7 +1316,7 @@ export function CampusMapEditSheet({
                   ) : null}
                 </label>
                 <label className="text-sm" htmlFor={`${fieldPrefix}-floor`}>
-                  楼层
+                  {campusMapFactFieldLabel("floorId")}
                   <select
                     id={`${fieldPrefix}-floor`}
                     name="campus-map-floor"
@@ -1383,7 +1380,7 @@ export function CampusMapEditSheet({
                     className="text-sm"
                     htmlFor={`${fieldPrefix}-audience`}
                   >
-                    开放对象
+                    {campusMapFactFieldLabel("audience")}
                     <select
                       id={`${fieldPrefix}-audience`}
                       name="campus-map-audience"
@@ -1397,7 +1394,7 @@ export function CampusMapEditSheet({
                         })
                       }
                     >
-                      {CAMPUS_MAP_EDIT_SCHEMA.options.audience.map((option) => (
+                      {displayOptions.audience.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>
@@ -1410,7 +1407,7 @@ export function CampusMapEditSheet({
                     className="text-sm"
                     htmlFor={`${fieldPrefix}-credential`}
                   >
-                    凭证要求
+                    {campusMapFactFieldLabel("credentialRequirement")}
                     <select
                       id={`${fieldPrefix}-credential`}
                       name="campus-map-credential-requirement"
@@ -1424,13 +1421,11 @@ export function CampusMapEditSheet({
                         })
                       }
                     >
-                      {CAMPUS_MAP_EDIT_SCHEMA.options.credentialRequirement.map(
-                        (option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ),
-                      )}
+                      {displayOptions.credentialRequirement.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
                   </label>
                 ) : null}
@@ -1439,7 +1434,7 @@ export function CampusMapEditSheet({
                     className="text-sm"
                     htmlFor={`${fieldPrefix}-reservation`}
                   >
-                    预约要求
+                    {campusMapFactFieldLabel("reservationRequirement")}
                     <select
                       id={`${fieldPrefix}-reservation`}
                       name="campus-map-reservation-requirement"
@@ -1453,13 +1448,11 @@ export function CampusMapEditSheet({
                         })
                       }
                     >
-                      {CAMPUS_MAP_EDIT_SCHEMA.options.reservationRequirement.map(
-                        (option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ),
-                      )}
+                      {displayOptions.reservationRequirement.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
                   </label>
                 ) : null}
@@ -1468,7 +1461,7 @@ export function CampusMapEditSheet({
                     className="text-sm"
                     htmlFor={`${fieldPrefix}-temporary-status`}
                   >
-                    临时状态
+                    {campusMapFactFieldLabel("temporaryStatus")}
                     <select
                       id={`${fieldPrefix}-temporary-status`}
                       name="campus-map-temporary-status"
@@ -1482,13 +1475,11 @@ export function CampusMapEditSheet({
                         })
                       }
                     >
-                      {CAMPUS_MAP_EDIT_SCHEMA.options.temporaryStatus.map(
-                        (option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ),
-                      )}
+                      {displayOptions.temporaryStatus.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
                   </label>
                 ) : null}
@@ -1503,7 +1494,7 @@ export function CampusMapEditSheet({
                     className="text-sm"
                     htmlFor={`${fieldPrefix}-access-schedule`}
                   >
-                    开放时间
+                    {campusMapFactFieldLabel("accessSchedule")}
                     <select
                       id={`${fieldPrefix}-access-schedule`}
                       name="campus-map-access-schedule"
@@ -1530,13 +1521,11 @@ export function CampusMapEditSheet({
                         });
                       }}
                     >
-                      {CAMPUS_MAP_EDIT_SCHEMA.options.accessSchedule.map(
-                        (option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ),
-                      )}
+                      {displayOptions.accessSchedule.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
                   </label>
                   {weeklySchedule ? (
@@ -1550,7 +1539,7 @@ export function CampusMapEditSheet({
                             时段 {index + 1}
                           </legend>
                           <div className="flex flex-wrap gap-x-3 gap-y-2">
-                            {WEEKDAYS.map(([day, label]) => (
+                            {WEEKDAYS.map((day) => (
                               <label
                                 key={day}
                                 className="flex min-h-11 items-center gap-1.5 text-sm"
@@ -1584,7 +1573,7 @@ export function CampusMapEditSheet({
                                     });
                                   }}
                                 />
-                                周{label}
+                                {CAMPUS_MAP_DISPLAY_REGISTRY.weekdays[day]}
                               </label>
                             ))}
                           </div>
