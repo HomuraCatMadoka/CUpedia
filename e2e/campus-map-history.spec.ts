@@ -1,4 +1,4 @@
-// ref #719, #649
+// ref #826, #719, #649
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 
@@ -199,7 +199,11 @@ for (const viewport of [
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.setViewportSize(viewport);
     await page.goto(`/campus-map/places/${ids.place}`);
-    await page.getByRole("link", { name: /History/ }).click();
+    const historyUrl = `/campus-map/places/${ids.place}/history`;
+    await Promise.all([
+      page.waitForURL(historyUrl),
+      page.getByRole("link", { name: /History/ }).click(),
+    ]);
 
     await expect(
       page.getByRole("heading", { name: "历史测试饮水点的编辑记录" }),
