@@ -24,6 +24,10 @@ export function installAmapRuntime(options?: {
   const rafQueue: FrameRequestCallback[] = [];
   const coordinateConversionQueue: Array<() => void> = [];
   const resizeObservers: Array<{ callback: ResizeObserverCallback }> = [];
+  const beginPointerGesture = (element: Element | null) => {
+    element?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    element?.dispatchEvent(new Event("pointerup", { bubbles: true }));
+  };
 
   class MockLngLat implements LngLat {
     constructor(
@@ -86,6 +90,9 @@ export function installAmapRuntime(options?: {
     }
 
     emit(event: string, payload: Record<string, unknown>) {
+      if (event === "hotspotclick" && payload.programmatic !== true) {
+        beginPointerGesture(this.getContainer());
+      }
       for (const handler of this.handlers.get(event) ?? []) handler(payload);
     }
 
@@ -159,6 +166,8 @@ export function installAmapRuntime(options?: {
     zIndex = 0;
 
     constructor(private readonly markerOptions: Record<string, unknown> = {}) {
+      this.content =
+        typeof markerOptions.content === "string" ? markerOptions.content : "";
       runtime.markers.push(this);
     }
 
@@ -169,6 +178,9 @@ export function installAmapRuntime(options?: {
     }
 
     emit(event: string) {
+      if (event === "click") {
+        beginPointerGesture(document.getElementById("amap-campus-canvas"));
+      }
       for (const handler of this.handlers.get(event) ?? []) handler();
     }
 
@@ -233,6 +245,9 @@ export function installAmapRuntime(options?: {
     }
 
     emit(event: string, payload: Record<string, unknown>) {
+      if (event === "click") {
+        beginPointerGesture(this.map.getContainer());
+      }
       for (const handler of this.handlers.get(event) ?? []) handler(payload);
     }
 

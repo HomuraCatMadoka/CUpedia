@@ -12,6 +12,7 @@ function scheduleAfterProviderEvents(callback: () => void) {
 type ActiveGesture = {
   providerClaimed: boolean;
   pendingMapAction: (() => void) | null;
+  cancelExpiry: (() => void) | null;
   cancelSettlement: (() => void) | null;
 };
 
@@ -33,17 +34,30 @@ export class AmapInteractionAdapter {
     this.activeGesture = {
       providerClaimed: false,
       pendingMapAction: null,
+      cancelExpiry: null,
       cancelSettlement: null,
     };
   }
 
+  endPointerGesture() {
+    const gesture = this.activeGesture;
+    if (!gesture || gesture.providerClaimed || gesture.pendingMapAction) return;
+    this.cancelExpiry(gesture);
+    gesture.cancelExpiry = this.scheduleSettlement(() => {
+      if (this.activeGesture === gesture && !gesture.pendingMapAction) {
+        this.activeGesture = null;
+      }
+      gesture.cancelExpiry = null;
+    });
+  }
+
   dispatchProviderTarget(action: () => void) {
-    if (!this.activeGesture) this.beginPointerGesture();
-    const gesture = this.activeGesture!;
+    const gesture = this.activeGesture;
+    if (!gesture) return false;
     if (gesture.providerClaimed) return false;
     gesture.providerClaimed = true;
-    gesture.cancelSettlement?.();
-    gesture.cancelSettlement = null;
+    this.cancelExpiry(gesture);
+    this.cancelSettlement(gesture);
     gesture.pendingMapAction = null;
     action();
     return true;
@@ -52,6 +66,7 @@ export class AmapInteractionAdapter {
   dispatchMapClick(action: () => void) {
     if (!this.activeGesture) this.beginPointerGesture();
     const gesture = this.activeGesture!;
+    this.cancelExpiry(gesture);
     if (gesture.providerClaimed) {
       this.activeGesture = null;
       return false;
@@ -69,21 +84,38 @@ export class AmapInteractionAdapter {
   }
 
   reset() {
-    this.activeGesture?.cancelSettlement?.();
+    if (this.activeGesture) {
+      this.cancelExpiry(this.activeGesture);
+      this.cancelSettlement(this.activeGesture);
+    }
     this.activeGesture = null;
   }
 
   private settlePendingMapAction() {
     const gesture = this.activeGesture;
     if (!gesture?.pendingMapAction || gesture.providerClaimed) {
-      gesture?.cancelSettlement?.();
+      if (gesture) {
+        this.cancelExpiry(gesture);
+        this.cancelSettlement(gesture);
+      }
       this.activeGesture = null;
       return;
     }
     const action = gesture.pendingMapAction;
-    gesture.cancelSettlement?.();
+    this.cancelExpiry(gesture);
+    this.cancelSettlement(gesture);
     this.activeGesture = null;
     action();
+  }
+
+  private cancelExpiry(gesture: ActiveGesture) {
+    gesture.cancelExpiry?.();
+    gesture.cancelExpiry = null;
+  }
+
+  private cancelSettlement(gesture: ActiveGesture) {
+    gesture.cancelSettlement?.();
+    gesture.cancelSettlement = null;
   }
 }
 
