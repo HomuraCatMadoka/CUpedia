@@ -382,8 +382,8 @@ test("search and marker open one canonical Place card", async ({ page }) => {
     page.getByRole("heading", { name: "正式测试饮水点" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "查看编辑记录" }),
-  ).toHaveAttribute("href", `/campus-map/places/${browseIds.place}/history`);
+    page.getByRole("link", { name: "查看完整详情" }),
+  ).toHaveAttribute("href", `/campus-map/places/${browseIds.place}`);
 
   await expect(
     page.getByRole("button", { name: "返回", exact: true }),
@@ -603,7 +603,7 @@ test("mapped and unmapped provider POIs never duplicate cards", async ({
   expect(providerCardBox).not.toBeNull();
   expect(providerCardBox!.height).toBeLessThanOrEqual(120);
   await expect(page.getByRole("button", { name: "建议修改" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "查看编辑记录" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "查看完整详情" })).toHaveCount(0);
   expect(await page.evaluate(() => window.history.length)).toBe(
     historyBeforeTransient,
   );
@@ -904,10 +904,10 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
     ).toBeFocused();
     const suggestEdit = page.getByRole("button", { name: "建议修改" });
     const locatePlace = page.getByRole("button", { name: "定位所属建筑" });
-    const editHistory = page.getByRole("link", { name: "查看编辑记录" });
+    const placeDetails = page.getByRole("link", { name: "查看完整详情" });
     await expect(suggestEdit).toBeVisible();
     await expect(locatePlace).toBeVisible();
-    await expect(editHistory).toBeVisible();
+    await expect(placeDetails).toBeVisible();
     if (viewport.width < 768) {
       const placeCard = page.getByRole("region", {
         name: "正式测试饮水点",
@@ -919,7 +919,7 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
         placeCard.getByText(/饮水点 · 正式测试楼 · G\/F/),
       ).toBeVisible();
     }
-    for (const action of [suggestEdit, locatePlace, editHistory]) {
+    for (const action of [suggestEdit, locatePlace, placeDetails]) {
       const actionBox = await action.boundingBox();
       expect(actionBox).not.toBeNull();
       expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(

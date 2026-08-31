@@ -540,6 +540,12 @@ async function publishCampusMapChangesetInternal(
   const normalizedCommand = hasValidStructure
     ? normalizePublishCommandIdentifiers(command)
     : command;
+  const requiresLifecycleAdmin =
+    hasValidStructure &&
+    normalizedCommand.changes.some(
+      (change) =>
+        change.operation === "retire" || change.operation === "restore",
+    );
   let revertsChangesetId = options.revertsChangesetId;
   let noOpUpdatePlaceIds = options.noOpUpdatePlaceIds;
   let retireFactPlaceIds = options.retireFactPlaceIds;
@@ -555,6 +561,7 @@ async function publishCampusMapChangesetInternal(
       let command = normalizedCommand;
       let requestFingerprint: string | null = null;
       let reusedRequest: StoredPublishRequest | null = null;
+      let completedLifecycleRequest: StoredPublishRequest | null = null;
       if (
         hasValidStructure &&
         serializedCommand !== null &&
@@ -567,27 +574,35 @@ async function publishCampusMapChangesetInternal(
           requestIdempotencyKey,
         );
         if (existingRequest?.requestFingerprint === requestFingerprint) {
-          return replayPublishRequest(existingRequest, requestFingerprint);
+          if (!requiresLifecycleAdmin) {
+            return replayPublishRequest(existingRequest, requestFingerprint);
+          }
+          completedLifecycleRequest = existingRequest;
         }
-        await acquireTransactionAdvisoryLock(
-          transaction,
-          `publish-request\u0000${actorId}\u0000${requestIdempotencyKey}`,
-        );
-        const requestPublishedWhileWaiting = await findPublishRequest(
-          transaction,
-          actorId,
-          requestIdempotencyKey,
-        );
-        if (
-          requestPublishedWhileWaiting?.requestFingerprint ===
-          requestFingerprint
-        ) {
-          return replayPublishRequest(
-            requestPublishedWhileWaiting,
-            requestFingerprint,
+        if (!completedLifecycleRequest) {
+          await acquireTransactionAdvisoryLock(
+            transaction,
+            `publish-request\u0000${actorId}\u0000${requestIdempotencyKey}`,
           );
+          const requestPublishedWhileWaiting = await findPublishRequest(
+            transaction,
+            actorId,
+            requestIdempotencyKey,
+          );
+          if (
+            requestPublishedWhileWaiting?.requestFingerprint ===
+            requestFingerprint
+          ) {
+            if (!requiresLifecycleAdmin) {
+              return replayPublishRequest(
+                requestPublishedWhileWaiting,
+                requestFingerprint,
+              );
+            }
+            completedLifecycleRequest = requestPublishedWhileWaiting;
+          }
+          reusedRequest = requestPublishedWhileWaiting;
         }
-        reusedRequest = requestPublishedWhileWaiting;
       }
       const [actor] = await transaction
         .select({
@@ -639,6 +654,18 @@ async function publishCampusMapChangesetInternal(
         .limit(1);
       if (actor.nickname.trim() === "" || !credential) {
         return { status: "forbidden", code: "profile-incomplete" } as const;
+      }
+      // Retiring and restoring are lifecycle governance operations. Check the
+      // fresh database role before replaying a completed request so a former
+      // admin cannot use an old idempotency key to bypass a later demotion.
+      if (requiresLifecycleAdmin && actor.role !== "admin") {
+        return { status: "forbidden", code: "admin-required" } as const;
+      }
+      if (completedLifecycleRequest && requestFingerprint !== null) {
+        return replayPublishRequest(
+          completedLifecycleRequest,
+          requestFingerprint,
+        );
       }
       if (
         hasValidStructure &&
@@ -898,43 +925,6 @@ async function publishCampusMapChangesetInternal(
           suggestions: [],
         } as const;
       }
-      const precisionErrors = command.changes.flatMap((change, changeIndex) => {
-        if (
-          change.operation === "merge" ||
-          (change.operation === "retire" &&
-            !retireFactPlaceIds.has(change.placeId)) ||
-          change.fact!.location.kind !== "outdoor-point" ||
-          change.fact!.location.precision !== "precise"
-        ) {
-          return [];
-        }
-        const supported = change.sources.some(
-          (source) =>
-            (source.kind === "field-observation" &&
-              source.rightsStatus === "original-observation") ||
-            ((source.kind === "official" || source.kind === "open-data") &&
-              source.sourceCoordinate !== null &&
-              (source.rightsStatus === "public-domain" ||
-                source.rightsStatus === "permission-granted")),
-        );
-        return supported
-          ? []
-          : [
-              {
-                code: "precision-not-supported",
-                anchor: { changeIndex, field: "location.precision" },
-              },
-            ];
-      });
-      if (precisionErrors.length > 0) {
-        return {
-          status: "validation-failed",
-          errors: precisionErrors,
-          warnings: [],
-          suggestions: [],
-        } as const;
-      }
-
       const suggestions: CampusMapPublishValidationIssue[] =
         command.changes.flatMap((change, changeIndex) =>
           change.operation !== "merge" &&
@@ -1058,6 +1048,53 @@ async function publishCampusMapChangesetInternal(
         return {
           status: "validation-failed",
           errors: transitionErrors,
+          warnings: [],
+          suggestions: [],
+        } as const;
+      }
+      const precisionErrors = command.changes.flatMap((change, changeIndex) => {
+        if (
+          change.operation === "merge" ||
+          (change.operation === "retire" &&
+            !retireFactPlaceIds.has(change.placeId)) ||
+          change.fact!.location.kind !== "outdoor-point" ||
+          change.fact!.location.precision !== "precise"
+        ) {
+          return [];
+        }
+        const supportedBySubmittedSource = change.sources.some(
+          (source) =>
+            (source.kind === "field-observation" &&
+              source.rightsStatus === "original-observation") ||
+            ((source.kind === "official" || source.kind === "open-data") &&
+              source.sourceCoordinate !== null &&
+              (source.rightsStatus === "public-domain" ||
+                source.rightsStatus === "permission-granted")),
+        );
+        const current =
+          change.operation === "create"
+            ? null
+            : (lockedByPlace.get(change.placeId) ?? null);
+        // A restore may reuse a precise point without inventing new location
+        // evidence only when the trusted, locked retired fact is unchanged.
+        const restoresLockedFactExactly =
+          change.operation === "restore" &&
+          current !== null &&
+          Object.keys(createFieldDiff(current.fact, toAppendFact(change.fact)))
+            .length === 0;
+        return supportedBySubmittedSource || restoresLockedFactExactly
+          ? []
+          : [
+              {
+                code: "precision-not-supported",
+                anchor: { changeIndex, field: "location.precision" },
+              },
+            ];
+      });
+      if (precisionErrors.length > 0) {
+        return {
+          status: "validation-failed",
+          errors: precisionErrors,
           warnings: [],
           suggestions: [],
         } as const;

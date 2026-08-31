@@ -1706,8 +1706,220 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     });
   });
 
+  it("requires a fresh admin role for direct retire and restore commands", async () => {
+    const [contributorId, adminId] = await Promise.all([
+      createActor(),
+      createActor({ role: "admin" }),
+    ]);
+    const created = await publishCampusMapChangeset(createCommand(), {
+      actorId: contributorId,
+      clientIp: "203.0.113.210",
+    });
+    if (created.status !== "published") throw new Error("create failed");
+    const [{ placeId, revisionId: activeRevisionId }] = created.changes;
+
+    const retire = createCommand();
+    retire.comment = "地点已经永久关闭";
+    retire.changes = [
+      {
+        operation: "retire",
+        placeId,
+        baseRevisionId: activeRevisionId,
+        sources: retire.changes[0].sources,
+      },
+    ];
+    await expect(
+      publishCampusMapChangeset(retire, {
+        actorId: contributorId,
+        clientIp: "203.0.113.210",
+      }),
+    ).resolves.toEqual({ status: "forbidden", code: "admin-required" });
+    await expect(getCampusMapCurrentPlace(placeId)).resolves.toMatchObject({
+      revisionId: activeRevisionId,
+    });
+    expect((await getCampusMapPlaceHistory(placeId)).items).toHaveLength(1);
+
+    const retired = await publishCampusMapChangeset(retire, {
+      actorId: adminId,
+      clientIp: "203.0.113.211",
+    });
+    if (retired.status !== "published") throw new Error("retire failed");
+    const retiredRevisionId = retired.changes[0].revisionId;
+
+    const restoreFixture = createCommand();
+    const restoreFact = restoreFixture.changes[0];
+    if (restoreFact.operation !== "create") throw new Error("bad fixture");
+    const restore = createCommand();
+    restore.comment = "确认地点已经重新开放";
+    restore.changes = [
+      {
+        operation: "restore",
+        placeId,
+        baseRevisionId: retiredRevisionId,
+        fact: restoreFact.fact,
+        sources: restore.changes[0].sources,
+      },
+    ];
+    await expect(
+      publishCampusMapChangeset(restore, {
+        actorId: contributorId,
+        clientIp: "203.0.113.210",
+      }),
+    ).resolves.toEqual({ status: "forbidden", code: "admin-required" });
+    await expect(getCampusMapCurrentPlace(placeId)).resolves.toBeNull();
+    expect((await getCampusMapPlaceHistory(placeId)).items).toHaveLength(2);
+  });
+
+  it("restores an unchanged precise outdoor fact with lifecycle provenance", async () => {
+    const adminId = await createActor({ role: "admin" });
+    const create = createCommand();
+    placeCreateAtPreciseOutdoorPoint(create);
+    const created = await publishCampusMapChangeset(create, {
+      actorId: adminId,
+      clientIp: "203.0.113.215",
+    });
+    if (created.status !== "published") throw new Error("create failed");
+    const [{ placeId, revisionId: activeRevisionId }] = created.changes;
+
+    const retire = createCommand();
+    retire.comment = "精确室外地点暂时停用";
+    retire.changes = [
+      {
+        operation: "retire",
+        placeId,
+        baseRevisionId: activeRevisionId,
+        sources: retire.changes[0].sources.map((source) => ({
+          ...source,
+          kind: "other",
+          rightsStatus: "unknown",
+        })),
+      },
+    ];
+    const retired = await publishCampusMapChangeset(retire, {
+      actorId: adminId,
+      clientIp: "203.0.113.215",
+    });
+    if (retired.status !== "published") throw new Error("retire failed");
+
+    const restore = createCommand();
+    const restoreSource = restore.changes[0].sources;
+    const originalFact = create.changes[0];
+    if (originalFact.operation !== "create") throw new Error("bad fixture");
+    restore.comment = "精确室外地点恢复开放";
+    restore.changes = [
+      {
+        operation: "restore",
+        placeId,
+        baseRevisionId: retired.changes[0].revisionId,
+        fact: originalFact.fact,
+        sources: restoreSource.map((source) => ({
+          ...source,
+          kind: "other",
+          rightsStatus: "unknown",
+        })),
+      },
+    ];
+
+    const restored = await publishCampusMapChangeset(restore, {
+      actorId: adminId,
+      clientIp: "203.0.113.215",
+    });
+
+    expect(restored).toMatchObject({ status: "published" });
+    await expect(getCampusMapCurrentPlace(placeId)).resolves.toMatchObject({
+      location: {
+        kind: "outdoor-point",
+        point: { precision: "precise" },
+      },
+    });
+  });
+
+  it("does not replay a completed lifecycle request after an admin is demoted", async () => {
+    const adminId = await createActor({ role: "admin" });
+    const created = await publishCampusMapChangeset(createCommand(), {
+      actorId: adminId,
+      clientIp: "203.0.113.212",
+    });
+    if (created.status !== "published") throw new Error("create failed");
+    const [{ placeId, revisionId }] = created.changes;
+    const retire = createCommand();
+    retire.changes = [
+      {
+        operation: "retire",
+        placeId,
+        baseRevisionId: revisionId,
+        sources: retire.changes[0].sources,
+      },
+    ];
+    const published = await publishCampusMapChangeset(retire, {
+      actorId: adminId,
+      clientIp: "203.0.113.212",
+    });
+    expect(published).toMatchObject({ status: "published" });
+
+    await pool.query("update users set role = 'user' where id = $1", [adminId]);
+    await expect(
+      publishCampusMapChangeset(retire, {
+        actorId: adminId,
+        clientIp: "203.0.113.212",
+      }),
+    ).resolves.toEqual({ status: "forbidden", code: "admin-required" });
+    expect((await getCampusMapPlaceHistory(placeId)).items).toHaveLength(2);
+  });
+
+  it("rejects an admin retirement from a stale base without side effects", async () => {
+    const adminId = await createActor({ role: "admin" });
+    const created = await publishCampusMapChangeset(createCommand(), {
+      actorId: adminId,
+      clientIp: "203.0.113.213",
+    });
+    if (created.status !== "published") throw new Error("create failed");
+    const [{ placeId, revisionId: originalRevisionId }] = created.changes;
+    const update = createCommand();
+    const updateFact = update.changes[0];
+    if (updateFact.operation !== "create") throw new Error("bad fixture");
+    update.changes = [
+      {
+        operation: "update",
+        placeId,
+        baseRevisionId: originalRevisionId,
+        fact: { ...updateFact.fact, name: "更新后的地点" },
+        sources: updateFact.sources,
+      },
+    ];
+    const updated = await publishCampusMapChangeset(update, {
+      actorId: adminId,
+      clientIp: "203.0.113.213",
+    });
+    if (updated.status !== "published") throw new Error("update failed");
+
+    const retire = createCommand();
+    retire.changes = [
+      {
+        operation: "retire",
+        placeId,
+        baseRevisionId: originalRevisionId,
+        sources: retire.changes[0].sources,
+      },
+    ];
+    await expect(
+      publishCampusMapChangeset(retire, {
+        actorId: adminId,
+        clientIp: "203.0.113.213",
+      }),
+    ).resolves.toMatchObject({
+      status: "conflict",
+      code: "base-revision-conflict",
+    });
+    await expect(getCampusMapCurrentPlace(placeId)).resolves.toMatchObject({
+      revisionId: updated.changes[0].revisionId,
+      name: "更新后的地点",
+    });
+    expect((await getCampusMapPlaceHistory(placeId)).items).toHaveLength(2);
+  });
+
   it("retires and restores by appending revisions through the same seam", async () => {
-    const actorId = await createActor();
+    const actorId = await createActor({ role: "admin" });
     const create = createCommand();
     const created = await publishCampusMapChangeset(create, {
       actorId,
@@ -1734,6 +1946,13 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     expect(retired).toMatchObject({ status: "published" });
     if (retired.status !== "published") throw new Error("retire failed");
     const retiredRevisionId = retired.changes[0].revisionId;
+    await expect(
+      publishCampusMapChangeset(retire, {
+        actorId,
+        clientIp: "203.0.113.21",
+      }),
+    ).resolves.toEqual(retired);
+    expect((await getCampusMapPlaceHistory(placeId)).items).toHaveLength(2);
     await expect(getCampusMapCurrentPlace(placeId)).resolves.toBeNull();
 
     const restore = createCommand();
@@ -1756,6 +1975,12 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     });
     expect(restored).toMatchObject({ status: "published" });
     if (restored.status !== "published") throw new Error("restore failed");
+    await expect(
+      publishCampusMapChangeset(restore, {
+        actorId,
+        clientIp: "203.0.113.21",
+      }),
+    ).resolves.toEqual(restored);
 
     await expect(getCampusMapCurrentPlace(placeId)).resolves.toMatchObject({
       revisionId: restored.changes[0].revisionId,
@@ -1774,7 +1999,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
   });
 
   it("returns a validation error for an operation disallowed by Current status", async () => {
-    const actorId = await createActor();
+    const actorId = await createActor({ role: "admin" });
     const created = await publishCampusMapChangeset(createCommand(), {
       actorId,
       clientIp: "203.0.113.21",
@@ -1827,7 +2052,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
   });
 
   it("never republishes a redacted Current revision through the public seam", async () => {
-    const actorId = await createActor();
+    const actorId = await createActor({ role: "admin" });
     const active = await publishCampusMapChangeset(createCommand(), {
       actorId,
       clientIp: "203.0.113.21",

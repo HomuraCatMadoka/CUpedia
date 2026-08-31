@@ -116,12 +116,15 @@ authentication/forbidden 结果。它们不能伪装成字段 validation error�
 
 普通贡献者的 publish command 恰好包含一个 Place change；只有管理员 bulk command 可以在一个
 Changeset 中原子修改多个 Place。服务端按 command kind 校验该基数，不能只由 UI 隐藏入口。
+普通贡献者可以新增 Place、修改结构化字段和修正位置；单 Place 的 `retire` 与 `restore`
+是管理员专用动作。发布事务必须重新读取行为者角色，普通用户直接提交这两类 command 时
+返回 `forbidden / admin-required`；隐藏管理按钮不是授权检查。
 
 | 动作                              | Eligible contributor | Admin |
 | --------------------------------- | -------------------- | ----- |
 | 新增 Place                        | 是                   | 是    |
 | 修改结构化字段或位置              | 是                   | 是    |
-| 停用、恢复单个 Place              | 是                   | 是    |
+| 停用、恢复单个 Place              | 否                   | 是    |
 | 请求发布后复核                    | 是                   | 是    |
 | 讨论 Changeset、留下地图备注      | 是                   | 是    |
 | 将旧 revision 的值作为新修正起点  | 是                   | 是    |
@@ -135,9 +138,10 @@ Changeset 中原子修改多个 Place。服务端按 command kind 校验该基�
 ## 5. 修订、停用、恢复、反向修改与合并
 
 - **Update**：保持 `placeId`，追加新 revision；改名、改变位置或 provider mapping 不换 ID。
-- **Retire**：追加 retired revision，从默认搜索、附近和路线候选移除；旧 deep link 显示停用
-  状态与历史。
-- **Restore**：针对普通 retired Place 追加 active revision；不能恢复 merge loser。
+- **Retire**：管理员提交必填理由，追加 retired revision，并从默认搜索、附近和路线候选
+  移除。旧 deep link 继续返回可读 tombstone，显示名称、停用状态、理由、稳定 ID 和公开历史，
+  不得返回空白页或 404。
+- **Restore**：只有管理员能从普通 retired Place 的 tombstone 追加 active revision；不能恢复 merge loser。
 - **Revert**：复制目标旧 revision 的事实值形成新的 Changeset/revision，并记录
   `revertsChangesetId` 或 `revertsRevisionId`；不移动 Current 指针到旧行。
 - **Merge**：管理员原子锁定 survivor 与 loser；survivor 保持 ID，loser 追加永久 redirect
@@ -176,6 +180,7 @@ Changeset 投影。相同 key 重试必须返回最初的成功结果，不能�
 
 - 游客和所有用户读取同一份已发布 Current fact、Changeset、Fact revision 安全投影与公开讨论；
   作者只公开 stable contributor ID、昵称快照等安全署名，不公开 email、credential 或幂等键。
+- retired Place 对所有读者保留同一份可读详情 tombstone 和公开历史；只有管理员看到恢复入口。
 - Edit draft、认证恢复记录和未发布 payload 只对 owner 可见。
 - Review request 只影响 review feed 排序或筛选；地图立即显示同一 Current fact。
 - 来源公开投影不得泄露私人联系方式、未授权附件或内部 abuse note。
@@ -244,8 +249,14 @@ Browse
   driver 执行，发布仍只由 #718 `publishCampusMapChangeset` 执行。
 - Back 返回任务前 scene；X/Escape 在 dirty 时允许继续编辑或丢弃。刷新、快速 Place 切换、地图
   手势与认证回跳不能覆盖已锁定 placement 或别的 Place draft。
-- 发布成功清除 draft 并直接打开 canonical Place；界面只播报一次“发布成功”，Place 卡仅保留一个
-  “查看编辑记录”入口。不得展示独立发布回执，也不得由 Back 或刷新重复播报或恢复表单。
+- 发布成功清除 draft 并直接打开 canonical Place；界面只播报一次“发布成功”，紧凑 Place 卡提供
+  稳定详情入口，完整详情页只保留一个“查看编辑记录”入口。不得展示独立发布回执，也不得由 Back
+  或刷新重复播报或恢复表单。
+- 管理员的停用入口位于 active Place 完整详情底部，使用危险样式、明确影响说明、必填理由和
+  确认步骤，不使用“永久删除”文案；地图卡不承载该危险动作。普通读者不看到停用或恢复入口。
+- 危险确认必须把初始焦点放入对话框，支持 Escape 取消并把焦点返回触发器，为控件提供读屏
+  名称，并显示 pending 与可操作的 error 状态。Back、刷新、direct deep link 和从详情返回地图仍由
+  现有 card/session/history owner 恢复正确 Place selection，不建立第二套 owner。
 - publish receipt consumer 的 typed outcome 只在 edit session 投影为用户可理解的反馈：
   `reconciliation-unavailable`、`handoff-failed`、`projection-failed`、`missing-target` 和
   `receipt-state-unavailable` 表示原发布结果尚未确认，只允许调用同一个 consumer 检查原命令；
@@ -259,7 +270,7 @@ Browse
 
 后续实现至少覆盖：
 
-1. 新增、字段修改、位置修正、停用和恢复的成功发布；
+1. 普通贡献者新增、字段修改和位置修正的成功发布；
 2. 选择 Place 但没有 diff 时 Save 禁用；
 3. 缺 comment、来源、必填字段、CRS 或证据精度不符时阻断；
 4. Warning 确认后发布，Review request 不延迟公开；
@@ -267,7 +278,8 @@ Browse
 6. 两用户从同一 base 发布时，后者全量 conflict 且公共事实不被部分更新；
 7. 管理员 multi-Place Changeset 任一冲突时全部回滚，普通贡献者多 Place payload 被拒绝；
 8. 管理员直接编辑仍产生 Changeset、revision、provenance 和 actor history；
-9. Retire 后默认结果消失、deep link 保留，restore 追加新 revision；
+9. 普通贡献者直接提交 retire/restore 返回 `admin-required`；管理员 Retire 后默认结果消失、
+   deep link 保留名称、状态、理由、稳定 ID 和历史，restore 追加新 revision；
 10. Revert 追加新 revision，旧历史仍可读；
 11. Merge loser 永久 redirect，restore/revert 不能复活；
 12. 被封禁用户不能重试旧草稿发布，既有署名历史仍存在；

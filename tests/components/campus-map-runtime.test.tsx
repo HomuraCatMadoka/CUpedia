@@ -596,8 +596,8 @@ describe("CampusMapRuntime", () => {
         .hasAttribute("disabled"),
     ).toBe(false);
     expect(
-      screen.getByRole("link", { name: "查看编辑记录" }).getAttribute("href"),
-    ).toBe(`/campus-map/places/${placeId}/history`);
+      screen.getByRole("link", { name: "查看完整详情" }).getAttribute("href"),
+    ).toBe(`/campus-map/places/${placeId}`);
   });
 
   it("refetches Current facts after publish so a standalone Place is searchable", async () => {
@@ -2534,18 +2534,18 @@ describe("CampusMapRuntime", () => {
     expect(screen.queryByRole("button", { name: "返回地图" })).toBeNull();
   });
 
-  it("links the selected canonical Place to its public history", async () => {
+  it("links the selected canonical Place to its full details", async () => {
     render(
       <CampusMapRuntime initialSearch="?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=full" />,
     );
 
-    const history = await screen.findByRole("link", {
-      name: "查看编辑记录",
+    const details = await screen.findByRole("link", {
+      name: "查看完整详情",
     });
-    expect(history.getAttribute("href")).toBe(
-      "/campus-map/places/71000000-0000-4000-8000-000000000005/history",
+    expect(details.getAttribute("href")).toBe(
+      "/campus-map/places/71000000-0000-4000-8000-000000000005",
     );
-    expect(screen.getByRole("group", { name: "更多地点操作" })).not.toBeNull();
+    expect(screen.getByRole("group", { name: "地点操作" })).not.toBeNull();
     const facilityRegion = screen.getByRole("region", { name: "饮水机" });
     expect(facilityRegion.textContent).toContain("饮水点");
     expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();

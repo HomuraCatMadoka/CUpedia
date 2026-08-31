@@ -114,12 +114,21 @@ export type CampusMapPublishChange =
       sources: CampusMapPublishSourceInput[];
     }
   | {
-      operation: "update" | "restore";
+      operation: "update";
       placeId: string;
       baseRevisionId: string;
       fact: CampusMapPublishFactInput;
       sources: CampusMapPublishSourceInput[];
     }
+  /** Lifecycle governance operation; the publish seam requires a fresh admin role. */
+  | {
+      operation: "restore";
+      placeId: string;
+      baseRevisionId: string;
+      fact: CampusMapPublishFactInput;
+      sources: CampusMapPublishSourceInput[];
+    }
+  /** Lifecycle governance operation; the publish seam requires a fresh admin role. */
   | {
       operation: "retire";
       placeId: string;

@@ -215,8 +215,8 @@ export async function getAdminUserForApi() {
   };
 }
 
-/** For API routes: returns the current non-banned user, or null. */
-export async function getAuthenticatedUserForApi() {
+/** For API routes that must distinguish anonymous and banned callers. */
+export async function getAuthenticatedUserStateForApi() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) return null;
 
@@ -230,6 +230,13 @@ export async function getAuthenticatedUserForApi() {
       banned: true,
     },
   });
+  if (!dbUser) return null;
+  return dbUser;
+}
+
+/** For API routes: returns the current non-banned user, or null. */
+export async function getAuthenticatedUserForApi() {
+  const dbUser = await getAuthenticatedUserStateForApi();
   if (!dbUser || dbUser.banned) return null;
   return {
     id: dbUser.id,
