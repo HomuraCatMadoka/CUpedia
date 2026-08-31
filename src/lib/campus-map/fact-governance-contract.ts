@@ -20,6 +20,16 @@ interface CampusMapGovernanceCommandBase {
 
 export type CampusMapFactGovernanceCommand =
   | (CampusMapGovernanceCommandBase & {
+      kind: "retire";
+      placeId: string;
+      baseRevisionId: string;
+    })
+  | (CampusMapGovernanceCommandBase & {
+      kind: "restore";
+      placeId: string;
+      baseRevisionId: string;
+    })
+  | (CampusMapGovernanceCommandBase & {
       kind: "revert";
       placeId: string;
       baseRevisionId: string;
@@ -28,7 +38,6 @@ export type CampusMapFactGovernanceCommand =
     })
   | (CampusMapGovernanceCommandBase & {
       kind: "merge";
-      sourceAccessedOn: string;
       survivor: {
         placeId: string;
         baseRevisionId: string;

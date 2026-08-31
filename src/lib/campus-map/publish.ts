@@ -197,9 +197,63 @@ export async function governCampusMapFacts(
       prepareCampusMapRevert(command, store),
     );
   }
+  if (command.kind === "merge") {
+    return publishCampusMapGovernanceIntent(
+      command,
+      context,
+      (store, actorId) => prepareCampusMapMerge(command, store, actorId),
+    );
+  }
   return publishCampusMapGovernanceIntent(command, context, (store, actorId) =>
-    prepareCampusMapMerge(command, store, actorId),
+    prepareCampusMapLifecycle(command, store, actorId),
   );
+}
+
+async function prepareCampusMapLifecycle(
+  command: Extract<
+    CampusMapFactGovernanceCommand,
+    { kind: "retire" | "restore" }
+  >,
+  store: CampusMapFactStoreTransaction,
+  actorId: string,
+): Promise<PreparedCampusMapGovernancePublish | CampusMapPublishResult> {
+  const lifecycleSource = createCampusMapLifecycleSource(command, actorId);
+  let change: CampusMapPublishChange;
+  if (command.kind === "restore") {
+    const [base] = await store.lockGovernanceRevisionSnapshots([
+      { placeId: command.placeId, revisionId: command.baseRevisionId },
+    ]);
+    const fact =
+      base?.visibility === "public" ? toRestorablePublishFact(base.fact) : null;
+    if (!fact) return lifecycleSnapshotUnavailable(command.placeId);
+    change = {
+      operation: "restore",
+      placeId: command.placeId,
+      baseRevisionId: command.baseRevisionId,
+      fact,
+      sources: [lifecycleSource],
+    };
+  } else {
+    change = {
+      operation: "retire",
+      placeId: command.placeId,
+      baseRevisionId: command.baseRevisionId,
+      sources: [lifecycleSource],
+    };
+  }
+  return {
+    command: {
+      kind: "single",
+      idempotencyKey: command.idempotencyKey,
+      comment: command.reason,
+      sourceSummary: "管理员地点生命周期操作",
+      reviewRequested: false,
+      client: command.client,
+      warningAcknowledgements: [],
+      changes: [change],
+    },
+    revertsChangesetId: null,
+  };
 }
 
 async function prepareCampusMapRevert(
@@ -348,36 +402,56 @@ function normalizeGovernanceCommandIdentifiers(
       changes: command.changes,
     });
     return {
-      ...command,
+      kind: "bulk-edit",
       idempotencyKey: normalized.idempotencyKey,
+      reason: command.reason,
+      sourceSummary: command.sourceSummary,
+      client: command.client,
       changes: normalized.changes as typeof command.changes,
+      warningAcknowledgements: command.warningAcknowledgements,
+    };
+  }
+  if (command.kind === "retire" || command.kind === "restore") {
+    return {
+      kind: command.kind,
+      idempotencyKey: canonicalizeCampusMapUuid(command.idempotencyKey),
+      reason: command.reason,
+      client: command.client,
+      placeId: canonicalizeCampusMapUuid(command.placeId),
+      baseRevisionId: canonicalizeCampusMapUuid(command.baseRevisionId),
     };
   }
   if (command.kind === "revert") {
     return {
-      ...command,
+      kind: "revert",
       idempotencyKey: canonicalizeCampusMapUuid(command.idempotencyKey),
+      reason: command.reason,
+      client: command.client,
       placeId: canonicalizeCampusMapUuid(command.placeId),
       baseRevisionId: canonicalizeCampusMapUuid(command.baseRevisionId),
       targetRevisionId: canonicalizeCampusMapUuid(command.targetRevisionId),
+      sources: command.sources,
     };
   }
   return {
-    ...command,
+    kind: "merge",
     idempotencyKey: canonicalizeCampusMapUuid(command.idempotencyKey),
+    reason: command.reason,
+    client: command.client,
     survivor: {
-      ...command.survivor,
       placeId: canonicalizeCampusMapUuid(command.survivor.placeId),
       baseRevisionId: canonicalizeCampusMapUuid(
         command.survivor.baseRevisionId,
       ),
       fact: normalizeGovernanceFactIdentifiers(command.survivor.fact),
+      sources: command.survivor.sources,
     },
     loser: {
-      ...command.loser,
       placeId: canonicalizeCampusMapUuid(command.loser.placeId),
       baseRevisionId: canonicalizeCampusMapUuid(command.loser.baseRevisionId),
+      sources: command.loser.sources,
     },
+    fieldResolutions: command.fieldResolutions,
   };
 }
 
@@ -452,6 +526,35 @@ function toPublishFact(fact: CampusMapAppendFact): CampusMapPublishFactInput {
           }
         : { kind: fact.locationKind },
     observedAt: fact.observedAt?.toISOString() ?? null,
+  };
+}
+
+function toRestorablePublishFact(
+  fact: CampusMapAppendFact,
+): CampusMapPublishFactInput | null {
+  if (
+    fact.locationKind === "outdoor-point" &&
+    (fact.longitude === null ||
+      fact.latitude === null ||
+      fact.coordinateCrs !== "wgs84" ||
+      fact.pointPrecision === null)
+  ) {
+    return null;
+  }
+  return toPublishFact(fact);
+}
+
+function lifecycleSnapshotUnavailable(placeId: string): CampusMapPublishResult {
+  return {
+    status: "validation-failed",
+    errors: [
+      {
+        code: "lifecycle-base-revision-unavailable",
+        anchor: { placeId, field: "baseRevisionId" },
+      },
+    ],
+    warnings: [],
+    suggestions: [],
   };
 }
 
@@ -545,12 +648,13 @@ async function publishCampusMapChangesetInternal(
   const normalizedCommand = hasValidStructure
     ? normalizePublishCommandIdentifiers(command)
     : command;
-  const requiresLifecycleAdmin =
-    hasValidStructure &&
-    normalizedCommand.changes.some(
-      (change) =>
-        change.operation === "retire" || change.operation === "restore",
-    );
+  const requiresFreshAdmin =
+    options.requireAdmin ||
+    (hasValidStructure &&
+      normalizedCommand.changes.some(
+        (change) =>
+          change.operation === "retire" || change.operation === "restore",
+      ));
   let revertsChangesetId = options.revertsChangesetId;
   let noOpUpdatePlaceIds = options.noOpUpdatePlaceIds;
   let retireFactPlaceIds = options.retireFactPlaceIds;
@@ -566,7 +670,7 @@ async function publishCampusMapChangesetInternal(
       let command = normalizedCommand;
       let requestFingerprint: string | null = null;
       let reusedRequest: StoredPublishRequest | null = null;
-      let completedLifecycleRequest: StoredPublishRequest | null = null;
+      let completedPrivilegedRequest: StoredPublishRequest | null = null;
       if (
         hasValidStructure &&
         serializedCommand !== null &&
@@ -579,12 +683,12 @@ async function publishCampusMapChangesetInternal(
           requestIdempotencyKey,
         );
         if (existingRequest?.requestFingerprint === requestFingerprint) {
-          if (!requiresLifecycleAdmin) {
+          if (!requiresFreshAdmin) {
             return replayPublishRequest(existingRequest, requestFingerprint);
           }
-          completedLifecycleRequest = existingRequest;
+          completedPrivilegedRequest = existingRequest;
         }
-        if (!completedLifecycleRequest) {
+        if (!completedPrivilegedRequest) {
           await acquireTransactionAdvisoryLock(
             transaction,
             `publish-request\u0000${actorId}\u0000${requestIdempotencyKey}`,
@@ -598,13 +702,13 @@ async function publishCampusMapChangesetInternal(
             requestPublishedWhileWaiting?.requestFingerprint ===
             requestFingerprint
           ) {
-            if (!requiresLifecycleAdmin) {
+            if (!requiresFreshAdmin) {
               return replayPublishRequest(
                 requestPublishedWhileWaiting,
                 requestFingerprint,
               );
             }
-            completedLifecycleRequest = requestPublishedWhileWaiting;
+            completedPrivilegedRequest = requestPublishedWhileWaiting;
           }
           reusedRequest = requestPublishedWhileWaiting;
         }
@@ -663,12 +767,12 @@ async function publishCampusMapChangesetInternal(
       // Retiring and restoring are lifecycle governance operations. Check the
       // fresh database role before replaying a completed request so a former
       // admin cannot use an old idempotency key to bypass a later demotion.
-      if (requiresLifecycleAdmin && actor.role !== "admin") {
+      if (requiresFreshAdmin && actor.role !== "admin") {
         return { status: "forbidden", code: "admin-required" } as const;
       }
-      if (completedLifecycleRequest && requestFingerprint !== null) {
+      if (completedPrivilegedRequest && requestFingerprint !== null) {
         return replayPublishRequest(
-          completedLifecycleRequest,
+          completedPrivilegedRequest,
           requestFingerprint,
         );
       }

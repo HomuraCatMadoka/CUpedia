@@ -23,27 +23,42 @@ describe("Campus Map fact governance boundary", () => {
         sources: [],
       },
       {
-        kind: "merge",
+        kind: "retire",
         idempotencyKey: "00000000-0000-4000-8000-000000000005",
-        sourceAccessedOn: "2026-09-01",
+        reason: "地点已永久关闭",
+        client: { name: "admin-test", version: "1" },
+        placeId: "00000000-0000-4000-8000-000000000006",
+        baseRevisionId: "00000000-0000-4000-8000-000000000007",
+      },
+      {
+        kind: "restore",
+        idempotencyKey: "00000000-0000-4000-8000-000000000008",
+        reason: "地点已重新开放",
+        client: { name: "admin-test", version: "1" },
+        placeId: "00000000-0000-4000-8000-000000000009",
+        baseRevisionId: "00000000-0000-4000-8000-000000000010",
+      },
+      {
+        kind: "merge",
+        idempotencyKey: "00000000-0000-4000-8000-000000000011",
         reason: "两项记录代表同一个饮水点",
         client: { name: "admin-test", version: "1" },
         survivor: {
-          placeId: "00000000-0000-4000-8000-000000000006",
-          baseRevisionId: "00000000-0000-4000-8000-000000000007",
+          placeId: "00000000-0000-4000-8000-000000000012",
+          baseRevisionId: "00000000-0000-4000-8000-000000000013",
           fact: {} as never,
           sources: [],
         },
         loser: {
-          placeId: "00000000-0000-4000-8000-000000000008",
-          baseRevisionId: "00000000-0000-4000-8000-000000000009",
+          placeId: "00000000-0000-4000-8000-000000000014",
+          baseRevisionId: "00000000-0000-4000-8000-000000000015",
           sources: [],
         },
         fieldResolutions: [],
       },
       {
         kind: "bulk-edit",
-        idempotencyKey: "00000000-0000-4000-8000-000000000010",
+        idempotencyKey: "00000000-0000-4000-8000-000000000016",
         reason: "管理员批量修正",
         sourceSummary: "现场核对",
         client: { name: "admin-test", version: "1" },
@@ -54,6 +69,8 @@ describe("Campus Map fact governance boundary", () => {
 
     expect(commands.map((command) => command.kind)).toEqual([
       "revert",
+      "retire",
+      "restore",
       "merge",
       "bulk-edit",
     ]);
