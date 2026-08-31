@@ -1,4 +1,4 @@
-// ref #646, #649
+// ref #646, #649, #814
 import { expect, test } from "@playwright/test";
 import { loginWithPassword } from "./helpers/auth";
 import { installFakeCampusMapAmap } from "./helpers/campus-map-amap";
@@ -8,10 +8,10 @@ test.beforeEach(async ({ page }) => {
   await loginWithPassword(page, "admin@test.com", "password123");
 });
 
-test("Campus Map editing keeps its primary action inside a 390px-high viewport", async ({
+test("Campus Map editing keeps its primary action inside a 720×844 viewport", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 720, height: 390 });
+  await page.setViewportSize({ width: 720, height: 844 });
   await page.goto("/campus-map");
 
   await page.getByRole("button", { name: "新增设施" }).click();
@@ -29,9 +29,9 @@ test("Campus Map editing keeps its primary action inside a 390px-high viewport",
   const publishBox = await publish.boundingBox();
   expect(sheetBox).not.toBeNull();
   expect(publishBox).not.toBeNull();
-  expect(sheetBox!.y).toBeGreaterThanOrEqual(390 * 0.35);
-  expect(sheetBox!.y + sheetBox!.height).toBeLessThanOrEqual(390);
-  expect(publishBox!.y + publishBox!.height).toBeLessThanOrEqual(390);
+  expect(sheetBox!.y).toBeGreaterThanOrEqual(844 * 0.35);
+  expect(sheetBox!.y + sheetBox!.height).toBeLessThanOrEqual(844);
+  expect(publishBox!.y + publishBox!.height).toBeLessThanOrEqual(844);
   expect(
     await facilityType
       .locator("label")
@@ -44,6 +44,29 @@ test("Campus Map editing keeps its primary action inside a 390px-high viewport",
           ).size,
       ),
   ).toBe(1);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollHeight),
+  ).toBeLessThanOrEqual(844);
+});
+
+test("Campus Map editing preserves the map in a 390px-high viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 720, height: 390 });
+  await page.goto("/campus-map");
+
+  await page.getByRole("button", { name: "新增设施" }).click();
+  await page.getByRole("button", { name: "使用此位置" }).click();
+
+  const sheet = page.getByRole("region", { name: "新增设施" });
+  const publish = page.getByRole("button", { name: "发布设施" });
+  const sheetBox = await sheet.boundingBox();
+  const publishBox = await publish.boundingBox();
+  expect(sheetBox).not.toBeNull();
+  expect(publishBox).not.toBeNull();
+  expect(sheetBox!.y).toBeGreaterThanOrEqual(390 * 0.35);
+  expect(sheetBox!.y + sheetBox!.height).toBeLessThanOrEqual(390);
+  expect(publishBox!.y + publishBox!.height).toBeLessThanOrEqual(390);
   expect(
     await page.evaluate(() => document.documentElement.scrollHeight),
   ).toBeLessThanOrEqual(390);
@@ -102,7 +125,10 @@ test("Campus Map editing keeps only the essential controls in a compact mobile v
   ).toHaveCount(0);
   await expect(
     page.getByRole("textbox", { name: "设施名称或编号" }),
-  ).toHaveCount(0);
+  ).toBeVisible();
+  await expect(
+    page.getByRole("group", { name: "开放与使用条件" }),
+  ).toBeAttached();
   await expect(page.getByText("资料依据")).toHaveCount(0);
   await expect
     .poll(async () => {
@@ -115,6 +141,34 @@ test("Campus Map editing keeps only the essential controls in a compact mobile v
       );
     })
     .toBe(true);
+});
+
+test("Campus Map editing exposes canonical facts without covering the desktop map", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/campus-map");
+
+  await page.getByRole("button", { name: "新增设施" }).click();
+  await page.getByRole("button", { name: "使用此位置" }).click();
+
+  const sheet = page.getByRole("region", { name: "新增设施" });
+  const name = page.getByRole("textbox", { name: "设施名称或编号" });
+  const publish = page.getByRole("button", { name: "发布设施" });
+  await expect(name).toHaveValue("饮水机");
+  await name.fill("大学站广场饮水机 A");
+  await page
+    .getByRole("combobox", { name: "开放对象" })
+    .selectOption("cuhk-member");
+  await expect(page.getByRole("radio", { name: "室外" })).toBeChecked();
+  await expect(publish).toBeVisible();
+
+  const sheetBox = await sheet.boundingBox();
+  const publishBox = await publish.boundingBox();
+  expect(sheetBox).not.toBeNull();
+  expect(publishBox).not.toBeNull();
+  expect(sheetBox!.x).toBeGreaterThanOrEqual(800);
+  expect(publishBox!.y + publishBox!.height).toBeLessThanOrEqual(800);
 });
 
 test("Campus Map editing supports the keyboard placement and dirty-close path", async ({

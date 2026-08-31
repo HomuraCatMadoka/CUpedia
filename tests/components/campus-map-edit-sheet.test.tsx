@@ -10,10 +10,34 @@ import {
 } from "@/lib/campus-map/edit-session";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
+import type { CampusMapBrowseBuilding } from "@/lib/campus-map/browse-projection";
 
 const placeId = "20000000-0000-4000-8000-000000000001";
 const revisionId = "30000000-0000-4000-8000-000000000001";
 const changesetId = "40000000-0000-4000-8000-000000000001";
+const buildingId = "50000000-0000-4000-8000-000000000001";
+const floorId = "60000000-0000-4000-8000-000000000001";
+
+const buildings: CampusMapBrowseBuilding[] = [
+  {
+    buildingId,
+    name: "科学馆",
+    englishName: "Science Centre",
+    code: "SC",
+    aliases: [],
+    anchor: { longitude: 114.209, latitude: 22.419, crs: "wgs84" },
+    floors: [
+      { floorId, displayLabel: "1/F", sortOrder: 1 },
+      {
+        floorId: "60000000-0000-4000-8000-000000000002",
+        displayLabel: "2/F",
+        sortOrder: 2,
+      },
+    ],
+    placeIds: [],
+    selectionTarget: { kind: "building", buildingId },
+  },
+];
 
 afterEach(() => vi.useRealTimers());
 
@@ -101,8 +125,8 @@ describe("Campus Map single-page edit Sheet", () => {
     );
     expect(screen.getByRole("group", { name: "设施类型" })).toBeTruthy();
     expect(
-      screen.queryByRole("textbox", { name: "设施名称或编号" }),
-    ).toBeNull();
+      screen.getByRole("textbox", { name: "设施名称或编号" }),
+    ).toBeTruthy();
   });
 
   it("keeps the confirmed Add Sheet to location, facility type, and publish", () => {
@@ -136,8 +160,8 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.getByRole("group", { name: "设施类型" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "修改位置" })).toBeTruthy();
     expect(
-      screen.queryByRole("textbox", { name: "设施名称或编号" }),
-    ).toBeNull();
+      screen.getByRole("textbox", { name: "设施名称或编号" }),
+    ).toBeTruthy();
     expect(screen.queryByText("资料依据")).toBeNull();
     expect(
       screen.queryByRole("button", { name: "开放与使用条件（可选）" }),
@@ -201,7 +225,7 @@ describe("Campus Map single-page edit Sheet", () => {
     });
   });
 
-  it("keeps server-applicable optional fields out of the streamlined Sheet", () => {
+  it("shows the canonical access fields that apply to the active schema", () => {
     const factSchema = {
       version: 1,
       definition: {
@@ -209,7 +233,17 @@ describe("Campus Map single-page edit Sheet", () => {
         pinTypes: {
           toilet: { applicableFields: [], requiredFields: [] },
           water: {
-            applicableFields: ["name", "pinType", "capabilities", "location"],
+            applicableFields: [
+              "name",
+              "pinType",
+              "capabilities",
+              "audience",
+              "credentialRequirement",
+              "accessSchedule",
+              "reservationRequirement",
+              "temporaryStatus",
+              "location",
+            ],
             requiredFields: ["name", "pinType", "capabilities", "location"],
           },
           printer: { applicableFields: [], requiredFields: [] },
@@ -245,9 +279,317 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
+    expect(screen.getByRole("combobox", { name: "开放对象" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "凭证要求" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "开放时间" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "预约要求" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "临时状态" })).toBeTruthy();
+  });
+
+  it("maps editable names and controlled access conditions to one fact event", () => {
+    const onEvent = vi.fn();
+    const session: CampusMapEditSession = {
+      status: "editing",
+      draft: {
+        ...draft(),
+        fact: {
+          ...draft().fact,
+          location: {
+            kind: "outdoor-point",
+            longitude: 114.2,
+            latitude: 22.4,
+            crs: "wgs84",
+            precision: "approximate",
+          },
+        },
+      },
+    };
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={onEvent}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("textbox", { name: "设施名称或编号" }), {
+      target: { value: "科学馆 1/F 东翼饮水机" },
+    });
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "CHANGE_FACT",
+      fact: {
+        ...session.draft.fact,
+        name: "科学馆 1/F 东翼饮水机",
+      },
+    });
+
+    fireEvent.change(screen.getByRole("combobox", { name: "开放对象" }), {
+      target: { value: "cuhk-member" },
+    });
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "CHANGE_FACT",
+      fact: {
+        ...session.draft.fact,
+        audience: "cuhk-member",
+      },
+    });
+  });
+
+  it("lets contributors remove an extra weekly access interval", () => {
+    const onEvent = vi.fn();
+    const firstInterval = {
+      days: ["mon" as const],
+      opensAt: "09:00",
+      closesAt: "12:00",
+    };
+    const session: CampusMapEditSession = {
+      status: "editing",
+      draft: {
+        ...draft(),
+        fact: {
+          ...draft().fact,
+          location: {
+            kind: "outdoor-point",
+            longitude: 114.2,
+            latitude: 22.4,
+            crs: "wgs84",
+            precision: "approximate",
+          },
+          accessSchedule: {
+            kind: "weekly",
+            timezone: "Asia/Hong_Kong",
+            intervals: [
+              firstInterval,
+              {
+                days: ["fri"],
+                opensAt: "13:00",
+                closesAt: "18:00",
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={onEvent}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "移除时段 2" }));
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "CHANGE_FACT",
+      fact: {
+        ...session.draft.fact,
+        accessSchedule: {
+          kind: "weekly",
+          timezone: "Asia/Hong_Kong",
+          intervals: [firstInterval],
+        },
+      },
+    });
+  });
+
+  it("maps explicit building-only, Floor, and outdoor choices without using provider candidates", () => {
+    const onEvent = vi.fn();
+    const outdoorFact = {
+      ...draft().fact,
+      location: {
+        kind: "outdoor-point" as const,
+        longitude: 114.209,
+        latitude: 22.419,
+        crs: "wgs84" as const,
+        precision: "approximate" as const,
+      },
+    };
+    const view = render(
+      <CampusMapEditSheet
+        session={{
+          status: "editing",
+          draft: { ...draft(), fact: outdoorFact },
+        }}
+        centerPosition={[114.209, 22.419]}
+        buildings={buildings}
+        placeContext={{
+          status: "resolved",
+          context: {
+            providerPosition: {
+              longitude: 114.209,
+              latitude: 22.419,
+              crs: "gcj02",
+            },
+            label: "高德科学馆候选",
+            address: "中央大道",
+            providerPoiId: "provider-only",
+            distanceMeters: 3,
+          },
+        }}
+        onEvent={onEvent}
+      />,
+    );
+
+    expect(onEvent).not.toHaveBeenCalled();
+    expect(screen.getByText("高德候选：")).toBeTruthy();
+    expect(screen.getByText("高德科学馆候选")).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: "建筑内" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "建筑" }), {
+      target: { value: buildingId },
+    });
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "CHANGE_FACT",
+      fact: {
+        ...outdoorFact,
+        buildingId,
+        floorId: null,
+        location: { kind: "building" },
+      },
+      locationDisplay: {
+        buildingId,
+        buildingName: "科学馆",
+        floorId: null,
+        floorLabel: null,
+      },
+    });
+
+    const buildingFact = {
+      ...outdoorFact,
+      buildingId,
+      floorId: null,
+      location: { kind: "building" as const },
+    };
+    view.rerender(
+      <CampusMapEditSheet
+        session={{
+          status: "editing",
+          draft: {
+            ...draft(),
+            fact: buildingFact,
+            locationDisplay: {
+              buildingId,
+              buildingName: "科学馆",
+              floorId: null,
+              floorLabel: null,
+            },
+          },
+        }}
+        centerPosition={[114.209, 22.419]}
+        buildings={buildings}
+        onEvent={onEvent}
+      />,
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "楼层" }), {
+      target: { value: floorId },
+    });
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "CHANGE_FACT",
+      fact: {
+        ...buildingFact,
+        floorId,
+        location: { kind: "floor" },
+      },
+      locationDisplay: {
+        buildingId,
+        buildingName: "科学馆",
+        floorId,
+        floorLabel: "1/F",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("radio", { name: "室外" }));
+    expect(onEvent).toHaveBeenLastCalledWith({ type: "START_REPOSITION" });
+  });
+
+  it("shows a newly confirmed outdoor fact after an indoor draft is repositioned", () => {
+    const onEvent = vi.fn();
+    const outdoorFact = {
+      ...draft().fact,
+      location: {
+        kind: "outdoor-point" as const,
+        longitude: 114.209,
+        latitude: 22.419,
+        crs: "wgs84" as const,
+        precision: "approximate" as const,
+      },
+    };
+    const view = render(
+      <CampusMapEditSheet
+        session={{
+          status: "editing",
+          draft: { ...draft(), fact: outdoorFact },
+        }}
+        centerPosition={[114.209, 22.419]}
+        buildings={buildings}
+        onEvent={onEvent}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: "建筑内" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "建筑" }), {
+      target: { value: buildingId },
+    });
+
+    const buildingFact = {
+      ...outdoorFact,
+      buildingId,
+      floorId: null,
+      location: { kind: "building" as const },
+    };
+    view.rerender(
+      <CampusMapEditSheet
+        session={{
+          status: "editing",
+          draft: {
+            ...draft(),
+            fact: buildingFact,
+            locationDisplay: {
+              buildingId,
+              buildingName: "科学馆",
+              floorId: null,
+              floorLabel: null,
+            },
+          },
+        }}
+        centerPosition={[114.209, 22.419]}
+        buildings={buildings}
+        onEvent={onEvent}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "修改位置" }));
+
+    view.rerender(
+      <CampusMapEditSheet
+        session={{
+          status: "editing",
+          draft: {
+            ...draft(),
+            fact: {
+              ...buildingFact,
+              buildingId: null,
+              floorId: null,
+              location: {
+                kind: "outdoor-point",
+                longitude: 114.21,
+                latitude: 22.42,
+                crs: "wgs84",
+                precision: "precise",
+              },
+            },
+            locationDisplay: null,
+          },
+        }}
+        centerPosition={[114.21, 22.42]}
+        buildings={buildings}
+        onEvent={onEvent}
+      />,
+    );
+
     expect(
-      document.querySelector('[data-edit-field="capabilities"]'),
-    ).toBeNull();
+      (screen.getByRole("radio", { name: "室外" }) as HTMLInputElement).checked,
+    ).toBe(true);
+    expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
   });
 
   it("keeps the edit heading programmatically focusable", () => {
@@ -309,7 +651,7 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     const typeGroup = screen.getByRole("group", { name: "设施类型" });
-    expect(screen.getAllByRole("radio")).toHaveLength(5);
+    expect(typeGroup.querySelectorAll('input[type="radio"]')).toHaveLength(5);
     for (const label of ["饮水点", "洗手间", "打印服务", "公共空间", "课室"]) {
       expect(screen.getByRole("radio", { name: label })).toBeTruthy();
     }
@@ -685,7 +1027,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(alert.textContent).not.toContain("internal-opaque-code");
   });
 
-  it("keeps source and optional metadata controls out of the streamlined Sheet", () => {
+  it("keeps provenance controls out while exposing canonical access controls", () => {
     const onEvent = vi.fn();
     const session: CampusMapEditSession = {
       status: "editing",
@@ -712,7 +1054,7 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     expect(screen.queryByLabelText("现场观察时间（香港时间）")).toBeNull();
-    expect(screen.queryByRole("combobox", { name: "开放时间" })).toBeNull();
+    expect(screen.getByRole("combobox", { name: "开放时间" })).toBeTruthy();
     expect(screen.queryByText("资料依据")).toBeNull();
     expect(onEvent).not.toHaveBeenCalled();
   });
@@ -897,7 +1239,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.queryByText(/WGS84 · 约略/)).toBeNull();
   });
 
-  it("keeps optional fields removed when local validation targets one", () => {
+  it("keeps an access validation target visible and focusable", () => {
     const session: CampusMapEditSession = {
       status: "editing",
       localError: "accessSchedule",
@@ -924,10 +1266,10 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
+    expect(screen.getByRole("combobox", { name: "开放时间" })).toBeTruthy();
     expect(
-      screen.queryByRole("button", { name: "开放与使用条件（可选）" }),
-    ).toBeNull();
-    expect(screen.queryByRole("combobox", { name: "开放时间" })).toBeNull();
+      document.querySelector('[data-edit-field="accessSchedule"]'),
+    ).toBeTruthy();
   });
 
   it("uses reposition wording for an Edit placement", () => {
