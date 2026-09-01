@@ -1,4 +1,4 @@
-// ref #814, #821
+// ref #814, #821, #838
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 
@@ -7,11 +7,7 @@ import { installFakeCampusMapAmap } from "./helpers/campus-map-amap";
 
 const buildingId = "00000000-0000-4000-8000-000000008141";
 const floorId = "00000000-0000-4000-8000-000000008142";
-const fixtureNames = [
-  "QA 814 建筑级饮水机",
-  "QA 814 楼层饮水机",
-  "QA 814 室外饮水机",
-] as const;
+const fixtureNames = ["QA 814 建筑级饮水机", "QA 814 楼层饮水机"] as const;
 const updatedFixtureName = "QA 821 已更新楼层饮水机";
 const cleanupNames = [...fixtureNames, updatedFixtureName];
 
@@ -150,17 +146,20 @@ test.beforeEach(async ({ page }) => {
 for (const scenario of [
   { kind: "building", name: fixtureNames[0] },
   { kind: "floor", name: fixtureNames[1] },
-  { kind: "outdoor", name: fixtureNames[2] },
 ] as const) {
   test(`publishes and reopens ${scenario.kind} name, location, and access facts`, async ({
     page,
   }) => {
     await page.goto("/campus-map");
     await page.getByRole("button", { name: "新增设施" }).click();
-    await page.getByRole("button", { name: "使用此位置" }).click();
     await page
       .getByRole("textbox", { name: "设施名称或编号" })
       .fill(scenario.name);
+    await page.getByRole("combobox", { name: "建筑" }).selectOption(buildingId);
+    if (scenario.kind === "floor") {
+      await page.getByRole("combobox", { name: "楼层" }).selectOption(floorId);
+    }
+    await page.getByRole("button", { name: "更多信息" }).click();
     await page
       .getByRole("combobox", { name: "开放对象" })
       .selectOption("cuhk-member");
@@ -179,18 +178,6 @@ for (const scenario of [
     await page.getByRole("checkbox", { name: "周一" }).check();
     await page.getByRole("textbox", { name: "开始" }).fill("09:00");
     await page.getByRole("textbox", { name: "结束" }).fill("17:00");
-
-    if (scenario.kind !== "outdoor") {
-      await page.getByRole("radio", { name: "建筑内" }).check();
-      await page
-        .getByRole("combobox", { name: "建筑" })
-        .selectOption(buildingId);
-      if (scenario.kind === "floor") {
-        await page
-          .getByRole("combobox", { name: "楼层" })
-          .selectOption(floorId);
-      }
-    }
 
     await page.getByRole("button", { name: "发布设施" }).click();
     await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
@@ -238,17 +225,13 @@ for (const scenario of [
       "17:00",
     );
 
-    if (scenario.kind === "outdoor") {
-      await expect(page.getByRole("radio", { name: "室外" })).toBeChecked();
-    } else {
-      await expect(page.getByRole("radio", { name: "建筑内" })).toBeChecked();
-      await expect(page.getByRole("combobox", { name: "建筑" })).toHaveValue(
-        buildingId,
-      );
-      await expect(page.getByRole("combobox", { name: "楼层" })).toHaveValue(
-        scenario.kind === "floor" ? floorId : "",
-      );
-    }
+    await expect(page.getByRole("radio", { name: "建筑内" })).toBeChecked();
+    await expect(page.getByRole("combobox", { name: "建筑" })).toHaveValue(
+      buildingId,
+    );
+    await expect(page.getByRole("combobox", { name: "楼层" })).toHaveValue(
+      scenario.kind === "floor" ? floorId : "",
+    );
 
     if (scenario.kind !== "building") return;
 

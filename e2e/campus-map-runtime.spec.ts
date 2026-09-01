@@ -1,4 +1,4 @@
-// refs #646, #649, #799
+// refs #646, #649, #799, #838
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import {
@@ -318,7 +318,9 @@ test("Campus Map and its AMap config require authentication", async ({
 
   await page.goto("/campus-map");
   await page.getByRole("button", { name: "新增设施" }).click();
-  await page.getByRole("button", { name: "使用此位置" }).click();
+  await page
+    .getByRole("combobox", { name: "建筑" })
+    .selectOption(browseIds.building);
   await page
     .getByRole("group", { name: "设施类型" })
     .getByText("洗手间", { exact: true })
@@ -462,14 +464,10 @@ test("Building expands into Place and Back restores the Building card", async ({
   await page.getByRole("button", { name: "新增设施" }).click();
   await expect(page).toHaveURL(/task=create&anchor=map$/);
   await page.goBack();
-  await expect(page.getByRole("heading", { name: "选择设施位置" })).toHaveCount(
-    0,
-  );
+  await expect(page.getByRole("heading", { name: "新增设施" })).toHaveCount(0);
   await page.goForward();
   await expect(page).toHaveURL(/\/campus-map\?v=1$/);
-  await expect(page.getByRole("heading", { name: "选择设施位置" })).toHaveCount(
-    0,
-  );
+  await expect(page.getByRole("heading", { name: "新增设施" })).toHaveCount(0);
 
   await page.goto("/campus-map?v=1&scene=place&id=missing-place&snap=peek");
   await expect(page).toHaveURL(/\/campus-map\?v=1$/);
@@ -502,15 +500,13 @@ test("long-press and right-click leave contribution to the explicit Add action",
       lnglat: scenario.position,
     });
 
-    await expect(
-      page.getByRole("heading", { name: "选择设施位置" }),
-    ).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "新增设施" })).toHaveCount(
+      0,
+    );
     await expect(page).toHaveURL(/\/campus-map\?v=1$/);
 
     await page.getByRole("button", { name: "新增设施" }).click();
-    await expect(
-      page.getByRole("heading", { name: "选择设施位置" }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "新增设施" })).toBeVisible();
     await expect(page).toHaveURL(/task=create/);
 
     await page.evaluate(() => window.sessionStorage.clear());
@@ -721,7 +717,9 @@ test("publish handoff shows one success prompt and never restores the form", asy
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/campus-map");
   await page.getByRole("button", { name: "新增设施" }).click();
-  await page.getByRole("button", { name: "使用此位置" }).click();
+  await page
+    .getByRole("combobox", { name: "建筑" })
+    .selectOption(browseIds.building);
   await page
     .getByRole("group", { name: "设施类型" })
     .getByText("打印服务", { exact: true })
@@ -735,10 +733,9 @@ test("publish handoff shows one success prompt and never restores the form", asy
   await expect(
     page.getByRole("heading", { name: publishedName }),
   ).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("地点已发布");
-  const selectedMarker = page.locator(`[data-facility-id="place:${placeId}"]`);
-  await expect(selectedMarker).toBeVisible();
-  await expect(selectedMarker).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("status")).toContainText(
+    "已添加到 正式测试楼 · 未指定楼层",
+  );
   await expect(page.getByText("PUBLISHED")).toHaveCount(0);
   const publishNoticeBox = await page.getByRole("status").boundingBox();
   const publishedCardBox = await page
@@ -765,20 +762,16 @@ test("publish handoff shows one success prompt and never restores the form", asy
   await page.goBack();
   await expect(page.getByRole("status")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "新增设施" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "选择设施位置" })).toHaveCount(
-    0,
-  );
 
   await page.goForward();
   await expect(page).toHaveURL(publishedUrl.toString());
-  await expect(selectedMarker).toBeVisible();
-  await expect(selectedMarker).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("heading", { name: publishedName }),
+  ).toBeVisible();
   await page.reload();
   await expect(
     page.getByRole("heading", { name: publishedName }),
   ).toBeVisible();
-  await expect(selectedMarker).toBeVisible();
-  await expect(selectedMarker).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("status")).toHaveCount(0);
 
   await page
@@ -788,6 +781,26 @@ test("publish handoff shows one success prompt and never restores the form", asy
   const publishedResult = page.locator(`[data-search-result="${placeId}"]`);
   await expect(publishedResult).toBeVisible();
   await publishedResult.click();
+  await expect(
+    page.getByRole("heading", { name: publishedName }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(
+    new RegExp(`/campus-map\\?v=1&scene=place&id=${placeId}&snap=peek$`),
+  );
+
+  await page.goto("/campus-map");
+  const buildingSearch = page.locator(
+    'input[placeholder="搜索建筑或地点…"]:visible',
+  );
+  await buildingSearch.fill("正式测试楼");
+  await page.locator(`[data-search-result="${browseIds.building}"]`).click();
+  await expect(page.getByRole("heading", { name: "正式测试楼" })).toBeVisible();
+  await page.getByRole("button", { name: "查看全部楼内设施" }).click();
+  const publishedBuildingResult = page.locator(
+    `[data-return-result="${placeId}"]`,
+  );
+  await expect(publishedBuildingResult).toContainText(publishedName);
+  await publishedBuildingResult.click();
   await expect(page).toHaveURL(
     new RegExp(`/campus-map\\?v=1&scene=place&id=${placeId}&snap=peek$`),
   );
@@ -853,7 +866,7 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
       expect(searchBox!.x + searchBox!.width).toBeLessThanOrEqual(cardBox!.x);
       expect(filterBox!.x + filterBox!.width).toBeLessThanOrEqual(cardBox!.x);
     } else {
-      expect(cardBox!.height).toBeLessThanOrEqual(316);
+      expect(cardBox!.height).toBeLessThanOrEqual(356);
       const buildingPreview = card.locator("[data-building-preview]");
       await expect(buildingPreview).toContainText("正式测试饮水点");
       const buildingCta = card.getByRole("button", {

@@ -106,6 +106,44 @@ describe("Campus Map publish receipt recovery/consumer (#766)", () => {
     expect(order).toEqual(["refresh", "handoff"]);
   });
 
+  it("passes the command operation to the projection handoff", async () => {
+    const createCommand = {
+      ...command,
+      changes: [
+        {
+          operation: "create",
+          fact: {
+            name: "饮水机",
+            buildingId: "60000000-0000-4000-8000-000000000001",
+            floorId: null,
+            pinType: "water",
+            capabilities: [],
+            gender: "unknown",
+            wheelchairAccess: "unknown",
+            audience: "unknown",
+            credentialRequirement: "unknown",
+            accessSchedule: { kind: "unknown" },
+            reservationRequirement: "unknown",
+            temporaryStatus: "unknown",
+            location: { kind: "building" },
+            observedAt: null,
+          },
+          sources: [],
+        },
+      ],
+    } satisfies CampusMapPublishCommand;
+    const { consumer, dependencies } = harness();
+
+    await expect(
+      consumer.consume({ command: createCommand, intentToken: 7, receipt }),
+    ).resolves.toMatchObject({ status: "applied" });
+    expect(dependencies.applyProjectionAndOpen).toHaveBeenCalledWith({
+      placeId: receipt.changes[0]?.placeId,
+      intentToken: 7,
+      operation: "create",
+    });
+  });
+
   it("recovers a committed receipt with the original idempotency key", async () => {
     const { consumer, dependencies } = harness();
 

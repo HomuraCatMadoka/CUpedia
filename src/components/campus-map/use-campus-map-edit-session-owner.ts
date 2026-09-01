@@ -16,6 +16,7 @@ import {
   transitionCampusMapEdit,
   type CampusMapEditDraft,
   type CampusMapEditEvent,
+  type CampusMapFacilityAddEntry,
   type CampusMapIndoorLocationDisplay,
   type CampusMapEditSession,
   type CampusMapPlacement,
@@ -374,6 +375,18 @@ export function useCampusMapEditSessionOwner({
     });
   }, [dispatchEvent]);
 
+  const startFacilityAdd = useCallback(
+    (entry: CampusMapFacilityAddEntry) => {
+      editLoadTokenRef.current += 1;
+      dispatchEvent({
+        type: "START_FACILITY_ADD",
+        idempotencyKey: window.crypto.randomUUID(),
+        entry,
+      });
+    },
+    [dispatchEvent],
+  );
+
   const startAddAtPosition = useCallback(
     (position: CampusMapPlacement) => {
       editLoadTokenRef.current += 1;
@@ -596,6 +609,7 @@ export function useCampusMapEditSessionOwner({
     session,
     dispatchEvent,
     startAdd,
+    startFacilityAdd,
     startAddAtPosition,
     startEdit,
     announcement,
