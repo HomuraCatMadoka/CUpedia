@@ -22,14 +22,12 @@ export function PlaceFeedbackSection({
   viewerFeedback,
   viewerCanWrite,
   isAdmin,
-  isPaginated,
 }: {
   placeId: string;
   feedback: CampusMapPlaceFeedbackPage;
   viewerFeedback: CampusMapPlaceFeedbackView | null;
   viewerCanWrite: boolean;
   isAdmin: boolean;
-  isPaginated: boolean;
 }) {
   const summary = feedback.summary;
   const readOnly = feedback.placeStatus !== "active";
@@ -137,7 +135,7 @@ export function PlaceFeedbackSection({
           </p>
         )}
         <nav aria-label="评价分页" className="mt-4 flex flex-wrap gap-3">
-          {isPaginated ? (
+          {feedback.page.isPaginated ? (
             <Link
               href={`/campus-map/places/${placeId}#place-feedback`}
               className="inline-flex min-h-11 items-center rounded-xl border px-4 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

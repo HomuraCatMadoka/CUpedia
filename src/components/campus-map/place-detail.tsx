@@ -73,7 +73,6 @@ export function CampusMapPlaceDetail({
   feedback,
   viewerFeedback = null,
   viewerCanWrite = true,
-  feedbackPageIsPaginated = false,
 }: {
   placeId: string;
   head: CampusMapPlaceHistoryHead;
@@ -85,7 +84,6 @@ export function CampusMapPlaceDetail({
   feedback?: CampusMapPlaceFeedbackPage;
   viewerFeedback?: CampusMapPlaceFeedbackView | null;
   viewerCanWrite?: boolean;
-  feedbackPageIsPaginated?: boolean;
 }) {
   const statusLabel =
     head.status === "active"
@@ -101,7 +99,7 @@ export function CampusMapPlaceDetail({
       ratingCount: 0,
       reviewCount: 0,
     },
-    page: { items: [], nextCursor: null },
+    page: { items: [], nextCursor: null, isPaginated: false },
   };
 
   return (
@@ -247,7 +245,6 @@ export function CampusMapPlaceDetail({
           viewerFeedback={viewerFeedback}
           viewerCanWrite={viewerCanWrite}
           isAdmin={isAdmin}
-          isPaginated={feedbackPageIsPaginated}
         />
 
         <div>

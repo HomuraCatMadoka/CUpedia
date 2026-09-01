@@ -26,6 +26,37 @@ import { resetSensitiveMatcherForTests } from "@/lib/sensitive-content";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
+async function waitUntilBackendIsBlockedBy(pool: Pool, blockerPid: number) {
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    const result = await pool.query<{ blocked: boolean }>(
+      `select exists (
+         select 1
+           from pg_stat_activity
+          where $1 = any(pg_blocking_pids(pid))
+       ) as blocked`,
+      [blockerPid],
+    );
+    if (result.rows[0]?.blocked) return true;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  return false;
+}
+
+async function waitUntilBlockedBackendCount(pool: Pool, minimum: number) {
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    const result = await pool.query<{ blocked_count: string }>(
+      `select count(*)::text as blocked_count
+         from pg_stat_activity
+        where cardinality(pg_blocking_pids(pid)) > 0`,
+    );
+    if (Number(result.rows[0]?.blocked_count ?? 0) >= minimum) return true;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  return false;
+}
+
 describe.skipIf(!hasDb)("Campus Map place feedback (#817)", () => {
   let pool: Pool;
   const actorIds: string[] = [];
@@ -640,7 +671,121 @@ describe.skipIf(!hasDb)("Campus Map place feedback (#817)", () => {
     expect(second.page).toEqual({
       items: [expect.objectContaining({ author: { nickname: "第一位" } })],
       nextCursor: null,
+      isPaginated: true,
     });
+
+    const malformed = await getCampusMapPlaceFeedbackPage(placeId, {
+      limit: 2,
+      cursor: "not-a-feedback-cursor",
+    });
+    expect(malformed).toMatchObject({
+      placeStatus: "active",
+      summary: { averageRating: 4, ratingCount: 3, reviewCount: 3 },
+      page: {
+        items: [
+          { author: { nickname: "第三位" } },
+          { author: { nickname: "第二位" } },
+        ],
+        isPaginated: false,
+      },
+    });
+  });
+
+  it("does not strand new feedback on a loser while a merge is committing", async () => {
+    const [admin, existingReviewer, newReviewer] = await Promise.all([
+      createActor({ role: "admin" }),
+      createActor(),
+      createActor(),
+    ]);
+    const survivorId = await createPlace(admin, "并发合并保留地点");
+    const loserId = await createPlace(admin, "并发合并旧地点");
+    const existing = await commandCampusMapPlaceFeedback(
+      {
+        kind: "create",
+        placeId: loserId,
+        rating: 4,
+        content: "用于暂停合并的旧评价",
+      },
+      { actorId: existingReviewer },
+    );
+    if (existing.status !== "created") throw new Error("feedback setup failed");
+    const merge: Extract<CampusMapFactGovernanceCommand, { kind: "merge" }> = {
+      kind: "merge",
+      idempotencyKey: randomUUID(),
+      reason: "自动化测试确认并发重复地点",
+      client: { name: "campus-map-feedback-test", version: "1" },
+      survivor: {
+        placeId: survivorId,
+        baseRevisionId: await currentRevisionId(survivorId),
+        fact: governanceFact("并发合并保留地点"),
+        sources: [governanceSource()],
+      },
+      loser: {
+        placeId: loserId,
+        baseRevisionId: await currentRevisionId(loserId),
+        sources: [governanceSource()],
+      },
+      fieldResolutions: mergeFieldResolutions,
+    };
+
+    const blocker = await pool.connect();
+    let blockerOpen = false;
+    let pendingMerge: ReturnType<typeof governCampusMapFacts> | null = null;
+    let pendingWrite: ReturnType<typeof commandCampusMapPlaceFeedback> | null =
+      null;
+    await blocker.query("begin");
+    blockerOpen = true;
+    try {
+      const blockerPid = (
+        await blocker.query<{ pid: number }>("select pg_backend_pid() as pid")
+      ).rows[0]!.pid;
+      await blocker.query(
+        "select id from campus_map_place_feedback where id = $1 for update",
+        [existing.feedback.id],
+      );
+
+      pendingMerge = governCampusMapFacts(merge, {
+        actorId: admin,
+        clientIp: "203.0.113.86",
+      });
+      await expect(waitUntilBackendIsBlockedBy(pool, blockerPid)).resolves.toBe(
+        true,
+      );
+
+      pendingWrite = commandCampusMapPlaceFeedback(
+        {
+          kind: "create",
+          placeId: loserId,
+          rating: 5,
+          content: "不应越过合并边界写进旧地点",
+        },
+        { actorId: newReviewer },
+      );
+      await expect(waitUntilBlockedBackendCount(pool, 2)).resolves.toBe(true);
+
+      await blocker.query("commit");
+      blockerOpen = false;
+      await expect(pendingMerge).resolves.toMatchObject({
+        status: "published",
+      });
+      await expect(pendingWrite).resolves.toEqual({
+        status: "forbidden",
+        code: "place-read-only",
+      });
+      await expect(
+        getCampusMapViewerPlaceFeedback(loserId, newReviewer),
+      ).resolves.toBeNull();
+      await expect(
+        getCampusMapPlaceFeedbackSummaries([loserId]),
+      ).resolves.toEqual({});
+    } catch (error) {
+      if (blockerOpen) await blocker.query("rollback");
+      throw error;
+    } finally {
+      await pendingMerge?.catch(() => undefined);
+      await pendingWrite?.catch(() => undefined);
+      blocker.release();
+    }
   });
 
   it("reports and hides the whole feedback without leaking it into public reads", async () => {

@@ -106,7 +106,7 @@ describe("Campus Map stable Place page (#816)", () => {
         ratingCount: 5,
         reviewCount: 3,
       },
-      page: { items: [], nextCursor: null },
+      page: { items: [], nextCursor: null, isPaginated: false },
     });
     mocks.getViewerFeedback.mockResolvedValue(null);
   });
@@ -156,7 +156,8 @@ describe("Campus Map stable Place page (#816)", () => {
     expect(element.props).toMatchObject({
       viewerCanWrite: false,
       viewerFeedback: null,
-      feedbackPageIsPaginated: true,
+      feedback: { page: { isPaginated: false } },
     });
+    expect(element.props).not.toHaveProperty("feedbackPageIsPaginated");
   });
 });

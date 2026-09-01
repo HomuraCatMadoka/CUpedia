@@ -74,7 +74,6 @@ export default async function CampusMapPlacePage({
       feedback={feedback}
       viewerFeedback={viewerFeedback}
       viewerCanWrite={Boolean(viewer)}
-      feedbackPageIsPaginated={Boolean(reviewsAfter)}
     />
   );
 }

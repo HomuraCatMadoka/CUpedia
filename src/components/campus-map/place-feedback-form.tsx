@@ -1,7 +1,7 @@
 "use client";
 
 import { StarIcon, Trash2Icon } from "lucide-react";
-import { useId, useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { runCampusMapPlaceFeedbackAction } from "@/lib/campus-map/place-feedback-actions";
@@ -54,6 +54,8 @@ export function PlaceFeedbackForm({
 }) {
   const router = useRouter();
   const id = useId();
+  const firstRatingRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
   const [rating, setRating] = useState(initialFeedback?.rating ?? 0);
   const [content, setContent] = useState(initialFeedback?.content ?? "");
   const [feedback, setFeedback] = useState(initialFeedback);
@@ -72,6 +74,7 @@ export function PlaceFeedbackForm({
   function submit() {
     if (rating < 1 || rating > 5) {
       setError("请选择 1 至 5 星。");
+      firstRatingRef.current?.focus();
       return;
     }
     setError(null);
@@ -99,7 +102,15 @@ export function PlaceFeedbackForm({
           router.refresh();
           return;
         }
-        setError(feedbackError(resultErrorCode(result)));
+        const errorCode = resultErrorCode(result);
+        setError(feedbackError(errorCode));
+        if (errorCode === "invalid-rating") firstRatingRef.current?.focus();
+        if (
+          errorCode === "content-too-long" ||
+          errorCode === "sensitive-content"
+        ) {
+          contentRef.current?.focus();
+        }
       } catch {
         setError("网络连接中断，请保留内容后重试。");
       }
@@ -154,6 +165,7 @@ export function PlaceFeedbackForm({
           {[1, 2, 3, 4, 5].map((value) => (
             <span key={value}>
               <input
+                ref={value === 1 ? firstRatingRef : undefined}
                 id={`${id}-${value}`}
                 className="peer sr-only"
                 type="radio"
@@ -169,7 +181,7 @@ export function PlaceFeedbackForm({
               <label
                 htmlFor={`${id}-${value}`}
                 className={cn(
-                  "inline-flex min-h-11 min-w-12 cursor-pointer items-center justify-center gap-1 rounded-xl border px-2 text-sm font-semibold peer-focus-visible:ring-2 peer-focus-visible:ring-amber-600 peer-focus-visible:ring-offset-2",
+                  "inline-flex min-h-11 min-w-12 touch-manipulation cursor-pointer items-center justify-center gap-1 rounded-xl border px-2 text-sm font-semibold peer-focus-visible:ring-2 peer-focus-visible:ring-amber-600 peer-focus-visible:ring-offset-2",
                   rating === value
                     ? "border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
                     : "hover:bg-muted",
@@ -194,7 +206,10 @@ export function PlaceFeedbackForm({
       >
         评价（选填）
         <textarea
+          ref={contentRef}
           id={`${id}-content`}
+          name="campus-map-place-feedback-content"
+          autoComplete="off"
           value={content}
           disabled={pending}
           maxLength={2000}
@@ -230,7 +245,7 @@ export function PlaceFeedbackForm({
           type="button"
           disabled={pending}
           aria-busy={pending || undefined}
-          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-800 px-4 text-sm font-semibold text-white hover:bg-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:opacity-60"
+          className="inline-flex min-h-11 touch-manipulation items-center justify-center rounded-xl bg-emerald-800 px-4 text-sm font-semibold text-white hover:bg-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:opacity-60"
           onClick={submit}
         >
           {pending ? "正在保存…" : feedback ? "更新我的评价" : "发布评价"}
@@ -239,7 +254,7 @@ export function PlaceFeedbackForm({
           <button
             type="button"
             disabled={pending}
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 dark:text-red-300 dark:hover:bg-red-950/40"
+            className="inline-flex min-h-11 touch-manipulation items-center gap-2 rounded-xl px-3 text-sm font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 dark:text-red-300 dark:hover:bg-red-950/40"
             onClick={remove}
           >
             <Trash2Icon aria-hidden="true" className="size-4" />

@@ -397,6 +397,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
               },
             ],
             nextCursor: "opaque-cursor",
+            isPaginated: false,
           },
         }}
         viewerFeedback={{

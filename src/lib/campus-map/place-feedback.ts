@@ -111,6 +111,7 @@ export interface CampusMapPlaceFeedbackPage {
   page: {
     items: CampusMapPublicPlaceFeedback[];
     nextCursor: string | null;
+    isPaginated: boolean;
   };
 }
 
@@ -155,7 +156,7 @@ export async function commandCampusMapPlaceFeedback(
       const now = context.now ?? new Date();
 
       if (normalized.command.kind === "create") {
-        const placeStatus = await readPlaceStatus(
+        const placeStatus = await readLockedPlaceStatus(
           transaction,
           normalized.command.placeId,
         );
@@ -199,6 +200,19 @@ export async function commandCampusMapPlaceFeedback(
         } as const;
       }
 
+      const [feedbackPlace] = await transaction
+        .select({ placeId: campusMapPlaceFeedback.placeId })
+        .from(campusMapPlaceFeedback)
+        .where(eq(campusMapPlaceFeedback.id, normalized.command.feedbackId))
+        .limit(1);
+      if (!feedbackPlace) {
+        return { status: "not-found", code: "feedback-not-found" } as const;
+      }
+      const placeStatus = await readLockedPlaceStatus(
+        transaction,
+        feedbackPlace.placeId,
+      );
+
       const [stored] = await transaction
         .select({
           id: campusMapPlaceFeedback.id,
@@ -225,10 +239,15 @@ export async function commandCampusMapPlaceFeedback(
       if (!stored) {
         return { status: "not-found", code: "feedback-not-found" } as const;
       }
+      if (stored.placeId !== feedbackPlace.placeId) {
+        return {
+          status: "conflict",
+          code: "feedback-version-conflict",
+        } as const;
+      }
       if (stored.userId !== context.actorId) {
         return { status: "forbidden", code: "feedback-not-owned" } as const;
       }
-      const placeStatus = await readPlaceStatus(transaction, stored.placeId);
       if (placeStatus !== "active") {
         return { status: "forbidden", code: "place-read-only" } as const;
       }
@@ -350,14 +369,11 @@ export async function getCampusMapPlaceFeedbackPage(
     ratingCount: 0,
     reviewCount: 0,
   };
-  if (
-    !isCanonicalCampusMapUuid(canonicalPlaceId) ||
-    (query.cursor && !cursor)
-  ) {
+  if (!isCanonicalCampusMapUuid(canonicalPlaceId)) {
     return {
       placeStatus: null,
       summary: emptySummary,
-      page: { items: [], nextCursor: null },
+      page: { items: [], nextCursor: null, isPaginated: false },
     };
   }
 
@@ -432,6 +448,7 @@ export async function getCampusMapPlaceFeedbackPage(
         rows.length > limit && last
           ? encodeCursor(last.createdAt, last.id)
           : null,
+      isPaginated: cursor !== null,
     },
   };
 }
@@ -522,18 +539,23 @@ async function readEligibleActor(
     : null;
 }
 
-async function readPlaceStatus(
+async function readLockedPlaceStatus(
   transaction: DatabaseTransaction,
   placeId: string,
 ): Promise<"active" | "retired" | "merged" | null> {
+  const [place] = await transaction
+    .select({ id: campusMapPlaces.id })
+    .from(campusMapPlaces)
+    .where(eq(campusMapPlaces.id, placeId))
+    .for("update")
+    .limit(1);
+  if (!place) return null;
+
   const [row] = await transaction
     .select({ status: campusMapCurrentRevisions.status })
-    .from(campusMapPlaces)
-    .leftJoin(
-      campusMapCurrentRevisions,
-      eq(campusMapCurrentRevisions.placeId, campusMapPlaces.id),
-    )
-    .where(eq(campusMapPlaces.id, placeId))
+    .from(campusMapCurrentRevisions)
+    .where(eq(campusMapCurrentRevisions.placeId, placeId))
+    .for("update")
     .limit(1);
   return row?.status ?? null;
 }
