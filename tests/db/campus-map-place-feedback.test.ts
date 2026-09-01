@@ -26,35 +26,22 @@ import { resetSensitiveMatcherForTests } from "@/lib/sensitive-content";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
-async function waitUntilBackendIsBlockedBy(pool: Pool, blockerPid: number) {
+async function waitUntilBackendBlockedBy(pool: Pool, blockerPid: number) {
   const deadline = Date.now() + 2_000;
   while (Date.now() < deadline) {
-    const result = await pool.query<{ blocked: boolean }>(
-      `select exists (
-         select 1
-           from pg_stat_activity
-          where $1 = any(pg_blocking_pids(pid))
-       ) as blocked`,
+    const result = await pool.query<{ pid: number }>(
+      `select pid
+         from pg_stat_activity
+        where datname = current_database()
+          and $1 = any(pg_blocking_pids(pid))
+        order by pid
+        limit 1`,
       [blockerPid],
     );
-    if (result.rows[0]?.blocked) return true;
+    if (result.rows[0]) return result.rows[0].pid;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  return false;
-}
-
-async function waitUntilBlockedBackendCount(pool: Pool, minimum: number) {
-  const deadline = Date.now() + 2_000;
-  while (Date.now() < deadline) {
-    const result = await pool.query<{ blocked_count: string }>(
-      `select count(*)::text as blocked_count
-         from pg_stat_activity
-        where cardinality(pg_blocking_pids(pid)) > 0`,
-    );
-    if (Number(result.rows[0]?.blocked_count ?? 0) >= minimum) return true;
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  return false;
+  return null;
 }
 
 describe.skipIf(!hasDb)("Campus Map place feedback (#817)", () => {
@@ -748,9 +735,10 @@ describe.skipIf(!hasDb)("Campus Map place feedback (#817)", () => {
         actorId: admin,
         clientIp: "203.0.113.86",
       });
-      await expect(waitUntilBackendIsBlockedBy(pool, blockerPid)).resolves.toBe(
-        true,
-      );
+      const mergePid = await waitUntilBackendBlockedBy(pool, blockerPid);
+      expect(mergePid).not.toBeNull();
+      if (mergePid === null)
+        throw new Error("merge did not reach feedback lock");
 
       pendingWrite = commandCampusMapPlaceFeedback(
         {
@@ -761,7 +749,9 @@ describe.skipIf(!hasDb)("Campus Map place feedback (#817)", () => {
         },
         { actorId: newReviewer },
       );
-      await expect(waitUntilBlockedBackendCount(pool, 2)).resolves.toBe(true);
+      await expect(
+        waitUntilBackendBlockedBy(pool, mergePid),
+      ).resolves.not.toBeNull();
 
       await blocker.query("commit");
       blockerOpen = false;
