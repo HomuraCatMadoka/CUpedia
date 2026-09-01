@@ -411,7 +411,9 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
       page.getByRole("link", { name: "查看编辑记录 / History" }),
     ).toHaveAttribute("href", `/campus-map/places/${ids.place}/history`);
     await page.reload();
-    await expect(page.getByText("这个地点已停用")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "这个地点已停用" }),
+    ).toBeVisible();
     await expect(
       page.getByText(retirementReason, { exact: false }),
     ).toBeVisible();
@@ -423,7 +425,9 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await expect(
       readerPage.getByRole("heading", { name: placeName }),
     ).toBeVisible();
-    await expect(readerPage.getByText("这个地点已停用")).toBeVisible();
+    await expect(
+      readerPage.getByRole("heading", { name: "这个地点已停用" }),
+    ).toBeVisible();
     await expect(
       readerPage.getByText(retirementReason, { exact: false }),
     ).toBeVisible();
@@ -456,7 +460,9 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await expect(
       page.locator("#main-content").getByText("地图已收录", { exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("这个地点已停用")).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "这个地点已停用" }),
+    ).toHaveCount(0);
 
     await page.getByRole("link", { name: "返回地图" }).click();
     await expect(page).toHaveURL(new RegExp(`scene=place&id=${ids.place}`));

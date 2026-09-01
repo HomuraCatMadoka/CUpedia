@@ -179,7 +179,9 @@ describe("Campus Map Place detail (#816, #825)", () => {
       />,
     );
 
-    expect(screen.getByText("这个地点已停用")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "这个地点已停用" }),
+    ).toBeTruthy();
     expect(document.body.textContent).toContain("停用原因：原位置已拆除");
     expect(screen.getByText(`稳定地点编号：${placeId}`)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "恢复地点" })).toBeNull();
