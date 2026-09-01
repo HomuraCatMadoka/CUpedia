@@ -1,6 +1,7 @@
 "use client";
 
 import { StarIcon, Trash2Icon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useId, useRef, useState } from "react";
 
 import { runCampusMapPlaceFeedbackAction } from "@/lib/campus-map/place-feedback-actions";
@@ -51,6 +52,7 @@ export function PlaceFeedbackForm({
   initialFeedback: CampusMapPlaceFeedbackView | null;
   readOnly: boolean;
 }) {
+  const router = useRouter();
   const id = useId();
   const firstRatingRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
@@ -97,6 +99,7 @@ export function PlaceFeedbackForm({
         setMessage(
           result.status === "created" ? "评价已发布。" : "评价已更新。",
         );
+        router.refresh();
         return;
       }
       const errorCode = resultErrorCode(result);
@@ -136,6 +139,7 @@ export function PlaceFeedbackForm({
         setRating(0);
         setContent("");
         setMessage("评价已删除。你可以重新评分。");
+        router.refresh();
         return;
       }
       setError(feedbackError(resultErrorCode(result)));
