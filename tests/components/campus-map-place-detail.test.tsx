@@ -363,6 +363,11 @@ describe("Campus Map Place detail (#816, #825)", () => {
   it("shows summary and long reviews, then updates an accessible one-to-five-star form", async () => {
     const longReview = "很长的到访体验".repeat(80);
     let resolveFeedback: ((value: unknown) => void) | undefined;
+    let refreshedWhilePending: boolean | null = null;
+    refresh.mockImplementationOnce(() => {
+      refreshedWhilePending =
+        screen.queryByRole("button", { name: "正在保存…" }) !== null;
+    });
     feedbackAction.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
@@ -458,6 +463,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
     });
     await waitFor(() => expect(screen.getByText("评价已更新。")).toBeTruthy());
     expect(refresh).toHaveBeenCalledOnce();
+    expect(refreshedWhilePending).toBe(false);
 
     expect(screen.getByText("举报评价")).toBeTruthy();
     expect(screen.getByText("管理员隐藏")).toBeTruthy();
@@ -467,6 +473,11 @@ describe("Campus Map Place detail (#816, #825)", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "隐藏整条评价" }));
     await waitFor(() => expect(screen.getByText("评价已隐藏。")).toBeTruthy());
+    expect(hideAction).toHaveBeenCalledWith({
+      feedbackId: "00000000-0000-4000-8000-000000008171",
+      reason: "包含个人资料",
+      idempotencyKey: expect.any(String),
+    });
     expect(refresh).toHaveBeenCalledTimes(2);
   });
 });

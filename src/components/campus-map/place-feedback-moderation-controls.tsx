@@ -2,7 +2,7 @@
 
 import { FlagIcon, ShieldAlertIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import {
   hideCampusMapPlaceFeedback,
@@ -21,11 +21,9 @@ const REPORT_OPTIONS: Array<{ value: CampusMapReportSignal; label: string }> = [
 
 export function PlaceFeedbackModerationControls({
   feedbackId,
-  placeId,
   isAdmin,
 }: {
   feedbackId: string;
-  placeId: string;
   isAdmin: boolean;
 }) {
   const id = useId();
@@ -38,6 +36,12 @@ export function PlaceFeedbackModerationControls({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+
+  // Refresh after the pending state commits so the RSC request is not aborted.
+  useEffect(() => {
+    if (refreshVersion > 0) router.refresh();
+  }, [refreshVersion, router]);
 
   async function submitReport() {
     if (!details.trim()) {
@@ -84,13 +88,12 @@ export function PlaceFeedbackModerationControls({
     try {
       const result = await hideCampusMapPlaceFeedback({
         feedbackId,
-        placeId,
         reason: hideReason.trim(),
         idempotencyKey: crypto.randomUUID(),
       });
       if (result.status === "decided") {
         setMessage("评价已隐藏。");
-        router.refresh();
+        setRefreshVersion((version) => version + 1);
         return;
       }
       setError(

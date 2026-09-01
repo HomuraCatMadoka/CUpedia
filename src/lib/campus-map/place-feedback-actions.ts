@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
 import { getAuthenticatedUserStateForApi } from "@/lib/auth-guard";
@@ -19,20 +18,9 @@ export async function runCampusMapPlaceFeedbackAction(
   command: CampusMapPlaceFeedbackCommand,
 ): Promise<CampusMapPlaceFeedbackCommandResult> {
   const viewer = await getAuthenticatedUserStateForApi();
-  const result = await commandCampusMapPlaceFeedback(command, {
+  return commandCampusMapPlaceFeedback(command, {
     actorId: viewer?.id ?? null,
   });
-  if (
-    result.status === "created" ||
-    result.status === "updated" ||
-    result.status === "deleted"
-  ) {
-    const placeId =
-      result.status === "deleted" ? result.placeId : result.feedback.placeId;
-    revalidatePath("/campus-map");
-    revalidatePath(`/campus-map/places/${placeId}`);
-  }
-  return result;
 }
 
 export async function reportCampusMapPlaceFeedback(input: {
@@ -65,13 +53,12 @@ export async function hideCampusMapPlaceFeedback(input: {
   feedbackId: string;
   reason: string;
   idempotencyKey: string;
-  placeId: string;
 }) {
   const [viewer, requestHeaders] = await Promise.all([
     getAuthenticatedUserStateForApi(),
     headers(),
   ]);
-  const result = await commandCampusMapModeration(
+  return commandCampusMapModeration(
     {
       kind: "hide-place-feedback",
       idempotencyKey: input.idempotencyKey,
@@ -85,9 +72,4 @@ export async function hideCampusMapPlaceFeedback(input: {
       clientIp: requestClientIp(requestHeaders),
     },
   );
-  if (result.status === "decided") {
-    revalidatePath("/campus-map");
-    revalidatePath(`/campus-map/places/${input.placeId}`);
-  }
-  return result;
 }

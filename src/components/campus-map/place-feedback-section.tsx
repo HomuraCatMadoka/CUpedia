@@ -123,7 +123,6 @@ export function PlaceFeedbackSection({
                 </p>
                 <PlaceFeedbackModerationControls
                   feedbackId={item.id}
-                  placeId={placeId}
                   isAdmin={isAdmin}
                 />
               </li>

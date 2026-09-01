@@ -9,6 +9,7 @@ import { getCampusMapPlaceFeedbackSummaries } from "@/lib/campus-map/place-feedb
 export const metadata: Metadata = {
   title: "Campus Map",
 };
+export const dynamic = "force-dynamic";
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

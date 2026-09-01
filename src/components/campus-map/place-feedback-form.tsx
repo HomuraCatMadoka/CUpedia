@@ -2,7 +2,7 @@
 
 import { StarIcon, Trash2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { runCampusMapPlaceFeedbackAction } from "@/lib/campus-map/place-feedback-actions";
 import type { CampusMapPlaceFeedbackView } from "@/lib/campus-map/place-feedback";
@@ -62,6 +62,12 @@ export function PlaceFeedbackForm({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+
+  // Refresh after the pending state commits so the RSC request is not aborted.
+  useEffect(() => {
+    if (refreshVersion > 0) router.refresh();
+  }, [refreshVersion, router]);
 
   if (readOnly) {
     return (
@@ -99,7 +105,7 @@ export function PlaceFeedbackForm({
         setMessage(
           result.status === "created" ? "评价已发布。" : "评价已更新。",
         );
-        router.refresh();
+        setRefreshVersion((version) => version + 1);
         return;
       }
       const errorCode = resultErrorCode(result);
@@ -139,7 +145,7 @@ export function PlaceFeedbackForm({
         setRating(0);
         setContent("");
         setMessage("评价已删除。你可以重新评分。");
-        router.refresh();
+        setRefreshVersion((version) => version + 1);
         return;
       }
       setError(feedbackError(resultErrorCode(result)));
