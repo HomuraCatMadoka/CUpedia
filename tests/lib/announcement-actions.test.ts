@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   const returning = vi.fn();
@@ -60,14 +60,21 @@ const baseInput = {
   sendNotification: false,
 };
 const announcementId = "00000000-0000-4000-a100-000000000001";
+const ACTION_NOW = new Date("2026-08-31T10:00:00.000Z");
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(ACTION_NOW);
   vi.clearAllMocks();
   mocks.requireAdmin.mockResolvedValue({ id: "admin-1", role: "admin" });
   mocks.returning
     .mockResolvedValueOnce([{ id: announcementId, title: "迎新资料已更新" }])
     .mockResolvedValue([]);
   mocks.execute.mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("announcement admin actions", () => {
