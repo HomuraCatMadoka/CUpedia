@@ -2133,6 +2133,16 @@ describe("Campus Map AMap runtime effects", () => {
     );
   });
 
+  it("shows one icon-only location control", async () => {
+    await renderWithRuntime();
+
+    const locationButton = screen.getByRole("button", {
+      name: "使用我的位置",
+    });
+    expect(locationButton.textContent).toBe("");
+    expect(screen.queryByRole("button", { name: "回到中大校园" })).toBeNull();
+  });
+
   it("shows the current position and sorts category Places by approximate straight-line distance", async () => {
     const projection = createNullablePlaceFixture();
     const { runtime } = await renderWithRuntime({ projection });
