@@ -392,6 +392,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
         mapHref="/campus-map?v=1"
         building={{ name: "联合书院图书馆", floorLabel: "1/F" }}
         isAdmin
+        reviewsAfter="opaque-current-page"
         feedback={{
           placeStatus: "active",
           summary: {
@@ -412,7 +413,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
               },
             ],
             nextCursor: "opaque-cursor",
-            isPaginated: false,
+            isPaginated: true,
           },
         }}
         viewerFeedback={{
@@ -444,13 +445,16 @@ describe("Campus Map Place detail (#816, #825)", () => {
     fireEvent.click(screen.getByRole("button", { name: "更新我的评价" }));
     await waitFor(() => expect(feedbackAction).toHaveBeenCalledOnce());
     expect(screen.getByRole("button", { name: "正在保存…" })).toBeTruthy();
-    expect(feedbackAction).toHaveBeenCalledWith({
-      kind: "update",
-      feedbackId: "00000000-0000-4000-8000-000000008170",
-      expectedVersion: 1,
-      rating: 5,
-      content: "更新后的体验",
-    });
+    expect(feedbackAction).toHaveBeenCalledWith(
+      {
+        kind: "update",
+        feedbackId: "00000000-0000-4000-8000-000000008170",
+        expectedVersion: 1,
+        rating: 5,
+        content: "更新后的体验",
+      },
+      { placeId, cursor: "opaque-current-page" },
+    );
     resolveFeedback?.({
       status: "updated",
       feedback: {
@@ -483,7 +487,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
             },
           ],
           nextCursor: null,
-          isPaginated: false,
+          isPaginated: true,
         },
       },
     });
@@ -494,7 +498,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
     expect(
       within(screen.getByRole("listitem")).getByText("更新后的体验"),
     ).toBeTruthy();
-    expect(refresh).toHaveBeenCalledOnce();
+    await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
     expect(refreshedWhilePending).toBe(false);
 
     expect(screen.getByText("举报评价")).toBeTruthy();
@@ -509,7 +513,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
           ratingCount: 0,
           reviewCount: 0,
         },
-        page: { items: [], nextCursor: null, isPaginated: false },
+        page: { items: [], nextCursor: null, isPaginated: true },
       },
     });
     fireEvent.click(screen.getByText("管理员隐藏"));
@@ -519,12 +523,18 @@ describe("Campus Map Place detail (#816, #825)", () => {
     fireEvent.click(screen.getByRole("button", { name: "隐藏整条评价" }));
     await waitFor(() => expect(screen.getByText("评价已隐藏。")).toBeTruthy());
     expect(hideAction).toHaveBeenCalledWith({
+      placeId,
       feedbackId: "00000000-0000-4000-8000-000000008170",
       reason: "包含个人资料",
       idempotencyKey: expect.any(String),
+      reviewsAfter: "opaque-current-page",
     });
     expect(screen.queryByRole("listitem")).toBeNull();
     expect(screen.getByText("暂无评分", { exact: true })).toBeTruthy();
-    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByText("你的评价已被管理员隐藏。", { exact: false }),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: "返回最新评价" })).toBeTruthy();
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2));
   });
 });

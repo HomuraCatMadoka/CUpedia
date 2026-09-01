@@ -1647,9 +1647,20 @@ describe("CampusMapRuntime", () => {
     fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
+    const queuedFrames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      queuedFrames.push(callback);
+      return queuedFrames.length;
+    });
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
     const retry = await screen.findByRole("button", {
       name: "检查发布结果",
+    });
+    await act(async () => {
+      while (queuedFrames.length > 0) {
+        queuedFrames.shift()!(0);
+        await Promise.resolve();
+      }
     });
     expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe(
       "正在确认发布结果，你的修改已经保留",

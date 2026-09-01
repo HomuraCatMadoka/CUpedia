@@ -26,20 +26,30 @@ export function PlaceFeedbackSection({
   viewerFeedback,
   viewerCanWrite,
   isAdmin,
+  reviewsAfter,
 }: {
   placeId: string;
   feedback: CampusMapPlaceFeedbackPage;
   viewerFeedback: CampusMapPlaceFeedbackView | null;
   viewerCanWrite: boolean;
   isAdmin: boolean;
+  reviewsAfter: string | null;
 }) {
   const [localSnapshot, setLocalSnapshot] = useState<{
     base: CampusMapPlaceFeedbackPage;
     current: CampusMapPlaceFeedbackPage;
   } | null>(null);
   const [sectionMessage, setSectionMessage] = useState<string | null>(null);
+  const [viewerFeedbackOverride, setViewerFeedbackOverride] = useState<{
+    base: CampusMapPlaceFeedbackView | null;
+    current: CampusMapPlaceFeedbackView | null;
+  } | null>(null);
   const snapshot =
     localSnapshot?.base === feedback ? localSnapshot.current : feedback;
+  const currentViewerFeedback =
+    viewerFeedbackOverride?.base === viewerFeedback
+      ? viewerFeedbackOverride.current
+      : viewerFeedback;
   const applySnapshot = (nextSnapshot: CampusMapPlaceFeedbackPage) =>
     setLocalSnapshot({ base: feedback, current: nextSnapshot });
 
@@ -86,10 +96,22 @@ export function PlaceFeedbackSection({
       <div className="mt-5">
         {viewerCanWrite || readOnly ? (
           <PlaceFeedbackForm
-            key={`${placeId}:${viewerFeedback?.id ?? "new"}:${viewerFeedback?.version ?? 0}:${readOnly ? "read-only" : "write"}`}
+            key={`${placeId}:${viewerFeedback?.id ?? "new"}:${viewerFeedback?.version ?? 0}:${viewerFeedback?.visibility ?? "none"}:${readOnly ? "read-only" : "write"}`}
             placeId={placeId}
             initialFeedback={viewerFeedback}
             readOnly={readOnly}
+            reviewsAfter={reviewsAfter}
+            hiddenFeedbackId={
+              currentViewerFeedback?.visibility === "hidden"
+                ? currentViewerFeedback.id
+                : null
+            }
+            onViewerFeedbackChange={(nextFeedback) =>
+              setViewerFeedbackOverride({
+                base: viewerFeedback,
+                current: nextFeedback,
+              })
+            }
             onSnapshot={(nextSnapshot) => {
               applySnapshot(nextSnapshot);
               setSectionMessage(null);
@@ -141,10 +163,21 @@ export function PlaceFeedbackSection({
                   {item.content}
                 </p>
                 <PlaceFeedbackModerationControls
+                  placeId={placeId}
                   feedbackId={item.id}
                   isAdmin={isAdmin}
+                  reviewsAfter={reviewsAfter}
                   onSnapshot={(nextSnapshot) => {
                     applySnapshot(nextSnapshot);
+                    if (currentViewerFeedback?.id === item.id) {
+                      setViewerFeedbackOverride({
+                        base: viewerFeedback,
+                        current: {
+                          ...currentViewerFeedback,
+                          visibility: "hidden",
+                        },
+                      });
+                    }
                     setSectionMessage("评价已隐藏。");
                   }}
                 />

@@ -73,6 +73,7 @@ export function CampusMapPlaceDetail({
   feedback,
   viewerFeedback = null,
   viewerCanWrite = true,
+  reviewsAfter = null,
 }: {
   placeId: string;
   head: CampusMapPlaceHistoryHead;
@@ -84,6 +85,7 @@ export function CampusMapPlaceDetail({
   feedback?: CampusMapPlaceFeedbackPage;
   viewerFeedback?: CampusMapPlaceFeedbackView | null;
   viewerCanWrite?: boolean;
+  reviewsAfter?: string | null;
 }) {
   const statusLabel =
     head.status === "active"
@@ -245,6 +247,7 @@ export function CampusMapPlaceDetail({
           viewerFeedback={viewerFeedback}
           viewerCanWrite={viewerCanWrite}
           isAdmin={isAdmin}
+          reviewsAfter={reviewsAfter}
         />
 
         <div>

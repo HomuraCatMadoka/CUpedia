@@ -50,11 +50,17 @@ export function PlaceFeedbackForm({
   placeId,
   initialFeedback,
   readOnly,
+  reviewsAfter,
+  hiddenFeedbackId,
+  onViewerFeedbackChange,
   onSnapshot,
 }: {
   placeId: string;
   initialFeedback: CampusMapPlaceFeedbackView | null;
   readOnly: boolean;
+  reviewsAfter: string | null;
+  hiddenFeedbackId: string | null;
+  onViewerFeedbackChange: (feedback: CampusMapPlaceFeedbackView | null) => void;
   onSnapshot: (snapshot: CampusMapPlaceFeedbackPage) => void;
 }) {
   const router = useRouter();
@@ -102,12 +108,14 @@ export function PlaceFeedbackForm({
               content,
             }
           : { kind: "create", placeId, rating, content },
+        { placeId, cursor: reviewsAfter },
       );
       if (result.status === "created" || result.status === "updated") {
         setFeedback(result.feedback);
+        onViewerFeedbackChange(result.feedback);
         setRating(result.feedback.rating);
         setContent(result.feedback.content ?? "");
-        onSnapshot(result.snapshot);
+        if (result.snapshot) onSnapshot(result.snapshot);
         setMessage(
           result.status === "created" ? "评价已发布。" : "评价已更新。",
         );
@@ -141,16 +149,20 @@ export function PlaceFeedbackForm({
     setMessage(null);
     setPending(true);
     try {
-      const result = await runCampusMapPlaceFeedbackAction({
-        kind: "delete",
-        feedbackId: feedback.id,
-        expectedVersion: feedback.version,
-      });
+      const result = await runCampusMapPlaceFeedbackAction(
+        {
+          kind: "delete",
+          feedbackId: feedback.id,
+          expectedVersion: feedback.version,
+        },
+        { placeId, cursor: reviewsAfter },
+      );
       if (result.status === "deleted") {
         setFeedback(null);
+        onViewerFeedbackChange(null);
         setRating(0);
         setContent("");
-        onSnapshot(result.snapshot);
+        if (result.snapshot) onSnapshot(result.snapshot);
         setMessage("评价已删除。你可以重新评分。");
         setRefreshVersion((version) => version + 1);
         return;
@@ -166,7 +178,8 @@ export function PlaceFeedbackForm({
   const errorId = `${id}-error`;
   return (
     <div className="grid gap-4 rounded-2xl border bg-background p-4">
-      {feedback?.visibility === "hidden" ? (
+      {feedback &&
+      (feedback.visibility === "hidden" || feedback.id === hiddenFeedbackId) ? (
         <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
           你的评价已被管理员隐藏。修改不会自动重新公开，管理员复核后才会恢复展示。
         </p>

@@ -21,12 +21,16 @@ const REPORT_OPTIONS: Array<{ value: CampusMapReportSignal; label: string }> = [
 ];
 
 export function PlaceFeedbackModerationControls({
+  placeId,
   feedbackId,
   isAdmin,
+  reviewsAfter,
   onSnapshot,
 }: {
+  placeId: string;
   feedbackId: string;
   isAdmin: boolean;
+  reviewsAfter: string | null;
   onSnapshot: (snapshot: CampusMapPlaceFeedbackPage) => void;
 }) {
   const id = useId();
@@ -90,9 +94,11 @@ export function PlaceFeedbackModerationControls({
     setPending(true);
     try {
       const result = await hideCampusMapPlaceFeedback({
+        placeId,
         feedbackId,
         reason: hideReason.trim(),
         idempotencyKey: crypto.randomUUID(),
+        reviewsAfter,
       });
       if (result.status === "decided") {
         if (result.snapshot) onSnapshot(result.snapshot);

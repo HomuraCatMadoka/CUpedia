@@ -13,14 +13,13 @@ import {
   type CampusMapPlaceFeedbackCommandResult,
   type CampusMapPlaceFeedbackPage,
   getCampusMapPlaceFeedbackPage,
-  getCampusMapPlaceFeedbackPageForFeedback,
 } from "@/lib/campus-map/place-feedback";
 import { requestClientIp } from "@/lib/campus-map/request-client-ip";
 
 type CampusMapPlaceFeedbackActionSuccess = Extract<
   CampusMapPlaceFeedbackCommandResult,
   { status: "created" | "updated" | "deleted" }
-> & { snapshot: CampusMapPlaceFeedbackPage };
+> & { snapshot: CampusMapPlaceFeedbackPage | null };
 
 export type CampusMapPlaceFeedbackActionResult =
   | Exclude<
@@ -29,8 +28,30 @@ export type CampusMapPlaceFeedbackActionResult =
     >
   | CampusMapPlaceFeedbackActionSuccess;
 
+async function readFeedbackSnapshot(
+  placeId: string,
+  query: { cursor?: string | null } = {},
+): Promise<CampusMapPlaceFeedbackPage | null> {
+  try {
+    return await getCampusMapPlaceFeedbackPage(placeId, {
+      cursor: query.cursor,
+      limit: 10,
+    });
+  } catch {
+    // The command has already committed. A failed convenience read must not
+    // turn that success into an error that encourages a duplicate retry.
+    return null;
+  }
+}
+
+type CampusMapPlaceFeedbackPageContext = {
+  placeId?: string;
+  cursor?: string | null;
+};
+
 export async function runCampusMapPlaceFeedbackAction(
   command: CampusMapPlaceFeedbackCommand,
+  page: CampusMapPlaceFeedbackPageContext = {},
 ): Promise<CampusMapPlaceFeedbackActionResult> {
   const viewer = await getAuthenticatedUserStateForApi();
   const result = await commandCampusMapPlaceFeedback(command, {
@@ -41,16 +62,18 @@ export async function runCampusMapPlaceFeedbackAction(
     case "updated":
       return {
         ...result,
-        snapshot: await getCampusMapPlaceFeedbackPage(result.feedback.placeId, {
-          limit: 10,
-        }),
+        snapshot: await readFeedbackSnapshot(
+          page.placeId ?? result.feedback.placeId,
+          page,
+        ),
       };
     case "deleted":
       return {
         ...result,
-        snapshot: await getCampusMapPlaceFeedbackPage(result.placeId, {
-          limit: 10,
-        }),
+        snapshot: await readFeedbackSnapshot(
+          page.placeId ?? result.placeId,
+          page,
+        ),
       };
     default:
       return result;
@@ -84,9 +107,11 @@ export async function reportCampusMapPlaceFeedback(input: {
 }
 
 export async function hideCampusMapPlaceFeedback(input: {
+  placeId: string;
   feedbackId: string;
   reason: string;
   idempotencyKey: string;
+  reviewsAfter: string | null;
 }) {
   const [viewer, requestHeaders] = await Promise.all([
     getAuthenticatedUserStateForApi(),
@@ -109,8 +134,11 @@ export async function hideCampusMapPlaceFeedback(input: {
   if (result.status !== "decided") return result;
   return {
     ...result,
-    snapshot: await getCampusMapPlaceFeedbackPageForFeedback(input.feedbackId, {
-      limit: 10,
+    // Keep the snapshot tied to the detail page that issued the command. The
+    // feedback row may move or disappear immediately after moderation because
+    // place merge and owner deletion are separate serialized workflows.
+    snapshot: await readFeedbackSnapshot(input.placeId, {
+      cursor: input.reviewsAfter,
     }),
   };
 }

@@ -156,6 +156,7 @@ describe("Campus Map stable Place page (#816)", () => {
     expect(element.props).toMatchObject({
       viewerCanWrite: false,
       viewerFeedback: null,
+      reviewsAfter: "opaque-page",
       feedback: { page: { isPaginated: false } },
     });
     expect(element.props).not.toHaveProperty("feedbackPageIsPaginated");
