@@ -2535,12 +2535,14 @@ export function CampusMapRuntime({
         ) : null}
         <button
           type="button"
+          aria-label={
+            userLocation.status === "locating" ? "正在定位…" : "使用我的位置"
+          }
           disabled={userLocation.status === "locating"}
-          className="pointer-events-auto flex min-h-11 items-center gap-2 rounded-xl border border-black/10 bg-white px-3 text-sm font-semibold shadow-[0_4px_16px_rgba(23,33,28,.18)] hover:bg-neutral-50 disabled:cursor-wait disabled:text-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
+          className="pointer-events-auto grid size-11 place-items-center rounded-xl border border-black/10 bg-white shadow-[0_4px_16px_rgba(23,33,28,.18)] hover:bg-neutral-50 disabled:cursor-wait disabled:text-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
           onClick={requestUserLocation}
         >
           <LocateFixedIcon aria-hidden="true" className="size-5" />
-          {userLocation.status === "locating" ? "正在定位…" : "使用我的位置"}
         </button>
         <button
           type="button"
@@ -2551,27 +2553,11 @@ export function CampusMapRuntime({
           <PlusIcon aria-hidden="true" className="size-6 md:size-5" />
           新增设施
         </button>
-        <div className="overflow-hidden rounded-xl border border-black/10 bg-white shadow-[0_4px_16px_rgba(23,33,28,.18)]">
-          <button
-            type="button"
-            aria-label="回到中大校园"
-            className="grid size-14 place-items-center hover:bg-neutral-50 active:scale-[0.98] md:size-11 motion-reduce:transform-none"
-            onClick={() => {
-              cameraGateRef.current.invalidate();
-              mapRef.current?.setZoomAndCenter(
-                17.2,
-                amapPositionsRef.current.__campus ?? CAMPUS_CENTER,
-                false,
-                320,
-              );
-            }}
-          >
-            <LocateFixedIcon aria-hidden="true" className="size-5" />
-          </button>
+        <div className="hidden overflow-hidden rounded-xl border border-black/10 bg-white shadow-[0_4px_16px_rgba(23,33,28,.18)] md:block">
           <button
             type="button"
             aria-label="放大"
-            className="hidden size-11 place-items-center border-t border-black/10 hover:bg-neutral-50 md:grid"
+            className="grid size-11 place-items-center hover:bg-neutral-50"
             onClick={() => mapRef.current?.zoomIn()}
           >
             <PlusIcon aria-hidden="true" className="size-5" />
@@ -2579,7 +2565,7 @@ export function CampusMapRuntime({
           <button
             type="button"
             aria-label="缩小"
-            className="hidden size-11 place-items-center border-t border-black/10 hover:bg-neutral-50 md:grid"
+            className="grid size-11 place-items-center border-t border-black/10 hover:bg-neutral-50"
             onClick={() => mapRef.current?.zoomOut()}
           >
             <MinusIcon aria-hidden="true" className="size-5" />
