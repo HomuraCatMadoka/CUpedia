@@ -11,16 +11,50 @@ import {
   commandCampusMapPlaceFeedback,
   type CampusMapPlaceFeedbackCommand,
   type CampusMapPlaceFeedbackCommandResult,
+  type CampusMapPlaceFeedbackPage,
+  getCampusMapPlaceFeedbackPage,
+  getCampusMapPlaceFeedbackPageForFeedback,
 } from "@/lib/campus-map/place-feedback";
 import { requestClientIp } from "@/lib/campus-map/request-client-ip";
 
+type CampusMapPlaceFeedbackActionSuccess = Extract<
+  CampusMapPlaceFeedbackCommandResult,
+  { status: "created" | "updated" | "deleted" }
+> & { snapshot: CampusMapPlaceFeedbackPage };
+
+export type CampusMapPlaceFeedbackActionResult =
+  | Exclude<
+      CampusMapPlaceFeedbackCommandResult,
+      { status: "created" | "updated" | "deleted" }
+    >
+  | CampusMapPlaceFeedbackActionSuccess;
+
 export async function runCampusMapPlaceFeedbackAction(
   command: CampusMapPlaceFeedbackCommand,
-): Promise<CampusMapPlaceFeedbackCommandResult> {
+): Promise<CampusMapPlaceFeedbackActionResult> {
   const viewer = await getAuthenticatedUserStateForApi();
-  return commandCampusMapPlaceFeedback(command, {
+  const result = await commandCampusMapPlaceFeedback(command, {
     actorId: viewer?.id ?? null,
   });
+  switch (result.status) {
+    case "created":
+    case "updated":
+      return {
+        ...result,
+        snapshot: await getCampusMapPlaceFeedbackPage(result.feedback.placeId, {
+          limit: 10,
+        }),
+      };
+    case "deleted":
+      return {
+        ...result,
+        snapshot: await getCampusMapPlaceFeedbackPage(result.placeId, {
+          limit: 10,
+        }),
+      };
+    default:
+      return result;
+  }
 }
 
 export async function reportCampusMapPlaceFeedback(input: {
@@ -58,7 +92,7 @@ export async function hideCampusMapPlaceFeedback(input: {
     getAuthenticatedUserStateForApi(),
     headers(),
   ]);
-  return commandCampusMapModeration(
+  const result = await commandCampusMapModeration(
     {
       kind: "hide-place-feedback",
       idempotencyKey: input.idempotencyKey,
@@ -72,4 +106,11 @@ export async function hideCampusMapPlaceFeedback(input: {
       clientIp: requestClientIp(requestHeaders),
     },
   );
+  if (result.status !== "decided") return result;
+  return {
+    ...result,
+    snapshot: await getCampusMapPlaceFeedbackPageForFeedback(input.feedbackId, {
+      limit: 10,
+    }),
+  };
 }

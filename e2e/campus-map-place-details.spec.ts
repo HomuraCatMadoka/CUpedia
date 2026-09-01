@@ -321,7 +321,9 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await page.goto("/login");
     await loginAsUser(page);
     await makeFeedbackUserEligible();
-    await page.goto(`/campus-map/places/${ids.place}`);
+    await page.goto(mapPlaceUrl);
+    await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
+    await page.getByRole("link", { name: "查看完整详情" }).click();
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
 
     await expect(page.getByText("暂无评分", { exact: true })).toBeVisible();

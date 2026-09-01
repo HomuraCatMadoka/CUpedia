@@ -1,5 +1,8 @@
+"use client";
+
 import { StarIcon } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 import { PlaceFeedbackForm } from "@/components/campus-map/place-feedback-form";
 import { PlaceFeedbackModerationControls } from "@/components/campus-map/place-feedback-moderation-controls";
@@ -13,6 +16,7 @@ function feedbackDate(value: string) {
     year: "numeric",
     month: "short",
     day: "numeric",
+    timeZone: "Asia/Hong_Kong",
   }).format(new Date(value));
 }
 
@@ -29,8 +33,18 @@ export function PlaceFeedbackSection({
   viewerCanWrite: boolean;
   isAdmin: boolean;
 }) {
-  const summary = feedback.summary;
-  const readOnly = feedback.placeStatus !== "active";
+  const [localSnapshot, setLocalSnapshot] = useState<{
+    base: CampusMapPlaceFeedbackPage;
+    current: CampusMapPlaceFeedbackPage;
+  } | null>(null);
+  const [sectionMessage, setSectionMessage] = useState<string | null>(null);
+  const snapshot =
+    localSnapshot?.base === feedback ? localSnapshot.current : feedback;
+  const applySnapshot = (nextSnapshot: CampusMapPlaceFeedbackPage) =>
+    setLocalSnapshot({ base: feedback, current: nextSnapshot });
+
+  const summary = snapshot.summary;
+  const readOnly = snapshot.placeStatus !== "active";
   return (
     <section
       id="place-feedback"
@@ -72,9 +86,14 @@ export function PlaceFeedbackSection({
       <div className="mt-5">
         {viewerCanWrite || readOnly ? (
           <PlaceFeedbackForm
+            key={`${placeId}:${viewerFeedback?.id ?? "new"}:${viewerFeedback?.version ?? 0}:${readOnly ? "read-only" : "write"}`}
             placeId={placeId}
             initialFeedback={viewerFeedback}
             readOnly={readOnly}
+            onSnapshot={(nextSnapshot) => {
+              applySnapshot(nextSnapshot);
+              setSectionMessage(null);
+            }}
           />
         ) : (
           <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
@@ -92,9 +111,9 @@ export function PlaceFeedbackSection({
 
       <div className="mt-7">
         <h3 className="font-semibold">公开评价</h3>
-        {feedback.page.items.length > 0 ? (
+        {snapshot.page.items.length > 0 ? (
           <ol className="mt-3 grid gap-3">
-            {feedback.page.items.map((item) => (
+            {snapshot.page.items.map((item) => (
               <li
                 key={item.id}
                 className="rounded-2xl border bg-background p-4"
@@ -124,6 +143,10 @@ export function PlaceFeedbackSection({
                 <PlaceFeedbackModerationControls
                   feedbackId={item.id}
                   isAdmin={isAdmin}
+                  onSnapshot={(nextSnapshot) => {
+                    applySnapshot(nextSnapshot);
+                    setSectionMessage("评价已隐藏。");
+                  }}
                 />
               </li>
             ))}
@@ -134,7 +157,7 @@ export function PlaceFeedbackSection({
           </p>
         )}
         <nav aria-label="评价分页" className="mt-4 flex flex-wrap gap-3">
-          {feedback.page.isPaginated ? (
+          {snapshot.page.isPaginated ? (
             <Link
               href={`/campus-map/places/${placeId}#place-feedback`}
               className="inline-flex min-h-11 items-center rounded-xl border px-4 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -142,15 +165,21 @@ export function PlaceFeedbackSection({
               返回最新评价
             </Link>
           ) : null}
-          {feedback.page.nextCursor ? (
+          {snapshot.page.nextCursor ? (
             <Link
-              href={`/campus-map/places/${placeId}?reviewsAfter=${encodeURIComponent(feedback.page.nextCursor)}#place-feedback`}
+              href={`/campus-map/places/${placeId}?reviewsAfter=${encodeURIComponent(snapshot.page.nextCursor)}#place-feedback`}
               className="inline-flex min-h-11 items-center rounded-xl border px-4 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               查看下一页评价
             </Link>
           ) : null}
         </nav>
+        <p
+          aria-live="polite"
+          className="mt-2 min-h-5 text-sm text-emerald-800 dark:text-emerald-300"
+        >
+          {sectionMessage}
+        </p>
       </div>
     </section>
   );

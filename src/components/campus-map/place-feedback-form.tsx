@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { runCampusMapPlaceFeedbackAction } from "@/lib/campus-map/place-feedback-actions";
-import type { CampusMapPlaceFeedbackView } from "@/lib/campus-map/place-feedback";
+import type {
+  CampusMapPlaceFeedbackPage,
+  CampusMapPlaceFeedbackView,
+} from "@/lib/campus-map/place-feedback";
 import { cn } from "@/lib/utils";
 
 function feedbackError(code: string) {
@@ -47,10 +50,12 @@ export function PlaceFeedbackForm({
   placeId,
   initialFeedback,
   readOnly,
+  onSnapshot,
 }: {
   placeId: string;
   initialFeedback: CampusMapPlaceFeedbackView | null;
   readOnly: boolean;
+  onSnapshot: (snapshot: CampusMapPlaceFeedbackPage) => void;
 }) {
   const router = useRouter();
   const id = useId();
@@ -102,6 +107,7 @@ export function PlaceFeedbackForm({
         setFeedback(result.feedback);
         setRating(result.feedback.rating);
         setContent(result.feedback.content ?? "");
+        onSnapshot(result.snapshot);
         setMessage(
           result.status === "created" ? "评价已发布。" : "评价已更新。",
         );
@@ -144,6 +150,7 @@ export function PlaceFeedbackForm({
         setFeedback(null);
         setRating(0);
         setContent("");
+        onSnapshot(result.snapshot);
         setMessage("评价已删除。你可以重新评分。");
         setRefreshVersion((version) => version + 1);
         return;

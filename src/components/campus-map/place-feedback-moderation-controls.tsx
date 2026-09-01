@@ -8,6 +8,7 @@ import {
   hideCampusMapPlaceFeedback,
   reportCampusMapPlaceFeedback,
 } from "@/lib/campus-map/place-feedback-actions";
+import type { CampusMapPlaceFeedbackPage } from "@/lib/campus-map/place-feedback";
 import type { CampusMapReportSignal } from "@/lib/campus-map/moderation-governance";
 
 const REPORT_OPTIONS: Array<{ value: CampusMapReportSignal; label: string }> = [
@@ -22,9 +23,11 @@ const REPORT_OPTIONS: Array<{ value: CampusMapReportSignal; label: string }> = [
 export function PlaceFeedbackModerationControls({
   feedbackId,
   isAdmin,
+  onSnapshot,
 }: {
   feedbackId: string;
   isAdmin: boolean;
+  onSnapshot: (snapshot: CampusMapPlaceFeedbackPage) => void;
 }) {
   const id = useId();
   const router = useRouter();
@@ -92,6 +95,7 @@ export function PlaceFeedbackModerationControls({
         idempotencyKey: crypto.randomUUID(),
       });
       if (result.status === "decided") {
+        if (result.snapshot) onSnapshot(result.snapshot);
         setMessage("评价已隐藏。");
         setRefreshVersion((version) => version + 1);
         return;

@@ -453,6 +453,22 @@ export async function getCampusMapPlaceFeedbackPage(
   };
 }
 
+export async function getCampusMapPlaceFeedbackPageForFeedback(
+  feedbackId: string,
+  query: { limit?: number } = {},
+): Promise<CampusMapPlaceFeedbackPage | null> {
+  const canonicalFeedbackId = feedbackId.toLowerCase();
+  if (!isCanonicalCampusMapUuid(canonicalFeedbackId)) return null;
+  const [feedback] = await db
+    .select({ placeId: campusMapPlaceFeedback.placeId })
+    .from(campusMapPlaceFeedback)
+    .where(eq(campusMapPlaceFeedback.id, canonicalFeedbackId))
+    .limit(1);
+  return feedback
+    ? getCampusMapPlaceFeedbackPage(feedback.placeId, query)
+    : null;
+}
+
 export async function getCampusMapViewerPlaceFeedback(
   placeId: string,
   actorId: string,
