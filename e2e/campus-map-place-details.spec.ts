@@ -400,7 +400,9 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     const pendingRetire = page.getByRole("button", { name: "正在停用…" });
     await expect(pendingRetire).toBeVisible();
     await expect(pendingRetire).toBeDisabled();
-    await expect(page.getByText("这个地点已停用")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "这个地点已停用" }),
+    ).toBeVisible();
     await page.unroute("**/campus-map/places/**");
 
     await expect(page.getByText(`停用原因：${retirementReason}`)).toBeVisible();
