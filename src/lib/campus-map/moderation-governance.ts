@@ -27,6 +27,8 @@ import {
   campusMapNoteEvents,
   campusMapNoteVisibility,
   campusMapNotes,
+  campusMapPlaceFeedback,
+  campusMapPlaceFeedbackVisibility,
   campusMapReports,
   campusMapRevisionVisibility,
   notifications,
@@ -485,6 +487,38 @@ async function executeAdminCommand(
     }
     await refreshPublicNoteSearchDocument(transaction, state.noteId, now);
   } else if (
+    command.kind === "hide-place-feedback" ||
+    command.kind === "unhide-place-feedback"
+  ) {
+    target = { kind: "place-feedback", id: command.feedbackId };
+    const desired =
+      command.kind === "hide-place-feedback" ? "hidden" : "public";
+    const state = await lockPlaceFeedbackVisibility(
+      transaction,
+      command.feedbackId,
+    );
+    if (state === null) {
+      return { status: "not-found", code: "moderation-target-not-found" };
+    }
+    if (state.visibility !== command.expectedVisibility) {
+      return conflict(command.expectedVisibility, state.visibility);
+    }
+    before = { visibility: state.visibility, decisionRef: state.decisionRef };
+    after = {
+      visibility: desired,
+      decisionRef: desired === "hidden" ? decisionRef : null,
+    };
+    await transaction
+      .update(campusMapPlaceFeedbackVisibility)
+      .set({
+        visibility: desired,
+        decisionRef: desired === "hidden" ? decisionRef : null,
+        updatedAt: now,
+      })
+      .where(
+        eq(campusMapPlaceFeedbackVisibility.feedbackId, command.feedbackId),
+      );
+  } else if (
     command.kind === "redact-revision" ||
     command.kind === "revoke-revision-redaction"
   ) {
@@ -672,6 +706,12 @@ async function resolveAdminCommandTarget(
     return { kind: "map-note-event", id: command.eventId };
   }
   if (
+    command.kind === "hide-place-feedback" ||
+    command.kind === "unhide-place-feedback"
+  ) {
+    return { kind: "place-feedback", id: command.feedbackId };
+  }
+  if (
     command.kind === "redact-revision" ||
     command.kind === "revoke-revision-redaction"
   ) {
@@ -712,6 +752,29 @@ async function lockNoteVisibility(
     })
     .from(campusMapNoteVisibility)
     .where(eq(campusMapNoteVisibility.noteId, noteId))
+    .for("update")
+    .limit(1);
+  return state ?? null;
+}
+
+async function lockPlaceFeedbackVisibility(
+  transaction: DatabaseTransaction,
+  feedbackId: string,
+): Promise<{ visibility: string; decisionRef: string | null } | null> {
+  const [feedback] = await transaction
+    .select({ id: campusMapPlaceFeedback.id })
+    .from(campusMapPlaceFeedback)
+    .where(eq(campusMapPlaceFeedback.id, feedbackId))
+    .for("update")
+    .limit(1);
+  if (!feedback) return null;
+  const [state] = await transaction
+    .select({
+      visibility: campusMapPlaceFeedbackVisibility.visibility,
+      decisionRef: campusMapPlaceFeedbackVisibility.decisionRef,
+    })
+    .from(campusMapPlaceFeedbackVisibility)
+    .where(eq(campusMapPlaceFeedbackVisibility.feedbackId, feedbackId))
     .for("update")
     .limit(1);
   return state ?? null;
@@ -1229,6 +1292,32 @@ async function readModerationTargetPayload(
         .limit(1)
     )[0];
   }
+  if (target.kind === "place-feedback") {
+    return (
+      await source
+        .select({
+          id: campusMapPlaceFeedback.id,
+          placeId: campusMapPlaceFeedback.placeId,
+          authorId: campusMapPlaceFeedback.userId,
+          rating: campusMapPlaceFeedback.rating,
+          content: campusMapPlaceFeedback.content,
+          version: campusMapPlaceFeedback.version,
+          visibility: campusMapPlaceFeedbackVisibility.visibility,
+          createdAt: campusMapPlaceFeedback.createdAt,
+          updatedAt: campusMapPlaceFeedback.updatedAt,
+        })
+        .from(campusMapPlaceFeedback)
+        .innerJoin(
+          campusMapPlaceFeedbackVisibility,
+          eq(
+            campusMapPlaceFeedbackVisibility.feedbackId,
+            campusMapPlaceFeedback.id,
+          ),
+        )
+        .where(eq(campusMapPlaceFeedback.id, target.id))
+        .limit(1)
+    )[0];
+  }
   return (
     await source
       .select()
@@ -1308,6 +1397,13 @@ function validateCommand(
     ) {
       if (!isCanonicalCampusMapUuid(command.eventId)) {
         errors.push({ code: "invalid-event-id", field: "eventId" });
+      }
+    } else if (
+      command.kind === "hide-place-feedback" ||
+      command.kind === "unhide-place-feedback"
+    ) {
+      if (!isCanonicalCampusMapUuid(command.feedbackId)) {
+        errors.push({ code: "invalid-feedback-id", field: "feedbackId" });
       }
     } else if (
       command.kind === "redact-revision" ||

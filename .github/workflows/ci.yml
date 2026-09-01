@@ -128,6 +128,13 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
         run: pnpm drizzle-kit migrate
 
+      - name: Test Campus Map place feedback persistence
+        if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
+        env:
+          AUTH_SECRET: ci-campus-map-feedback-auth-secret-at-least-32-characters
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
+        run: pnpm exec vitest run tests/db/campus-map-place-feedback.test.ts
+
       - name: Apply Supabase scheduler migrations
         if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
         env:

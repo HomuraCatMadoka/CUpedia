@@ -834,6 +834,13 @@
       "when": 1788101740615,
       "tag": "0118_campus-map-moderation-rate-limit-rls",
       "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1788239358500,
+      "tag": "0119_campus-map-place-feedback",
+      "breakpoints": true
     }
   ]
 }

@@ -7,13 +7,18 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { lifecycleAction, refresh } = vi.hoisted(() => ({
-  lifecycleAction: vi.fn(),
-  refresh: vi.fn(),
-}));
+const { lifecycleAction, feedbackAction, reportAction, hideAction, refresh } =
+  vi.hoisted(() => ({
+    lifecycleAction: vi.fn(),
+    feedbackAction: vi.fn(),
+    reportAction: vi.fn(),
+    hideAction: vi.fn(),
+    refresh: vi.fn(),
+  }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh }),
@@ -22,6 +27,12 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/campus-map/place-lifecycle-actions", () => ({
   runCampusMapPlaceLifecycleAction: (...args: unknown[]) =>
     lifecycleAction(...args),
+}));
+vi.mock("@/lib/campus-map/place-feedback-actions", () => ({
+  runCampusMapPlaceFeedbackAction: (...args: unknown[]) =>
+    feedbackAction(...args),
+  reportCampusMapPlaceFeedback: (...args: unknown[]) => reportAction(...args),
+  hideCampusMapPlaceFeedback: (...args: unknown[]) => hideAction(...args),
 }));
 
 import { CampusMapPlaceDetail } from "@/components/campus-map/place-detail";
@@ -65,6 +76,21 @@ beforeEach(() => {
     changesetId: "00000000-0000-4000-8000-000000008164",
     revisionId: "00000000-0000-4000-8000-000000008165",
   });
+  feedbackAction.mockResolvedValue({
+    status: "updated",
+    feedback: {
+      id: "00000000-0000-4000-8000-000000008170",
+      placeId,
+      rating: 5,
+      content: "更新后的体验",
+      version: 2,
+      visibility: "public",
+      createdAt: "2026-08-30T00:00:00.000Z",
+      updatedAt: "2026-08-31T00:00:00.000Z",
+    },
+  });
+  reportAction.mockResolvedValue({ status: "reported" });
+  hideAction.mockResolvedValue({ status: "decided" });
 });
 
 afterEach(() => {
@@ -154,7 +180,9 @@ describe("Campus Map Place detail (#816, #825)", () => {
       />,
     );
 
-    expect(screen.getByText("这个地点已停用")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "这个地点已停用" }),
+    ).toBeTruthy();
     expect(document.body.textContent).toContain("停用原因：原位置已拆除");
     expect(screen.getByText(`稳定地点编号：${placeId}`)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "恢复地点" })).toBeNull();
@@ -333,5 +361,180 @@ describe("Campus Map Place detail (#816, #825)", () => {
     expect(lifecycleAction.mock.calls.at(-1)?.[0].idempotencyKey).not.toBe(
       retryableRequest.idempotencyKey,
     );
+  });
+
+  it("shows summary and long reviews, then updates an accessible one-to-five-star form", async () => {
+    const longReview = "很长的到访体验".repeat(80);
+    let resolveFeedback: ((value: unknown) => void) | undefined;
+    let refreshedWhilePending: boolean | null = null;
+    refresh.mockImplementationOnce(() => {
+      refreshedWhilePending =
+        screen.queryByRole("button", { name: "正在保存…" }) !== null;
+    });
+    feedbackAction.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFeedback = resolve;
+        }),
+    );
+    render(
+      <CampusMapPlaceDetail
+        placeId={placeId}
+        head={{
+          revisionId,
+          status: "active",
+          visibility: "public",
+          mergedIntoPlaceId: null,
+          name: fact.name,
+        }}
+        fact={fact}
+        retirementReason={null}
+        mapHref="/campus-map?v=1"
+        building={{ name: "联合书院图书馆", floorLabel: "1/F" }}
+        isAdmin
+        reviewsAfter="opaque-current-page"
+        feedback={{
+          placeStatus: "active",
+          summary: {
+            placeId,
+            averageRating: 4.3,
+            ratingCount: 12,
+            reviewCount: 8,
+          },
+          page: {
+            items: [
+              {
+                id: "00000000-0000-4000-8000-000000008171",
+                author: { nickname: "地图同学" },
+                rating: 4,
+                content: longReview,
+                createdAt: "2026-08-30T00:00:00.000Z",
+                updatedAt: "2026-08-30T00:00:00.000Z",
+              },
+            ],
+            nextCursor: "opaque-cursor",
+            isPaginated: true,
+          },
+        }}
+        viewerFeedback={{
+          id: "00000000-0000-4000-8000-000000008170",
+          placeId,
+          rating: 4,
+          content: "原来的体验",
+          version: 1,
+          visibility: "public",
+          createdAt: "2026-08-30T00:00:00.000Z",
+          updatedAt: "2026-08-30T00:00:00.000Z",
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByLabelText(/平均 4.3 分，共 12 个评分、8 条文字评价/),
+    ).toBeTruthy();
+    expect(screen.getByText(longReview).className).toContain("break-words");
+    expect(screen.getByRole("link", { name: "查看下一页评价" })).toBeTruthy();
+    expect(
+      (screen.getByRole("radio", { name: "4 星" }) as HTMLInputElement).checked,
+    ).toBe(true);
+
+    fireEvent.click(screen.getByText("5 星"));
+    fireEvent.change(screen.getByLabelText("评价（选填）"), {
+      target: { value: "更新后的体验" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "更新我的评价" }));
+    await waitFor(() => expect(feedbackAction).toHaveBeenCalledOnce());
+    expect(screen.getByRole("button", { name: "正在保存…" })).toBeTruthy();
+    expect(feedbackAction).toHaveBeenCalledWith(
+      {
+        kind: "update",
+        feedbackId: "00000000-0000-4000-8000-000000008170",
+        expectedVersion: 1,
+        rating: 5,
+        content: "更新后的体验",
+      },
+      { placeId, cursor: "opaque-current-page" },
+    );
+    resolveFeedback?.({
+      status: "updated",
+      feedback: {
+        id: "00000000-0000-4000-8000-000000008170",
+        placeId,
+        rating: 5,
+        content: "更新后的体验",
+        version: 2,
+        visibility: "public",
+        createdAt: "2026-08-30T00:00:00.000Z",
+        updatedAt: "2026-08-31T00:00:00.000Z",
+      },
+      snapshot: {
+        placeStatus: "active",
+        summary: {
+          placeId,
+          averageRating: 5,
+          ratingCount: 1,
+          reviewCount: 1,
+        },
+        page: {
+          items: [
+            {
+              id: "00000000-0000-4000-8000-000000008170",
+              author: { nickname: "当前用户" },
+              rating: 5,
+              content: "更新后的体验",
+              createdAt: "2026-08-30T00:00:00.000Z",
+              updatedAt: "2026-08-31T00:00:00.000Z",
+            },
+          ],
+          nextCursor: null,
+          isPaginated: true,
+        },
+      },
+    });
+    await waitFor(() => expect(screen.getByText("评价已更新。")).toBeTruthy());
+    expect(
+      screen.getByLabelText("平均 5.0 分，共 1 个评分、1 条文字评价"),
+    ).toBeTruthy();
+    expect(
+      within(screen.getByRole("listitem")).getByText("更新后的体验"),
+    ).toBeTruthy();
+    await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+    expect(refreshedWhilePending).toBe(false);
+
+    expect(screen.getByText("举报评价")).toBeTruthy();
+    expect(screen.getByText("管理员隐藏")).toBeTruthy();
+    hideAction.mockResolvedValueOnce({
+      status: "decided",
+      snapshot: {
+        placeStatus: "active",
+        summary: {
+          placeId,
+          averageRating: null,
+          ratingCount: 0,
+          reviewCount: 0,
+        },
+        page: { items: [], nextCursor: null, isPaginated: true },
+      },
+    });
+    fireEvent.click(screen.getByText("管理员隐藏"));
+    fireEvent.change(screen.getByLabelText("隐藏原因"), {
+      target: { value: "包含个人资料" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "隐藏整条评价" }));
+    await waitFor(() => expect(screen.getByText("评价已隐藏。")).toBeTruthy());
+    expect(hideAction).toHaveBeenCalledWith({
+      placeId,
+      feedbackId: "00000000-0000-4000-8000-000000008170",
+      reason: "包含个人资料",
+      idempotencyKey: expect.any(String),
+      reviewsAfter: "opaque-current-page",
+    });
+    expect(screen.queryByRole("listitem")).toBeNull();
+    expect(screen.getByText("暂无评分", { exact: true })).toBeTruthy();
+    expect(
+      screen.getByText("你的评价已被管理员隐藏。", { exact: false }),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: "返回最新评价" })).toBeTruthy();
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2));
   });
 });

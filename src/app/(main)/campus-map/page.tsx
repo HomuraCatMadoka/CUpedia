@@ -4,10 +4,12 @@ import { CampusMapRuntime } from "@/components/campus-map/campus-map-runtime";
 import { requireAuth } from "@/lib/auth-guard";
 import { loadCampusMapBrowseProjection } from "@/lib/campus-map/browse-actions";
 import { getCampusMapFactSchema } from "@/lib/campus-map/fact-store";
+import { getCampusMapPlaceFeedbackSummaries } from "@/lib/campus-map/place-feedback";
 
 export const metadata: Metadata = {
   title: "Campus Map",
 };
+export const dynamic = "force-dynamic";
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -32,11 +34,15 @@ export default async function CampusMapPage({ searchParams }: PageProps) {
     getCampusMapFactSchema(),
     loadCampusMapBrowseProjection(),
   ]);
+  const feedbackSummaries = await getCampusMapPlaceFeedbackSummaries(
+    browseProjection.places.map((place) => place.placeId),
+  );
   return (
     <CampusMapRuntime
       initialSearch={params.toString()}
       factSchema={factSchema}
       initialBrowseProjection={browseProjection}
+      initialFeedbackSummaries={feedbackSummaries}
     />
   );
 }

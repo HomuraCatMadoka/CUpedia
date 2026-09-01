@@ -362,6 +362,28 @@ function mixedWaterProjection() {
 }
 
 describe("CampusMapRuntime", () => {
+  it("renders category results as name, location, and rating summary without repeating the known category", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000002";
+    render(
+      <CampusMapRuntime
+        initialFeedbackSummaries={{
+          [placeId]: {
+            placeId,
+            averageRating: 4.4,
+            ratingCount: 5,
+            reviewCount: 3,
+          },
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    const result = await screen.findByRole("button", {
+      name: /饮水机.*科学馆 · 1\/F.*4.4 分 · 5 个评分 · 3 条评价/u,
+    });
+    expect(result.textContent).not.toContain("饮水点");
+  });
+
   it("rejects a malformed persisted publish receipt", () => {
     const idempotencyKey = "10000000-0000-4000-8000-000000000099";
     window.localStorage.setItem(
@@ -446,6 +468,7 @@ describe("CampusMapRuntime", () => {
     expect(buildingPreview?.getAttribute("data-return-result")).toBe(
       "30000000-0000-4000-8000-000000000010",
     );
+    expect(buildingPreview?.className).toContain("py-1");
     const buildingCta = screen.getByRole("button", {
       name: "查看全部楼内设施",
     });
@@ -1624,9 +1647,20 @@ describe("CampusMapRuntime", () => {
     fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     await confirmPlacementWithKeyboard();
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
+    const queuedFrames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      queuedFrames.push(callback);
+      return queuedFrames.length;
+    });
     fireEvent.click(screen.getByRole("button", { name: "发布设施" }));
     const retry = await screen.findByRole("button", {
       name: "检查发布结果",
+    });
+    await act(async () => {
+      while (queuedFrames.length > 0) {
+        queuedFrames.shift()!(0);
+        await Promise.resolve();
+      }
     });
     expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe(
       "正在确认发布结果，你的修改已经保留",
