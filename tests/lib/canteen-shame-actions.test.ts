@@ -42,6 +42,8 @@ import {
 import { resetVoteRateLimitForTests } from "@/lib/canteen-vote-rate-limit";
 
 const DEMO_CANTEEN_ID = "mock-canteen-demo";
+const VOTING_OPEN_NOW = new Date("2026-09-01T15:59:00.000Z");
+const VOTING_CLOSED_NOW = new Date("2026-09-01T16:00:00.000Z");
 
 describe("canteen-shame-actions (mock mode)", () => {
   const prevMock = process.env.CANTEEN_MOCK_DATA;
@@ -50,6 +52,8 @@ describe("canteen-shame-actions (mock mode)", () => {
   const prevRate = process.env.CANTEEN_VOTE_RATE_LIMIT_PER_MIN;
 
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(VOTING_OPEN_NOW);
     process.env.CANTEEN_MOCK_DATA = "true";
     process.env.AUTH_SECRET = "test-secret";
     delete process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT;
@@ -73,6 +77,7 @@ describe("canteen-shame-actions (mock mode)", () => {
     else process.env.CANTEEN_VOTE_RATE_LIMIT_PER_MIN = prevRate;
     resetCanteenMockState();
     resetVoteRateLimitForTests();
+    vi.useRealTimers();
   });
 
   it("appends a dislike each click; same canteen can be stomped multiple times", async () => {
@@ -146,16 +151,12 @@ describe("canteen-shame-actions (mock mode)", () => {
   });
 
   it("rejects stomps after the configured HKT end date", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-01T16:00:00Z"));
-    try {
-      await expect(appendShameVote(DEMO_CANTEEN_ID)).resolves.toEqual({
-        ok: false,
-        code: "SHAME_VOTING_CLOSED",
-      });
-    } finally {
-      vi.useRealTimers();
-    }
+    vi.setSystemTime(VOTING_CLOSED_NOW);
+
+    await expect(appendShameVote(DEMO_CANTEEN_ID)).resolves.toEqual({
+      ok: false,
+      code: "SHAME_VOTING_CLOSED",
+    });
   });
 
   it("does not apply rate limits to logged-in mock voters", async () => {
