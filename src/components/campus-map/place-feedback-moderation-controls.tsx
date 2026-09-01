@@ -2,7 +2,6 @@
 
 import { FlagIcon, ShieldAlertIcon } from "lucide-react";
 import { useId, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
 import {
   hideCampusMapPlaceFeedback,
@@ -29,7 +28,6 @@ export function PlaceFeedbackModerationControls({
   isAdmin: boolean;
 }) {
   const id = useId();
-  const router = useRouter();
   const reportDetailsRef = useRef<HTMLTextAreaElement>(null);
   const hideReasonRef = useRef<HTMLTextAreaElement>(null);
   const [signal, setSignal] = useState<CampusMapReportSignal>("other");
@@ -89,7 +87,6 @@ export function PlaceFeedbackModerationControls({
         });
         if (result.status === "decided") {
           setMessage("评价已隐藏。");
-          router.refresh();
           return;
         }
         setError(

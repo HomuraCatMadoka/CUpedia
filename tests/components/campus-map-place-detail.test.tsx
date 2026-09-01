@@ -436,9 +436,16 @@ describe("Campus Map Place detail (#816, #825)", () => {
       content: "更新后的体验",
     });
     await waitFor(() => expect(screen.getByText("评价已更新。")).toBeTruthy());
-    expect(refresh).toHaveBeenCalledOnce();
+    expect(refresh).not.toHaveBeenCalled();
 
     expect(screen.getByText("举报评价")).toBeTruthy();
     expect(screen.getByText("管理员隐藏")).toBeTruthy();
+    fireEvent.click(screen.getByText("管理员隐藏"));
+    fireEvent.change(screen.getByLabelText("隐藏原因"), {
+      target: { value: "包含个人资料" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "隐藏整条评价" }));
+    await waitFor(() => expect(screen.getByText("评价已隐藏。")).toBeTruthy());
+    expect(refresh).not.toHaveBeenCalled();
   });
 });

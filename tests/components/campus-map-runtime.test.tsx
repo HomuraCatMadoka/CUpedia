@@ -468,6 +468,7 @@ describe("CampusMapRuntime", () => {
     expect(buildingPreview?.getAttribute("data-return-result")).toBe(
       "30000000-0000-4000-8000-000000000010",
     );
+    expect(buildingPreview?.className).toContain("py-1");
     const buildingCta = screen.getByRole("button", {
       name: "查看全部楼内设施",
     });

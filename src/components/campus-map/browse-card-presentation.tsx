@@ -108,7 +108,9 @@ export function CampusMapFacilityResultButton({
         "flex w-full items-center text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]",
         showsIcon
           ? "min-h-20 gap-3 py-3"
-          : "min-h-16 border-b border-black/8 py-2",
+          : variant === "preview"
+            ? "min-h-14 border-b border-black/8 py-1"
+            : "min-h-16 border-b border-black/8 py-2",
       )}
       onClick={onSelect}
     >
