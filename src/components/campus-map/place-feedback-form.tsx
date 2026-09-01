@@ -1,7 +1,7 @@
 "use client";
 
 import { StarIcon, Trash2Icon } from "lucide-react";
-import { useId, useRef, useState, useTransition } from "react";
+import { useId, useRef, useState } from "react";
 
 import { runCampusMapPlaceFeedbackAction } from "@/lib/campus-map/place-feedback-actions";
 import type { CampusMapPlaceFeedbackView } from "@/lib/campus-map/place-feedback";
@@ -59,7 +59,7 @@ export function PlaceFeedbackForm({
   const [feedback, setFeedback] = useState(initialFeedback);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
 
   if (readOnly) {
     return (
@@ -69,7 +69,7 @@ export function PlaceFeedbackForm({
     );
   }
 
-  function submit() {
+  async function submit() {
     if (rating < 1 || rating > 5) {
       setError("请选择 1 至 5 星。");
       firstRatingRef.current?.focus();
@@ -77,44 +77,45 @@ export function PlaceFeedbackForm({
     }
     setError(null);
     setMessage(null);
-    startTransition(async () => {
-      try {
-        const result = await runCampusMapPlaceFeedbackAction(
-          feedback
-            ? {
-                kind: "update",
-                feedbackId: feedback.id,
-                expectedVersion: feedback.version,
-                rating,
-                content,
-              }
-            : { kind: "create", placeId, rating, content },
+    setPending(true);
+    try {
+      const result = await runCampusMapPlaceFeedbackAction(
+        feedback
+          ? {
+              kind: "update",
+              feedbackId: feedback.id,
+              expectedVersion: feedback.version,
+              rating,
+              content,
+            }
+          : { kind: "create", placeId, rating, content },
+      );
+      if (result.status === "created" || result.status === "updated") {
+        setFeedback(result.feedback);
+        setRating(result.feedback.rating);
+        setContent(result.feedback.content ?? "");
+        setMessage(
+          result.status === "created" ? "评价已发布。" : "评价已更新。",
         );
-        if (result.status === "created" || result.status === "updated") {
-          setFeedback(result.feedback);
-          setRating(result.feedback.rating);
-          setContent(result.feedback.content ?? "");
-          setMessage(
-            result.status === "created" ? "评价已发布。" : "评价已更新。",
-          );
-          return;
-        }
-        const errorCode = resultErrorCode(result);
-        setError(feedbackError(errorCode));
-        if (errorCode === "invalid-rating") firstRatingRef.current?.focus();
-        if (
-          errorCode === "content-too-long" ||
-          errorCode === "sensitive-content"
-        ) {
-          contentRef.current?.focus();
-        }
-      } catch {
-        setError("网络连接中断，请保留内容后重试。");
+        return;
       }
-    });
+      const errorCode = resultErrorCode(result);
+      setError(feedbackError(errorCode));
+      if (errorCode === "invalid-rating") firstRatingRef.current?.focus();
+      if (
+        errorCode === "content-too-long" ||
+        errorCode === "sensitive-content"
+      ) {
+        contentRef.current?.focus();
+      }
+    } catch {
+      setError("网络连接中断，请保留内容后重试。");
+    } finally {
+      setPending(false);
+    }
   }
 
-  function remove() {
+  async function remove() {
     if (
       !feedback ||
       !window.confirm("确认删除你的评分和评价？删除后无法恢复。")
@@ -123,25 +124,26 @@ export function PlaceFeedbackForm({
     }
     setError(null);
     setMessage(null);
-    startTransition(async () => {
-      try {
-        const result = await runCampusMapPlaceFeedbackAction({
-          kind: "delete",
-          feedbackId: feedback.id,
-          expectedVersion: feedback.version,
-        });
-        if (result.status === "deleted") {
-          setFeedback(null);
-          setRating(0);
-          setContent("");
-          setMessage("评价已删除。你可以重新评分。");
-          return;
-        }
-        setError(feedbackError(resultErrorCode(result)));
-      } catch {
-        setError("网络连接中断，请稍后重试。");
+    setPending(true);
+    try {
+      const result = await runCampusMapPlaceFeedbackAction({
+        kind: "delete",
+        feedbackId: feedback.id,
+        expectedVersion: feedback.version,
+      });
+      if (result.status === "deleted") {
+        setFeedback(null);
+        setRating(0);
+        setContent("");
+        setMessage("评价已删除。你可以重新评分。");
+        return;
       }
-    });
+      setError(feedbackError(resultErrorCode(result)));
+    } catch {
+      setError("网络连接中断，请稍后重试。");
+    } finally {
+      setPending(false);
+    }
   }
 
   const errorId = `${id}-error`;
@@ -242,7 +244,7 @@ export function PlaceFeedbackForm({
           disabled={pending}
           aria-busy={pending || undefined}
           className="inline-flex min-h-11 touch-manipulation items-center justify-center rounded-xl bg-emerald-800 px-4 text-sm font-semibold text-white hover:bg-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:opacity-60"
-          onClick={submit}
+          onClick={() => void submit()}
         >
           {pending ? "正在保存…" : feedback ? "更新我的评价" : "发布评价"}
         </button>
@@ -251,7 +253,7 @@ export function PlaceFeedbackForm({
             type="button"
             disabled={pending}
             className="inline-flex min-h-11 touch-manipulation items-center gap-2 rounded-xl px-3 text-sm font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 dark:text-red-300 dark:hover:bg-red-950/40"
-            onClick={remove}
+            onClick={() => void remove()}
           >
             <Trash2Icon aria-hidden="true" className="size-4" />
             删除我的评价

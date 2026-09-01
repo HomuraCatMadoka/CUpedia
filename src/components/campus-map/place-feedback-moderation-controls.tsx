@@ -1,7 +1,7 @@
 "use client";
 
 import { FlagIcon, ShieldAlertIcon } from "lucide-react";
-import { useId, useRef, useState, useTransition } from "react";
+import { useId, useRef, useState } from "react";
 
 import {
   hideCampusMapPlaceFeedback,
@@ -35,9 +35,9 @@ export function PlaceFeedbackModerationControls({
   const [hideReason, setHideReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
 
-  function submitReport() {
+  async function submitReport() {
     if (!details.trim()) {
       setError("请说明举报原因。只有管理员会看到这段说明。");
       reportDetailsRef.current?.focus();
@@ -45,31 +45,32 @@ export function PlaceFeedbackModerationControls({
     }
     setError(null);
     setMessage(null);
-    startTransition(async () => {
-      try {
-        const result = await reportCampusMapPlaceFeedback({
-          feedbackId,
-          signal,
-          details: details.trim(),
-          idempotencyKey: crypto.randomUUID(),
-        });
-        if (result.status === "reported") {
-          setDetails("");
-          setMessage("举报已提交，管理员会进行复核。");
-          return;
-        }
-        setError(
-          result.status === "authentication-required"
-            ? "请先登录再举报。"
-            : "暂时无法提交举报，请稍后重试。",
-        );
-      } catch {
-        setError("网络连接中断，请稍后重试。");
+    setPending(true);
+    try {
+      const result = await reportCampusMapPlaceFeedback({
+        feedbackId,
+        signal,
+        details: details.trim(),
+        idempotencyKey: crypto.randomUUID(),
+      });
+      if (result.status === "reported") {
+        setDetails("");
+        setMessage("举报已提交，管理员会进行复核。");
+        return;
       }
-    });
+      setError(
+        result.status === "authentication-required"
+          ? "请先登录再举报。"
+          : "暂时无法提交举报，请稍后重试。",
+      );
+    } catch {
+      setError("网络连接中断，请稍后重试。");
+    } finally {
+      setPending(false);
+    }
   }
 
-  function hide() {
+  async function hide() {
     if (!hideReason.trim()) {
       setError("请填写隐藏原因，供审核记录使用。");
       hideReasonRef.current?.focus();
@@ -77,27 +78,28 @@ export function PlaceFeedbackModerationControls({
     }
     setError(null);
     setMessage(null);
-    startTransition(async () => {
-      try {
-        const result = await hideCampusMapPlaceFeedback({
-          feedbackId,
-          placeId,
-          reason: hideReason.trim(),
-          idempotencyKey: crypto.randomUUID(),
-        });
-        if (result.status === "decided") {
-          setMessage("评价已隐藏。");
-          return;
-        }
-        setError(
-          result.status === "forbidden"
-            ? "只有管理员可以隐藏评价。"
-            : "暂时无法隐藏评价，请刷新后重试。",
-        );
-      } catch {
-        setError("网络连接中断，请稍后重试。");
+    setPending(true);
+    try {
+      const result = await hideCampusMapPlaceFeedback({
+        feedbackId,
+        placeId,
+        reason: hideReason.trim(),
+        idempotencyKey: crypto.randomUUID(),
+      });
+      if (result.status === "decided") {
+        setMessage("评价已隐藏。");
+        return;
       }
-    });
+      setError(
+        result.status === "forbidden"
+          ? "只有管理员可以隐藏评价。"
+          : "暂时无法隐藏评价，请刷新后重试。",
+      );
+    } catch {
+      setError("网络连接中断，请稍后重试。");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -149,7 +151,7 @@ export function PlaceFeedbackModerationControls({
             type="button"
             disabled={pending}
             className="min-h-11 touch-manipulation justify-self-start rounded-lg border px-3 font-semibold hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={submitReport}
+            onClick={() => void submitReport()}
           >
             提交举报
           </button>
@@ -187,7 +189,7 @@ export function PlaceFeedbackModerationControls({
               type="button"
               disabled={pending}
               className="min-h-11 touch-manipulation self-start rounded-lg bg-red-700 px-3 font-semibold text-white hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
-              onClick={hide}
+              onClick={() => void hide()}
             >
               隐藏整条评价
             </button>

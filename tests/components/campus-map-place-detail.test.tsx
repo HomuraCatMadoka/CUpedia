@@ -362,6 +362,13 @@ describe("Campus Map Place detail (#816, #825)", () => {
 
   it("shows summary and long reviews, then updates an accessible one-to-five-star form", async () => {
     const longReview = "很长的到访体验".repeat(80);
+    let resolveFeedback: ((value: unknown) => void) | undefined;
+    feedbackAction.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFeedback = resolve;
+        }),
+    );
     render(
       <CampusMapPlaceDetail
         placeId={placeId}
@@ -428,12 +435,26 @@ describe("Campus Map Place detail (#816, #825)", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "更新我的评价" }));
     await waitFor(() => expect(feedbackAction).toHaveBeenCalledOnce());
+    expect(screen.getByRole("button", { name: "正在保存…" })).toBeTruthy();
     expect(feedbackAction).toHaveBeenCalledWith({
       kind: "update",
       feedbackId: "00000000-0000-4000-8000-000000008170",
       expectedVersion: 1,
       rating: 5,
       content: "更新后的体验",
+    });
+    resolveFeedback?.({
+      status: "updated",
+      feedback: {
+        id: "00000000-0000-4000-8000-000000008170",
+        placeId,
+        rating: 5,
+        content: "更新后的体验",
+        version: 2,
+        visibility: "public",
+        createdAt: "2026-08-30T00:00:00.000Z",
+        updatedAt: "2026-08-31T00:00:00.000Z",
+      },
     });
     await waitFor(() => expect(screen.getByText("评价已更新。")).toBeTruthy());
     expect(refresh).not.toHaveBeenCalled();
