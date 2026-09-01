@@ -12,6 +12,7 @@ import {
   CAMPUS_MAP_DISPLAY_REGISTRY,
 } from "@/lib/campus-map/display-registry";
 import type { CampusMapAmenity } from "@/lib/campus-map/facility-marker";
+import type { CampusMapPlaceFeedbackSummary } from "@/lib/campus-map/place-feedback";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_PRESENTATION = {
@@ -66,14 +67,25 @@ export function campusMapFloorLabel(
   return floorId.endsWith("/F") ? floorId : `${floorId}/F`;
 }
 
+export function campusMapFeedbackSummaryLabel(
+  summary: CampusMapPlaceFeedbackSummary | undefined,
+) {
+  if (!summary || summary.averageRating === null || summary.ratingCount === 0) {
+    return "暂无评分";
+  }
+  return `${summary.averageRating.toFixed(1)} 分 · ${summary.ratingCount} 个评分 · ${summary.reviewCount} 条评价`;
+}
+
 export function CampusMapFacilityResultButton({
   facility,
-  metadata,
+  location,
+  summary,
   variant,
   onSelect,
 }: {
   facility: CampusMapBrowsePlace;
-  metadata: string;
+  location: string;
+  summary: string;
   variant: "category" | "building" | "preview";
   onSelect: () => void;
 }) {
@@ -89,14 +101,14 @@ export function CampusMapFacilityResultButton({
       type="button"
       aria-label={
         variant === "preview"
-          ? `查看设施：${facility.name}，${campusMapPlaceLocationLabel(facility)}`
+          ? `查看设施：${facility.name}，${location}`
           : undefined
       }
       className={cn(
         "flex w-full items-center text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]",
         showsIcon
-          ? "min-h-16 gap-3 py-3"
-          : "min-h-14 border-b border-black/8 py-2",
+          ? "min-h-20 gap-3 py-3"
+          : "min-h-16 border-b border-black/8 py-2",
       )}
       onClick={onSelect}
     >
@@ -110,8 +122,11 @@ export function CampusMapFacilityResultButton({
       ) : null}
       <span className="min-w-0 flex-1">
         <strong className="block truncate text-sm">{facility.name}</strong>
+        <span className="mt-0.5 block truncate text-xs text-neutral-600">
+          {location}
+        </span>
         <span className="mt-0.5 block truncate text-xs text-neutral-500">
-          {metadata}
+          {summary}
         </span>
       </span>
     </button>

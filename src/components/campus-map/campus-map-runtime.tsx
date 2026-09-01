@@ -25,6 +25,7 @@ import {
   CAMPUS_MAP_CATEGORIES as CATEGORIES,
   CampusMapFacilityResultButton as FacilityResultButton,
   campusMapAmenityStyle as amenityStyle,
+  campusMapFeedbackSummaryLabel as feedbackSummaryLabel,
   campusMapFloorLabel as floorLabel,
   campusMapPlaceLocationLabel as placeLocationLabel,
   knownCampusMapAmenity as knownAmenity,
@@ -57,6 +58,7 @@ import {
   type AmapResolvedPlaceContext,
 } from "@/lib/campus-map/amap-place-context";
 import type { CampusMapAmenity } from "@/lib/campus-map/facility-marker";
+import type { CampusMapPlaceFeedbackSummary } from "@/lib/campus-map/place-feedback";
 import {
   loadCampusMapAmapPoiCard,
   loadCampusMapBrowseProjection,
@@ -467,6 +469,17 @@ function metadataLabel(...parts: Array<string | null | undefined>) {
   return parts.filter(Boolean).join(" · ");
 }
 
+function facilityResultLocationLabel(
+  facility: Place,
+  building: CampusMapBrowseBuilding | undefined,
+) {
+  if (facility.location.kind === "outdoor-point") return "室外位置";
+  if (!building) return placeLocationLabel(facility);
+  return facility.location.kind === "floor"
+    ? `${building.name} · ${facility.location.floor.displayLabel}`
+    : `${building.name} · 楼层未知`;
+}
+
 function publishedPlaceNotice(
   projection: CampusMapBrowseProjection,
   placeId: string,
@@ -527,11 +540,13 @@ export function CampusMapRuntime({
   initialSearch = "",
   factSchema = null,
   initialBrowseProjection = EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
+  initialFeedbackSummaries = {},
   onPublishedProjectionRefreshed,
 }: {
   initialSearch?: string;
   factSchema?: CampusMapFactSchema | null;
   initialBrowseProjection?: CampusMapBrowseProjection;
+  initialFeedbackSummaries?: Record<string, CampusMapPlaceFeedbackSummary>;
   onPublishedProjectionRefreshed?(result: CampusMapBrowseRefreshResult): void;
 }) {
   const [projectionStore] = useState(
@@ -2752,14 +2767,16 @@ export function CampusMapRuntime({
                   <FacilityResultButton
                     key={facility.placeId}
                     facility={facility}
-                    metadata={metadataLabel(
+                    location={facilityResultLocationLabel(facility, building)}
+                    summary={metadataLabel(
+                      feedbackSummaryLabel(
+                        initialFeedbackSummaries[facility.placeId],
+                      ),
                       categoryDistanceByPlaceId.has(facility.placeId)
                         ? nearbyDistanceLabel(
                             categoryDistanceByPlaceId.get(facility.placeId)!,
                           )
                         : null,
-                      building?.name,
-                      placeLocationLabel(facility),
                       summarizeCampusMapAccess(facility.access),
                     )}
                     variant="category"
@@ -3019,10 +3036,21 @@ export function CampusMapRuntime({
                         {buildingPreviewFacility ? (
                           <FacilityResultButton
                             facility={buildingPreviewFacility}
-                            metadata={metadataLabel(
-                              placeLocationLabel(buildingPreviewFacility),
+                            location={facilityResultLocationLabel(
+                              buildingPreviewFacility,
+                              selectedBuilding,
+                            )}
+                            summary={metadataLabel(
                               amenityStyle(buildingPreviewFacility.pinType)
                                 .label,
+                              feedbackSummaryLabel(
+                                initialFeedbackSummaries[
+                                  buildingPreviewFacility.placeId
+                                ],
+                              ),
+                              summarizeCampusMapAccess(
+                                buildingPreviewFacility.access,
+                              ),
                             )}
                             variant="preview"
                             onSelect={() =>
@@ -3087,8 +3115,17 @@ export function CampusMapRuntime({
                                   <FacilityResultButton
                                     key={facility.placeId}
                                     facility={facility}
-                                    metadata={metadataLabel(
+                                    location={facilityResultLocationLabel(
+                                      facility,
+                                      selectedBuilding,
+                                    )}
+                                    summary={metadataLabel(
                                       amenityStyle(facility.pinType).label,
+                                      feedbackSummaryLabel(
+                                        initialFeedbackSummaries[
+                                          facility.placeId
+                                        ],
+                                      ),
                                       summarizeCampusMapAccess(facility.access),
                                     )}
                                     variant="building"

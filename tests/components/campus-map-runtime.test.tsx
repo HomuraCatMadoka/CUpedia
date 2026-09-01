@@ -362,6 +362,28 @@ function mixedWaterProjection() {
 }
 
 describe("CampusMapRuntime", () => {
+  it("renders category results as name, location, and rating summary without repeating the known category", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000002";
+    render(
+      <CampusMapRuntime
+        initialFeedbackSummaries={{
+          [placeId]: {
+            placeId,
+            averageRating: 4.4,
+            ratingCount: 5,
+            reviewCount: 3,
+          },
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    const result = await screen.findByRole("button", {
+      name: /饮水机.*科学馆 · 1\/F.*4.4 分 · 5 个评分 · 3 条评价/u,
+    });
+    expect(result.textContent).not.toContain("饮水点");
+  });
+
   it("rejects a malformed persisted publish receipt", () => {
     const idempotencyKey = "10000000-0000-4000-8000-000000000099";
     window.localStorage.setItem(

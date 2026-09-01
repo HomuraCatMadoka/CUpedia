@@ -1568,7 +1568,7 @@ describe("Campus Map AMap runtime effects", () => {
     await act(async () => buildingPresence.emit("click"));
 
     const buildingOnlyButton = await screen.findByRole("button", {
-      name: "查看设施：大堂饮水点，建筑内",
+      name: /^查看设施：大堂饮水点，/,
     });
     expect((buildingOnlyButton as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(buildingOnlyButton);

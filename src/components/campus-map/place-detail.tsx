@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { PlaceFeedbackSection } from "@/components/campus-map/place-feedback-section";
 import { PlaceLifecycleControls } from "@/components/campus-map/place-lifecycle-controls";
 import {
   campusMapDisplayOptionLabel,
@@ -11,6 +12,10 @@ import type {
   CampusMapHistoricalFact,
   CampusMapPlaceHistoryHead,
 } from "@/lib/campus-map/fact-store";
+import type {
+  CampusMapPlaceFeedbackPage,
+  CampusMapPlaceFeedbackView,
+} from "@/lib/campus-map/place-feedback";
 
 function scheduleLabel(schedule: CampusMapHistoricalFact["accessSchedule"]) {
   if (schedule.kind !== "weekly") {
@@ -65,6 +70,10 @@ export function CampusMapPlaceDetail({
   mapHref,
   building,
   isAdmin,
+  feedback,
+  viewerFeedback = null,
+  viewerCanWrite = true,
+  feedbackPageIsPaginated = false,
 }: {
   placeId: string;
   head: CampusMapPlaceHistoryHead;
@@ -73,6 +82,10 @@ export function CampusMapPlaceDetail({
   mapHref: string;
   building: { name: string; floorLabel: string | null } | null;
   isAdmin: boolean;
+  feedback?: CampusMapPlaceFeedbackPage;
+  viewerFeedback?: CampusMapPlaceFeedbackView | null;
+  viewerCanWrite?: boolean;
+  feedbackPageIsPaginated?: boolean;
 }) {
   const statusLabel =
     head.status === "active"
@@ -80,6 +93,16 @@ export function CampusMapPlaceDetail({
       : head.status === "retired"
         ? "地图已停用"
         : "地图已合并";
+  const feedbackView: CampusMapPlaceFeedbackPage = feedback ?? {
+    placeStatus: head.status,
+    summary: {
+      placeId,
+      averageRating: null,
+      ratingCount: 0,
+      reviewCount: 0,
+    },
+    page: { items: [], nextCursor: null },
+  };
 
   return (
     <main className="w-full min-w-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_oklab,var(--color-emerald-500)_10%,transparent),transparent_42%)] px-4 py-8 sm:px-6 lg:py-12">
@@ -217,6 +240,15 @@ export function CampusMapPlaceDetail({
             这份地点资料目前不可公开，但稳定链接和公开历史仍然保留。
           </section>
         )}
+
+        <PlaceFeedbackSection
+          placeId={placeId}
+          feedback={feedbackView}
+          viewerFeedback={viewerFeedback}
+          viewerCanWrite={viewerCanWrite}
+          isAdmin={isAdmin}
+          isPaginated={feedbackPageIsPaginated}
+        />
 
         <div>
           <Link

@@ -1,4 +1,4 @@
-// ref #816
+// ref #816, #817
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 
@@ -15,6 +15,7 @@ const ids = {
 
 const placeName = "范克廉楼地下饮水点";
 const mapPlaceUrl = `/campus-map?v=1&scene=place&id=${ids.place}&snap=peek`;
+const eligibleFeedbackEmail = "issue-817-feedback@cuhk.edu.hk";
 
 async function withDatabase(
   action: (client: Client) => Promise<void>,
@@ -29,6 +30,17 @@ async function withDatabase(
 }
 
 async function removePlaceFixture(client: Client) {
+  await client.query(
+    `delete from campus_map_place_feedback_visibility
+      where feedback_id in (
+        select id from campus_map_place_feedback where place_id = $1
+      )`,
+    [ids.place],
+  );
+  await client.query(
+    "delete from campus_map_place_feedback where place_id = $1",
+    [ids.place],
+  );
   const rows = await client.query<{
     revision_id: string;
     changeset_id: string;
@@ -202,8 +214,27 @@ async function loginAsUser(page: Page) {
   await loginWithPassword(page, "user@test.com", "password123");
 }
 
+async function makeFeedbackUserEligible() {
+  await withDatabase(async (client) => {
+    await client.query(
+      "update users set email = $1 where email = 'user@test.com'",
+      [eligibleFeedbackEmail],
+    );
+  });
+}
+
+async function restoreFeedbackUserEmail() {
+  await withDatabase(async (client) => {
+    await client.query(
+      "update users set email = 'user@test.com' where email = $1",
+      [eligibleFeedbackEmail],
+    );
+  });
+}
+
 test.describe.serial("Campus Map Place details and admin lifecycle", () => {
   test.beforeEach(resetPlaceFixture);
+  test.afterEach(restoreFeedbackUserEmail);
   test.afterAll(cleanupPlaceFixture);
 
   for (const viewport of [
@@ -280,6 +311,49 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await page.getByRole("link", { name: "返回地图" }).click();
     await expect(page).toHaveURL(new RegExp(`scene=place&id=${ids.place}`));
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
+  });
+
+  test("a user publishes feedback and sees its new summary after returning to the category list", async ({
+    page,
+  }) => {
+    test.slow();
+    await installFakeCampusMapAmap(page);
+    await page.goto("/login");
+    await loginAsUser(page);
+    await makeFeedbackUserEligible();
+    await page.goto(`/campus-map/places/${ids.place}`);
+    await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
+
+    await expect(page.getByText("暂无评分", { exact: true })).toBeVisible();
+    await page.getByText("5 星", { exact: true }).click();
+    await expect(page.getByRole("radio", { name: "5 星" })).toBeChecked();
+    await page
+      .getByRole("textbox", { name: "评价（选填）" })
+      .fill("位置很好找，饮水机运作正常。长句也应当安全换行而不撑破页面。");
+    await page.getByRole("button", { name: "发布评价" }).click();
+
+    await expect(page.getByText("评价已发布。", { exact: true })).toBeVisible();
+    await expect(
+      page.getByLabel("平均 5.0 分，共 1 个评分、1 条文字评价"),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("listitem")
+        .getByText(
+          "位置很好找，饮水机运作正常。长句也应当安全换行而不撑破页面。",
+        ),
+    ).toBeVisible();
+
+    await page.getByRole("link", { name: "返回地图" }).click();
+    await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
+    await page.getByRole("button", { name: "饮水点", exact: true }).click();
+
+    const result = page
+      .locator(`[data-return-result="${ids.place}"]`)
+      .filter({ hasText: placeName });
+    await expect(result).toBeVisible();
+    await expect(result).toContainText("室外位置");
+    await expect(result).toContainText("5.0 分 · 1 个评分 · 1 条评价");
   });
 
   test("an admin can retire and restore while stale lifecycle actions fail safely", async ({

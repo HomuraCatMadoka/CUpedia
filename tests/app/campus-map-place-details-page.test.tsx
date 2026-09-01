@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   getRevision: vi.fn(),
   listBuildings: vi.fn(),
   getViewer: vi.fn(),
+  getFeedbackPage: vi.fn(),
+  getViewerFeedback: vi.fn(),
   notFound: vi.fn(),
 }));
 
@@ -15,6 +17,10 @@ vi.mock("@/lib/campus-map/fact-store", () => ({
 }));
 vi.mock("@/lib/auth-guard", () => ({
   getAuthenticatedUserForApi: mocks.getViewer,
+}));
+vi.mock("@/lib/campus-map/place-feedback", () => ({
+  getCampusMapPlaceFeedbackPage: mocks.getFeedbackPage,
+  getCampusMapViewerPlaceFeedback: mocks.getViewerFeedback,
 }));
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
 
@@ -88,7 +94,21 @@ describe("Campus Map stable Place page (#816)", () => {
         ],
       },
     ]);
-    mocks.getViewer.mockResolvedValue({ role: "admin" });
+    mocks.getViewer.mockResolvedValue({
+      id: "00000000-0000-4000-8000-000000008166",
+      role: "admin",
+    });
+    mocks.getFeedbackPage.mockResolvedValue({
+      placeStatus: "retired",
+      summary: {
+        placeId,
+        averageRating: 4.2,
+        ratingCount: 5,
+        reviewCount: 3,
+      },
+      page: { items: [], nextCursor: null },
+    });
+    mocks.getViewerFeedback.mockResolvedValue(null);
   });
 
   it("uses the current revision for the tombstone reason and exposes lifecycle UI only to a fresh admin", async () => {
@@ -104,12 +124,39 @@ describe("Campus Map stable Place page (#816)", () => {
       mapHref: "/campus-map?v=1",
       building: { name: "联合书院图书馆", floorLabel: "1/F" },
       isAdmin: true,
+      feedback: {
+        placeStatus: "retired",
+        summary: { averageRating: 4.2, ratingCount: 5, reviewCount: 3 },
+      },
     });
 
-    mocks.getViewer.mockResolvedValueOnce({ role: "user" });
+    mocks.getViewer.mockResolvedValueOnce({
+      id: "00000000-0000-4000-8000-000000008167",
+      role: "user",
+    });
     const contributorElement = await CampusMapPlacePage({
       params: Promise.resolve({ placeId }),
     });
     expect(contributorElement.props.isAdmin).toBe(false);
+  });
+
+  it("serves the safe public feedback projection to a guest without loading a private viewer row", async () => {
+    mocks.getViewer.mockResolvedValueOnce(null);
+
+    const element = await CampusMapPlacePage({
+      params: Promise.resolve({ placeId }),
+      searchParams: Promise.resolve({ reviewsAfter: "opaque-page" }),
+    });
+
+    expect(mocks.getFeedbackPage).toHaveBeenCalledWith(placeId, {
+      cursor: "opaque-page",
+      limit: 10,
+    });
+    expect(mocks.getViewerFeedback).not.toHaveBeenCalled();
+    expect(element.props).toMatchObject({
+      viewerCanWrite: false,
+      viewerFeedback: null,
+      feedbackPageIsPaginated: true,
+    });
   });
 });

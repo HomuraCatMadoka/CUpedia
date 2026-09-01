@@ -10,6 +10,7 @@ import {
   campusMapFactRevisions,
   campusMapFactSchemas,
   campusMapPlaceChanges,
+  campusMapPlaceFeedback,
   campusMapPlaces,
   campusMapProvenanceSources,
   campusMapRevisionProvenance,
@@ -610,6 +611,48 @@ export class CampusMapFactStoreTransaction {
         ) {
           throw new Error("Campus Map merge survivor must remain active");
         }
+      }
+    }
+
+    const mergeChanges = orderedChanges.filter(
+      (
+        change,
+      ): change is CampusMapAppendPlaceChange & {
+        operation: "merge";
+        mergedIntoPlaceId: string;
+      } => change.operation === "merge" && change.mergedIntoPlaceId !== null,
+    );
+    if (mergeChanges.length > 0) {
+      const feedbackPlaceIds = [
+        ...new Set(
+          mergeChanges.flatMap((change) => [
+            change.placeId,
+            change.mergedIntoPlaceId,
+          ]),
+        ),
+      ].sort((left, right) => left.localeCompare(right));
+      await this.transaction
+        .select({ id: campusMapPlaceFeedback.id })
+        .from(campusMapPlaceFeedback)
+        .where(inArray(campusMapPlaceFeedback.placeId, feedbackPlaceIds))
+        .orderBy(
+          campusMapPlaceFeedback.placeId,
+          campusMapPlaceFeedback.userId,
+          campusMapPlaceFeedback.id,
+        )
+        .for("update");
+      for (const change of mergeChanges) {
+        await this.transaction.execute(sql`
+          update campus_map_place_feedback as loser_feedback
+             set place_id = ${change.mergedIntoPlaceId}
+           where loser_feedback.place_id = ${change.placeId}
+             and not exists (
+               select 1
+                 from campus_map_place_feedback as survivor_feedback
+                where survivor_feedback.place_id = ${change.mergedIntoPlaceId}
+                  and survivor_feedback.user_id = loser_feedback.user_id
+             )
+        `);
       }
     }
 

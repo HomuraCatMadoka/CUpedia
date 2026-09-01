@@ -3284,6 +3284,83 @@ export const campusMapNoteRateLimits = pgTable(
   ],
 ).enableRLS();
 
+// ── Campus Map place feedback (#817) ──
+
+export const campusMapPlaceFeedback = pgTable(
+  "campus_map_place_feedback",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    placeId: uuid("place_id")
+      .notNull()
+      .references(() => campusMapPlaces.id, { onDelete: "restrict" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    rating: integer("rating").notNull(),
+    content: text("content"),
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("campus_map_place_feedback_place_user_uq").on(
+      table.placeId,
+      table.userId,
+    ),
+    index("campus_map_place_feedback_user_idx").on(table.userId),
+    index("campus_map_place_feedback_place_created_idx").on(
+      table.placeId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    check(
+      "campus_map_place_feedback_rating_check",
+      sql`${table.rating} between 1 and 5`,
+    ),
+    check(
+      "campus_map_place_feedback_content_check",
+      sql`${table.content} is null or (
+        btrim(${table.content}) <> ''
+        and char_length(${table.content}) <= 2000
+        and octet_length(${table.content}) <= 8192
+      )`,
+    ),
+    check("campus_map_place_feedback_version_check", sql`${table.version} > 0`),
+    check(
+      "campus_map_place_feedback_timestamps_check",
+      sql`${table.updatedAt} >= ${table.createdAt}`,
+    ),
+  ],
+).enableRLS();
+
+export const campusMapPlaceFeedbackVisibility = pgTable(
+  "campus_map_place_feedback_visibility",
+  {
+    feedbackId: uuid("feedback_id")
+      .primaryKey()
+      .references(() => campusMapPlaceFeedback.id, { onDelete: "cascade" }),
+    visibility: text("visibility")
+      .$type<"public" | "hidden">()
+      .notNull()
+      .default("public"),
+    decisionRef: text("decision_ref"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "campus_map_place_feedback_visibility_check",
+      sql`(${table.visibility} = 'public' and ${table.decisionRef} is null)
+        or (${table.visibility} = 'hidden' and ${table.decisionRef} is not null)`,
+    ),
+  ],
+).enableRLS();
+
 // ── Campus Map ex-post moderation governance (#723) ──
 
 export const campusMapModerationCases = pgTable(
@@ -3328,7 +3405,7 @@ export const campusMapModerationCases = pgTable(
     ),
     check(
       "campus_map_moderation_cases_target_kind_check",
-      sql`${table.targetKind} in ('changeset', 'revision', 'map-note', 'map-note-event', 'actor')`,
+      sql`${table.targetKind} in ('changeset', 'revision', 'map-note', 'map-note-event', 'place-feedback', 'actor')`,
     ),
     check(
       "campus_map_moderation_cases_status_check",
@@ -3418,11 +3495,11 @@ export const campusMapModerationDecisions = pgTable(
     index("campus_map_moderation_decisions_actor_idx").on(table.actorUserId),
     check(
       "campus_map_moderation_decisions_kind_check",
-      sql`${table.commandKind} in ('decide-case', 'hide-map-note', 'unhide-map-note', 'hide-map-note-event', 'unhide-map-note-event', 'redact-revision', 'revoke-revision-redaction', 'block-contributor', 'revoke-contributor-block')`,
+      sql`${table.commandKind} in ('decide-case', 'hide-map-note', 'unhide-map-note', 'hide-map-note-event', 'unhide-map-note-event', 'hide-place-feedback', 'unhide-place-feedback', 'redact-revision', 'revoke-revision-redaction', 'block-contributor', 'revoke-contributor-block')`,
     ),
     check(
       "campus_map_moderation_decisions_target_kind_check",
-      sql`${table.targetKind} in ('changeset', 'revision', 'map-note', 'map-note-event', 'actor')`,
+      sql`${table.targetKind} in ('changeset', 'revision', 'map-note', 'map-note-event', 'place-feedback', 'actor')`,
     ),
     check(
       "campus_map_moderation_decisions_reason_check",
