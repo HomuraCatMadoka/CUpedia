@@ -1,4 +1,4 @@
-// ref #646, #649, #814
+// ref #646, #649, #814, #838
 import { expect, test } from "@playwright/test";
 import { loginWithPassword } from "./helpers/auth";
 import { installFakeCampusMapAmap } from "./helpers/campus-map-amap";
@@ -8,18 +8,15 @@ test.beforeEach(async ({ page }) => {
   await loginWithPassword(page, "admin@test.com", "password123");
 });
 
-test("Campus Map editing keeps its primary action inside a 720×844 viewport", async ({
+test("Campus Map editing uses a full-screen task surface in a 720×844 viewport", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 720, height: 844 });
   await page.goto("/campus-map");
 
   await page.getByRole("button", { name: "新增设施" }).click();
-  const confirmPosition = page.getByRole("button", { name: "使用此位置" });
-  await expect(confirmPosition).toBeEnabled();
-  await confirmPosition.click();
 
-  const sheet = page.getByRole("region", { name: "新增设施" });
+  const sheet = page.getByRole("dialog", { name: "新增设施" });
   const facilityType = page.getByRole("group", { name: "设施类型" });
   const publish = page.getByRole("button", { name: "发布设施" });
   await expect(sheet).toBeVisible();
@@ -29,7 +26,8 @@ test("Campus Map editing keeps its primary action inside a 720×844 viewport", a
   const publishBox = await publish.boundingBox();
   expect(sheetBox).not.toBeNull();
   expect(publishBox).not.toBeNull();
-  expect(sheetBox!.y).toBeGreaterThanOrEqual(844 * 0.35);
+  expect(sheetBox!.y).toBeLessThanOrEqual(1);
+  expect(sheetBox!.height).toBeGreaterThanOrEqual(843);
   expect(sheetBox!.y + sheetBox!.height).toBeLessThanOrEqual(844);
   expect(publishBox!.y + publishBox!.height).toBeLessThanOrEqual(844);
   expect(
@@ -43,28 +41,28 @@ test("Campus Map editing keeps its primary action inside a 720×844 viewport", a
             ),
           ).size,
       ),
-  ).toBe(1);
+  ).toBe(2);
   expect(
     await page.evaluate(() => document.documentElement.scrollHeight),
   ).toBeLessThanOrEqual(844);
 });
 
-test("Campus Map editing preserves the map in a 390px-high viewport", async ({
+test("Campus Map editing keeps its full-screen action usable in a 390px-high viewport", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 720, height: 390 });
   await page.goto("/campus-map");
 
   await page.getByRole("button", { name: "新增设施" }).click();
-  await page.getByRole("button", { name: "使用此位置" }).click();
 
-  const sheet = page.getByRole("region", { name: "新增设施" });
+  const sheet = page.getByRole("dialog", { name: "新增设施" });
   const publish = page.getByRole("button", { name: "发布设施" });
   const sheetBox = await sheet.boundingBox();
   const publishBox = await publish.boundingBox();
   expect(sheetBox).not.toBeNull();
   expect(publishBox).not.toBeNull();
-  expect(sheetBox!.y).toBeGreaterThanOrEqual(390 * 0.35);
+  expect(sheetBox!.y).toBeLessThanOrEqual(1);
+  expect(sheetBox!.height).toBeGreaterThanOrEqual(389);
   expect(sheetBox!.y + sheetBox!.height).toBeLessThanOrEqual(390);
   expect(publishBox!.y + publishBox!.height).toBeLessThanOrEqual(390);
   expect(
@@ -79,17 +77,8 @@ test("Campus Map editing keeps only the essential controls in a compact mobile v
   await page.goto("/campus-map");
 
   await page.getByRole("button", { name: "新增设施" }).click();
-  const placingSheet = page.getByRole("region", { name: "选择设施位置" });
-  const placingSheetBox = await placingSheet.boundingBox();
-  expect(placingSheetBox).not.toBeNull();
-  expect(placingSheetBox!.height).toBeLessThanOrEqual(336);
-  await expect(page.getByText(/WGS84 · 约略/).first()).toHaveCSS(
-    "font-weight",
-    "600",
-  );
-  await page.getByRole("button", { name: "使用此位置" }).click();
 
-  const sheet = page.getByRole("region", { name: "新增设施" });
+  const sheet = page.getByRole("dialog", { name: "新增设施" });
   const facilityType = page.getByRole("group", { name: "设施类型" });
   const publish = page.getByRole("button", { name: "发布设施" });
   const attribution = page.locator(".amap-copyright");
@@ -99,8 +88,8 @@ test("Campus Map editing keeps only the essential controls in a compact mobile v
   expect(sheetBox).not.toBeNull();
   expect(facilityTypeBox).not.toBeNull();
   expect(publishBox).not.toBeNull();
-  expect(sheetBox!.y).toBeGreaterThanOrEqual(844 * 0.45);
-  expect(sheetBox!.height).toBeLessThanOrEqual(448);
+  expect(sheetBox!.y).toBeLessThanOrEqual(1);
+  expect(sheetBox!.height).toBeGreaterThanOrEqual(843);
   expect(facilityTypeBox!.y + facilityTypeBox!.height).toBeLessThanOrEqual(
     publishBox!.y,
   );
@@ -126,21 +115,31 @@ test("Campus Map editing keeps only the essential controls in a compact mobile v
   await expect(
     page.getByRole("textbox", { name: "设施名称或编号" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("group", { name: "开放与使用条件" }),
-  ).toBeAttached();
+  await expect(page.getByRole("group", { name: "所属建筑" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "室外" })).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: "建筑内" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "修改位置" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "更多信息" })).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+  await expect(page.getByRole("group", { name: "开放与使用条件" })).toHaveCount(
+    0,
+  );
   await expect(page.getByText("资料依据")).toHaveCount(0);
-  await expect
-    .poll(async () => {
-      const currentAttributionBox = await attribution.boundingBox();
-      const currentSheetBox = await sheet.boundingBox();
-      if (!currentAttributionBox || !currentSheetBox) return false;
-      return (
-        currentAttributionBox.y + currentAttributionBox.height <=
-        currentSheetBox.y
-      );
-    })
-    .toBe(true);
+  await expect(attribution).not.toBeInViewport();
+
+  await page.getByRole("button", { name: "更多信息" }).click();
+  const audience = page.getByRole("combobox", { name: "开放对象" });
+  await audience.focus();
+  await expect(audience).toBeInViewport();
+  const audienceBox = await audience.boundingBox();
+  const focusedPublishBox = await publish.boundingBox();
+  expect(audienceBox).not.toBeNull();
+  expect(focusedPublishBox).not.toBeNull();
+  expect(audienceBox!.y + audienceBox!.height).toBeLessThanOrEqual(
+    focusedPublishBox!.y,
+  );
 });
 
 test("Campus Map editing exposes canonical facts without covering the desktop map", async ({
@@ -150,37 +149,82 @@ test("Campus Map editing exposes canonical facts without covering the desktop ma
   await page.goto("/campus-map");
 
   await page.getByRole("button", { name: "新增设施" }).click();
-  await page.getByRole("button", { name: "使用此位置" }).click();
 
-  const sheet = page.getByRole("region", { name: "新增设施" });
+  const sheet = page.getByRole("dialog", { name: "新增设施" });
   const name = page.getByRole("textbox", { name: "设施名称或编号" });
+  const building = page.getByRole("combobox", { name: "建筑" });
+  const floor = page.getByRole("combobox", { name: "楼层" });
   const publish = page.getByRole("button", { name: "发布设施" });
   await expect(name).toHaveValue("饮水机");
   await name.fill("大学站广场饮水机 A");
+  await page.getByRole("button", { name: "更多信息" }).click();
   await page
     .getByRole("combobox", { name: "开放对象" })
     .selectOption("cuhk-member");
-  await expect(page.getByRole("radio", { name: "室外" })).toBeChecked();
+  await expect(page.getByRole("group", { name: "所属建筑" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "室外" })).toHaveCount(0);
   await expect(publish).toBeVisible();
 
   const sheetBox = await sheet.boundingBox();
+  const buildingBox = await building.boundingBox();
+  const floorBox = await floor.boundingBox();
   const publishBox = await publish.boundingBox();
   expect(sheetBox).not.toBeNull();
+  expect(buildingBox).not.toBeNull();
+  expect(floorBox).not.toBeNull();
   expect(publishBox).not.toBeNull();
   expect(sheetBox!.x).toBeGreaterThanOrEqual(800);
+  expect(sheetBox!.width).toBeGreaterThanOrEqual(388);
+  expect(sheetBox!.width).toBeLessThanOrEqual(392);
+  for (const controlBox of [buildingBox!, floorBox!]) {
+    expect(controlBox.width).toBeGreaterThanOrEqual(300);
+    expect(controlBox.x).toBeGreaterThanOrEqual(sheetBox!.x);
+    expect(controlBox.x + controlBox.width).toBeLessThanOrEqual(
+      sheetBox!.x + sheetBox!.width,
+    );
+  }
   expect(publishBox!.y + publishBox!.height).toBeLessThanOrEqual(800);
 });
 
-test("Campus Map editing supports the keyboard placement and dirty-close path", async ({
+test("Campus Map editing requires a Building when none is available", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/campus-map");
+
+  await page.getByRole("button", { name: "新增设施" }).click();
+
+  const building = page.getByRole("combobox", { name: "建筑" });
+  const floor = page.getByRole("combobox", { name: "楼层" });
+  const publish = page.getByRole("button", { name: "发布设施" });
+  await expect(page.getByRole("group", { name: "所属建筑" })).toBeVisible();
+  await expect(building).toBeDisabled();
+  await expect(floor).toBeDisabled();
+  await expect(publish).toBeDisabled();
+  await expect(
+    page.getByText("目前没有可选建筑，暂时无法新增设施。"),
+  ).toBeVisible();
+  await expect(page.getByRole("radio", { name: "室外" })).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: "建筑内" })).toHaveCount(0);
+
+  const buildingBox = await building.boundingBox();
+  const floorBox = await floor.boundingBox();
+  expect(buildingBox).not.toBeNull();
+  expect(floorBox).not.toBeNull();
+  expect(floorBox!.y).toBeGreaterThanOrEqual(
+    buildingBox!.y + buildingBox!.height,
+  );
+});
+
+test("Campus Map editing supports the building-first dirty-close path", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 720 });
   await page.goto("/campus-map");
 
   await page.getByRole("button", { name: "新增设施" }).click();
-  await page.getByRole("button", { name: "使用此位置" }).click();
 
-  const sheet = page.getByRole("region", { name: "新增设施" });
+  const sheet = page.getByRole("dialog", { name: "新增设施" });
   const facilityType = page.getByRole("group", { name: "设施类型" });
   const publish = page.getByRole("button", { name: "发布设施" });
   const sheetBox = await sheet.boundingBox();
@@ -189,31 +233,15 @@ test("Campus Map editing supports the keyboard placement and dirty-close path", 
   expect(sheetBox).not.toBeNull();
   expect(facilityTypeBox).not.toBeNull();
   expect(publishBox).not.toBeNull();
-  expect(sheetBox!.y).toBeGreaterThanOrEqual(720 * 0.35);
+  expect(sheetBox!.y).toBeLessThanOrEqual(1);
+  expect(sheetBox!.height).toBeGreaterThanOrEqual(719);
   expect(facilityTypeBox!.y + facilityTypeBox!.height).toBeLessThanOrEqual(
     publishBox!.y,
   );
 
-  const reposition = page.getByRole("button", { name: "修改位置" });
-  const repositionBox = await reposition.boundingBox();
-  expect(repositionBox).not.toBeNull();
-  expect(repositionBox!.height).toBeGreaterThanOrEqual(44);
-  await reposition.focus();
-  await page.keyboard.press("Enter");
-  await expect(
-    page.getByRole("heading", { name: "选择设施位置" }),
-  ).toBeVisible();
-
-  const coordinateEntry = page.getByRole("button", { name: "输入坐标" });
-  await coordinateEntry.focus();
-  await page.keyboard.press("Enter");
-  await page.getByRole("textbox", { name: "经度（WGS84）" }).fill("114.2072");
-  await page.getByRole("textbox", { name: "纬度（WGS84）" }).fill("22.4191");
-  const useCoordinates = page.getByRole("button", { name: "使用输入坐标" });
-  await useCoordinates.focus();
-  await page.keyboard.press("Enter");
-
   await expect(page.getByRole("heading", { name: "新增设施" })).toBeFocused();
+  await expect(page.getByRole("group", { name: "所属建筑" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "修改位置" })).toHaveCount(0);
   await page.getByRole("radio", { name: "洗手间" }).press("Space");
   await page.keyboard.press("Escape");
   await expect(

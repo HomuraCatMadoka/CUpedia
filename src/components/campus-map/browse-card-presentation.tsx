@@ -63,7 +63,7 @@ export function campusMapFloorLabel(
   displayLabel?: string | null,
 ) {
   if (displayLabel) return displayLabel;
-  if (!floorId) return "建筑内";
+  if (!floorId) return "未指定楼层";
   return floorId.endsWith("/F") ? floorId : `${floorId}/F`;
 }
 

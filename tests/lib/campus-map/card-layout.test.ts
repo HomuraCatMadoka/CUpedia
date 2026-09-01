@@ -8,12 +8,12 @@ import {
 describe("Campus Map card layout policy", () => {
   it.each([
     [{ kind: "placing" } as const, "min(336px, 48dvh)"],
-    [{ kind: "edit" } as const, "var(--campus-map-edit-sheet-height)"],
+    [{ kind: "edit" } as const, "100dvh"],
     [{ kind: "provider-error" } as const, "var(--campus-map-peek-height)"],
     [{ kind: "provider-poi" } as const, "120px"],
-    [{ kind: "empty-building" } as const, "136px"],
+    [{ kind: "empty-building" } as const, "208px"],
     [{ kind: "place" } as const, "min(264px, 35dvh)"],
-    [{ kind: "building" } as const, "min(312px, 39dvh)"],
+    [{ kind: "building" } as const, "min(352px, 44dvh)"],
     [{ kind: "default" } as const, "var(--campus-map-peek-height)"],
   ])("projects the %s panel height", (layout, expected) => {
     expect(campusMapMobilePanelHeight(layout)).toBe(expected);

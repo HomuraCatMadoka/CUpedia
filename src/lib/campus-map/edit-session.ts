@@ -20,7 +20,7 @@ import {
   campusMapProvenanceKindLabel,
 } from "@/lib/campus-map/display-registry";
 
-export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 4 as const;
+export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 5 as const;
 
 export type CampusMapPublishFeedbackReason = Extract<
   CampusMapPublishReceiptOutcome,
@@ -44,19 +44,39 @@ export interface CampusMapIndoorLocationDisplay {
   floorLabel: string | null;
 }
 
+export type CampusMapFacilityAddEntry =
+  | {
+      kind: "global";
+      pinType?: CampusMapPublishFactInput["pinType"];
+    }
+  | {
+      kind: "building";
+      locationDisplay: CampusMapIndoorLocationDisplay;
+      pinType?: CampusMapPublishFactInput["pinType"];
+    };
+
+type CampusMapEditFact = Omit<CampusMapPublishFactInput, "location"> & {
+  location: CampusMapPublishFactInput["location"] | null;
+};
+
 export interface CampusMapEditDraft {
   mode: "add" | "edit";
   placeId: string | null;
   baseRevisionId: string | null;
   idempotencyKey: string;
-  fact: Omit<CampusMapPublishFactInput, "location"> & {
-    location: CampusMapPublishFactInput["location"] | null;
-  };
+  fact: CampusMapEditFact;
   sources: CampusMapPublishSourceInput[];
-  baselineFact: CampusMapPublishFactInput | null;
+  /** The task's initial fact. Null is accepted only for restored legacy Add drafts. */
+  baselineFact: CampusMapEditFact | null;
   baselineSources: CampusMapPublishSourceInput[];
   placementCandidate: CampusMapPlacement | null;
   placementMethod: CampusMapPlacement["method"] | null;
+  /** Location choices allowed by the contribution entry point. */
+  locationPolicy: "building-required" | "flexible";
+  /** The visible UI action that started a new facility draft. */
+  entrySource: "global" | "building" | null;
+  /** An incomplete location choice owned by the edit session, never published. */
+  locationIntent: "indoor" | null;
   locationDisplay?: CampusMapIndoorLocationDisplay | null;
   warningAcknowledgements: CampusMapPublishCommand["warningAcknowledgements"];
 }
@@ -147,6 +167,11 @@ export type CampusMapEditCommand =
 export type CampusMapEditEvent =
   | { type: "START_ADD"; idempotencyKey: string }
   | {
+      type: "START_FACILITY_ADD";
+      idempotencyKey: string;
+      entry: CampusMapFacilityAddEntry;
+    }
+  | {
       type: "START_ADD_AT_POSITION";
       idempotencyKey: string;
       position: CampusMapPlacement;
@@ -163,6 +188,11 @@ export type CampusMapEditEvent =
   | { type: "CONFIRM_POSITION"; position: CampusMapPlacement }
   | { type: "UPDATE_PLACEMENT_CANDIDATE"; position: CampusMapPlacement }
   | { type: "START_REPOSITION"; idempotencyKey?: string }
+  | {
+      type: "CHOOSE_LOCATION_KIND";
+      kind: "indoor" | "outdoor";
+      idempotencyKey?: string;
+    }
   | { type: "REPORT_LOCAL_ERROR"; field: string }
   | {
       type: "CHANGE_FACT";
@@ -187,7 +217,6 @@ export type CampusMapEditEvent =
       type: "REQUEST_PUBLISH";
       requiredFields?: readonly CampusMapEditFieldKey[];
       accessedOn?: string;
-      blockingField?: "buildingId";
     }
   | {
       type: "PUBLISH_RESULT";
@@ -248,11 +277,13 @@ function clone<T>(value: T): T {
 export function createCampusMapEditDraft(input: {
   mode: "add" | "edit";
   idempotencyKey: string;
-  fact?: CampusMapPublishFactInput;
+  fact?: CampusMapEditDraft["fact"];
   sources?: CampusMapPublishSourceInput[];
   placeId?: string;
   baseRevisionId?: string;
   locationDisplay?: CampusMapIndoorLocationDisplay | null;
+  locationPolicy?: CampusMapEditDraft["locationPolicy"];
+  entrySource?: CampusMapEditDraft["entrySource"];
 }): CampusMapEditDraft {
   const fact = input.fact ? clone(input.fact) : clone(DEFAULT_FACT);
   const sources = clone(input.sources ?? []);
@@ -263,11 +294,13 @@ export function createCampusMapEditDraft(input: {
     idempotencyKey: input.idempotencyKey,
     fact,
     sources,
-    baselineFact:
-      input.mode === "edit" && input.fact ? clone(input.fact) : null,
-    baselineSources: input.mode === "edit" ? clone(sources) : [],
+    baselineFact: clone(fact),
+    baselineSources: clone(sources),
     placementCandidate: null,
     placementMethod: null,
+    locationPolicy: input.locationPolicy ?? "flexible",
+    entrySource: input.entrySource ?? (input.mode === "add" ? "global" : null),
+    locationIntent: null,
     locationDisplay: matchingLocationDisplay(
       fact,
       input.locationDisplay ?? null,
@@ -353,11 +386,17 @@ export function isCampusMapEditDirty(
   if (!session || session.status === "published") return false;
   const { draft } = session;
   if (draft.mode === "add") {
+    const baselineFact = draft.baselineFact ?? DEFAULT_FACT;
     return (
-      stable(draft.fact) !== stable(DEFAULT_FACT) || draft.sources.length > 0
+      stable(draft.fact) !== stable(baselineFact) ||
+      stable(draft.sources) !== stable(draft.baselineSources) ||
+      draft.locationIntent !== null
     );
   }
-  return stable(draft.fact) !== stable(draft.baselineFact);
+  return (
+    stable(draft.fact) !== stable(draft.baselineFact) ||
+    draft.locationIntent !== null
+  );
 }
 
 function rejected(
@@ -420,6 +459,9 @@ function transitionFactChange(
     draft: {
       ...next.draft,
       fact: clone(fact),
+      locationIntent: samePlacement(next.draft.fact, fact)
+        ? next.draft.locationIntent
+        : null,
       locationDisplay: samePlacement(next.draft.fact, fact)
         ? next.draft.locationDisplay
         : matchingLocationDisplay(fact, locationDisplay),
@@ -452,12 +494,11 @@ function publishTransition(
   session: CampusMapEditSession,
   requiredFields: readonly CampusMapEditFieldKey[] = [],
   accessedOn?: string,
-  blockingField?: "buildingId",
 ): CampusMapEditTransition {
   if (session.status === "published" || session.status === "publishing") {
     return rejected(session);
   }
-  if (!isCampusMapEditDirty(session) && !blockingField) {
+  if (session.draft.mode === "edit" && !isCampusMapEditDirty(session)) {
     return rejected(session);
   }
   const draft =
@@ -467,8 +508,15 @@ function publishTransition(
           sources: [mapSubmissionSource(accessedOn)],
         }
       : session.draft;
+  const buildingLocationMissing =
+    draft.locationPolicy === "building-required" &&
+    (!draft.fact.buildingId ||
+      (draft.fact.location?.kind !== "building" &&
+        draft.fact.location?.kind !== "floor"));
   const error =
-    firstInvalidCampusMapEditField(draft, requiredFields) ?? blockingField;
+    (buildingLocationMissing ? "buildingId" : null) ??
+    firstInvalidCampusMapEditField(draft, requiredFields) ??
+    (draft.locationIntent === "indoor" ? "buildingId" : null);
   if (error) {
     const next = { ...editable(session), draft, localError: error };
     return {
@@ -532,6 +580,54 @@ export function transitionCampusMapEdit(
   session: CampusMapEditSession | null,
   event: CampusMapEditEvent,
 ): CampusMapEditTransition {
+  if (event.type === "START_FACILITY_ADD") {
+    if (session) return rejected(session);
+    const locationDisplay =
+      event.entry.kind === "building" ? event.entry.locationDisplay : null;
+    const pinType = event.entry.pinType ?? DEFAULT_FACT.pinType;
+    const preset = CAMPUS_MAP_EDIT_SCHEMA.presets.find(
+      (candidate) => candidate.pinType === pinType,
+    );
+    const indoorFact: CampusMapPublishFactInput | null = locationDisplay
+      ? {
+          ...clone(DEFAULT_FACT),
+          name: preset?.defaultName ?? DEFAULT_FACT.name,
+          pinType,
+          buildingId: locationDisplay.buildingId,
+          floorId: locationDisplay.floorId,
+          location: {
+            kind: locationDisplay.floorId ? "floor" : "building",
+          },
+        }
+      : null;
+    const initialFact: CampusMapEditDraft["fact"] = indoorFact ?? {
+      ...clone(DEFAULT_FACT),
+      name: preset?.defaultName ?? DEFAULT_FACT.name,
+      pinType,
+    };
+    const seededDraft = createCampusMapEditDraft({
+      mode: "add",
+      idempotencyKey: event.idempotencyKey,
+      fact: initialFact,
+      locationDisplay,
+      locationPolicy: "building-required",
+      entrySource: event.entry.kind,
+    });
+    const next: CampusMapEditSession = {
+      status: "editing",
+      draft: seededDraft,
+    };
+    return {
+      accepted: true,
+      session: next,
+      commands: [
+        { kind: "scene", intent: "start-create" },
+        { kind: "persist-snapshot" },
+        { kind: "focus", target: "form-heading" },
+      ],
+    };
+  }
+
   if (event.type === "START_ADD" || event.type === "START_ADD_AT_POSITION") {
     if (session) return rejected(session);
     const placementCandidate =
@@ -648,6 +744,7 @@ export function transitionCampusMapEdit(
         },
         placementCandidate: null,
         placementMethod: method,
+        locationIntent: null,
         locationDisplay: null,
         warningAcknowledgements: [],
       },
@@ -684,6 +781,7 @@ export function transitionCampusMapEdit(
       draft: {
         ...attemptDraft,
         placementCandidate,
+        locationIntent: null,
         warningAcknowledgements: [],
       },
     };
@@ -729,6 +827,39 @@ export function transitionCampusMapEdit(
         },
       ],
     };
+  }
+
+  if (event.type === "CHOOSE_LOCATION_KIND") {
+    if (session.status === "placing" || session.status === "confirm-discard") {
+      return rejected(session);
+    }
+    if (event.kind === "outdoor") {
+      if (session.draft.fact.location?.kind !== "outdoor-point") {
+        return transitionCampusMapEdit(session, {
+          type: "START_REPOSITION",
+          ...(event.idempotencyKey
+            ? { idempotencyKey: event.idempotencyKey }
+            : {}),
+        });
+      }
+      if (session.draft.locationIntent === null) return rejected(session);
+    } else if (
+      session.draft.locationIntent === "indoor" ||
+      session.draft.fact.location?.kind === "building" ||
+      session.draft.fact.location?.kind === "floor"
+    ) {
+      return rejected(session);
+    }
+    const attemptDraft = draftForPayloadChange(session, event.idempotencyKey);
+    if (!attemptDraft) return rejected(session);
+    return persisted({
+      ...editable({ ...session, draft: attemptDraft }),
+      draft: {
+        ...attemptDraft,
+        locationIntent: event.kind === "indoor" ? "indoor" : null,
+        warningAcknowledgements: [],
+      },
+    });
   }
 
   if (event.type === "CHANGE_FACT") {
@@ -859,12 +990,7 @@ export function transitionCampusMapEdit(
 
   if (event.type === "REQUEST_PUBLISH") {
     if (session.status !== "editing") return rejected(session);
-    return publishTransition(
-      session,
-      event.requiredFields,
-      event.accessedOn,
-      event.blockingField,
-    );
+    return publishTransition(session, event.requiredFields, event.accessedOn);
   }
 
   if (event.type === "PUBLISH_RESULT") {
@@ -1684,7 +1810,16 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
         validUuid(value.receipt.placeId) &&
         validUuid(value.receipt.revisionId) &&
         validUuid(value.receipt.changesetId)));
+  const buildingRequiredAddAwaitingSelection =
+    draft.mode === "add" &&
+    draft.locationPolicy === "building-required" &&
+    draft.entrySource === "global" &&
+    isRecord(draft.fact) &&
+    draft.fact.location === null &&
+    (value.status === "editing" ||
+      (value.status === "confirm-discard" && value.returnStatus === "editing"));
   const locationStateValid =
+    buildingRequiredAddAwaitingSelection ||
     ((value.status === "placing" ||
       (value.status === "confirm-discard" &&
         value.returnStatus === "placing")) &&
@@ -1702,6 +1837,15 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
     (draft.placementMethod === null ||
       draft.placementMethod === "pointer" ||
       draft.placementMethod === "keyboard") &&
+    (draft.locationPolicy === "building-required" ||
+      draft.locationPolicy === "flexible") &&
+    (draft.entrySource === "global" ||
+      draft.entrySource === "building" ||
+      draft.entrySource === null) &&
+    (draft.mode === "add"
+      ? draft.entrySource !== null
+      : draft.entrySource === null) &&
+    (draft.locationIntent === null || draft.locationIntent === "indoor") &&
     (draft.placementCandidate === null ||
       looksLikePlacement(draft.placementCandidate)) &&
     Array.isArray(draft.sources) &&
@@ -1721,7 +1865,7 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
     (draft.mode === "add"
       ? draft.placeId === null &&
         draft.baseRevisionId === null &&
-        draft.baselineFact === null
+        (draft.baselineFact === null || looksLikeFact(draft.baselineFact, true))
       : validUuid(draft.placeId) &&
         validUuid(draft.baseRevisionId) &&
         looksLikeFact(draft.baselineFact, false))
@@ -1748,7 +1892,7 @@ export function decodeCampusMapEditSnapshot(
     return { status: "discarded", reason: "invalid-snapshot" };
   let sessionValue = value.session;
   if (
-    (value.version === 1 || value.version === 2) &&
+    [1, 2, 3, 4].includes(Number(value.version)) &&
     isRecord(sessionValue) &&
     isRecord(sessionValue.draft)
   ) {
@@ -1760,9 +1904,15 @@ export function decodeCampusMapEditSnapshot(
       draft: {
         ...sessionValue.draft,
         ...(value.version === 1 ? { placementCandidate: null } : {}),
-        locationDisplay: null,
+        locationPolicy: "flexible",
+        entrySource: sessionValue.draft.mode === "add" ? "global" : null,
+        locationIntent: null,
+        ...((value.version === 1 || value.version === 2) && {
+          locationDisplay: null,
+        }),
       },
-      ...(conflict?.kind === "current"
+      ...((value.version === 1 || value.version === 2) &&
+      conflict?.kind === "current"
         ? {
             conflict: {
               ...conflict,
@@ -1771,10 +1921,7 @@ export function decodeCampusMapEditSnapshot(
           }
         : {}),
     };
-  } else if (
-    value.version !== 3 &&
-    value.version !== CAMPUS_MAP_EDIT_SNAPSHOT_VERSION
-  ) {
+  } else if (value.version !== CAMPUS_MAP_EDIT_SNAPSHOT_VERSION) {
     return { status: "discarded", reason: "unsupported-version" };
   }
   if (!looksLikeSession(sessionValue) || sessionValue.status === "published") {

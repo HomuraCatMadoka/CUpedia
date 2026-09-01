@@ -65,7 +65,11 @@ interface CampusMapPublishReceiptConsumerDependencies {
   refresh(receipt: {
     placeId: string;
   }): Promise<{ status: "applied" | "failed" | "superseded" }>;
-  applyProjectionAndOpen(input: { placeId: string; intentToken: number }): {
+  applyProjectionAndOpen(input: {
+    placeId: string;
+    intentToken: number;
+    operation: CampusMapPublishCommand["changes"][number]["operation"] | null;
+  }): {
     status: "applied" | "missing-target" | "superseded";
   };
   isCanonicalPlaceOpen(placeId: string): boolean;
@@ -335,6 +339,7 @@ export class CampusMapPublishReceiptConsumer {
       input.command.idempotencyKey,
       input.intentToken,
       receipt,
+      input.command.changes[0]?.operation ?? null,
     );
   }
 
@@ -372,6 +377,7 @@ export class CampusMapPublishReceiptConsumer {
     identity: string,
     intentToken: number,
     receipt: CampusMapPublishedReceipt,
+    operation: CampusMapPublishCommand["changes"][number]["operation"] | null,
   ): Promise<CampusMapPublishReceiptOutcome> {
     try {
       return await this.dependencies.withLock(identity, async () => {
@@ -434,6 +440,7 @@ export class CampusMapPublishReceiptConsumer {
           handoff = this.dependencies.applyProjectionAndOpen({
             placeId,
             intentToken,
+            operation,
           });
         } catch {
           this.dependencies.writeReceiptState(identity, {
