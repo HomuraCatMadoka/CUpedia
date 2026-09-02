@@ -1,7 +1,13 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CampusRouteView } from "@/components/campus-transport/campus-route-view";
@@ -17,7 +23,10 @@ vi.mock("@/components/campus-transport/campus-route-map", () => ({
   ),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 beforeEach(() => {
   window.matchMedia = vi.fn().mockReturnValue({ matches: true });
@@ -106,5 +115,38 @@ describe("CampusRouteView", () => {
         .getByRole("button", { name: /11\. 研究生宿舍一座/ })
         .getAttribute("aria-expanded"),
     ).toBe("true");
+  });
+
+  it("submits the anonymous timetable context already shown on the page", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ observationId: "observation-1" }), {
+        headers: { "content-type": "application/json" },
+        status: 201,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderRoute("2", Date.parse("2026-09-02T00:10:00.000Z"));
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "預測不準？提交實時到站時間改進預測",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^提交$/ }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(request.body));
+    expect(body).toMatchObject({
+      candidateContext: {
+        patternRevisionId: "2:default:2026-09-01",
+        predictionModelRevisionId: "cold-start:2:f4454cf9e0d3f90a",
+        scheduledDepartureAt: "2026-09-02T00:15:00.000Z",
+      },
+      routeId: "2",
+      stopOccurrenceId: "cuhk-wp-stop-2550#1",
+    });
+    expect(body).not.toHaveProperty("sessionId");
+    expect(body).not.toHaveProperty("userId");
   });
 });

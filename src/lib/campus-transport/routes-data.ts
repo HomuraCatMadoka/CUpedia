@@ -22,12 +22,13 @@ import route8Geodata from "@campus-transport-data/geodata/route-8.osm.json";
 import routeHGeodata from "@campus-transport-data/geodata/route-h.osm.json";
 import routeNGeodata from "@campus-transport-data/geodata/route-n.osm.json";
 
-import type {
-  CampusBusPattern,
-  CampusBusRoute,
-  CampusBusRouteMap,
-  CampusBusServiceBand,
-  CampusBusServiceDayRule,
+import {
+  campusBusRouteRevisionIsValidOn,
+  type CampusBusPattern,
+  type CampusBusRoute,
+  type CampusBusRouteMap,
+  type CampusBusServiceBand,
+  type CampusBusServiceDayRule,
 } from "@/lib/campus-transport/campus-bus";
 import { buildCurrentCampusBusRoutes } from "@/lib/campus-transport/current-route-revisions";
 import {
@@ -493,17 +494,10 @@ function isValidServiceDate(serviceDate: string) {
   );
 }
 
-function routeIsValidOn(route: CampusBusRoute, serviceDate: string) {
-  return (
-    (!route.validFrom || serviceDate >= route.validFrom) &&
-    (!route.validTo || serviceDate <= route.validTo)
-  );
-}
-
 export function getCampusBusRoutesForServiceDate(serviceDate: string) {
   if (!isValidServiceDate(serviceDate)) return [];
   return [...historicalCampusBusRoutes, ...campusBusRoutes].filter((route) =>
-    routeIsValidOn(route, serviceDate),
+    campusBusRouteRevisionIsValidOn(route, serviceDate),
   );
 }
 

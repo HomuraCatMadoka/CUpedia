@@ -44,6 +44,7 @@ function mockRoute(
           { p50Seconds: 60, stopOccurrenceId: "s2" },
           { p50Seconds: 120, stopOccurrenceId: "s3" },
         ],
+        revisionId: "p:revision-1",
         serviceDayType: "scheduled_service_day",
       },
     ],
@@ -61,6 +62,7 @@ function mockRoute(
       },
     ],
     serviceHoursLabel: "00:00-00:59",
+    seedModelRevisionId: "test-model",
     slug: "t",
     stops: [
       {
@@ -135,6 +137,7 @@ describe("computeBusPositions", () => {
             { p50Seconds: 60, stopOccurrenceId: "s2" },
             { p50Seconds: 120, stopOccurrenceId: "s3" },
           ],
+          revisionId: "p:revision-1",
           serviceDayType: "scheduled_service_day",
         },
       ],

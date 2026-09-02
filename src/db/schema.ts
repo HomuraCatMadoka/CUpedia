@@ -139,6 +139,12 @@ export const campusBusArrivalObservations = pgTable(
     routeId: text("route_id").notNull(),
     stopId: text("stop_id").notNull(),
     stopOccurrenceId: text("stop_occurrence_id").notNull(),
+    candidatePatternRevisionId: text("candidate_pattern_revision_id"),
+    candidateScheduledDepartureAt: timestamp(
+      "candidate_scheduled_departure_at",
+      { withTimezone: true },
+    ),
+    predictionModelRevisionId: text("prediction_model_revision_id"),
     observedArrivalAt: timestamp("observed_arrival_at", {
       withTimezone: true,
     }).notNull(),
@@ -279,7 +285,9 @@ export const campusBusTripMatchCandidates = pgTable(
       .references(() => campusBusArrivalObservations.id, {
         onDelete: "cascade",
       }),
+    routeRevisionId: text("route_revision_id"),
     patternId: text("pattern_id").notNull(),
+    patternRevisionId: text("pattern_revision_id"),
     scheduledDepartureAt: timestamp("scheduled_departure_at", {
       withTimezone: true,
     }).notNull(),
@@ -321,7 +329,9 @@ export const campusBusArrivalEvents = pgTable(
       }),
     eventKey: text("event_key").notNull(),
     routeId: text("route_id").notNull(),
+    routeRevisionId: text("route_revision_id"),
     patternId: text("pattern_id").notNull(),
+    patternRevisionId: text("pattern_revision_id"),
     stopOccurrenceId: text("stop_occurrence_id").notNull(),
     scheduledDepartureAt: timestamp("scheduled_departure_at", {
       withTimezone: true,

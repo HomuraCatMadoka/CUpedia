@@ -13,8 +13,6 @@ describe("campus bus model experiment parameters", () => {
       candidateWindowMinutes: 15,
       label: null,
       likelihoodScaleMinutes: 3,
-      minEvents: 10,
-      minServiceDays: 5,
       priorStrength: 8,
       routeId: null,
       trainingWindowDays: 28,
@@ -40,13 +38,14 @@ describe("campus bus model experiment parameters", () => {
     ).toThrow("INVALID_ROUTE");
   });
 
-  it("requires the service-day threshold to fit inside the window", () => {
-    expect(() =>
-      parseModelExperimentParameters({
-        ...modelExperimentDefaults,
-        minServiceDays: 20,
-        trainingWindowDays: 14,
-      }),
-    ).toThrow("INVALID_MIN_SERVICE_DAYS");
+  it("does not expose publication thresholds as experiment parameters", () => {
+    const parsed = parseModelExperimentParameters({
+      ...modelExperimentDefaults,
+      minEvents: 3,
+      minServiceDays: 2,
+    });
+
+    expect(parsed).not.toHaveProperty("minEvents");
+    expect(parsed).not.toHaveProperty("minServiceDays");
   });
 });

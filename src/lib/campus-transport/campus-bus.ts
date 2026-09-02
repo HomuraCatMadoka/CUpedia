@@ -122,6 +122,32 @@ export type CampusBusRoute = {
   subtitle: string;
 };
 
+export function campusBusRouteRevisionIsValidOn(
+  route: CampusBusRoute,
+  serviceDate: string,
+) {
+  return (
+    (!route.validFrom || route.validFrom <= serviceDate) &&
+    (!route.validTo || route.validTo >= serviceDate)
+  );
+}
+
+export function findCampusBusRouteRevisionForServiceDate(
+  routes: CampusBusRoute[],
+  routeId: string,
+  serviceDate: string,
+) {
+  return routes
+    .filter(
+      (route) =>
+        route.routeId === routeId &&
+        campusBusRouteRevisionIsValidOn(route, serviceDate),
+    )
+    .sort((left, right) =>
+      (right.validFrom ?? "").localeCompare(left.validFrom ?? ""),
+    )[0];
+}
+
 type CampusBusPassengerProjection = Pick<
   CampusBusPattern["projections"][number],
   "p50Seconds" | "stopOccurrenceId" | "timeBandAdjustments"
@@ -129,7 +155,7 @@ type CampusBusPassengerProjection = Pick<
 
 type CampusBusPassengerPattern = Pick<
   CampusBusPattern,
-  "departureMinutes" | "id" | "serviceDayType"
+  "departureMinutes" | "id" | "revisionId" | "serviceDayType"
 > & {
   projections: CampusBusPassengerProjection[];
 };
@@ -142,12 +168,14 @@ export type CampusBusPassengerRoute = Pick<
   | "frequencyLabel"
   | "map"
   | "publicHolidayDates"
+  | "predictionRevisionId"
   | "readingWeeks"
   | "routeId"
   | "routeNameZhHant"
   | "riderEligibility"
   | "serviceBands"
   | "serviceHoursLabel"
+  | "seedModelRevisionId"
   | "slug"
   | "stops"
   | "subtitle"
@@ -172,8 +200,10 @@ export function toCampusBusPassengerRoute(
         stopOccurrenceId: projection.stopOccurrenceId,
         timeBandAdjustments: projection.timeBandAdjustments,
       })),
+      revisionId: pattern.revisionId,
       serviceDayType: pattern.serviceDayType,
     })),
+    predictionRevisionId: route.predictionRevisionId,
     publicHolidayDates: route.publicHolidayDates,
     readingWeeks: route.readingWeeks,
     routeId: route.routeId,
@@ -181,6 +211,7 @@ export function toCampusBusPassengerRoute(
     riderEligibility: route.riderEligibility,
     serviceBands: route.serviceBands,
     serviceHoursLabel: route.serviceHoursLabel,
+    seedModelRevisionId: route.seedModelRevisionId,
     slug: route.slug,
     stops: route.stops,
     subtitle: route.subtitle,
@@ -193,6 +224,7 @@ export type CampusBusArrival = {
   departureAt: number;
   departureTime: string;
   patternId: string;
+  patternRevisionId: string;
   waitMinutes: number;
 };
 
@@ -455,6 +487,7 @@ export function getCampusBusScheduledArrivals(
           departureAt,
           departureTime: formatHongKongTime(departureAt),
           patternId: pattern.id,
+          patternRevisionId: pattern.revisionId,
           waitMinutes: Math.max(
             0,
             Math.ceil((arrivalAt - serviceDateTimestamp) / 60_000),
@@ -500,6 +533,7 @@ export function getCampusBusStopBoard(
       departureAt,
       departureTime: formatHongKongTime(departureAt),
       patternId: pattern.id,
+      patternRevisionId: pattern.revisionId,
       waitMinutes:
         millisecondsUntilArrival < 60_000
           ? 0

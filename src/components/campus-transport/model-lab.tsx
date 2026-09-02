@@ -13,7 +13,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { ArrivalEvidenceCoverageRow } from "@/lib/campus-transport/arrival-evidence-coverage";
 import { modelExperimentDefaults } from "@/lib/campus-transport/model-experiment";
+import { CAMPUS_BUS_MODEL_PUBLICATION_THRESHOLDS } from "@/lib/campus-transport/prediction-model";
 
 type SerializableExperiment = {
   id: string;
@@ -26,8 +28,6 @@ type SerializableExperiment = {
     candidateWindowMinutes: number;
     label: string | null;
     likelihoodScaleMinutes: number;
-    minEvents: number;
-    minServiceDays: number;
     priorStrength: number;
     routeId: string | null;
     trainingWindowDays: number;
@@ -50,6 +50,16 @@ type ModelLabOverview = {
     observationCount: number;
   };
   routes: Array<{ routeId: string; observationCount: number }>;
+  replay: {
+    ambiguousObservationCount: number;
+    candidateCount: number;
+    eventCount: number;
+    excludedObservationCount: number;
+    exclusionsByReason: Record<string, number>;
+    observationCount: number;
+    trajectoryCount: number;
+  };
+  coverageDetails: ArrivalEvidenceCoverageRow[];
   champion: {
     id: string;
     createdAt: string;
@@ -61,6 +71,11 @@ type ModelLabOverview = {
 
 function minutes(seconds: number | null) {
   return seconds === null ? "—" : `${(seconds / 60).toFixed(1)} 分鐘`;
+}
+
+function stopOccurrenceLabel(stopOccurrenceId: string) {
+  const occurrence = /#(\d+)$/.exec(stopOccurrenceId)?.[1];
+  return occurrence ? `第 ${occurrence} 次停靠` : stopOccurrenceId;
 }
 
 function percentImprovement(experiment: SerializableExperiment) {
@@ -116,8 +131,6 @@ export function ModelLab({
           ...values,
           candidateWindowMinutes: Number(values.candidateWindowMinutes),
           likelihoodScaleMinutes: Number(values.likelihoodScaleMinutes),
-          minEvents: Number(values.minEvents),
-          minServiceDays: Number(values.minServiceDays),
           priorStrength: Number(values.priorStrength),
           trainingWindowDays: Number(values.trainingWindowDays),
         }),
@@ -195,9 +208,19 @@ export function ModelLab({
     }
   }
 
+  const currentRouteIds = new Set(routes.map((route) => route.id));
   const routeCount = initialOverview.routes.filter(
-    (route) => route.observationCount > 0,
+    (route) => route.observationCount > 0 && currentRouteIds.has(route.routeId),
   ).length;
+  const visibleCoverage = initialOverview.coverageDetails.filter(
+    (row) => row.highlightedRevisionGap || row.observationCount > 0,
+  );
+  const dimensionLabels = {
+    pattern: "班型",
+    route: "路線",
+    segment: "相鄰站段",
+    stop: "站點",
+  } as const;
 
   return (
     <div className="space-y-10 pt-8">
@@ -219,7 +242,9 @@ export function ModelLab({
             <p className="text-2xl font-bold tabular-nums">
               {routeCount}/{routes.length}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">已有回報的路線</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              目前已有回報的路線
+            </p>
           </div>
           <div className="p-5">
             <p className="text-2xl font-bold tabular-nums">
@@ -235,6 +260,96 @@ export function ModelLab({
           />
           實驗只讀取去識別化路線、站點和時間；不提供 GPS、網絡雜湊或資料庫權限。
         </p>
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+          只讀回放重建了 {initialOverview.replay.eventCount} 個獨立到站事件、
+          {initialOverview.replay.trajectoryCount} 條候選軌跡；
+          {initialOverview.replay.ambiguousObservationCount} 條回報仍有歧義。
+          回放不寫入模型，也不會改變乘客端預測。
+        </p>
+      </section>
+
+      <section aria-labelledby="coverage-title">
+        <div className="mb-4">
+          <h2 id="coverage-title" className="text-lg font-semibold">
+            回放覆蓋
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {`扣除最近 20% 驗證日後，每項至少需要 ${CAMPUS_BUS_MODEL_PUBLICATION_THRESHOLDS.minEvents} 個獨立事件、跨 ${CAMPUS_BUS_MODEL_PUBLICATION_THRESHOLDS.minServiceDays} 個服務日；新版路線缺口已標示。`}
+          </p>
+        </div>
+        {visibleCoverage.length === 0 ? (
+          <div className="rounded-xl border border-dashed bg-background px-5 py-8 text-center text-sm text-muted-foreground">
+            暫時沒有可配對的回報。
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border bg-background">
+            <table className="w-full min-w-[54rem] text-left text-sm">
+              <thead className="border-b bg-muted/35 text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 font-medium">範圍</th>
+                  <th className="px-4 py-3 font-medium">項目</th>
+                  <th className="px-4 py-3 text-right font-medium">回報</th>
+                  <th className="px-4 py-3 text-right font-medium">獨立事件</th>
+                  <th className="px-4 py-3 text-right font-medium">服務日</th>
+                  <th className="px-4 py-3 text-right font-medium">歧義率</th>
+                  <th className="px-4 py-3 text-right font-medium">距門檻</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {visibleCoverage.map((row) => (
+                  <tr
+                    key={row.coverageKey}
+                    className={
+                      row.highlightedRevisionGap
+                        ? "bg-amber-50/70 dark:bg-amber-950/15"
+                        : undefined
+                    }
+                  >
+                    <td className="whitespace-nowrap px-4 py-3 align-top">
+                      <span className="font-semibold">{row.routeCode}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {dimensionLabels[row.dimension]}
+                      </span>
+                    </td>
+                    <td className="max-w-sm px-4 py-3 align-top">
+                      <span>{row.label}</span>
+                      {row.stopOccurrenceId && (
+                        <span className="mt-1 block text-[0.7rem] text-muted-foreground">
+                          {stopOccurrenceLabel(row.stopOccurrenceId)}
+                        </span>
+                      )}
+                      {row.patternId && row.dimension !== "pattern" && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {row.patternId}
+                        </span>
+                      )}
+                      {row.highlightedRevisionGap && (
+                        <span className="ml-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[0.7rem] font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
+                          新版缺口
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {row.observationCount}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {row.independentEventCount}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {row.serviceDayCount}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {(row.ambiguityRate * 100).toFixed(0)}%
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-xs text-muted-foreground tabular-nums">
+                      {row.eventDeficit} 事件 / {row.serviceDayDeficit} 日
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section aria-labelledby="new-experiment-title">
@@ -311,24 +426,6 @@ export function ModelLab({
               defaultValue={modelExperimentDefaults.likelihoodScaleMinutes}
             />
             <Field
-              help="站點時段至少需要多少次匹配。"
-              label="最少事件數"
-              name="minEvents"
-              type="number"
-              min={3}
-              max={100}
-              defaultValue={modelExperimentDefaults.minEvents}
-            />
-            <Field
-              help="避免只用單一天的偶然延誤。"
-              label="最少服務日"
-              name="minServiceDays"
-              type="number"
-              min={2}
-              max={28}
-              defaultValue={modelExperimentDefaults.minServiceDays}
-            />
-            <Field
               help="越高越保守，越接近原始時間表。"
               label="先驗強度"
               name="priorStrength"
@@ -340,8 +437,10 @@ export function ModelLab({
           </div>
           <div className="mt-6 flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-xl text-xs leading-5 text-muted-foreground">
-              系統按日期保留最後 20%
-              作驗證；結果只保存統計量和模型校正，不複製原始回報。
+              系統按日期保留最後 20% 作驗證；發布門檻固定為至少
+              {CAMPUS_BUS_MODEL_PUBLICATION_THRESHOLDS.minEvents} 個事件、跨
+              {CAMPUS_BUS_MODEL_PUBLICATION_THRESHOLDS.minServiceDays}
+              個服務日，不可由單次實驗降低。
             </p>
             <Button
               type="submit"

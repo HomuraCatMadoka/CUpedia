@@ -855,6 +855,13 @@
       "when": 1788357558052,
       "tag": "0121_campus-map-place-photos",
       "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1788361576762,
+      "tag": "0122_magical_kid_colt",
+      "breakpoints": true
     }
   ]
 }

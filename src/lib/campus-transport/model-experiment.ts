@@ -4,8 +4,6 @@ export const modelExperimentDefaults = {
   candidateWindowMinutes: 15,
   label: "",
   likelihoodScaleMinutes: 3,
-  minEvents: 10,
-  minServiceDays: 5,
   priorStrength: 8,
   routeId: "all",
   trainingWindowDays: 28,
@@ -15,8 +13,6 @@ export type ModelExperimentParameters = {
   candidateWindowMinutes: number;
   label: string | null;
   likelihoodScaleMinutes: number;
-  minEvents: number;
-  minServiceDays: number;
   priorStrength: number;
   routeId: string | null;
   trainingWindowDays: number;
@@ -48,12 +44,6 @@ export function parseModelExperimentParameters(
     56,
     "training_window_days",
   );
-  const minServiceDays = integerInRange(
-    value.minServiceDays,
-    2,
-    Math.min(28, trainingWindowDays - 1),
-    "min_service_days",
-  );
   const routeValue = value.routeId === "all" ? null : value.routeId;
   const routeId =
     typeof routeValue === "string" &&
@@ -80,8 +70,6 @@ export function parseModelExperimentParameters(
       10,
       "likelihood_scale_minutes",
     ),
-    minEvents: integerInRange(value.minEvents, 3, 100, "min_events"),
-    minServiceDays,
     priorStrength: integerInRange(value.priorStrength, 1, 50, "prior_strength"),
     routeId,
     trainingWindowDays,
