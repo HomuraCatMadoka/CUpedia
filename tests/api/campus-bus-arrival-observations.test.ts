@@ -83,6 +83,23 @@ describe("POST /api/campus-bus/arrival-observations", () => {
     );
   });
 
+  it("stores Route 1 feedback under the stable pre-rename identity", async () => {
+    const response = await POST(
+      request({
+        observedArrivalAt: "2026-08-10T00:09:00.000Z",
+        routeId: "1",
+        stopOccurrenceId: "cuhk-wp-stop-2552#1",
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(insertArrivalObservationMock).toHaveBeenCalledWith(
+      expect.objectContaining({ routeId: "1a" }),
+      "22222222-2222-4222-8222-222222222222",
+      NOW,
+    );
+  });
+
   it("ignores client fields beyond route, stop, and arrival time", async () => {
     const response = await POST(
       request({
@@ -140,6 +157,23 @@ describe("POST /api/campus-bus/arrival-observations", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       error: "INVALID_STOP",
+    });
+    expect(insertArrivalObservationMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects retired 1B feedback with a recoverable refresh response", async () => {
+    const response = await POST(
+      request({
+        observedArrivalAt: "2026-08-10T00:09:00.000Z",
+        routeId: "1b",
+        stopOccurrenceId: "cuhk-wp-stop-3172#1",
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "ROUTE_CATALOG_STALE",
+      currentRouteCodes: expect.arrayContaining(["1", "2S"]),
     });
     expect(insertArrivalObservationMock).not.toHaveBeenCalled();
   });

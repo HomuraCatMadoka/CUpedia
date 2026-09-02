@@ -8,7 +8,12 @@ import {
   type ReconstructedArrivalEvent,
 } from "@/lib/campus-transport/prediction-model";
 import { getCampusBusStopBoard } from "@/lib/campus-transport/campus-bus";
-import { route2ViewData } from "@/lib/campus-transport/routes-data";
+import { getCampusBusRouteForServiceDate } from "@/lib/campus-transport/routes-data";
+
+const historicalRoute2ViewData = getCampusBusRouteForServiceDate(
+  "2",
+  "2026-08-31",
+)!;
 
 function event(
   day: number,
@@ -96,7 +101,7 @@ describe("campus bus feedback model", () => {
           receivedAt: new Date("2026-08-10T08:22:00+08:00"),
         },
       ],
-      [route2ViewData],
+      [historicalRoute2ViewData],
     );
 
     expect(
@@ -121,7 +126,7 @@ describe("campus bus feedback model", () => {
         ),
         receivedAt: new Date("2026-08-10T08:15:00+08:00"),
       })),
-      [route2ViewData],
+      [historicalRoute2ViewData],
     );
 
     expect(result.events).toHaveLength(1);
@@ -164,7 +169,7 @@ describe("campus bus feedback model", () => {
 
   it("applies a champion correction to the passenger stop board", () => {
     const adjusted = applyPredictionAdjustments(
-      route2ViewData,
+      historicalRoute2ViewData,
       [
         {
           routeId: "2",

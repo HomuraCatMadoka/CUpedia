@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import {
   type CampusBusPassengerRoute,
+  type CampusBusRouteMap,
   type CampusBusStop,
   type LngLat,
 } from "@/lib/campus-transport/campus-bus";
@@ -40,6 +41,29 @@ type CampusRouteMapProps = {
 
 function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function escapeAttributionHtml(value: string) {
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[character]!,
+  );
+}
+
+function routeSourceAttribution(sources: CampusBusRouteMap["sources"]) {
+  return sources
+    .map((source, index) => {
+      const suffix = sources.length > 1 ? ` ${index + 1}` : "";
+      return `<a href="${escapeAttributionHtml(source.url)}" target="_blank" rel="noopener noreferrer">${escapeAttributionHtml(source.attribution)}${suffix}</a>`;
+    })
+    .join(" · ");
 }
 
 export function CampusRouteMap({
@@ -97,7 +121,7 @@ export function CampusRouteMap({
               tileSize: 256,
               minzoom: 10,
               maxzoom: 20,
-              attribution: `© <a href="${LANDSD_TERMS_URL}" target="_blank">Map from Lands Department</a> · route data <a href="${route.map.sourceUrl}" target="_blank">${route.map.attribution}</a>`,
+              attribution: `© <a href="${LANDSD_TERMS_URL}" target="_blank" rel="noopener noreferrer">Map from Lands Department</a> · route data ${routeSourceAttribution(route.map.sources)}`,
             },
             "landsd-labels": {
               type: "raster",

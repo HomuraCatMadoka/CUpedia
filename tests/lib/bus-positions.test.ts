@@ -16,7 +16,6 @@ function mockRoute(
     defaultStopId: "s1",
     frequencyLabel: "測試",
     map: {
-      attribution: "test",
       geometry: {
         type: "Feature",
         properties: {},
@@ -29,7 +28,7 @@ function mockRoute(
           ],
         },
       },
-      sourceUrl: "",
+      sources: [],
       stopCoordinates: {
         s1: [0, 0],
         s2: [0, 0.001],
@@ -152,13 +151,9 @@ describe("computeBusPositions", () => {
     expect(computeBusPositions(route, now, 30_000)).toHaveLength(0);
   });
 
-  it("works with the real 1A route inside its service window", () => {
-    const route = campusBusRoutes.find(
-      (candidate) => candidate.routeId === "1a",
-    )!;
-    // 2026-08-13 是周四（服务日）；08:50 发车后 1 分钟，班次在 s1→s2 途中
-    // （1A 发车分钟 [10,20,40,50]、行程 ~9.7 分钟；09:00 整点恰好无车，故用 08:51）
-    const now = new Date("2026-08-13T08:51:00+08:00").getTime();
+  it("works with the real Route 1 inside its service window", () => {
+    const route = campusBusRoutes.find((candidate) => candidate.slug === "1")!;
+    const now = new Date("2026-09-02T08:56:00+08:00").getTime();
     const positions = computeBusPositions(route, now, 30_000);
     expect(positions.length).toBeGreaterThanOrEqual(1);
     for (const bus of positions) {
@@ -169,15 +164,13 @@ describe("computeBusPositions", () => {
     }
   });
 
-  it("moves the 1A bus from the first stop toward the second after departure", () => {
-    const route = campusBusRoutes.find(
-      (candidate) => candidate.routeId === "1a",
-    )!;
+  it("moves the Route 1 bus from the first stop toward the second after departure", () => {
+    const route = campusBusRoutes.find((candidate) => candidate.slug === "1")!;
     // 10:10 发车（1A 发车分钟 [10,20,40,50]），p50 第一站 0s、第二站 111s
     const samples = [11, 13].map((minute) =>
       computeBusPositions(
         route,
-        new Date(`2026-08-13T10:${minute}:00+08:00`).getTime(),
+        new Date(`2026-09-02T10:${minute}:00+08:00`).getTime(),
         30_000,
       ),
     );
@@ -201,23 +194,16 @@ describe("computeBusPositions", () => {
     expect(d2).toBeGreaterThan(d1);
   });
 
-  it("shows all concurrent trips of the real route 2 fleet", () => {
-    // ref #601 — "所有应该有的车都显示"：route 2 发车间隔 15 分钟、行程
-    // 超过 15 分钟，08:15 时 08:00 班（接近终点）与 08:15 班（刚发车）并存。
+  it("reflects Route 2's reduced 15/45-minute fleet", () => {
     const route = campusBusRoutes.find(
       (candidate) => candidate.routeId === "2",
     )!;
-    const now = new Date("2026-08-13T08:15:00+08:00").getTime();
+    const now = new Date("2026-09-02T08:15:00+08:00").getTime();
     const positions = computeBusPositions(route, now, 30_000);
-    expect(positions.length).toBeGreaterThanOrEqual(2);
+    expect(positions).toHaveLength(1);
     const departureTimes = positions
       .map((bus) => formatHongKongTime(bus.departureAt))
       .sort();
-    expect(departureTimes).toContain("08:00");
-    expect(departureTimes).toContain("08:15");
-    // 两车应在不同里程：早班更接近终点
-    const alongs = positions.map((bus) => bus.along).sort((a, b) => a - b);
-    expect(alongs[0]!).toBeLessThan(200); // 08:15 班刚起步
-    expect(alongs[1]!).toBeGreaterThan(3_000); // 08:00 班接近终点
+    expect(departureTimes).toEqual(["08:15"]);
   });
 });

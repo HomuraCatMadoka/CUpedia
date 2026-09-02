@@ -3,6 +3,9 @@ import { unstable_cache } from "next/cache";
 import { campusBusModelOperationsEnabled } from "@/lib/campus-transport/model-operations";
 import { getChampionCampusBusRoutes as readChampionCampusBusRoutes } from "@/lib/campus-transport/prediction-model-store";
 import { campusBusRoutes } from "@/lib/campus-transport/routes-data";
+import { getCampusBusRoute } from "@/lib/campus-transport/routes-data";
+
+const CAMPUS_BUS_ROUTE_CACHE_SCHEMA_VERSION = 2;
 
 async function readReviewedCampusBusRoutes() {
   try {
@@ -14,7 +17,7 @@ async function readReviewedCampusBusRoutes() {
 
 const getCachedReviewedCampusBusRoutes = unstable_cache(
   readReviewedCampusBusRoutes,
-  ["campus-bus-champion-routes-v1"],
+  [`campus-bus-champion-routes-v${CAMPUS_BUS_ROUTE_CACHE_SCHEMA_VERSION}`],
   { revalidate: 300, tags: ["campus-bus-model"] },
 );
 
@@ -24,10 +27,8 @@ export async function getChampionCampusBusRoutes() {
 }
 
 export async function getChampionCampusBusRoute(routeId: string) {
+  const canonicalRoute = getCampusBusRoute(routeId);
+  if (!canonicalRoute) return undefined;
   const routes = await getChampionCampusBusRoutes();
-  return routes.find(
-    (route) =>
-      route.routeId.toLowerCase() === routeId.toLowerCase() ||
-      route.slug.toLowerCase() === routeId.toLowerCase(),
-  );
+  return routes.find((route) => route.routeId === canonicalRoute.routeId);
 }

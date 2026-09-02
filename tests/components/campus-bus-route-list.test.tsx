@@ -28,15 +28,16 @@ describe("CampusBusRouteList", () => {
     expect(screen.getByRole("heading", { name: "現在可乘" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "其他路線" })).toBeTruthy();
     for (const route of [
-      "1A 本部線",
-      "1B 本部線",
+      "1 本部線",
       "2 新聯線",
+      "2S 新聯線(S)",
       "3 逸夫線",
       "4 環迴線",
       "5 上行線",
       "6A 下行線 (敬文)",
       "6B 下行線 (新聯)",
       "7 下行線 (逸夫)",
+      "8 西部線",
       "N 晚間線",
       "H 假日線",
     ]) {
@@ -56,6 +57,6 @@ describe("CampusBusRouteList", () => {
       screen.getByText("目前沒有行駛中的校巴，其他今日路線仍可在下方查看。"),
     ).toBeTruthy();
     expect(screen.getByRole("heading", { name: "其他路線" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /1A 本部線/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /1 本部線/ })).toBeTruthy();
   });
 });
