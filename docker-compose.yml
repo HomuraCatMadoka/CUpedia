@@ -43,6 +43,7 @@ services:
       /bin/sh -c "
       mc alias set local http://minio:9000 minioadmin minioadmin &&
       mc mb --ignore-existing local/cuclaw-uploads &&
+      mc mb --ignore-existing local/cuclaw-private-uploads &&
       mc anonymous set download local/cuclaw-uploads
       "
 
@@ -65,6 +66,7 @@ services:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET: cuclaw-uploads
+      MINIO_PRIVATE_BUCKET: cuclaw-private-uploads
       MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000/cuclaw-uploads}
     depends_on:
       - db

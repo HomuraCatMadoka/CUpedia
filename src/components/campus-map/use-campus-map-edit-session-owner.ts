@@ -415,6 +415,7 @@ export function useCampusMapEditSessionOwner({
           baseRevisionId: current.baseRevisionId,
           fact: current.fact,
           sources: [],
+          photos: current.photos,
           idempotencyKey: window.crypto.randomUUID(),
           locationDisplay: current.locationDisplay,
         });

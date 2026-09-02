@@ -14,6 +14,8 @@ import {
 } from "@/lib/campus-map/publish";
 import type { CampusMapIndoorLocationDisplay } from "@/lib/campus-map/edit-session";
 import { toCampusMapRepublishableFact } from "@/lib/campus-map/place-fact-conversion";
+import { getCampusMapRevisionPhotoViews } from "@/lib/campus-map/place-photos";
+import type { CampusMapPlacePhotoRole } from "@/lib/campus-map/place-photos-contract";
 import type {
   CampusMapPublishActorIdentity,
   CampusMapPublishReconciliation,
@@ -29,6 +31,10 @@ export interface CampusMapEditablePlace {
   placeId: string;
   baseRevisionId: string;
   fact: CampusMapPublishFactInput;
+  photos: Array<{
+    assetId: string;
+    role: CampusMapPlacePhotoRole;
+  }>;
   locationDisplay: CampusMapIndoorLocationDisplay | null;
 }
 
@@ -44,6 +50,9 @@ export async function loadCampusMapEditablePlace(
     fact: place,
   });
   if (!converted.ok) return null;
+  const photosByRevision = await getCampusMapRevisionPhotoViews([
+    place.revisionId,
+  ]);
   const locationDisplay: CampusMapIndoorLocationDisplay | null =
     place.location.kind === "outdoor-point"
       ? null
@@ -62,6 +71,10 @@ export async function loadCampusMapEditablePlace(
     baseRevisionId: place.revisionId,
     locationDisplay,
     fact: converted.fact,
+    photos: (photosByRevision[place.revisionId] ?? []).map((photo) => ({
+      assetId: photo.id,
+      role: photo.role,
+    })),
   };
 }
 

@@ -251,8 +251,13 @@ describe("Campus Map Place detail (#816, #825)", () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
-  it("submits the admin reason once, exposes pending state, refreshes, and reports errors", async () => {
+  it("submits the admin reason once, exposes pending state, defers refresh, and reports errors", async () => {
     let resolveAction: ((value: { status: "published" }) => void) | undefined;
+    let refreshedWhilePending: boolean | null = null;
+    refresh.mockImplementationOnce(() => {
+      refreshedWhilePending =
+        screen.queryByRole("button", { name: "正在停用…" }) !== null;
+    });
     lifecycleAction.mockReturnValueOnce(
       new Promise<{ status: "published" }>((resolve) => {
         resolveAction = resolve;
@@ -301,6 +306,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
     const completedRequest = lifecycleAction.mock.calls[0][0];
     resolveAction?.({ status: "published" });
     await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+    expect(refreshedWhilePending).toBe(false);
     await waitFor(() =>
       expect(trigger.getAttribute("aria-expanded")).toBe("false"),
     );

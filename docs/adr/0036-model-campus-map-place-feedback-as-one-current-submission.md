@@ -4,6 +4,9 @@ status: accepted
 
 # ADR 0036：Campus Map 将星级和评价建模为一份当前地点反馈
 
+> 部分由 ADR 0037 取代：仅“未来照片附件沿用 feedback ID”的预告失效；本 ADR 的评分、
+> 评价、可见性和治理决议继续有效。
+
 Campus Map 需要公开的地点口碑，但主观体验不能进入 canonical Place fact。每个符合资格的
 User 因此只在一个 Place 上维护一份当前 Place feedback：必填 1–5 整数星级，可选一段有界
 评价文字。星级和文字共享创建、编辑、删除、隐藏、停用和合并语义，不引入两套身份或历史。

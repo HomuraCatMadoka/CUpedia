@@ -15,6 +15,7 @@ import {
   listCampusMapChangesets,
   listCampusMapCurrentPlaces,
 } from "@/lib/campus-map/fact-store";
+import { getCampusMapPlacePhotoObject } from "@/lib/campus-map/place-photos";
 import {
   commandCampusMapModeration,
   getCampusMapModerationTarget,
@@ -129,6 +130,14 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
         );
       }
       await client.query(
+        `delete from campus_map_revision_photos
+          where revision_id in (
+            select id from campus_map_fact_revisions
+             where actor_id_snapshot = any($1::uuid[])
+          )`,
+        [actorIds],
+      );
+      await client.query(
         `delete from campus_map_revision_visibility
           where revision_id in (
             select id from campus_map_fact_revisions
@@ -146,6 +155,14 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       );
       await client.query(
         "delete from campus_map_fact_revisions where actor_id_snapshot = any($1::uuid[])",
+        [actorIds],
+      );
+      await client.query(
+        "delete from campus_map_place_photo_assets where owner_user_id = any($1::uuid[])",
+        [actorIds],
+      );
+      await client.query(
+        "delete from campus_map_place_photo_upload_limits where actor_user_id = any($1::uuid[])",
         [actorIds],
       );
       await client.query(
@@ -275,6 +292,28 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       );
     }
     return actorId;
+  }
+
+  async function createReadyPlacePhotoAsset(ownerUserId: string) {
+    const assetId = randomUUID();
+    await pool.query(
+      `insert into campus_map_place_photo_assets (
+         id, owner_user_id, source_sha256, full_object_key,
+         thumbnail_object_key, full_width, full_height, full_byte_size,
+         thumbnail_width, thumbnail_height, thumbnail_byte_size,
+         status, ready_at, expires_at
+       ) values (
+         $1, $2, repeat('a', 64), $3, $4, 1200, 800, 1000,
+         480, 320, 500, 'ready', now(), now() + interval '1 hour'
+       )`,
+      [
+        assetId,
+        ownerUserId,
+        `campus-map/place-photos/${assetId}/full.webp`,
+        `campus-map/place-photos/${assetId}/thumbnail.webp`,
+      ],
+    );
+    return assetId;
   }
 
   async function waitForBlockedPublishQueries(minimum: number): Promise<void> {
@@ -1544,6 +1583,333 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     });
   });
 
+  it("publishes a photo-only update as a new immutable Place revision", async () => {
+    const actorId = await createActor();
+    const create = createCommand();
+    placeCreateAtPreciseOutdoorPoint(create);
+    const createChange = create.changes[0];
+    if (createChange.operation !== "create") throw new Error("bad fixture");
+    const created = await publishCampusMapChangeset(create, {
+      actorId,
+      clientIp: "203.0.113.181",
+    });
+    if (created.status !== "published") throw new Error("create failed");
+    const [{ placeId, revisionId: baseRevisionId }] = created.changes;
+    const assetId = await createReadyPlacePhotoAsset(actorId);
+    const update = createCommand();
+    update.comment = "补充地点入口照片";
+    const genericPhotoSource = {
+      ...createChange.sources[0],
+      kind: "other" as const,
+      ref: `test:campus-map-publish:${randomUUID()}`,
+      rightsStatus: "unknown" as const,
+      sourceCoordinate: null,
+    };
+    update.changes = [
+      {
+        operation: "update",
+        placeId,
+        baseRevisionId,
+        fact: structuredClone(createChange.fact),
+        sources: [genericPhotoSource],
+        photos: [{ assetId, role: "entrance" }],
+      },
+    ];
+
+    const result = await publishCampusMapChangeset(update, {
+      actorId,
+      clientIp: "203.0.113.181",
+    });
+    expect(result).toMatchObject({ status: "published" });
+    if (result.status !== "published") throw new Error("update failed");
+    const binding = await pool.query(
+      `select asset_id, role, sort_order
+         from campus_map_revision_photos
+        where revision_id = $1`,
+      [result.changes[0].revisionId],
+    );
+    expect(binding.rows).toEqual([
+      { asset_id: assetId, role: "entrance", sort_order: 0 },
+    ]);
+    const provenance = await pool.query<{
+      source_kind: string;
+      source_ref: string;
+    }>(
+      `select source.source_kind, source.source_ref
+         from campus_map_revision_provenance binding
+         join campus_map_provenance_sources source
+           on source.id = binding.provenance_id
+        where binding.revision_id = $1
+        order by source.source_kind, source.source_ref`,
+      [result.changes[0].revisionId],
+    );
+    expect(provenance.rows).toEqual([
+      {
+        source_kind: "field-observation",
+        source_ref: createChange.sources[0].ref,
+      },
+      { source_kind: "other", source_ref: genericPhotoSource.ref },
+    ]);
+    await expect(
+      getCampusMapChangeset(result.changesetId),
+    ).resolves.toMatchObject({
+      changes: [
+        {
+          diff: {
+            fields: {
+              photos: { before: "0 张", after: "1 张", label: "地点照片" },
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  it("revokes public photo reads when the current revision is hidden or retired", async () => {
+    const actorId = await createActor({ role: "admin" });
+    const created = await publishCampusMapChangeset(createCommand(), {
+      actorId,
+      clientIp: "203.0.113.185",
+    });
+    if (created.status !== "published") throw new Error("create failed");
+    const [{ placeId, revisionId: baseRevisionId }] = created.changes;
+    const assetId = await createReadyPlacePhotoAsset(actorId);
+    const update = createCommand();
+    const fixture = update.changes[0];
+    if (fixture.operation !== "create") throw new Error("bad fixture");
+    update.changes = [
+      {
+        operation: "update",
+        placeId,
+        baseRevisionId,
+        fact: fixture.fact,
+        sources: fixture.sources,
+        photos: [{ assetId, role: "overview" }],
+      },
+    ];
+    const published = await publishCampusMapChangeset(update, {
+      actorId,
+      clientIp: "203.0.113.185",
+    });
+    if (published.status !== "published") throw new Error("update failed");
+    const revisionId = published.changes[0].revisionId;
+
+    await expect(
+      getCampusMapPlacePhotoObject({
+        assetId,
+        variant: "thumbnail",
+        actorId: null,
+      }),
+    ).resolves.toMatchObject({
+      key: `campus-map/place-photos/${assetId}/thumbnail.webp`,
+    });
+
+    await pool.query(
+      `update campus_map_revision_visibility
+          set visibility = 'redacted', redaction_ref = 'test:#818'
+        where revision_id = $1`,
+      [revisionId],
+    );
+    await expect(
+      getCampusMapPlacePhotoObject({
+        assetId,
+        variant: "thumbnail",
+        actorId: null,
+      }),
+    ).resolves.toBeNull();
+
+    await pool.query(
+      `update campus_map_revision_visibility
+          set visibility = 'public', redaction_ref = null
+        where revision_id = $1`,
+      [revisionId],
+    );
+    const retire = createCommand();
+    retire.changes = [
+      {
+        operation: "retire",
+        placeId,
+        baseRevisionId: revisionId,
+        sources: fixture.sources,
+      },
+    ];
+    await expect(
+      publishCampusMapChangeset(retire, {
+        actorId,
+        clientIp: "203.0.113.185",
+      }),
+    ).resolves.toMatchObject({ status: "published" });
+    await expect(
+      getCampusMapPlacePhotoObject({
+        assetId,
+        variant: "thumbnail",
+        actorId: null,
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("does not let another user bind an unowned Place photo by guessing its ID", async () => {
+    const ownerId = await createActor();
+    const actorId = await createActor();
+    const assetId = await createReadyPlacePhotoAsset(ownerId);
+    const command = createCommand();
+    const change = command.changes[0];
+    if (change.operation !== "create") throw new Error("bad fixture");
+    change.photos = [{ assetId, role: "overview" }];
+
+    await expect(
+      publishCampusMapChangeset(command, {
+        actorId,
+        clientIp: "203.0.113.182",
+      }),
+    ).resolves.toEqual({
+      status: "validation-failed",
+      errors: [
+        {
+          code: "photo-not-owned",
+          anchor: { changeIndex: 0, field: "photos" },
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    });
+  });
+
+  it("does not let another user re-add an unowned historical Place photo", async () => {
+    const ownerId = await createActor();
+    const actorId = await createActor();
+    const assetId = await createReadyPlacePhotoAsset(ownerId);
+    const create = createCommand();
+    const createChange = create.changes[0];
+    if (createChange.operation !== "create") throw new Error("bad fixture");
+    createChange.photos = [{ assetId, role: "entrance" }];
+    const created = await publishCampusMapChangeset(create, {
+      actorId: ownerId,
+      clientIp: "203.0.113.186",
+    });
+    if (created.status !== "published") throw new Error("create failed");
+
+    const remove = createCommand();
+    const removeFixture = remove.changes[0];
+    if (removeFixture.operation !== "create") throw new Error("bad fixture");
+    remove.changes = [
+      {
+        operation: "update",
+        placeId: created.changes[0].placeId,
+        baseRevisionId: created.changes[0].revisionId,
+        fact: createChange.fact,
+        sources: removeFixture.sources,
+        photos: [],
+      },
+    ];
+    const removed = await publishCampusMapChangeset(remove, {
+      actorId: ownerId,
+      clientIp: "203.0.113.186",
+    });
+    if (removed.status !== "published") throw new Error("remove failed");
+
+    const reAdd = createCommand();
+    const reAddFixture = reAdd.changes[0];
+    if (reAddFixture.operation !== "create") throw new Error("bad fixture");
+    reAdd.changes = [
+      {
+        operation: "update",
+        placeId: created.changes[0].placeId,
+        baseRevisionId: removed.changes[0].revisionId,
+        fact: createChange.fact,
+        sources: reAddFixture.sources,
+        photos: [{ assetId, role: "entrance" }],
+      },
+    ];
+
+    await expect(
+      publishCampusMapChangeset(reAdd, {
+        actorId,
+        clientIp: "203.0.113.187",
+      }),
+    ).resolves.toEqual({
+      status: "validation-failed",
+      errors: [
+        {
+          code: "photo-not-owned",
+          anchor: { changeIndex: 0, field: "photos" },
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    });
+    await expect(
+      getCampusMapPlacePhotoObject({
+        assetId,
+        variant: "thumbnail",
+        actorId: null,
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("does not let an uploaded photo cross from one Place into another", async () => {
+    const actorId = await createActor();
+    const assetId = await createReadyPlacePhotoAsset(actorId);
+    const first = createCommand();
+    const firstChange = first.changes[0];
+    if (firstChange.operation !== "create") throw new Error("bad fixture");
+    firstChange.photos = [{ assetId, role: "entrance" }];
+    const firstResult = await publishCampusMapChangeset(first, {
+      actorId,
+      clientIp: "203.0.113.184",
+    });
+    expect(firstResult).toMatchObject({ status: "published" });
+
+    const second = createCommand();
+    const secondChange = second.changes[0];
+    if (secondChange.operation !== "create") throw new Error("bad fixture");
+    secondChange.photos = [{ assetId, role: "overview" }];
+    await expect(
+      publishCampusMapChangeset(second, {
+        actorId,
+        clientIp: "203.0.113.184",
+      }),
+    ).resolves.toEqual({
+      status: "validation-failed",
+      errors: [
+        {
+          code: "photo-place-mismatch",
+          anchor: { changeIndex: 0, field: "photos" },
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    });
+  });
+
+  it("rejects more than three photos for one Place revision", async () => {
+    const actorId = await createActor();
+    const command = createCommand();
+    const change = command.changes[0];
+    if (change.operation !== "create") throw new Error("bad fixture");
+    change.photos = Array.from({ length: 4 }, () => ({
+      assetId: randomUUID(),
+      role: "overview" as const,
+    }));
+
+    await expect(
+      publishCampusMapChangeset(command, {
+        actorId,
+        clientIp: "203.0.113.183",
+      }),
+    ).resolves.toEqual({
+      status: "validation-failed",
+      errors: [
+        {
+          code: "photo-limit-exceeded",
+          anchor: { changeIndex: 0, field: "photos" },
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    });
+  });
+
   it("treats equivalent multi-select and schedule representations as no fact change", async () => {
     const actorId = await createActor();
     const create = createCommand();
@@ -2644,6 +3010,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
           expectedRevisionId: baseRevisionId,
           currentRevisionId: first.changes[0].revisionId,
           currentStatus: "active",
+          currentPhotos: [],
           currentSnapshot: expect.objectContaining({
             factSchemaVersion: 1,
             name: "先发布的名称",
@@ -2700,6 +3067,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
           currentRevisionId: null,
           currentStatus: null,
           currentSnapshot: null,
+          currentPhotos: [],
         },
       ],
     });

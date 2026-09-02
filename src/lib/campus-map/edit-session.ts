@@ -19,8 +19,13 @@ import {
   campusMapPinTypeLabel,
   campusMapProvenanceKindLabel,
 } from "@/lib/campus-map/display-registry";
+import {
+  CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT,
+  CAMPUS_MAP_PLACE_PHOTO_ROLES,
+  type CampusMapPlacePhotoRole,
+} from "@/lib/campus-map/place-photos-contract";
 
-export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 5 as const;
+export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 6 as const;
 
 export type CampusMapPublishFeedbackReason = Extract<
   CampusMapPublishReceiptOutcome,
@@ -59,6 +64,11 @@ type CampusMapEditFact = Omit<CampusMapPublishFactInput, "location"> & {
   location: CampusMapPublishFactInput["location"] | null;
 };
 
+export interface CampusMapEditPhoto {
+  assetId: string;
+  role: CampusMapPlacePhotoRole;
+}
+
 export interface CampusMapEditDraft {
   mode: "add" | "edit";
   placeId: string | null;
@@ -66,9 +76,11 @@ export interface CampusMapEditDraft {
   idempotencyKey: string;
   fact: CampusMapEditFact;
   sources: CampusMapPublishSourceInput[];
+  photos: CampusMapEditPhoto[];
   /** The task's initial fact. Null is accepted only for restored legacy Add drafts. */
   baselineFact: CampusMapEditFact | null;
   baselineSources: CampusMapPublishSourceInput[];
+  baselinePhotos: CampusMapEditPhoto[];
   placementCandidate: CampusMapPlacement | null;
   placementMethod: CampusMapPlacement["method"] | null;
   /** Location choices allowed by the contribution entry point. */
@@ -121,6 +133,7 @@ export type CampusMapEditConflict =
       kind: "current";
       currentRevisionId: string;
       currentFact: CampusMapPublishFactInput;
+      currentPhotos?: CampusMapEditPhoto[];
       currentLocationDisplay?: CampusMapIndoorLocationDisplay | null;
     }
   | {
@@ -182,6 +195,7 @@ export type CampusMapEditEvent =
       baseRevisionId: string;
       fact: CampusMapPublishFactInput;
       sources: CampusMapPublishSourceInput[];
+      photos?: CampusMapEditPhoto[];
       idempotencyKey: string;
       locationDisplay?: CampusMapIndoorLocationDisplay | null;
     }
@@ -208,6 +222,11 @@ export type CampusMapEditEvent =
   | {
       type: "CHANGE_SOURCES";
       sources: CampusMapPublishSourceInput[];
+      idempotencyKey?: string;
+    }
+  | {
+      type: "CHANGE_PHOTOS";
+      photos: CampusMapEditPhoto[];
       idempotencyKey?: string;
     }
   | { type: "REQUEST_CLOSE" }
@@ -241,6 +260,7 @@ export type CampusMapEditEvent =
       type: "CONTINUE_FROM_CONFLICT";
       idempotencyKey: string;
       fact: CampusMapPublishFactInput;
+      photos?: CampusMapEditPhoto[];
     }
   | { type: "USE_CURRENT_FACT"; idempotencyKey: string };
 
@@ -279,6 +299,7 @@ export function createCampusMapEditDraft(input: {
   idempotencyKey: string;
   fact?: CampusMapEditDraft["fact"];
   sources?: CampusMapPublishSourceInput[];
+  photos?: CampusMapEditPhoto[];
   placeId?: string;
   baseRevisionId?: string;
   locationDisplay?: CampusMapIndoorLocationDisplay | null;
@@ -287,6 +308,7 @@ export function createCampusMapEditDraft(input: {
 }): CampusMapEditDraft {
   const fact = input.fact ? clone(input.fact) : clone(DEFAULT_FACT);
   const sources = clone(input.sources ?? []);
+  const photos = clone(input.photos ?? []);
   return {
     mode: input.mode,
     placeId: input.placeId ?? null,
@@ -294,8 +316,10 @@ export function createCampusMapEditDraft(input: {
     idempotencyKey: input.idempotencyKey,
     fact,
     sources,
+    photos,
     baselineFact: clone(fact),
     baselineSources: clone(sources),
+    baselinePhotos: clone(photos),
     placementCandidate: null,
     placementMethod: null,
     locationPolicy: input.locationPolicy ?? "flexible",
@@ -390,11 +414,13 @@ export function isCampusMapEditDirty(
     return (
       stable(draft.fact) !== stable(baselineFact) ||
       stable(draft.sources) !== stable(draft.baselineSources) ||
+      stable(draft.photos) !== stable(draft.baselinePhotos) ||
       draft.locationIntent !== null
     );
   }
   return (
     stable(draft.fact) !== stable(draft.baselineFact) ||
+    stable(draft.photos) !== stable(draft.baselinePhotos) ||
     draft.locationIntent !== null
   );
 }
@@ -477,6 +503,7 @@ function normalizeServerErrorTarget(field: string | undefined): string {
     return "location";
   }
   if (path.includes("pinType")) return "pinType";
+  if (path.includes("photos")) return "photos";
   if (path.includes("name")) return "name";
   if (path.includes("audience")) return "audience";
   if (path.includes("credentialRequirement")) {
@@ -674,6 +701,7 @@ export function transitionCampusMapEdit(
         baseRevisionId: event.baseRevisionId,
         fact: event.fact,
         sources: event.sources,
+        photos: event.photos ?? [],
         idempotencyKey: event.idempotencyKey,
         locationDisplay: event.locationDisplay,
       }),
@@ -899,6 +927,15 @@ export function transitionCampusMapEdit(
     return persisted({
       ...next,
       draft: { ...next.draft, sources: clone(event.sources) },
+    });
+  }
+  if (event.type === "CHANGE_PHOTOS") {
+    const attemptDraft = draftForPayloadChange(session, event.idempotencyKey);
+    if (!attemptDraft) return rejected(session);
+    const next = editable({ ...session, draft: attemptDraft });
+    return persisted({
+      ...next,
+      draft: { ...next.draft, photos: clone(event.photos) },
     });
   }
 
@@ -1127,6 +1164,7 @@ export function transitionCampusMapEdit(
           kind: "current",
           currentRevisionId: conflict.currentRevisionId,
           currentFact,
+          currentPhotos: clone(conflict.currentPhotos ?? []),
           currentLocationDisplay,
         },
       });
@@ -1345,9 +1383,11 @@ export function transitionCampusMapEdit(
       draft: {
         ...session.draft,
         fact: clone(event.fact),
+        photos: clone(event.photos ?? session.conflict.currentPhotos ?? []),
         locationDisplay: matchingLocationDisplay(event.fact, locationDisplay),
         baseRevisionId: session.conflict.currentRevisionId,
         baselineFact: clone(session.conflict.currentFact),
+        baselinePhotos: clone(session.conflict.currentPhotos ?? []),
         idempotencyKey: event.idempotencyKey,
         warningAcknowledgements: [],
       },
@@ -1362,11 +1402,13 @@ export function transitionCampusMapEdit(
       draft: {
         ...session.draft,
         fact: clone(session.conflict.currentFact),
+        photos: clone(session.conflict.currentPhotos ?? []),
         locationDisplay: matchingLocationDisplay(
           session.conflict.currentFact,
           session.conflict.currentLocationDisplay,
         ),
         baselineFact: clone(session.conflict.currentFact),
+        baselinePhotos: clone(session.conflict.currentPhotos ?? []),
         baseRevisionId: session.conflict.currentRevisionId,
         idempotencyKey: event.idempotencyKey,
         warningAcknowledgements: [],
@@ -1407,7 +1449,14 @@ export function deriveCampusMapPublishCommand(
   const comment =
     draft.mode === "add"
       ? `新增地点：${fact.name}（${campusMapPinTypeLabel(fact.pinType)}）`
-      : `更新地点：${changedFields.join("、") || "来源"}`;
+      : `更新地点：${
+          [
+            ...changedFields,
+            ...(stable(draft.photos) !== stable(draft.baselinePhotos)
+              ? ["照片"]
+              : []),
+          ].join("、") || "来源"
+        }`;
   const sourceLabels = Array.from(
     new Set(
       draft.sources.map((item) =>
@@ -1421,13 +1470,19 @@ export function deriveCampusMapPublishCommand(
   const sourceSummary = `来源：${sourceLabels.join("、") || "未提供"}`;
   const change =
     draft.mode === "add"
-      ? { operation: "create" as const, fact, sources: draft.sources }
+      ? {
+          operation: "create" as const,
+          fact,
+          sources: draft.sources,
+          photos: draft.photos.map(({ assetId, role }) => ({ assetId, role })),
+        }
       : {
           operation: "update" as const,
           placeId: draft.placeId!,
           baseRevisionId: draft.baseRevisionId!,
           fact,
           sources: draft.sources,
+          photos: draft.photos.map(({ assetId, role }) => ({ assetId, role })),
         };
   return {
     kind: "single",
@@ -1461,6 +1516,14 @@ function validTimestamp(value: unknown): boolean {
 
 function validUuid(value: unknown): boolean {
   return isCampusMapUuid(value);
+}
+
+function looksLikeEditPhoto(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    validUuid(value.assetId) &&
+    controlled(CAMPUS_MAP_PLACE_PHOTO_ROLES, value.role)
+  );
 }
 
 function looksLikeFact(
@@ -1676,6 +1739,10 @@ function looksLikeConflict(value: unknown): boolean {
     value.kind === "current" &&
     validUuid(value.currentRevisionId) &&
     looksLikeFact(value.currentFact, false) &&
+    (value.currentPhotos === undefined ||
+      (Array.isArray(value.currentPhotos) &&
+        value.currentPhotos.length <= CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT &&
+        value.currentPhotos.every(looksLikeEditPhoto))) &&
     (value.currentLocationDisplay === undefined ||
       looksLikeLocationDisplay(value.currentLocationDisplay, value.currentFact))
   );
@@ -1852,6 +1919,16 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
     draft.sources.every(looksLikeSource) &&
     Array.isArray(draft.baselineSources) &&
     draft.baselineSources.every(looksLikeSource) &&
+    Array.isArray(draft.photos) &&
+    draft.photos.length <= CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT &&
+    draft.photos.every(looksLikeEditPhoto) &&
+    new Set(draft.photos.map((item) => item.assetId)).size ===
+      draft.photos.length &&
+    Array.isArray(draft.baselinePhotos) &&
+    draft.baselinePhotos.length <= CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT &&
+    draft.baselinePhotos.every(looksLikeEditPhoto) &&
+    new Set(draft.baselinePhotos.map((item) => item.assetId)).size ===
+      draft.baselinePhotos.length &&
     Array.isArray(draft.warningAcknowledgements) &&
     draft.warningAcknowledgements.every(
       (item) =>
@@ -1892,7 +1969,7 @@ export function decodeCampusMapEditSnapshot(
     return { status: "discarded", reason: "invalid-snapshot" };
   let sessionValue = value.session;
   if (
-    [1, 2, 3, 4].includes(Number(value.version)) &&
+    [1, 2, 3, 4, 5].includes(Number(value.version)) &&
     isRecord(sessionValue) &&
     isRecord(sessionValue.draft)
   ) {
@@ -1907,6 +1984,8 @@ export function decodeCampusMapEditSnapshot(
         locationPolicy: "flexible",
         entrySource: sessionValue.draft.mode === "add" ? "global" : null,
         locationIntent: null,
+        photos: [],
+        baselinePhotos: [],
         ...((value.version === 1 || value.version === 2) && {
           locationDisplay: null,
         }),
@@ -1916,6 +1995,7 @@ export function decodeCampusMapEditSnapshot(
         ? {
             conflict: {
               ...conflict,
+              currentPhotos: [],
               currentLocationDisplay: null,
             },
           }

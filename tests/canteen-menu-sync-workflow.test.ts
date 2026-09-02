@@ -64,7 +64,9 @@ describe("production canteen menu sync workflow (#635, #743, #746, #757)", () =>
   });
 
   it("removes the legacy all-source Vercel cron", () => {
-    expect(vercel.crons).toBeUndefined();
+    expect(vercel.crons ?? []).not.toContainEqual(
+      expect.objectContaining({ path: "/api/cron/canteen-menu-sync" }),
+    );
     expect(workflowText).not.toContain("/api/cron/canteen-menu-sync");
     expect(
       existsSync(

@@ -1985,6 +1985,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(onEvent).toHaveBeenLastCalledWith({
       type: "CONTINUE_FROM_CONFLICT",
       idempotencyKey: expect.any(String),
+      photos: [],
       fact: expect.objectContaining({
         buildingId: null,
         floorId: null,
@@ -2136,6 +2137,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(onEvent).toHaveBeenLastCalledWith({
       type: "CONTINUE_FROM_CONFLICT",
       idempotencyKey: expect.any(String),
+      photos: [],
       fact: expect.objectContaining({
         pinType: "printer",
         capabilities: ["print"],

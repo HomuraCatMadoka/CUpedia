@@ -25,6 +25,30 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    files: ["e2e/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../**/src/**"],
+              message: "Use the @/ alias for imports from src.",
+            },
+          ],
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "ImportExpression[source.value=/^\\.\\.\\/(?:.*\\/)?src\\//]",
+          message: "Use the @/ alias for imports from src.",
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     ".next/**",

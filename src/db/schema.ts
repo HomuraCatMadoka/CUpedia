@@ -33,6 +33,7 @@ import {
   CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
   CAMPUS_MAP_GENDERS,
   CAMPUS_MAP_PIN_TYPES,
+  CAMPUS_MAP_PLACE_PHOTO_ROLES,
   CAMPUS_MAP_PROVENANCE_KINDS,
   CAMPUS_MAP_RESERVATION_REQUIREMENTS,
   CAMPUS_MAP_RIGHTS_STATUSES,
@@ -60,6 +61,7 @@ export {
   CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
   CAMPUS_MAP_GENDERS,
   CAMPUS_MAP_PIN_TYPES,
+  CAMPUS_MAP_PLACE_PHOTO_ROLES,
   CAMPUS_MAP_PROVENANCE_KINDS,
   CAMPUS_MAP_RESERVATION_REQUIREMENTS,
   CAMPUS_MAP_RIGHTS_STATUSES,
@@ -3357,6 +3359,174 @@ export const campusMapPlaceFeedbackVisibility = pgTable(
       "campus_map_place_feedback_visibility_check",
       sql`(${table.visibility} = 'public' and ${table.decisionRef} is null)
         or (${table.visibility} = 'hidden' and ${table.decisionRef} is not null)`,
+    ),
+  ],
+).enableRLS();
+
+export type CampusMapPlacePhotoStatus = "pending" | "ready" | "deleting";
+export type CampusMapPlacePhotoRole =
+  (typeof CAMPUS_MAP_PLACE_PHOTO_ROLES)[number];
+
+export const campusMapPlacePhotoUploadLimits = pgTable(
+  "campus_map_place_photo_upload_limits",
+  {
+    actorUserId: uuid("actor_user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    windowStartedAt: timestamp("window_started_at", {
+      withTimezone: true,
+    }).notNull(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "campus_map_place_photo_upload_attempt_count_check",
+      sql`${table.attemptCount} between 0 and 18`,
+    ),
+    check(
+      "campus_map_place_photo_upload_window_check",
+      sql`${table.updatedAt} >= ${table.windowStartedAt}`,
+    ),
+  ],
+).enableRLS();
+
+/**
+ * Storage lifecycle for Place photos. Assets stay independent from immutable
+ * revision bindings so failed uploads retain the object keys needed by bounded
+ * cleanup and an asset can be carried forward to a later revision.
+ */
+export const campusMapPlacePhotoAssets = pgTable(
+  "campus_map_place_photo_assets",
+  {
+    id: uuid("id").primaryKey(),
+    ownerUserId: uuid("owner_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    sourceSha256: text("source_sha256").notNull(),
+    fullObjectKey: text("full_object_key").notNull().unique(),
+    thumbnailObjectKey: text("thumbnail_object_key").notNull().unique(),
+    fullWidth: integer("full_width").notNull(),
+    fullHeight: integer("full_height").notNull(),
+    fullByteSize: integer("full_byte_size").notNull(),
+    thumbnailWidth: integer("thumbnail_width").notNull(),
+    thumbnailHeight: integer("thumbnail_height").notNull(),
+    thumbnailByteSize: integer("thumbnail_byte_size").notNull(),
+    processingVersion: integer("processing_version").notNull().default(1),
+    status: text("status")
+      .$type<CampusMapPlacePhotoStatus>()
+      .notNull()
+      .default("pending"),
+    uploadToken: uuid("upload_token"),
+    uploadLeaseExpiresAt: timestamp("upload_lease_expires_at", {
+      withTimezone: true,
+    }),
+    readyAt: timestamp("ready_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("campus_map_place_photo_owner_created_idx").on(
+      table.ownerUserId,
+      table.createdAt,
+    ),
+    index("campus_map_place_photo_cleanup_idx")
+      .on(table.expiresAt, table.id)
+      .where(sql`${table.expiresAt} is not null`),
+    check(
+      "campus_map_place_photo_source_hash_check",
+      sql`char_length(${table.sourceSha256}) = 64 and ${table.sourceSha256} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      "campus_map_place_photo_object_keys_check",
+      sql`${table.fullObjectKey} like 'campus-map/place-photos/%/full.webp'
+        and ${table.thumbnailObjectKey} like 'campus-map/place-photos/%/thumbnail.webp'
+        and ${table.fullObjectKey} not like '%..%'
+        and ${table.thumbnailObjectKey} not like '%..%'`,
+    ),
+    check(
+      "campus_map_place_photo_dimensions_check",
+      sql`${table.fullWidth} between 1 and 1600
+        and ${table.fullHeight} between 1 and 1600
+        and ${table.thumbnailWidth} between 1 and 480
+        and ${table.thumbnailHeight} between 1 and 320`,
+    ),
+    check(
+      "campus_map_place_photo_sizes_check",
+      sql`${table.fullByteSize} between 1 and 5242880
+        and ${table.thumbnailByteSize} between 1 and 5242880`,
+    ),
+    check(
+      "campus_map_place_photo_processing_version_check",
+      sql`${table.processingVersion} > 0`,
+    ),
+    check(
+      "campus_map_place_photo_status_check",
+      sql`(
+        ${table.status} = 'pending'
+        and ${table.readyAt} is null
+        and ${table.expiresAt} is not null
+        and ${table.uploadToken} is not null
+        and ${table.uploadLeaseExpiresAt} is not null
+      ) or (
+        ${table.status} = 'ready'
+        and ${table.readyAt} is not null
+        and ${table.uploadToken} is null
+        and ${table.uploadLeaseExpiresAt} is null
+      ) or (
+        ${table.status} = 'deleting'
+        and ${table.expiresAt} is not null
+        and ${table.uploadToken} is null
+        and ${table.uploadLeaseExpiresAt} is null
+      )`,
+    ),
+    check(
+      "campus_map_place_photo_timestamps_check",
+      sql`${table.updatedAt} >= ${table.createdAt}
+        and (${table.readyAt} is null or ${table.readyAt} >= ${table.createdAt})
+        and (${table.uploadLeaseExpiresAt} is null or ${table.uploadLeaseExpiresAt} >= ${table.createdAt})`,
+    ),
+  ],
+).enableRLS();
+
+export const campusMapRevisionPhotos = pgTable(
+  "campus_map_revision_photos",
+  {
+    revisionId: uuid("revision_id")
+      .notNull()
+      .references(() => campusMapFactRevisions.id, { onDelete: "restrict" }),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => campusMapPlacePhotoAssets.id, {
+        onDelete: "restrict",
+      }),
+    role: text("role").$type<CampusMapPlacePhotoRole>().notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.revisionId, table.assetId] }),
+    index("campus_map_revision_photos_asset_idx").on(table.assetId),
+    uniqueIndex("campus_map_revision_photos_order_uq").on(
+      table.revisionId,
+      table.sortOrder,
+    ),
+    check(
+      "campus_map_revision_photos_role_check",
+      sql`${table.role} in ('entrance', 'overview', 'interior', 'equipment', 'accessibility')`,
+    ),
+    check(
+      "campus_map_revision_photos_sort_order_check",
+      sql`${table.sortOrder} between 0 and 2`,
     ),
   ],
 ).enableRLS();

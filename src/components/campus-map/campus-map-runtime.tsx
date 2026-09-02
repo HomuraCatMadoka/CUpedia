@@ -60,9 +60,11 @@ import {
 } from "@/lib/campus-map/amap-place-context";
 import type { CampusMapAmenity } from "@/lib/campus-map/facility-marker";
 import type { CampusMapPlaceFeedbackSummary } from "@/lib/campus-map/place-feedback";
+import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
 import {
   loadCampusMapAmapPoiCard,
   loadCampusMapBrowseProjection,
+  loadCampusMapPlaceCover,
 } from "@/lib/campus-map/browse-actions";
 import {
   CampusMapAmapCoordinateProjector,
@@ -133,6 +135,7 @@ type Amenity = CampusMapAmenity;
 type Building = CampusMapBrowseBuilding;
 type Place = CampusMapBrowsePlace;
 type Position = CampusMapPosition;
+const EMPTY_PLACE_COVERS: Record<string, CampusMapPlacePhotoView> = {};
 type UserLocationState =
   | { status: "idle" }
   | { status: "locating" }
@@ -554,12 +557,14 @@ export function CampusMapRuntime({
   factSchema = null,
   initialBrowseProjection = EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
   initialFeedbackSummaries = {},
+  initialPlaceCovers = EMPTY_PLACE_COVERS,
   onPublishedProjectionRefreshed,
 }: {
   initialSearch?: string;
   factSchema?: CampusMapFactSchema | null;
   initialBrowseProjection?: CampusMapBrowseProjection;
   initialFeedbackSummaries?: Record<string, CampusMapPlaceFeedbackSummary>;
+  initialPlaceCovers?: Record<string, CampusMapPlacePhotoView>;
   onPublishedProjectionRefreshed?(result: CampusMapBrowseRefreshResult): void;
 }) {
   const [projectionStore] = useState(
@@ -576,6 +581,7 @@ export function CampusMapRuntime({
     projectionStore.getSnapshot,
   );
   const browseProjection = browseSnapshot.projection;
+  const [placeCovers, setPlaceCovers] = useState(initialPlaceCovers);
   const sceneCatalog = projectionStore.getSceneCatalog();
   const [driverInitialSearch] = useState(() =>
     canonicalInitialSearch(initialSearch, sceneCatalog),
@@ -1233,9 +1239,30 @@ export function CampusMapRuntime({
           reconcileCampusMapEditPublish(command, actorId),
         retry: publishCampusMapEdit,
         refresh: async ({ placeId }) => {
-          const result = await projectionStore.refresh({ placeId });
-          onPublishedProjectionRefreshed?.(result);
-          return result;
+          const [result, coverResult] = await Promise.all([
+            projectionStore.refresh({ placeId }),
+            loadCampusMapPlaceCover(placeId).then(
+              (cover) => ({ status: "loaded" as const, cover }),
+              () => ({ status: "failed" as const }),
+            ),
+          ]);
+          const refreshResult =
+            result.status === "applied" && coverResult.status === "failed"
+              ? ({ status: "failed" } as const)
+              : result;
+          if (
+            refreshResult.status === "applied" &&
+            coverResult.status === "loaded"
+          ) {
+            setPlaceCovers((current) => {
+              const next = { ...current };
+              if (coverResult.cover) next[placeId] = coverResult.cover;
+              else delete next[placeId];
+              return next;
+            });
+          }
+          onPublishedProjectionRefreshed?.(refreshResult);
+          return refreshResult;
         },
         applyProjectionAndOpen: ({ placeId, intentToken, operation }) => {
           const projection = projectionStore.getSnapshot().projection;
@@ -2871,6 +2898,7 @@ export function CampusMapRuntime({
                           )?.label
                         : undefined,
                     )}
+                    coverPhoto={placeCovers[facility.placeId]}
                     summary={metadataLabel(
                       feedbackSummaryLabel(
                         initialFeedbackSummaries[facility.placeId],

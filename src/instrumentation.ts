@@ -1,4 +1,8 @@
 export async function register() {
+  if (process.env.NODE_ENV === "production") {
+    const { requirePrivateMinioBucket } = await import("@/lib/minio-config");
+    requirePrivateMinioBucket();
+  }
   if (
     process.env.SKIP_EMAIL_WHITELIST === "true" &&
     process.env.NODE_ENV === "production"

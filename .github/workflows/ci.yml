@@ -128,12 +128,17 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
         run: pnpm drizzle-kit migrate
 
-      - name: Test Campus Map place feedback persistence
+      - name: Test Campus Map persistence
         if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
         env:
-          AUTH_SECRET: ci-campus-map-feedback-auth-secret-at-least-32-characters
+          AUTH_SECRET: ci-campus-map-persistence-auth-secret-at-least-32-characters
           DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
-        run: pnpm exec vitest run tests/db/campus-map-place-feedback.test.ts
+        run: >-
+          pnpm exec vitest run
+          --no-file-parallelism
+          tests/db/campus-map-place-feedback.test.ts
+          tests/db/campus-map-place-photo.test.ts
+          tests/db/campus-map-publish.test.ts
 
       - name: Apply Supabase scheduler migrations
         if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
@@ -258,6 +263,8 @@ jobs:
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
           AUTH_SECRET: ci-placeholder-secret
           AUTH_URL: http://localhost:3000
+          MINIO_BUCKET: cuclaw-uploads
+          MINIO_PRIVATE_BUCKET: cuclaw-private-uploads
           NEXT_BUILD_SKIP_TYPECHECK: "1"
 
       - run: pnpm bundle:check
@@ -298,6 +305,7 @@ jobs:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET: cuclaw-uploads
+      MINIO_PRIVATE_BUCKET: cuclaw-private-uploads
       MINIO_PUBLIC_URL: http://localhost:9000/cuclaw-uploads
     steps:
       - uses: actions/checkout@v4
@@ -364,6 +372,8 @@ jobs:
       AUTH_SECRET: ci-placeholder-secret
       AUTH_URL: http://localhost:3100
       E2E_CI_GROUPS: "1"
+      MINIO_BUCKET: ci-public-placeholder
+      MINIO_PRIVATE_BUCKET: ci-private-placeholder
     services:
       postgres:
         image: abcfy2/zhparser:17-alpine

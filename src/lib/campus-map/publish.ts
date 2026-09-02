@@ -1,12 +1,17 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
-import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   campusMapBuildings,
   campusMapCurrentFacts,
+  campusMapFactRevisions,
   campusMapFloors,
+  campusMapPlacePhotoAssets,
+  campusMapProvenanceSources,
   campusMapPublishRequests,
+  campusMapRevisionPhotos,
+  campusMapRevisionProvenance,
   campusMapRevisionVisibility,
   CAMPUS_MAP_CAPABILITIES,
   CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
@@ -14,6 +19,7 @@ import {
   type CampusMapFactDisplayMetadata,
   type CampusMapFactFieldKey,
   type CampusMapFieldDiff,
+  type CampusMapPlacePhotoRole,
 } from "@/db/schema";
 import { accounts, users } from "@/db/schema";
 import {
@@ -52,6 +58,7 @@ import type {
   CampusMapPublishFactInput,
   CampusMapPublishResult,
   CampusMapPublishSafeSnapshot,
+  CampusMapPublishSourceInput,
   CampusMapPublishValidationIssue,
   CampusMapPublishWarning,
 } from "@/lib/campus-map/publish-contract";
@@ -86,6 +93,149 @@ const CAMPUS_MAP_PUBLISH_FIELD_METADATA_V1: CampusMapFactDisplayMetadata = {
   ...CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
   observedAt: { label: "观察时间" },
 } satisfies CampusMapFactDisplayMetadata;
+
+type PreparedCampusMapPlacePhotos = Array<{
+  assetId: string;
+  role: CampusMapPlacePhotoRole;
+}>;
+
+function sameCampusMapPlacePhotos(
+  left: PreparedCampusMapPlacePhotos,
+  right: PreparedCampusMapPlacePhotos,
+) {
+  return (
+    left.length === right.length &&
+    left.every(
+      (item, index) =>
+        item.assetId === right[index]?.assetId &&
+        item.role === right[index]?.role,
+    )
+  );
+}
+
+function campusMapPlacePhotoDiff(
+  before: PreparedCampusMapPlacePhotos,
+  after: PreparedCampusMapPlacePhotos,
+): CampusMapFieldDiff {
+  if (sameCampusMapPlacePhotos(before, after)) return {};
+  const count = (items: PreparedCampusMapPlacePhotos) => `${items.length} 张`;
+  return {
+    photos: {
+      before: count(before),
+      after:
+        before.length === after.length
+          ? `${count(after)}（内容或顺序已更新）`
+          : count(after),
+      label: "地点照片",
+    },
+  };
+}
+
+/**
+ * Reads revision-bound Place photos through the caller's transaction so
+ * conflict snapshots and publish validation see the same locked database
+ * state. Keep the ordering/grouping rule here rather than duplicating it at
+ * each publish call site.
+ */
+async function loadCampusMapRevisionPhotos(
+  transaction: DatabaseTransaction,
+  revisionIds: readonly string[],
+): Promise<Map<string, PreparedCampusMapPlacePhotos>> {
+  const ids = [...new Set(revisionIds)];
+  if (ids.length === 0) return new Map();
+
+  const rows = await transaction
+    .select({
+      revisionId: campusMapRevisionPhotos.revisionId,
+      assetId: campusMapRevisionPhotos.assetId,
+      role: campusMapRevisionPhotos.role,
+      sortOrder: campusMapRevisionPhotos.sortOrder,
+    })
+    .from(campusMapRevisionPhotos)
+    .where(inArray(campusMapRevisionPhotos.revisionId, ids))
+    .orderBy(
+      campusMapRevisionPhotos.revisionId,
+      campusMapRevisionPhotos.sortOrder,
+    );
+
+  const photosByRevision = new Map<string, PreparedCampusMapPlacePhotos>();
+  for (const row of rows) {
+    const photos = photosByRevision.get(row.revisionId);
+    const photo = { assetId: row.assetId, role: row.role };
+    if (photos) photos.push(photo);
+    else photosByRevision.set(row.revisionId, [photo]);
+  }
+  return photosByRevision;
+}
+
+function supportsPreciseLocationEvidence(source: {
+  kind: CampusMapPublishSourceInput["kind"];
+  rightsStatus: CampusMapPublishSourceInput["rightsStatus"];
+  hasSourceCoordinate: boolean;
+}) {
+  return (
+    (source.kind === "field-observation" &&
+      source.rightsStatus === "original-observation") ||
+    ((source.kind === "official" || source.kind === "open-data") &&
+      source.hasSourceCoordinate &&
+      (source.rightsStatus === "public-domain" ||
+        source.rightsStatus === "permission-granted"))
+  );
+}
+
+/**
+ * Returns only the locked revision sources that can justify a precise point.
+ * A later revision may reuse these IDs when that exact location assertion is
+ * carried forward, without inheriting every historical source indefinitely.
+ */
+async function loadPreciseLocationEvidenceIds(
+  transaction: DatabaseTransaction,
+  revisionIds: readonly string[],
+): Promise<Map<string, string[]>> {
+  const ids = [...new Set(revisionIds)];
+  if (ids.length === 0) return new Map();
+
+  const rows = await transaction
+    .select({
+      revisionId: campusMapRevisionProvenance.revisionId,
+      provenanceId: campusMapRevisionProvenance.provenanceId,
+      kind: campusMapProvenanceSources.sourceKind,
+      rightsStatus: campusMapProvenanceSources.rightsStatus,
+      sourceCoordinateX: campusMapProvenanceSources.sourceCoordinateX,
+      sourceCoordinateY: campusMapProvenanceSources.sourceCoordinateY,
+    })
+    .from(campusMapRevisionProvenance)
+    .innerJoin(
+      campusMapProvenanceSources,
+      eq(
+        campusMapProvenanceSources.id,
+        campusMapRevisionProvenance.provenanceId,
+      ),
+    )
+    .where(inArray(campusMapRevisionProvenance.revisionId, ids))
+    .orderBy(
+      campusMapRevisionProvenance.revisionId,
+      campusMapRevisionProvenance.provenanceId,
+    );
+
+  const evidenceIdsByRevision = new Map<string, string[]>();
+  for (const row of rows) {
+    if (
+      !supportsPreciseLocationEvidence({
+        kind: row.kind,
+        rightsStatus: row.rightsStatus,
+        hasSourceCoordinate:
+          row.sourceCoordinateX !== null && row.sourceCoordinateY !== null,
+      })
+    ) {
+      continue;
+    }
+    const evidenceIds = evidenceIdsByRevision.get(row.revisionId);
+    if (evidenceIds) evidenceIds.push(row.provenanceId);
+    else evidenceIdsByRevision.set(row.revisionId, [row.provenanceId]);
+  }
+  return evidenceIdsByRevision;
+}
 
 /**
  * Sole application seam for publishing Campus Map facts. The command contains
@@ -1051,26 +1201,43 @@ async function publishCampusMapChangesetInternal(
           );
         }
       }
-      const conflicts = existingChanges.flatMap((change) => {
+      const conflictingChanges = existingChanges.filter((change) => {
         const current = lockedByPlace.get(change.placeId) ?? null;
-        if (current?.revisionId === change.baseRevisionId) return [];
+        return current?.revisionId !== change.baseRevisionId;
+      });
+      const lockedRevisionIds = [
+        ...new Set(
+          conflictingChanges.flatMap((change) => {
+            const current = lockedByPlace.get(change.placeId) ?? null;
+            return current ? [current.revisionId] : [];
+          }),
+        ),
+      ];
+      const lockedPhotosByRevision = await loadCampusMapRevisionPhotos(
+        transaction,
+        lockedRevisionIds,
+      );
+      const conflicts = conflictingChanges.map((change) => {
+        const current = lockedByPlace.get(change.placeId) ?? null;
         const changeIndex = command.changes.indexOf(change);
-        return [
-          {
-            code: "base-revision-conflict" as const,
-            anchor: {
-              changeIndex,
-              placeId: change.placeId,
-              field: "baseRevisionId",
-            },
+        return {
+          code: "base-revision-conflict" as const,
+          anchor: {
+            changeIndex,
             placeId: change.placeId,
-            expectedRevisionId: change.baseRevisionId,
-            currentRevisionId: current?.revisionId ?? null,
-            currentStatus: current?.status ?? null,
-            currentSnapshot:
-              current?.visibility === "public" ? toSafeSnapshot(current) : null,
+            field: "baseRevisionId",
           },
-        ];
+          placeId: change.placeId,
+          expectedRevisionId: change.baseRevisionId,
+          currentRevisionId: current?.revisionId ?? null,
+          currentStatus: current?.status ?? null,
+          currentSnapshot:
+            current?.visibility === "public" ? toSafeSnapshot(current) : null,
+          currentPhotos:
+            current?.visibility === "public"
+              ? (lockedPhotosByRevision.get(current.revisionId) ?? [])
+              : [],
+        };
       });
       if (conflicts.length > 0) {
         const racedRequest = await findPublishRequest(
@@ -1139,6 +1306,27 @@ async function publishCampusMapChangesetInternal(
           suggestions: [],
         } as const;
       }
+      const preciseLocationEvidenceIdsByRevision =
+        await loadPreciseLocationEvidenceIds(
+          transaction,
+          [...lockedByPlace.values()].flatMap((current) =>
+            current ? [current.revisionId] : [],
+          ),
+        );
+      const preparedPhotos = await prepareCampusMapPlacePhotos(
+        transaction,
+        command,
+        actor.id,
+        lockedByPlace,
+      );
+      if (!preparedPhotos.ok) {
+        return {
+          status: "validation-failed",
+          errors: preparedPhotos.errors,
+          warnings: [],
+          suggestions: [],
+        } as const;
+      }
       const precisionErrors = command.changes.flatMap((change, changeIndex) => {
         if (
           change.operation === "merge" ||
@@ -1149,27 +1337,26 @@ async function publishCampusMapChangesetInternal(
         ) {
           return [];
         }
-        const supportedBySubmittedSource = change.sources.some(
-          (source) =>
-            (source.kind === "field-observation" &&
-              source.rightsStatus === "original-observation") ||
-            ((source.kind === "official" || source.kind === "open-data") &&
-              source.sourceCoordinate !== null &&
-              (source.rightsStatus === "public-domain" ||
-                source.rightsStatus === "permission-granted")),
+        const supportedBySubmittedSource = change.sources.some((source) =>
+          supportsPreciseLocationEvidence({
+            kind: source.kind,
+            rightsStatus: source.rightsStatus,
+            hasSourceCoordinate: source.sourceCoordinate !== null,
+          }),
         );
         const current =
           change.operation === "create"
             ? null
             : (lockedByPlace.get(change.placeId) ?? null);
-        // A restore may reuse a precise point without inventing new location
-        // evidence only when the trusted, locked retired fact is unchanged.
-        const restoresLockedFactExactly =
-          change.operation === "restore" &&
+        const carriesSupportedLockedLocation =
           current !== null &&
-          Object.keys(createFieldDiff(current.fact, toAppendFact(change.fact)))
-            .length === 0;
-        return supportedBySubmittedSource || restoresLockedFactExactly
+          carriesLockedPreciseLocation(
+            current.fact,
+            toAppendFact(change.fact!),
+          ) &&
+          (preciseLocationEvidenceIdsByRevision.get(current.revisionId)
+            ?.length ?? 0) > 0;
+        return supportedBySubmittedSource || carriesSupportedLockedLocation
           ? []
           : [
               {
@@ -1190,6 +1377,7 @@ async function publishCampusMapChangesetInternal(
         (change, changeIndex) => {
           if (change.operation !== "update") return [];
           if (noOpUpdatePlaceIds.has(change.placeId)) return [];
+          if (preparedPhotos.changedChanges.has(change)) return [];
           const current = lockedByPlace.get(change.placeId);
           if (!current) return [];
           const diff = createFieldDiff(current.fact, toAppendFact(change.fact));
@@ -1326,7 +1514,7 @@ async function publishCampusMapChangesetInternal(
           change.operation === "create"
             ? null
             : (lockedByPlace.get(change.placeId) ?? null);
-        const provenanceIds = change.sources.map((source) => {
+        const submittedProvenanceIds = change.sources.map((source) => {
           const provenanceId = provenanceIdByIdentity.get(
             sourceIdentity(source),
           );
@@ -1344,6 +1532,17 @@ async function publishCampusMapChangesetInternal(
         const placeId =
           change.operation === "create" ? randomUUID() : change.placeId;
         const revisionId = randomUUID();
+        const carriedPreciseLocationEvidenceIds =
+          current !== null && carriesLockedPreciseLocation(current.fact, fact)
+            ? (preciseLocationEvidenceIdsByRevision.get(current.revisionId) ??
+              [])
+            : [];
+        const provenanceIds = [
+          ...new Set([
+            ...submittedProvenanceIds,
+            ...carriedPreciseLocationEvidenceIds,
+          ]),
+        ];
         changes.push({
           id: randomUUID(),
           placeId,
@@ -1353,7 +1552,13 @@ async function publishCampusMapChangesetInternal(
           operation: change.operation,
           factSchemaVersion: current?.factSchemaVersion ?? 1,
           fieldMetadata: CAMPUS_MAP_PUBLISH_FIELD_METADATA_V1,
-          fieldDiff: createFieldDiff(current?.fact ?? null, fact),
+          fieldDiff: {
+            ...createFieldDiff(current?.fact ?? null, fact),
+            ...campusMapPlacePhotoDiff(
+              preparedPhotos.basePhotosByChange.get(change) ?? [],
+              preparedPhotos.photosByChange.get(change) ?? [],
+            ),
+          },
           status:
             change.operation === "retire"
               ? "retired"
@@ -1364,6 +1569,7 @@ async function publishCampusMapChangesetInternal(
             change.operation === "merge" ? change.mergedIntoPlaceId : null,
           fact,
           provenanceIds,
+          photos: preparedPhotos.photosByChange.get(change) ?? [],
           visibility: { visibility: "public" },
         });
       }
@@ -1381,6 +1587,17 @@ async function publishCampusMapChangesetInternal(
         warnings,
         suggestions,
       } as const;
+      if (preparedPhotos.assetIdsToBind.length > 0) {
+        await transaction
+          .update(campusMapPlacePhotoAssets)
+          .set({ expiresAt: null, updatedAt: publishedAt })
+          .where(
+            inArray(
+              campusMapPlacePhotoAssets.id,
+              preparedPhotos.assetIdsToBind,
+            ),
+          );
+      }
       await store.appendChangeset({
         id: changesetId,
         actor: {
@@ -1420,6 +1637,158 @@ async function publishCampusMapChangesetInternal(
       retryable: true,
     };
   }
+}
+
+async function prepareCampusMapPlacePhotos(
+  transaction: DatabaseTransaction,
+  command: CampusMapPublishCommand,
+  actorId: string,
+  lockedByPlace: Map<string, CampusMapLockedRevisionSnapshot | null>,
+): Promise<
+  | {
+      ok: true;
+      photosByChange: Map<CampusMapPublishChange, PreparedCampusMapPlacePhotos>;
+      basePhotosByChange: Map<
+        CampusMapPublishChange,
+        PreparedCampusMapPlacePhotos
+      >;
+      changedChanges: Set<CampusMapPublishChange>;
+      assetIdsToBind: string[];
+    }
+  | { ok: false; errors: CampusMapPublishValidationIssue[] }
+> {
+  const revisionIds = [
+    ...new Set(
+      command.changes.flatMap((change) => {
+        if (change.operation === "create") return [];
+        const current = lockedByPlace.get(change.placeId);
+        return current ? [current.revisionId] : [];
+      }),
+    ),
+  ];
+  const baseByRevision = await loadCampusMapRevisionPhotos(
+    transaction,
+    revisionIds,
+  );
+
+  const photosByChange = new Map<
+    CampusMapPublishChange,
+    PreparedCampusMapPlacePhotos
+  >();
+  const basePhotosByChange = new Map<
+    CampusMapPublishChange,
+    PreparedCampusMapPlacePhotos
+  >();
+  const changedChanges = new Set<CampusMapPublishChange>();
+  for (const change of command.changes) {
+    const current =
+      change.operation === "create"
+        ? null
+        : (lockedByPlace.get(change.placeId) ?? null);
+    const base = current
+      ? (baseByRevision.get(current.revisionId) ?? []).map((item) => ({
+          ...item,
+        }))
+      : [];
+    const desired =
+      (change.operation === "create" || change.operation === "update") &&
+      change.photos !== undefined
+        ? change.photos.map((item) => ({ ...item }))
+        : base.map((item) => ({ ...item }));
+    photosByChange.set(change, desired);
+    basePhotosByChange.set(change, base);
+    if (!sameCampusMapPlacePhotos(base, desired)) changedChanges.add(change);
+  }
+
+  const desiredAssetIds = [
+    ...new Set(
+      [...photosByChange.values()].flatMap((items) =>
+        items.map((item) => item.assetId),
+      ),
+    ),
+  ].sort();
+  const assets =
+    desiredAssetIds.length === 0
+      ? []
+      : await transaction
+          .select({
+            id: campusMapPlacePhotoAssets.id,
+            ownerUserId: campusMapPlacePhotoAssets.ownerUserId,
+            status: campusMapPlacePhotoAssets.status,
+          })
+          .from(campusMapPlacePhotoAssets)
+          .where(inArray(campusMapPlacePhotoAssets.id, desiredAssetIds))
+          .orderBy(campusMapPlacePhotoAssets.id)
+          .for("update");
+  const assetById = new Map(assets.map((asset) => [asset.id, asset]));
+  const existingBindings =
+    desiredAssetIds.length === 0
+      ? []
+      : await transaction
+          .select({
+            assetId: campusMapRevisionPhotos.assetId,
+            placeId: campusMapFactRevisions.placeId,
+          })
+          .from(campusMapRevisionPhotos)
+          .innerJoin(
+            campusMapFactRevisions,
+            eq(campusMapFactRevisions.id, campusMapRevisionPhotos.revisionId),
+          )
+          .where(inArray(campusMapRevisionPhotos.assetId, desiredAssetIds));
+  const existingPlaceIdsByAsset = new Map<string, Set<string>>();
+  for (const binding of existingBindings) {
+    const placeIds = existingPlaceIdsByAsset.get(binding.assetId);
+    if (placeIds) placeIds.add(binding.placeId);
+    else {
+      existingPlaceIdsByAsset.set(binding.assetId, new Set([binding.placeId]));
+    }
+  }
+  const errors: CampusMapPublishValidationIssue[] = [];
+  const commandTargetByAsset = new Map<string, string>();
+  for (const [changeIndex, change] of command.changes.entries()) {
+    const baseIds = new Set(
+      (basePhotosByChange.get(change) ?? []).map((item) => item.assetId),
+    );
+    for (const item of photosByChange.get(change) ?? []) {
+      const asset = assetById.get(item.assetId);
+      const target =
+        change.operation === "create"
+          ? `new-place:${changeIndex}`
+          : change.placeId;
+      const priorTarget = commandTargetByAsset.get(item.assetId);
+      const boundPlaceIds = existingPlaceIdsByAsset.get(item.assetId);
+      if (!asset || asset.status !== "ready") {
+        errors.push({
+          code: "photo-not-ready",
+          anchor: { changeIndex, field: "photos" },
+        });
+      } else if (
+        (priorTarget !== undefined && priorTarget !== target) ||
+        (boundPlaceIds !== undefined &&
+          (change.operation === "create" ||
+            [...boundPlaceIds].some((placeId) => placeId !== change.placeId)))
+      ) {
+        errors.push({
+          code: "photo-place-mismatch",
+          anchor: { changeIndex, field: "photos" },
+        });
+      } else if (asset.ownerUserId !== actorId && !baseIds.has(item.assetId)) {
+        errors.push({
+          code: "photo-not-owned",
+          anchor: { changeIndex, field: "photos" },
+        });
+      }
+      commandTargetByAsset.set(item.assetId, target);
+    }
+  }
+  if (errors.length > 0) return { ok: false, errors };
+  return {
+    ok: true,
+    photosByChange,
+    basePhotosByChange,
+    changedChanges,
+    assetIdsToBind: desiredAssetIds,
+  };
 }
 
 function advisoryLockKey(identity: string): bigint {
@@ -1916,6 +2285,20 @@ function locationDiffValue(fact: CampusMapAppendFact): unknown {
     crs: fact.coordinateCrs,
     precision: fact.pointPrecision,
   };
+}
+
+function carriesLockedPreciseLocation(
+  before: CampusMapAppendFact,
+  after: CampusMapAppendFact,
+) {
+  return (
+    before.locationKind === "outdoor-point" &&
+    before.pointPrecision === "precise" &&
+    after.locationKind === "outdoor-point" &&
+    after.pointPrecision === "precise" &&
+    JSON.stringify(locationDiffValue(before)) ===
+      JSON.stringify(locationDiffValue(after))
+  );
 }
 
 function toSafeSnapshot(

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   loadProviderPoiCard: vi.fn(),
   getFactSchema: vi.fn(),
   getFeedbackSummaries: vi.fn(),
+  getPlacePhotos: vi.fn(),
   redirect: vi.fn(),
 }));
 
@@ -22,6 +23,9 @@ vi.mock("@/lib/campus-map/fact-store", () => ({
 vi.mock("@/lib/campus-map/place-feedback", () => ({
   getCampusMapPlaceFeedbackSummaries: mocks.getFeedbackSummaries,
 }));
+vi.mock("@/lib/campus-map/place-photos", () => ({
+  getCampusMapCurrentPlaceCoverViews: mocks.getPlacePhotos,
+}));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 
 import CampusMapPage from "@/app/(main)/campus-map/page";
@@ -35,6 +39,7 @@ describe("formal Campus Map route", () => {
     mocks.loadProjection.mockResolvedValue(EMPTY_CAMPUS_MAP_BROWSE_PROJECTION);
     mocks.getFactSchema.mockResolvedValue(null);
     mocks.getFeedbackSummaries.mockResolvedValue({});
+    mocks.getPlacePhotos.mockResolvedValue({});
   });
 
   it("requires authentication before rendering the provider-backed canonical runtime", async () => {
@@ -96,6 +101,10 @@ describe("formal Campus Map route", () => {
         averageRating: 4.5,
       },
     });
+    expect(mocks.getPlacePhotos).toHaveBeenCalledWith([
+      "00000000-0000-4000-8000-000000008171",
+      "00000000-0000-4000-8000-000000008172",
+    ]);
   });
 
   it("does not disguise an initial fact-schema failure as an absent schema", async () => {

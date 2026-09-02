@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { PlaceFeedbackSection } from "@/components/campus-map/place-feedback-section";
 import { PlaceLifecycleControls } from "@/components/campus-map/place-lifecycle-controls";
+import { PlacePhotoGallery } from "@/components/campus-map/place-photo-gallery";
 import {
   campusMapDisplayOptionLabel,
   campusMapFactFieldLabel,
@@ -16,6 +17,7 @@ import type {
   CampusMapPlaceFeedbackPage,
   CampusMapPlaceFeedbackView,
 } from "@/lib/campus-map/place-feedback";
+import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
 
 function scheduleLabel(schedule: CampusMapHistoricalFact["accessSchedule"]) {
   if (schedule.kind !== "weekly") {
@@ -74,6 +76,7 @@ export function CampusMapPlaceDetail({
   viewerFeedback = null,
   viewerCanWrite = true,
   reviewsAfter = null,
+  photos = [],
 }: {
   placeId: string;
   head: CampusMapPlaceHistoryHead;
@@ -86,6 +89,7 @@ export function CampusMapPlaceDetail({
   viewerFeedback?: CampusMapPlaceFeedbackView | null;
   viewerCanWrite?: boolean;
   reviewsAfter?: string | null;
+  photos?: CampusMapPlacePhotoView[];
 }) {
   const statusLabel =
     head.status === "active"
@@ -234,6 +238,12 @@ export function CampusMapPlaceDetail({
                 )}
               />
             </dl>
+            {photos.length > 0 ? (
+              <div className="mt-5 border-t pt-5">
+                <h3 className="text-sm font-semibold">地点照片</h3>
+                <PlacePhotoGallery photos={photos} />
+              </div>
+            ) : null}
           </section>
         ) : (
           <section className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground">
