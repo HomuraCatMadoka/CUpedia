@@ -252,11 +252,14 @@ JS API 2.0 的类名是 `AMap.AutoComplete`，不是旧版 `AMap.Autocomplete`�
 
 高德地图坐标是 GCJ-02；CUpedia 契约要求 canonical outdoor point 保存 WGS84。高德官方提供 `AMap.convertFrom(source, "gps", callback)` 将 WGS84/GPS 转为高德坐标，但官方没有提供 GCJ-02 → WGS84 的逆转换。[高德坐标系与 `convertFrom`](https://lbs.amap.com/api/javascript-api-v2/guide/transform/convertfrom)
 
-当前实现启动时用官方 `convertFrom()` 得到 WGS84 → GCJ-02 投影，但在地图移动结束后，用“校园中心的一次偏移量”把 GCJ-02 中心近似还原为 WGS84：
+当前实现不会在默认地图启动、目录刷新或 React 重渲染时请求坐标转换服务。高德 adapter 采用两层策略：校园范围内的 `approximate` 点和浏览器定位使用经 CUHK 九点校准、带版本号的固定偏移；`precise` 点和校准范围外的点，仅在当前画面确实需要显示时调用官方 `convertFrom()`：
 
-- [`campus-map-runtime.tsx`](../../src/components/campus-map/campus-map-runtime.tsx) 批量执行官方正向转换，并用单一 offset 做近似逆变换。
+- [`amap-position.ts`](../../src/lib/campus-map/amap-position.ts) 是唯一双向坐标边界；
+- [`amap-coordinate-resolver.ts`](../../src/lib/campus-map/amap-coordinate-resolver.ts) 只处理本地投影明确拒绝的点；一次地图会话共用一个 worker，复用进行中、成功和失败结果，每批最多 40 点。重渲染或关闭后重开分类不会自动重试失败坐标，只有用户明确触发“重新定位”等动作才允许重试；需求取消后也不会继续发送尚未开始的批次；
+- [`campus-map-runtime.tsx`](../../src/components/campus-map/campus-map-runtime.tsx) 只把临时 GCJ-02 投影交给高德；坐标 effect 依赖稳定的坐标签名，名称、卡片等非坐标刷新不会重新调用转换服务，写回业务状态前则转回 WGS84；
+- canonical Building、Place 和编辑草稿仍只保存 WGS84；会话缓存只保存临时展示坐标，不会写回事实数据。
 
-这个近似在一个很小的校园范围内可能足够用于“约略位置”，但不能未经验证就声明 `precision: precise`。验收前应至少用校园边界和内部网格点测量最大误差，并写清允许范围。如果无法证明误差满足产品的 precise 门槛，应把新建点保存为 `approximate`；高德 GCJ-02 坐标只留在 adapter/transient result，不能覆盖 canonical WGS84。
+固定偏移的九点校准最大水平误差为 3.190 米，只适用于 CUHK 校园范围内的“约略位置”，不能据此把事实声明为 `precision: precise`。精确点正向展示使用高德官方结果；高德 GCJ-02 坐标仍只留在 adapter/transient result，不能覆盖 canonical WGS84。更换本地参数必须发布新版本并重新跑固定校准点。
 
 ### 6. 加载、密钥和生产安全
 
@@ -264,7 +267,7 @@ JS API 2.0 的类名是 `AMap.AutoComplete`，不是旧版 `AMap.Autocomplete`�
 
 生产环境的重要问题：高德官方明确说 `securityJsCode` 明文放在浏览器端不安全，强烈建议用 `window._AMapSecurityConfig.serviceHost` 走服务端代理。[安全密钥官方指南](https://lbs.amap.com/api/javascript-api-v2/guide/abc/jscode)
 
-[`config/route.ts`](../../src/app/api/campus-map/config/route.ts) 只把公开 Web key 和同源 `/_AMapService` 返回给已登录浏览器，[`campus-map-runtime.tsx`](../../src/components/campus-map/campus-map-runtime.tsx) 在加载 SDK 前设置 `serviceHost`。同源代理只允许当前 runtime 使用的坐标转换与逆地理路径，并在服务端注入 security code。发布前仍应：
+[`config/route.ts`](../../src/app/api/campus-map/config/route.ts) 只把公开 Web key 和同源 `/_AMapService` 返回给已登录浏览器，[`campus-map-runtime.tsx`](../../src/components/campus-map/campus-map-runtime.tsx) 在加载 SDK 前设置 `serviceHost`。同源代理只允许当前 runtime 使用的逆地理和 GPS 坐标转换路径，并严格校验参数、坐标与每批最多 40 点，再在服务端注入 security code。发布前仍应：
 
 1. 浏览器只拿 Web JS API key；
 2. 保持服务调用通过同域 `/_AMapService` 代理；
@@ -274,7 +277,7 @@ JS API 2.0 的类名是 `AMap.AutoComplete`，不是旧版 `AMap.Autocomplete`�
 
 ### 7. 配额和调用策略
 
-高德公开参考配额显示，个人开发者的输入提示、关键词搜索、周边搜索分别只有 100 次/日；逆地理编码与坐标转换分别为 5,000 次/日。企业与商用配额更高，实际 QPS 需在控制台查看。[JS API 流量限制](https://lbs.amap.com/api/javascript-api-v2/flowlevel)
+高德公开参考配额显示，个人开发者的输入提示、关键词搜索、周边搜索分别只有 100 次/日；逆地理编码与坐标转换分别为 5,000 次/日。企业与商用配额更高，实际 QPS 需在控制台查看。[JS API 流量限制](https://lbs.amap.com/api/javascript-api-v2/flowlevel) 默认浏览不使用坐标转换配额；只有当前可见的精确/范围外点和用户主动定位会按需访问，成功结果在地图会话内复用。
 
 所以不能在 `mapmove` 或每个按键上调用服务：
 
@@ -450,8 +453,8 @@ NocoBase 是大型 React/TypeScript 项目，但相关文件使用 AGPL-3.0 或�
 #### CUHK 九点坐标校准（2026-08-25）
 
 在真实高德 JavaScript API 中，以校园中心和覆盖校园范围的四角、四边中点共 9 个
-WGS84 点调用 `AMap.convertFrom(..., "gps")`。运行时采用中心点测得的固定
-GCJ-02 偏移 `[+0.004877, -0.002832]` 做近似逆转换，再以 Haversine 距离计算还原点
+WGS84 点调用 `AMap.convertFrom(..., "gps")`，生成一次性校准基准。运行时只对校准矩形内的
+`approximate` 点采用中心点测得的固定 GCJ-02 偏移 `[+0.004877, -0.002832]` 做本地双向展示投影，再以 Haversine 距离计算还原点
 相对原始 WGS84 点的水平误差。传给高德的每个坐标 tuple 都使用副本，因为真实 API
 会改写输入数组。
 

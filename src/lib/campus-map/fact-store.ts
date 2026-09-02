@@ -66,7 +66,7 @@ export type CampusMapCurrentPlaceLocation =
         longitude: number;
         latitude: number;
         crs: "wgs84";
-        precision: "approximate" | "precise";
+        precision: CampusMapPointPrecision;
       };
     };
 

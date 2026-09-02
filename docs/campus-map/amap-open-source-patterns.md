@@ -164,7 +164,7 @@
 | -------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Web Key / security code 未配置或配置接口失败 | 全屏“高德地图配置缺失”，给出本地配置提示                                             | 不显示可操作的伪地图                                            | component/config-route tests                                               |
 | 高德 SDK 脚本加载失败                        | 全屏“高德地图加载失败”                                                               | 不保留永久 loading 壳                                           | component script error path                                                |
-| WGS84 → GCJ-02 转换失败或结果数量错误        | 全屏“高德地图加载失败”                                                               | 不把 WGS84 静默画到 GCJ-02 底图                                 | runtime: convertFrom fail closed                                           |
+| 按需 WGS84 → GCJ-02 转换失败                 | 只隐藏这次无法安全投影的 marker；搜索、地点卡片和其余地图继续可用                    | 不把 WGS84 静默画到 GCJ-02 底图，也不升级为全屏地图错误         | resolver partial failure + runtime failure-isolation tests                 |
 | MarkerCluster 插件 loading / 注册或构造抛错  | 底图与类别列表仍可浏览；分别显示“地图标记正在加载”或“地图标记加载失败，列表仍可使用” | 不使用手写聚合作为静默 fallback，不把列表出现等同 marker 已完成 | runtime: pending + plugin error + constructor error；真实 SDK smoke 待验收 |
 | 用户在程序 relocate 前开始拖动或缩放         | 地图服从用户手势                                                                     | 不在稍后回弹到旧 selection                                      | runtime: wheel cancellation                                                |
 

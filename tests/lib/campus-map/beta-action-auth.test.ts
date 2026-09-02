@@ -48,6 +48,7 @@ import {
   loadCampusMapBrowseProjection,
   loadCampusMapPlaceCover,
 } from "@/lib/campus-map/browse-actions";
+import { asAmapPosition } from "@/lib/campus-map/amap-position";
 import { loadCampusMapEditablePlace } from "@/lib/campus-map/edit-actions";
 
 describe("Campus Map beta server-action authentication", () => {
@@ -76,7 +77,7 @@ describe("Campus Map beta server-action authentication", () => {
       loadCampusMapAmapPoiCard({
         providerObjectId: "amap-1",
         name: "External POI",
-        position: [114.2, 22.4],
+        position: asAmapPosition([114.2, 22.4]),
       }),
     ).rejects.toThrow("NEXT_REDIRECT");
     expect(mocks.resolveMapping).not.toHaveBeenCalled();
