@@ -4,11 +4,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  CampusMapAmapCoordinateProjector,
   CampusMapAmapPoiCardResolver,
+  campusMapAmapCoordinateProjectionSignature,
   projectCampusMapAmapPoiCard,
   projectCampusMapBrowseToAmap,
 } from "@/lib/campus-map/amap-browse-projection";
+import { asAmapPosition } from "@/lib/campus-map/amap-position";
 import { projectCampusMapBrowse } from "@/lib/campus-map/browse-projection";
 import type { CampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
 
@@ -62,77 +63,188 @@ const projection = projectCampusMapBrowse({
   places: [place],
 });
 
+const preciseOutdoorProjection = projectCampusMapBrowse({
+  buildings: [],
+  places: [
+    {
+      ...place,
+      id: "30000000-0000-4000-8000-000000000002",
+      revisionId: "40000000-0000-4000-8000-000000000002",
+      name: "林荫饮水点",
+      pinType: "water",
+      location: {
+        kind: "outdoor-point",
+        point: {
+          longitude: 114.2078,
+          latitude: 22.4188,
+          crs: "wgs84",
+          precision: "precise",
+        },
+      },
+    },
+  ],
+});
+
 const poi = {
   providerObjectId: "amap-science-centre",
   name: "高德科学馆",
-  position: [114.21801, 22.42966] as const,
+  position: asAmapPosition([114.21801, 22.42966]),
 };
 
 describe("AMap browse projection adapter (#647)", () => {
-  it("projects WGS84 entities through one adapter without mutating the canonical source", async () => {
+  it("projects WGS84 entities locally without mutating the canonical source", () => {
     const original = structuredClone(projection);
-    const result = await projectCampusMapBrowseToAmap(projection, {
-      convertFrom(positions, _source, callback) {
-        const sourceSnapshot = positions.map(
-          ([longitude, latitude]) => [longitude, latitude] as const,
-        );
-        const mutable = positions as Array<[number, number]>;
-        mutable[0]![0] += 100;
-        callback("complete", {
-          locations: sourceSnapshot.map(([longitude, latitude]) => ({
-            lng: longitude + 0.01,
-            lat: latitude + 0.02,
-          })),
-        });
-      },
+    const result = projectCampusMapBrowseToAmap(projection, {
+      visibleAmenity: null,
+      selectedBuildingId: BUILDING_ID,
+      selectedPlaceId: null,
     });
 
     expect(result).toEqual({
-      status: "ready",
-      center: [114.2172, 22.4391],
-      offset: [0.01, 0.02],
+      center: [114.212077, 22.416268],
       positions: {
-        [`building:${BUILDING_ID}`]: [114.21801, 22.43966],
+        [`building:${BUILDING_ID}`]: [114.212887, 22.416828],
       },
+      providerRequests: [],
     });
     expect(projection).toEqual(original);
   });
 
-  it("fails the whole provider coordinate projection closed on malformed output", async () => {
-    await expect(
-      projectCampusMapBrowseToAmap(projection, {
-        convertFrom(_positions, _source, callback) {
-          callback("complete", { locations: [{ lng: 114.2, lat: 22.4 }] });
-        },
-      }),
-    ).resolves.toEqual({ status: "error" });
+  it("projects only the requested building instead of the full directory", () => {
+    const buildings = Array.from({ length: 41 }, (_, index) => ({
+      buildingId: `building-${index}`,
+      name: `Building ${index}`,
+      englishName: null,
+      code: null,
+      aliases: [],
+      anchor: {
+        longitude: 114.2 + index / 100_000,
+        latitude: 22.419,
+        crs: "wgs84" as const,
+      },
+      floors: [],
+      placeIds: [],
+      selectionTarget: {
+        kind: "building" as const,
+        buildingId: `building-${index}`,
+      },
+    }));
+    const result = projectCampusMapBrowseToAmap(
+      {
+        buildings,
+        places: [],
+        presences: [],
+        markers: [],
+      },
+      {
+        visibleAmenity: null,
+        selectedBuildingId: "building-40",
+        selectedPlaceId: null,
+      },
+    );
+
+    expect(Object.keys(result.positions)).toEqual(["building:building-40"]);
+    expect(result.positions["building:building-40"]).toEqual([
+      114.205277, 22.416168,
+    ]);
   });
 
-  it("lets only the latest coordinate projection commit", async () => {
-    const callbacks: Array<
-      (
-        status: "complete" | "error",
-        result: { locations?: ReadonlyArray<{ lng: number; lat: number }> },
-      ) => void
-    > = [];
-    const projector = new CampusMapAmapCoordinateProjector();
-    const converter = {
-      convertFrom(
-        _positions: ReadonlyArray<readonly [number, number]>,
-        _source: "gps",
-        callback: (typeof callbacks)[number],
-      ) {
-        callbacks.push(callback);
+  it("does not expose asynchronous coordinate projection state", () => {
+    const result = projectCampusMapBrowseToAmap(projection);
+
+    expect(result).not.toHaveProperty("status");
+    expect(result).not.toHaveProperty("offset");
+    expect(result).not.toBeInstanceOf(Promise);
+  });
+
+  it("does not project a precise Place until that overlay is requested", () => {
+    const result = projectCampusMapBrowseToAmap(preciseOutdoorProjection, {
+      visibleAmenity: null,
+      selectedBuildingId: null,
+      selectedPlaceId: null,
+    });
+
+    expect(result.positions).not.toHaveProperty(
+      "place:30000000-0000-4000-8000-000000000002",
+    );
+    expect(result.providerRequests).toEqual([]);
+  });
+
+  it("routes a visible precise Place to the provider fallback", () => {
+    const result = projectCampusMapBrowseToAmap(preciseOutdoorProjection, {
+      visibleAmenity: "water",
+      selectedBuildingId: null,
+      selectedPlaceId: null,
+    });
+
+    expect(result.positions).not.toHaveProperty(
+      "place:30000000-0000-4000-8000-000000000002",
+    );
+    expect(result.providerRequests).toEqual([
+      {
+        key: "place:30000000-0000-4000-8000-000000000002",
+        position: [114.2078, 22.4188],
       },
+    ]);
+  });
+
+  it("keeps the coordinate signature stable across non-coordinate refreshes", () => {
+    const demand = {
+      visibleAmenity: "water" as const,
+      selectedBuildingId: null,
+      selectedPlaceId: null,
     };
+    const original = projectCampusMapBrowseToAmap(
+      preciseOutdoorProjection,
+      demand,
+    );
+    const renamed = projectCampusMapBrowseToAmap(
+      {
+        ...preciseOutdoorProjection,
+        places: preciseOutdoorProjection.places.map((candidate) => ({
+          ...candidate,
+          name: `${candidate.name}（已更新）`,
+        })),
+      },
+      demand,
+    );
 
-    const first = projector.projectLatest(projection, converter);
-    const second = projector.projectLatest(projection, converter);
-    callbacks[1]!("error", {});
-    callbacks[0]!("error", {});
+    expect(campusMapAmapCoordinateProjectionSignature(renamed)).toBe(
+      campusMapAmapCoordinateProjectionSignature(original),
+    );
+  });
 
-    await expect(second).resolves.toEqual({ status: "error" });
-    await expect(first).resolves.toEqual({ status: "superseded" });
+  it("changes the coordinate signature when provider demand moves", () => {
+    const demand = {
+      visibleAmenity: "water" as const,
+      selectedBuildingId: null,
+      selectedPlaceId: null,
+    };
+    const original = projectCampusMapBrowseToAmap(
+      preciseOutdoorProjection,
+      demand,
+    );
+    const moved = projectCampusMapBrowseToAmap(
+      {
+        ...preciseOutdoorProjection,
+        markers: preciseOutdoorProjection.markers.map((candidate) =>
+          candidate.kind === "place"
+            ? {
+                ...candidate,
+                position: {
+                  ...candidate.position,
+                  longitude: candidate.position.longitude + 0.0001,
+                },
+              }
+            : candidate,
+        ),
+      },
+      demand,
+    );
+
+    expect(campusMapAmapCoordinateProjectionSignature(moved)).not.toBe(
+      campusMapAmapCoordinateProjectionSignature(original),
+    );
   });
 
   it("projects only explicit public mappings to canonical cards", () => {

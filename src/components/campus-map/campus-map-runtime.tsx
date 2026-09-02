@@ -47,9 +47,17 @@ import {
 } from "@/lib/campus-map/camera-policy";
 import { AmapInteractionAdapter } from "@/lib/campus-map/amap-interaction-adapter";
 import {
-  providerPositionToWgs84,
-  type CampusMapPosition,
+  asAmapPosition,
+  asWgs84Position,
+  projectAmapPositionToWgs84,
+  projectCampusMapWgs84ToAmap,
+  type CampusMapAmapPosition,
+  type CampusMapWgs84Position,
 } from "@/lib/campus-map/amap-position";
+import {
+  CampusMapAmapCoordinateResolver,
+  type CampusMapAmapCoordinateConverter,
+} from "@/lib/campus-map/amap-coordinate-resolver";
 import {
   createAmapGeocoderAdapter,
   createAmapPlaceContextResolver,
@@ -67,8 +75,9 @@ import {
   loadCampusMapPlaceCover,
 } from "@/lib/campus-map/browse-actions";
 import {
-  CampusMapAmapCoordinateProjector,
   CampusMapAmapPoiCardResolver,
+  campusMapAmapCoordinateProjectionSignature,
+  projectCampusMapBrowseToAmap,
 } from "@/lib/campus-map/amap-browse-projection";
 import {
   CAMPUS_MAP_DEFAULT_VIEW_CENTER as CAMPUS_CENTER,
@@ -134,7 +143,6 @@ import { cn } from "@/lib/utils";
 type Amenity = CampusMapAmenity;
 type Building = CampusMapBrowseBuilding;
 type Place = CampusMapBrowsePlace;
-type Position = CampusMapPosition;
 const EMPTY_PLACE_COVERS: Record<string, CampusMapPlacePhotoView> = {};
 type UserLocationState =
   | { status: "idle" }
@@ -143,6 +151,8 @@ type UserLocationState =
       status: "located";
       position: { longitude: number; latitude: number };
       accuracyMeters: number;
+      providerPosition: CampusMapAmapPosition | null;
+      projectionStatus: "loading" | "ready" | "error";
     }
   | {
       status: "error";
@@ -183,7 +193,7 @@ interface AMapEvent {
   name?: string;
   lnglat: AMapLngLat;
   clusterData?: ReadonlyArray<{
-    lnglat: AMapLngLat | Position;
+    lnglat: AMapLngLat | CampusMapAmapPosition;
     markerKey?: string;
   }>;
   originEvent?: { target?: Element | null };
@@ -214,7 +224,7 @@ interface AMapMap {
   containerToLngLat(position: AMapPixel): AMapLngLat;
   setZoomAndCenter(
     zoom: number,
-    center: AMapLngLat | Position,
+    center: AMapLngLat | CampusMapAmapPosition,
     immediately?: boolean,
     duration?: number,
   ): void;
@@ -231,7 +241,7 @@ interface AMapMap {
   destroy(): void;
 }
 
-interface AMapNamespace {
+interface AMapNamespace extends CampusMapAmapCoordinateConverter {
   Map: new (container: string, options: Record<string, unknown>) => AMapMap;
   Marker: new (options: Record<string, unknown>) => AMapMarker;
   MarkerCluster: new (
@@ -247,14 +257,6 @@ interface AMapNamespace {
   Pixel: new (x: number, y: number) => AMapPixel;
   Bounds: new (southWest: AMapLngLat, northEast: AMapLngLat) => unknown;
   plugin(plugins: readonly string[], callback: () => void): void;
-  convertFrom(
-    positions: readonly Position[],
-    source: "gps",
-    callback: (
-      status: "complete" | "error",
-      result: { locations?: readonly AMapLngLat[] },
-    ) => void,
-  ): void;
 }
 
 declare global {
@@ -294,6 +296,12 @@ function userLocationStatusText(state: UserLocationState) {
   if (state.status === "locating") return "正在读取你这一次的位置…";
   if (state.status === "located") {
     const accuracy = roundedLocationMeters(state.accuracyMeters);
+    if (state.projectionStatus === "loading") {
+      return "已读取当前位置，正在准备地图标记…";
+    }
+    if (state.projectionStatus === "error") {
+      return `已读取当前位置，但地图标记暂时无法显示。定位精度约 ${accuracy} 米，距离仍可参考。`;
+    }
     return state.accuracyMeters > 100
       ? `已显示当前位置。定位精度较低（约 ${accuracy} 米），距离仅供参考。`
       : `已显示当前位置，定位精度约 ${accuracy} 米。距离为直线距离。`;
@@ -426,14 +434,19 @@ function alignPositionToPlacementAnchor(map: AMapMap, mapElement: Element) {
 }
 
 function samePlacementPosition(
-  left: Position,
-  right: Position,
+  left: CampusMapAmapPosition,
+  right: CampusMapAmapPosition,
   tolerance = 0.00002,
 ) {
   return (
     Math.abs(left[0] - right[0]) <= tolerance &&
     Math.abs(left[1] - right[1]) <= tolerance
   );
+}
+
+function approximateWgs84Position(position: CampusMapAmapPosition) {
+  const projected = projectAmapPositionToWgs84(position);
+  return projected.status === "projected" ? projected.position : null;
 }
 
 function buildingFor(
@@ -609,22 +622,24 @@ export function CampusMapRuntime({
   const editSessionActiveRef = useRef(false);
   const editSessionPlacingRef = useRef(false);
   const exactProviderPlaceRef = useRef<AmapResolvedPlaceContext | null>(null);
-  const [centerPosition, setCenterPosition] = useState<Position>(CAMPUS_CENTER);
+  const [centerPosition, setCenterPosition] = useState<CampusMapWgs84Position>(
+    () => asWgs84Position(CAMPUS_CENTER),
+  );
   const [providerCenterPosition, setProviderCenterPosition] =
-    useState<Position | null>(null);
+    useState<CampusMapAmapPosition | null>(null);
+  const [lockedProviderFallback, setLockedProviderFallback] = useState<{
+    key: string;
+    position: CampusMapAmapPosition | null;
+  } | null>(null);
   const [placeContext, setPlaceContext] = useState<
     AmapPlaceContextResult | { status: "loading" } | null
   >(null);
-  const amapOffsetRef = useRef<Position>([0, 0]);
-  const [amapOffset, setAmapOffset] = useState<Position>([0, 0]);
   const [config, setConfig] = useState<
     | { status: "loading" }
     | { status: "missing" }
     | { status: "ready"; key: string; serviceHost: string }
   >({ status: "loading" });
-  const [mapLoadError, setMapLoadError] = useState<
-    "sdk" | "coordinates" | null
-  >(null);
+  const [mapLoadError, setMapLoadError] = useState<"sdk" | null>(null);
   const [mapLoadAttempt, setMapLoadAttempt] = useState(0);
   const [mapReady, setMapReady] = useState(false);
   const [mapMoving, setMapMoving] = useState(false);
@@ -640,9 +655,18 @@ export function CampusMapRuntime({
   const [userLocation, setUserLocation] = useState<UserLocationState>({
     status: "idle",
   });
+  const userLocationStatusRef = useRef<UserLocationState["status"]>("idle");
+  useEffect(() => {
+    userLocationStatusRef.current = userLocation.status;
+  }, [userLocation.status]);
   const userLocationRequestRef = useRef(0);
+  const userLocationCameraIntentRef = useRef(0);
   const userLocationCameraCancelRef = useRef<(() => void) | null>(null);
   const mapRef = useRef<AMapMap | null>(null);
+  const coordinateResolverRef = useRef<CampusMapAmapCoordinateResolver | null>(
+    null,
+  );
+  const providerProjectionIntentRef = useRef(0);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
   const facilityMarkerRuntimeRef = useRef(new AmapFacilityMarkerRuntime());
@@ -654,15 +678,21 @@ export function CampusMapRuntime({
   const pendingPlacementCameraRef = useRef<{
     token: number;
     context: CampusMapDriverEffectContext;
-    position: Position;
+    position: CampusMapWgs84Position;
+    providerPosition: CampusMapAmapPosition;
   } | null>(null);
   const placementCameraTokenRef = useRef(0);
-  const retiredPlacementCameraTargetsRef = useRef<Position[]>([]);
-  const lastSettledPlacementCameraTargetRef = useRef<Position | null>(null);
+  const retiredPlacementCameraTargetsRef = useRef<CampusMapAmapPosition[]>([]);
+  const lastSettledPlacementCameraTargetRef = useRef<{
+    position: CampusMapWgs84Position;
+    providerPosition: CampusMapAmapPosition;
+  } | null>(null);
   const mapDraggingRef = useRef(false);
   const userGestureAwaitingMoveEndRef = useRef(false);
   const pendingSelectionTokenRef = useRef<number | null>(null);
-  const amapPositionsRef = useRef<Readonly<Record<string, Position>>>({});
+  const amapPositionsRef = useRef<
+    Readonly<Record<string, CampusMapAmapPosition>>
+  >({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const panelTitleRef = useRef<HTMLHeadingElement | null>(null);
   const interactionAdapterRef = useRef(new AmapInteractionAdapter());
@@ -678,7 +708,6 @@ export function CampusMapRuntime({
     new CampusMapAmapPoiCardResolver(loadCampusMapAmapPoiCard),
   );
   const providerTargetIntentRef = useRef(0);
-  const coordinateProjectorRef = useRef(new CampusMapAmapCoordinateProjector());
   const didSetInitialCenterRef = useRef(false);
 
   const positionFor = useCallback(
@@ -693,6 +722,7 @@ export function CampusMapRuntime({
     facilityMarkerRuntimeRef.current.destroy();
     mapRef.current?.destroy();
     mapRef.current = null;
+    coordinateResolverRef.current = null;
     placeContextResolverRef.current?.invalidate();
     placeContextResolverRef.current = null;
     amapPositionsRef.current = {};
@@ -700,6 +730,7 @@ export function CampusMapRuntime({
     userLocationCameraCancelRef.current = null;
     pendingDriverCameraRef.current = null;
     pendingPlacementCameraRef.current = null;
+    providerProjectionIntentRef.current += 1;
     placementCameraTokenRef.current += 1;
     retiredPlacementCameraTargetsRef.current = [];
     lastSettledPlacementCameraTargetRef.current = null;
@@ -708,14 +739,13 @@ export function CampusMapRuntime({
     pendingSelectionTokenRef.current = null;
     providerTargetIntentRef.current += 1;
     providerPoiCardResolverRef.current.invalidate();
-    coordinateProjectorRef.current.invalidate();
     didSetInitialCenterRef.current = false;
     setMapReady(false);
     setMapMoving(false);
     setMapCenterRevision(0);
     setProviderCenterPosition(null);
+    setLockedProviderFallback(null);
     setPlaceContext(null);
-    setAmapOffset([0, 0]);
     setCoordinateVersion(0);
     setClusterStatus("loading");
   }, []);
@@ -733,7 +763,7 @@ export function CampusMapRuntime({
 
   const requestCamera = useCallback(
     (
-      position: Position,
+      position: CampusMapAmapPosition,
       reason: CameraReason,
       driverContext?: CampusMapDriverEffectContext,
     ) => {
@@ -841,8 +871,26 @@ export function CampusMapRuntime({
     [],
   );
 
+  const resolveAmapFallback = useCallback(
+    async (key: string, position: CampusMapWgs84Position) => {
+      const AMap = typeof window === "undefined" ? undefined : window.AMap;
+      if (!AMap) return null;
+      const resolver =
+        coordinateResolverRef.current ??
+        (coordinateResolverRef.current = new CampusMapAmapCoordinateResolver(
+          AMap,
+        ));
+      const positions = await resolver.resolve([{ key, position }], {
+        retryFailed: true,
+      });
+      return positions[key] ?? null;
+    },
+    [],
+  );
+
   const invalidateUserLocationActivity = useCallback(() => {
     const requestId = ++userLocationRequestRef.current;
+    userLocationCameraIntentRef.current += 1;
     userLocationCameraCancelRef.current?.();
     userLocationCameraCancelRef.current = null;
     return requestId;
@@ -854,14 +902,18 @@ export function CampusMapRuntime({
   }, [invalidateUserLocationActivity]);
 
   const cancelPendingUserLocation = useCallback(() => {
-    invalidateUserLocationActivity();
-    setUserLocation((current) =>
-      current.status === "locating" ? { status: "idle" } : current,
-    );
-  }, [invalidateUserLocationActivity]);
+    userLocationCameraIntentRef.current += 1;
+    userLocationCameraCancelRef.current?.();
+    userLocationCameraCancelRef.current = null;
+    if (userLocationStatusRef.current === "locating") {
+      userLocationRequestRef.current += 1;
+      setUserLocation({ status: "idle" });
+    }
+  }, []);
 
   const requestUserLocation = useCallback(() => {
     const requestId = invalidateUserLocationActivity();
+    const cameraIntent = userLocationCameraIntentRef.current;
     if (!("geolocation" in navigator) || !navigator.geolocation) {
       setUserLocation({ status: "error", reason: "unsupported" });
       return;
@@ -891,11 +943,38 @@ export function CampusMapRuntime({
             status: "located",
             position: { longitude, latitude },
             accuracyMeters,
+            providerPosition: null,
+            projectionStatus: "loading",
           });
-          const offset = amapOffsetRef.current;
-          userLocationCameraCancelRef.current = requestCamera(
-            [longitude + offset[0], latitude + offset[1]],
-            "map-selection",
+          const completeProjection = (
+            providerPosition: CampusMapAmapPosition | null,
+          ) => {
+            if (userLocationRequestRef.current !== requestId) return;
+            setUserLocation({
+              status: "located",
+              position: { longitude, latitude },
+              accuracyMeters,
+              providerPosition,
+              projectionStatus: providerPosition ? "ready" : "error",
+            });
+            if (
+              providerPosition &&
+              userLocationCameraIntentRef.current === cameraIntent
+            ) {
+              userLocationCameraCancelRef.current = requestCamera(
+                providerPosition,
+                "map-selection",
+              );
+            }
+          };
+          const position = asWgs84Position([longitude, latitude]);
+          const local = projectCampusMapWgs84ToAmap(position, "approximate");
+          if (local.status === "projected") {
+            completeProjection(local.position);
+            return;
+          }
+          void resolveAmapFallback(`user-location:${requestId}`, position).then(
+            completeProjection,
           );
         },
         (error) => {
@@ -917,7 +996,7 @@ export function CampusMapRuntime({
         setUserLocation({ status: "error", reason: "unavailable" });
       }
     }
-  }, [invalidateUserLocationActivity, requestCamera]);
+  }, [invalidateUserLocationActivity, requestCamera, resolveAmapFallback]);
 
   const executeDriverCamera = useCallback(
     (
@@ -925,11 +1004,12 @@ export function CampusMapRuntime({
       context: CampusMapDriverEffectContext,
     ) => {
       if (camera.kind === "cancel") {
+        providerProjectionIntentRef.current += 1;
         const pendingPlacementCamera = pendingPlacementCameraRef.current;
         if (pendingPlacementCamera) {
           retiredPlacementCameraTargetsRef.current = [
             ...retiredPlacementCameraTargetsRef.current,
-            pendingPlacementCamera.position,
+            pendingPlacementCamera.providerPosition,
           ].slice(-8);
         }
         pendingDriverCameraRef.current = null;
@@ -950,73 +1030,114 @@ export function CampusMapRuntime({
       pendingDriverCameraRef.current = null;
       if (!context.isCurrent()) return;
       if (camera.kind === "edit-position") {
+        const projectionIntent = ++providerProjectionIntentRef.current;
         if (camera.reason !== "provider-placement") {
           exactProviderPlaceRef.current = null;
         }
-        const offset = amapOffsetRef.current;
-        const providerPosition: Position = [
-          camera.position[0] + offset[0],
-          camera.position[1] + offset[1],
-        ];
-        const previousPlacementCamera = pendingPlacementCameraRef.current;
-        if (previousPlacementCamera) {
-          retiredPlacementCameraTargetsRef.current = [
-            ...retiredPlacementCameraTargetsRef.current,
-            previousPlacementCamera.position,
-          ].slice(-8);
-        }
-        const previousSettledTarget =
-          lastSettledPlacementCameraTargetRef.current;
-        if (previousSettledTarget) {
-          retiredPlacementCameraTargetsRef.current = [
-            ...retiredPlacementCameraTargetsRef.current,
-            previousSettledTarget,
-          ].slice(-8);
-        }
-        lastSettledPlacementCameraTargetRef.current = null;
-        const currentProviderPosition = placementAnchorLngLat(
-          map,
-          mapElement,
-          AMap,
-        );
-        const currentPosition = providerPositionToWgs84(
-          [currentProviderPosition.lng, currentProviderPosition.lat],
-          offset,
-        );
-        if (samePlacementPosition(currentPosition, camera.position)) {
-          pendingPlacementCameraRef.current = null;
-          setMapMoving(false);
-          setCenterPosition([camera.position[0], camera.position[1]]);
+        const applyProviderPosition = (
+          providerPosition: CampusMapAmapPosition,
+        ) => {
+          if (
+            providerProjectionIntentRef.current !== projectionIntent ||
+            !context.isCurrent() ||
+            mapRef.current !== map
+          ) {
+            return;
+          }
+          const previousPlacementCamera = pendingPlacementCameraRef.current;
+          if (previousPlacementCamera) {
+            retiredPlacementCameraTargetsRef.current = [
+              ...retiredPlacementCameraTargetsRef.current,
+              previousPlacementCamera.providerPosition,
+            ].slice(-8);
+          }
+          const previousSettledTarget =
+            lastSettledPlacementCameraTargetRef.current;
+          if (previousSettledTarget) {
+            retiredPlacementCameraTargetsRef.current = [
+              ...retiredPlacementCameraTargetsRef.current,
+              previousSettledTarget.providerPosition,
+            ].slice(-8);
+          }
+          lastSettledPlacementCameraTargetRef.current = null;
+          const currentProviderPosition = placementAnchorLngLat(
+            map,
+            mapElement,
+            AMap,
+          );
+          if (
+            samePlacementPosition(
+              asAmapPosition([
+                currentProviderPosition.lng,
+                currentProviderPosition.lat,
+              ]),
+              providerPosition,
+            )
+          ) {
+            pendingPlacementCameraRef.current = null;
+            setMapMoving(false);
+            setCenterPosition(asWgs84Position(camera.position));
+            setProviderCenterPosition(providerPosition);
+            setMapCenterRevision((revision) => revision + 1);
+            lastSettledPlacementCameraTargetRef.current = {
+              position: asWgs84Position(camera.position),
+              providerPosition,
+            };
+            return;
+          }
+          pendingPlacementCameraRef.current = {
+            token: ++placementCameraTokenRef.current,
+            context,
+            position: asWgs84Position(camera.position),
+            providerPosition,
+          };
+          setMapMoving(true);
+          setCenterPosition(asWgs84Position(camera.position));
           setProviderCenterPosition(providerPosition);
-          setMapCenterRevision((revision) => revision + 1);
-          lastSettledPlacementCameraTargetRef.current = [
-            camera.position[0],
-            camera.position[1],
-          ];
+          map.setZoomAndCenter(
+            map.getZoom(),
+            new AMap.LngLat(providerPosition[0], providerPosition[1]),
+            true,
+            0,
+          );
+          alignPositionToPlacementAnchor(map, mapElement);
+        };
+
+        const exactProviderPosition =
+          camera.reason === "provider-placement" &&
+          exactProviderPlaceRef.current
+            ? asAmapPosition([
+                exactProviderPlaceRef.current.providerPosition.longitude,
+                exactProviderPlaceRef.current.providerPosition.latitude,
+              ])
+            : null;
+        if (exactProviderPosition) {
+          applyProviderPosition(exactProviderPosition);
           return;
         }
-        pendingPlacementCameraRef.current = {
-          token: ++placementCameraTokenRef.current,
-          context,
-          position: [camera.position[0], camera.position[1]],
-        };
-        setMapMoving(true);
-        setCenterPosition([camera.position[0], camera.position[1]]);
-        setProviderCenterPosition(providerPosition);
-        map.setZoomAndCenter(
-          map.getZoom(),
-          new AMap.LngLat(providerPosition[0], providerPosition[1]),
-          true,
-          0,
+        const wgs84Position = asWgs84Position(camera.position);
+        const local = projectCampusMapWgs84ToAmap(
+          wgs84Position,
+          camera.precision,
         );
-        alignPositionToPlacementAnchor(map, mapElement);
+        if (local.status === "projected") {
+          applyProviderPosition(local.position);
+          return;
+        }
+        void resolveAmapFallback(
+          `edit:${camera.position[0]},${camera.position[1]}`,
+          wgs84Position,
+        ).then((providerPosition) => {
+          if (providerPosition) applyProviderPosition(providerPosition);
+        });
         return;
       }
+      providerProjectionIntentRef.current += 1;
       const pendingPlacementCamera = pendingPlacementCameraRef.current;
       if (pendingPlacementCamera) {
         retiredPlacementCameraTargetsRef.current = [
           ...retiredPlacementCameraTargetsRef.current,
-          pendingPlacementCamera.position,
+          pendingPlacementCamera.providerPosition,
         ].slice(-8);
       }
       pendingPlacementCameraRef.current = null;
@@ -1060,7 +1181,7 @@ export function CampusMapRuntime({
         pendingDriverCameraRef.current = { command: camera, context };
       }
     },
-    [positionFor, requestCamera],
+    [positionFor, requestCamera, resolveAmapFallback],
   );
 
   const [driver] = useState(() => {
@@ -1321,19 +1442,21 @@ export function CampusMapRuntime({
     dispatch,
     recoverPublish,
   });
-  const readVisiblePlacementAnchor = useCallback((offset: Position) => {
+  const readVisiblePlacementAnchor = useCallback(() => {
     const map = mapRef.current;
     const mapElement = mapElementRef.current;
     const AMap = typeof window === "undefined" ? undefined : window.AMap;
     if (!map || !mapElement || !AMap) return null;
     const providerPosition = placementAnchorLngLat(map, mapElement, AMap);
-    const providerPositionTuple = [
+    const providerPositionTuple = asAmapPosition([
       providerPosition.lng,
       providerPosition.lat,
-    ] as Position;
+    ]);
+    const wgs84Position = approximateWgs84Position(providerPositionTuple);
+    if (!wgs84Position) return null;
     return {
       providerPosition: providerPositionTuple,
-      wgs84Position: providerPositionToWgs84(providerPositionTuple, offset),
+      wgs84Position,
     };
   }, []);
   const startGlobalFacilityAdd = useCallback(() => {
@@ -1393,18 +1516,62 @@ export function CampusMapRuntime({
     editSession?.draft.fact.location?.kind === "outdoor-point"
       ? editSession.draft.fact.location
       : null;
+  const lockedLongitude = lockedOutdoorLocation?.longitude ?? null;
+  const lockedLatitude = lockedOutdoorLocation?.latitude ?? null;
+  const lockedPrecision = lockedOutdoorLocation?.precision ?? null;
+  const lockedProjectionInput = useMemo(() => {
+    if (
+      lockedLongitude === null ||
+      lockedLatitude === null ||
+      lockedPrecision === null
+    )
+      return null;
+    const position = asWgs84Position([lockedLongitude, lockedLatitude]);
+    return {
+      key: `locked:${position[0]},${position[1]}`,
+      position,
+      projection: projectCampusMapWgs84ToAmap(position, lockedPrecision),
+    };
+  }, [lockedLatitude, lockedLongitude, lockedPrecision]);
+  const lockedProviderPosition = !mapReady
+    ? null
+    : lockedProjectionInput?.projection.status === "projected"
+      ? lockedProjectionInput.projection.position
+      : lockedProjectionInput &&
+          lockedProviderFallback?.key === lockedProjectionInput.key
+        ? lockedProviderFallback.position
+        : null;
+  useEffect(() => {
+    if (
+      !lockedProjectionInput ||
+      lockedProjectionInput.projection.status !== "requires-provider" ||
+      !mapReady
+    )
+      return;
+    let cancelled = false;
+    void resolveAmapFallback(
+      lockedProjectionInput.key,
+      lockedProjectionInput.position,
+    ).then((providerPosition) => {
+      if (!cancelled) {
+        setLockedProviderFallback({
+          key: lockedProjectionInput.key,
+          position: providerPosition,
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [lockedProjectionInput, mapReady, resolveAmapFallback]);
   const contextProviderLongitude =
     editSessionStatus === "placing"
       ? (providerCenterPosition?.[0] ?? null)
-      : lockedOutdoorLocation && coordinateVersion > 0
-        ? lockedOutdoorLocation.longitude + amapOffset[0]
-        : null;
+      : (lockedProviderPosition?.[0] ?? null);
   const contextProviderLatitude =
     editSessionStatus === "placing"
       ? (providerCenterPosition?.[1] ?? null)
-      : lockedOutdoorLocation && coordinateVersion > 0
-        ? lockedOutdoorLocation.latitude + amapOffset[1]
-        : null;
+      : (lockedProviderPosition?.[1] ?? null);
   const placeContextMapRevision =
     editSessionStatus === "placing" ? mapCenterRevision : 0;
   useEffect(() => {
@@ -1653,8 +1820,15 @@ export function CampusMapRuntime({
     if (!window.AMap || mapRef.current) return;
     setMapLoadError(null);
     const AMap = window.AMap;
+    const initialCenter = projectCampusMapWgs84ToAmap(
+      asWgs84Position(CAMPUS_CENTER),
+      "approximate",
+    );
+    if (initialCenter.status !== "projected") {
+      throw new Error("Campus Map center is outside AMap calibration");
+    }
     const map = new AMap.Map("amap-campus-canvas", {
-      center: CAMPUS_CENTER,
+      center: initialCenter.position,
       zoom: 17.2,
       zooms: [14, 20],
       viewMode: "2D",
@@ -1694,6 +1868,16 @@ export function CampusMapRuntime({
     map.on("hotspotclick", (event) => {
       interactionAdapterRef.current.dispatchProviderTarget(() => {
         if (editSessionPlacingRef.current) {
+          const wgs84Position = approximateWgs84Position(
+            asAmapPosition([event.lnglat.lng, event.lnglat.lat]),
+          );
+          if (!wgs84Position) {
+            exactProviderPlaceRef.current = null;
+            setProviderCenterPosition(null);
+            setPlaceContext({ status: "permanent-error" });
+            setMapMoving(true);
+            return;
+          }
           const providerPoiId =
             event.id ?? `${event.lnglat.lng},${event.lnglat.lat}`;
           const context: AmapResolvedPlaceContext = {
@@ -1709,20 +1893,17 @@ export function CampusMapRuntime({
           };
           exactProviderPlaceRef.current = context;
           setPlaceContext({ status: "resolved", context });
-          const offset = amapOffsetRef.current;
           driver.recenterEditPosition(
-            providerPositionToWgs84(
-              [event.lnglat.lng, event.lnglat.lat],
-              offset,
-            ),
+            wgs84Position,
             "provider-placement",
+            "approximate",
           );
           return;
         }
         const input = {
           providerObjectId: event.id ?? null,
           name: event.name?.trim() || "高德地图地点",
-          position: [event.lnglat.lng, event.lnglat.lat] as const,
+          position: asAmapPosition([event.lnglat.lng, event.lnglat.lat]),
         };
         const providerIntent = ++providerTargetIntentRef.current;
         dispatch({ type: "DISMISS_TRANSIENT_PANEL" });
@@ -1806,17 +1987,24 @@ export function CampusMapRuntime({
       const center = editSessionPlacingRef.current
         ? placementAnchorLngLat(map, map.getContainer(), AMap)
         : map.getCenter();
-      const offset = amapOffsetRef.current;
-      const position = providerPositionToWgs84(
-        [center.lng, center.lat],
-        offset,
-      );
+      const currentProviderPosition = asAmapPosition([center.lng, center.lat]);
       if (mapDraggingRef.current) return;
       if (userGestureAwaitingMoveEndRef.current) {
         userGestureAwaitingMoveEndRef.current = false;
+        const position = approximateWgs84Position(currentProviderPosition);
+        if (!position) {
+          setProviderCenterPosition(null);
+          if (editSessionPlacingRef.current) {
+            setPlaceContext({ status: "permanent-error" });
+            setMapMoving(true);
+          } else {
+            setMapMoving(false);
+          }
+          return;
+        }
         setMapMoving(false);
         setCenterPosition(position);
-        setProviderCenterPosition([center.lng, center.lat]);
+        setProviderCenterPosition(currentProviderPosition);
         setMapCenterRevision((revision) => revision + 1);
         return;
       }
@@ -1830,22 +2018,26 @@ export function CampusMapRuntime({
           setMapMoving(false);
           return;
         }
-        if (samePlacementPosition(position, pendingPlacementCamera.position)) {
+        if (
+          samePlacementPosition(
+            currentProviderPosition,
+            pendingPlacementCamera.providerPosition,
+          )
+        ) {
           pendingPlacementCameraRef.current = null;
           setMapMoving(false);
           setCenterPosition(pendingPlacementCamera.position);
-          setProviderCenterPosition([
-            pendingPlacementCamera.position[0] + offset[0],
-            pendingPlacementCamera.position[1] + offset[1],
-          ]);
+          setProviderCenterPosition(pendingPlacementCamera.providerPosition);
           setMapCenterRevision((revision) => revision + 1);
-          lastSettledPlacementCameraTargetRef.current =
-            pendingPlacementCamera.position;
+          lastSettledPlacementCameraTargetRef.current = {
+            position: pendingPlacementCamera.position,
+            providerPosition: pendingPlacementCamera.providerPosition,
+          };
           return;
         }
         if (
           retiredPlacementCameraTargetsRef.current.some((target) =>
-            samePlacementPosition(position, target),
+            samePlacementPosition(currentProviderPosition, target),
           )
         ) {
           return;
@@ -1854,14 +2046,25 @@ export function CampusMapRuntime({
       }
       if (
         retiredPlacementCameraTargetsRef.current.some((target) =>
-          samePlacementPosition(position, target),
+          samePlacementPosition(currentProviderPosition, target),
         )
       ) {
         return;
       }
+      const position = approximateWgs84Position(currentProviderPosition);
+      if (!position) {
+        setProviderCenterPosition(null);
+        if (editSessionPlacingRef.current) {
+          setPlaceContext({ status: "permanent-error" });
+          setMapMoving(true);
+        } else {
+          setMapMoving(false);
+        }
+        return;
+      }
       setMapMoving(false);
       setCenterPosition(position);
-      setProviderCenterPosition([center.lng, center.lat]);
+      setProviderCenterPosition(currentProviderPosition);
       setMapCenterRevision((revision) => revision + 1);
     });
     const cancelForUserZoom = () => {
@@ -1954,62 +2157,103 @@ export function CampusMapRuntime({
     };
   }, [config, initialiseMap, mapLoadAttempt]);
 
+  const amapCoordinateProjection = useMemo(
+    () =>
+      projectCampusMapBrowseToAmap(browseProjection, {
+        visibleAmenity: visibleMarkerAmenity,
+        selectedBuildingId: selectedBuilding?.buildingId ?? null,
+        selectedPlaceId: selectedMarkerPlaceId,
+      }),
+    [
+      browseProjection,
+      selectedBuilding?.buildingId,
+      selectedMarkerPlaceId,
+      visibleMarkerAmenity,
+    ],
+  );
+  const amapCoordinateProjectionRef = useRef(amapCoordinateProjection);
   useEffect(() => {
-    const AMap = window.AMap;
+    amapCoordinateProjectionRef.current = amapCoordinateProjection;
+  }, [amapCoordinateProjection]);
+  const amapCoordinateProjectionSignature = useMemo(
+    () => campusMapAmapCoordinateProjectionSignature(amapCoordinateProjection),
+    [amapCoordinateProjection],
+  );
+
+  useEffect(() => {
     const map = mapRef.current;
-    if (!mapReady || !AMap || !map) return;
+    const AMap = window.AMap;
+    if (!mapReady || !map || !AMap) return;
     const transitionToken = driver.getSnapshot().transitionToken;
-    void coordinateProjectorRef.current
-      .projectLatest(browseProjection, {
-        convertFrom: (positions, source, callback) =>
-          AMap.convertFrom(positions, source, callback),
-      })
-      .then((projection) => {
-        if (projection.status === "superseded" || mapRef.current !== map) {
-          return;
+    const projection = amapCoordinateProjectionRef.current;
+    const resolver =
+      coordinateResolverRef.current ??
+      (coordinateResolverRef.current = new CampusMapAmapCoordinateResolver(
+        AMap,
+      ));
+    const cachedPositions = resolver.readCached(projection.providerRequests);
+    const abortController = new AbortController();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled || mapRef.current !== map) return;
+      const converted = {
+        ...projection.positions,
+        ...cachedPositions,
+        __campus: projection.center,
+      };
+      const projectionStillOwnsScene =
+        driver.getSnapshot().transitionToken === transitionToken;
+      amapPositionsRef.current = converted;
+      if (editSessionPlacingRef.current) {
+        const anchor = readVisiblePlacementAnchor();
+        if (anchor) {
+          setCenterPosition(anchor.wgs84Position);
+          setProviderCenterPosition(anchor.providerPosition);
         }
-        if (projection.status === "error") {
-          amapPositionsRef.current = {};
-          setCoordinateVersion(0);
-          setMapLoadError("coordinates");
-          return;
-        }
-        const converted = {
-          ...projection.positions,
-          __campus: projection.center,
-        };
-        const projectionStillOwnsScene =
-          driver.getSnapshot().transitionToken === transitionToken;
-        amapOffsetRef.current = projection.offset;
-        amapPositionsRef.current = converted;
-        setAmapOffset(projection.offset);
-        if (editSessionPlacingRef.current) {
-          const anchor = readVisiblePlacementAnchor(projection.offset);
-          if (anchor) {
-            setCenterPosition(anchor.wgs84Position);
-            setProviderCenterPosition(anchor.providerPosition);
+      } else if (projectionStillOwnsScene) {
+        setCenterPosition(asWgs84Position(CAMPUS_CENTER));
+        setProviderCenterPosition(projection.center);
+      }
+      setCoordinateVersion((version) => version + 1);
+      const shouldSetInitialCenter = !didSetInitialCenterRef.current;
+      if (shouldSetInitialCenter) didSetInitialCenterRef.current = true;
+      const pendingCamera = pendingDriverCameraRef.current;
+      if (pendingCamera) {
+        executeDriverCamera(pendingCamera.command, pendingCamera.context);
+      } else if (
+        shouldSetInitialCenter &&
+        projectionStillOwnsScene &&
+        !editSessionActiveRef.current
+      ) {
+        map.setZoomAndCenter(17.2, projection.center, true, 0);
+      }
+      if (projection.providerRequests.length === 0) return;
+      void resolver
+        .resolve(projection.providerRequests, {
+          signal: abortController.signal,
+        })
+        .then((resolvedPositions) => {
+          if (cancelled || mapRef.current !== map) return;
+          amapPositionsRef.current = {
+            ...amapPositionsRef.current,
+            ...resolvedPositions,
+          };
+          setCoordinateVersion((version) => version + 1);
+          const pendingProviderCamera = pendingDriverCameraRef.current;
+          if (pendingProviderCamera) {
+            executeDriverCamera(
+              pendingProviderCamera.command,
+              pendingProviderCamera.context,
+            );
           }
-        } else if (projectionStillOwnsScene) {
-          setCenterPosition(CAMPUS_CENTER);
-          setProviderCenterPosition(projection.center);
-        }
-        setCoordinateVersion((version) => version + 1);
-        setMapLoadError(null);
-        const shouldSetInitialCenter = !didSetInitialCenterRef.current;
-        if (shouldSetInitialCenter) didSetInitialCenterRef.current = true;
-        const pendingCamera = pendingDriverCameraRef.current;
-        if (pendingCamera) {
-          executeDriverCamera(pendingCamera.command, pendingCamera.context);
-        } else if (
-          shouldSetInitialCenter &&
-          projectionStillOwnsScene &&
-          !editSessionActiveRef.current
-        ) {
-          map.setZoomAndCenter(17.2, projection.center, true, 0);
-        }
-      });
+        });
+    });
+    return () => {
+      cancelled = true;
+      abortController.abort();
+    };
   }, [
-    browseProjection,
+    amapCoordinateProjectionSignature,
     driver,
     executeDriverCamera,
     mapReady,
@@ -2017,16 +2261,14 @@ export function CampusMapRuntime({
   ]);
 
   useEffect(() => {
-    if (userLocation.status !== "located") return;
+    if (userLocation.status !== "located" || !userLocation.providerPosition)
+      return;
     const map = mapRef.current;
     const AMap = window.AMap;
     if (!mapReady || !map || !AMap || coordinateVersion === 0) return;
-    const offset = amapOffsetRef.current;
+    const providerPosition = userLocation.providerPosition;
     const marker = new AMap.Marker({
-      position: new AMap.LngLat(
-        userLocation.position.longitude + offset[0],
-        userLocation.position.latitude + offset[1],
-      ),
+      position: new AMap.LngLat(providerPosition[0], providerPosition[1]),
       content:
         '<div data-campus-map-user-location aria-hidden="true" style="width:20px;height:20px;border:4px solid white;border-radius:9999px;background:#176346;box-shadow:0 2px 8px rgba(23,33,28,.35)"></div>',
       zIndex: 220,
@@ -2128,7 +2370,6 @@ export function CampusMapRuntime({
       pointerGestureCleanupRef.current = null;
       facilityMarkerRuntimeRef.current.destroy();
       providerPoiCardResolverRef.current.invalidate();
-      coordinateProjectorRef.current.invalidate();
       mapRef.current?.destroy();
       mapRef.current = null;
     },

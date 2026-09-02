@@ -1,3 +1,4 @@
+import type { CampusMapPointPrecision } from "@/db/schema";
 import type { CameraReason, ScreenRect } from "@/lib/campus-map/camera-policy";
 import {
   decodeCampusMapHistoryMetadata,
@@ -46,6 +47,7 @@ export type CampusMapDriverCameraCommand =
   | {
       kind: "edit-position";
       position: readonly [longitude: number, latitude: number];
+      precision: CampusMapPointPrecision;
       reason:
         | "draft-restore"
         | "keyboard-placement"
@@ -328,9 +330,10 @@ export class CampusMapSceneDriver {
       | "keyboard-placement"
       | "provider-placement"
       | "reposition",
+    precision: CampusMapPointPrecision = "approximate",
   ) {
     this.ports.camera(
-      { kind: "edit-position", position, reason },
+      { kind: "edit-position", position, reason, precision },
       this.effectContext(),
     );
   }

@@ -246,7 +246,11 @@ export function useCampusMapEditSessionOwner({
             dispatch({ type: "CANCEL_TASK" });
           }
         } else if (command.kind === "camera") {
-          driver.recenterEditPosition(command.position, "reposition");
+          driver.recenterEditPosition(
+            command.position,
+            "reposition",
+            command.precision,
+          );
         } else if (command.kind === "focus") {
           const intentToken = driver.getIntentToken();
           window.setTimeout(() => {
@@ -316,6 +320,7 @@ export function useCampusMapEditSessionOwner({
         driver.recenterEditPosition(
           [event.position.longitude, event.position.latitude],
           "keyboard-placement",
+          event.position.precision,
         );
       }
     },
@@ -522,12 +527,14 @@ export function useCampusMapEditSessionOwner({
               ? {
                   longitude: next.draft.fact.location.longitude,
                   latitude: next.draft.fact.location.latitude,
+                  precision: next.draft.fact.location.precision,
                 }
               : null);
           if (restoredPosition) {
             driver.recenterEditPosition(
               [restoredPosition.longitude, restoredPosition.latitude],
               "draft-restore",
+              restoredPosition.precision,
             );
           }
         });
