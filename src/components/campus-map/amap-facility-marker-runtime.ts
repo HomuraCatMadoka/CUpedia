@@ -8,6 +8,11 @@ import type {
   CampusMapBrowseProjection,
 } from "@/lib/campus-map/browse-projection";
 import {
+  campusMapBuildingDisplayFor,
+  projectCampusMapBuildingDisplay,
+  type CampusMapBuildingDisplayProjection,
+} from "@/lib/campus-map/building-display";
+import {
   facilityMarkerContent,
   type CampusMapAmenity,
 } from "@/lib/campus-map/facility-marker";
@@ -79,6 +84,7 @@ function providerPositionKey(position: ProviderLngLat | CampusMapPosition) {
 function markerView(
   marker: CampusMapBrowseMarker,
   projection: CampusMapBrowseProjection,
+  buildingDisplay: CampusMapBuildingDisplayProjection,
 ) {
   const style = campusMapAmenityStyle(marker.pinType);
   if (marker.kind === "place") {
@@ -103,6 +109,9 @@ function markerView(
     (candidate) => candidate.buildingId === marker.buildingId,
   );
   if (!building) return null;
+  const buildingName =
+    campusMapBuildingDisplayFor(buildingDisplay, building.buildingId)?.label ??
+    building.name;
   const markerPlaces = marker.placeIds.flatMap((placeId) => {
     const place = projection.places.find(
       (candidate) => candidate.placeId === placeId,
@@ -123,11 +132,11 @@ function markerView(
       markerPlaces.length === 1
         ? markerPlaces[0]!.name
         : `${markerPlaces.length} 个${style.label}`,
-    buildingName: building.name,
+    buildingName,
     floorLabel: locationLabel,
     category: marker.pinType,
     color: style.color,
-    markerLabel: `${building.name}有 ${markerPlaces.length} 个${style.label}，建筑位置参考`,
+    markerLabel: `${buildingName}有 ${markerPlaces.length} 个${style.label}，建筑位置参考`,
   };
 }
 
@@ -165,6 +174,9 @@ export class AmapFacilityMarkerRuntime {
       this.destroy();
       return true;
     }
+    const buildingDisplay = projectCampusMapBuildingDisplay(
+      projection.buildings,
+    );
 
     const projectedMarkers = projection.markers.filter(
       (marker) =>
@@ -251,7 +263,11 @@ export class AmapFacilityMarkerRuntime {
               );
               return;
             }
-            const view = markerView(projectedMarker, projection);
+            const view = markerView(
+              projectedMarker,
+              projection,
+              buildingDisplay,
+            );
             if (!view) return;
             this.markers.set(target.markerKey, marker);
             marker.setContent(
@@ -316,6 +332,9 @@ export class AmapFacilityMarkerRuntime {
     projection: CampusMapBrowseProjection,
     selectedPlaceId: string | null,
   ) {
+    const buildingDisplay = projectCampusMapBuildingDisplay(
+      projection.buildings,
+    );
     const syncDom = () => {
       container
         ?.querySelectorAll<HTMLElement>("[data-facility-id]")
@@ -345,7 +364,7 @@ export class AmapFacilityMarkerRuntime {
         selectedPlaceId &&
         markerContainsPlace(projectedMarker, selectedPlaceId),
       );
-      const view = markerView(projectedMarker, projection);
+      const view = markerView(projectedMarker, projection, buildingDisplay);
       if (!view) continue;
       marker.setzIndex(selected ? 220 : 160);
       marker.setContent(facilityMarkerContent({ ...view, selected }));

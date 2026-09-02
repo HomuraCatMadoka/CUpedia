@@ -277,6 +277,68 @@ function formalCurrentFactsProjection() {
   });
 }
 
+function duplicateBuildingNameProjection() {
+  const buildingName = "卫星遥感地面接收站";
+  const buildingEnglishName = "Satellite Remote Sensing Receiving Station";
+  const westBuildingId = "10000000-0000-4000-8000-000000000040";
+  const eastBuildingId = "10000000-0000-4000-8000-000000000013";
+  const floorId = "20000000-0000-4000-8000-000000000040";
+  const facility: CampusMapCurrentPlace = {
+    id: "30000000-0000-4000-8000-000000000040",
+    revisionId: "40000000-0000-4000-8000-000000000040",
+    factSchemaVersion: 1,
+    name: "西区饮水机",
+    pinType: "water",
+    capabilities: [],
+    access: {
+      audience: "public",
+      credentialRequirement: "none",
+      schedule: { kind: "always" },
+      reservationRequirement: "none",
+      temporaryStatus: "normal",
+    },
+    facets: { gender: "unknown", wheelchairAccess: "unknown" },
+    location: {
+      kind: "floor",
+      building: {
+        id: westBuildingId,
+        name: buildingName,
+        englishName: buildingEnglishName,
+        code: "H40",
+      },
+      floor: { id: floorId, displayLabel: "1/F", sortOrder: 1 },
+    },
+    observedAt: null,
+    verifiedAt: null,
+    publishedAt: new Date("2026-08-26T00:00:00.000Z"),
+    provenance: [],
+  };
+
+  return projectCampusMapBrowse({
+    buildings: [
+      {
+        buildingId: westBuildingId,
+        name: buildingName,
+        englishName: buildingEnglishName,
+        code: "H40",
+        aliases: [],
+        anchor: { longitude: 114.2, latitude: 22.42, crs: "wgs84" },
+        floors: [{ floorId, displayLabel: "1/F", sortOrder: 1 }],
+      },
+      {
+        buildingId: eastBuildingId,
+        name: buildingName,
+        englishName: buildingEnglishName,
+        code: "E13",
+        aliases: [],
+        anchor: { longitude: 114.21, latitude: 22.42, crs: "wgs84" },
+        floors: [],
+      },
+    ],
+    places: [facility],
+  });
+}
+
 function emptyBuildingProjection() {
   return projectCampusMapBrowse({
     buildings: [
@@ -424,6 +486,44 @@ describe("CampusMapRuntime", () => {
 
     expect(await screen.findByText("没有找到建筑或地点")).not.toBeNull();
     expect(screen.queryByText(/正式建筑或设施/)).toBeNull();
+  });
+
+  it("keeps a unique building code searchable without repeating it in the UI", async () => {
+    render(<CampusMapRuntime />);
+
+    fireEvent.change(screen.getByPlaceholderText("搜索建筑或地点…"), {
+      target: { value: "H10" },
+    });
+    const result = await screen.findByRole("button", { name: /科学馆/u });
+
+    expect(result.textContent).toContain("科学馆");
+    expect(result.textContent).not.toContain("H10");
+
+    fireEvent.click(result);
+    const heading = await screen.findByRole("heading", { name: "科学馆" });
+    expect(heading.closest("section")?.textContent).not.toContain("H10");
+  });
+
+  it("keeps the qualifier on facilities inside duplicate-name buildings", async () => {
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={duplicateBuildingNameProjection()}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("搜索建筑或地点…"), {
+      target: { value: "西区饮水机" },
+    });
+    const result = await screen.findByRole("button", {
+      name: /西区饮水机.*卫星遥感地面接收站（H40）/u,
+    });
+    expect(result.textContent).not.toContain("E13");
+
+    fireEvent.click(result);
+    const heading = await screen.findByRole("heading", { name: "西区饮水机" });
+    expect(heading.closest("section")?.textContent).toContain(
+      "卫星遥感地面接收站（H40）",
+    );
   });
 
   it("makes places the primary Building-card content and lists each Place separately", async () => {

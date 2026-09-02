@@ -161,4 +161,44 @@ describe("Campus Map stable Place page (#816)", () => {
     });
     expect(element.props).not.toHaveProperty("feedbackPageIsPaginated");
   });
+
+  it("keeps duplicate-name Buildings distinguishable on the stable Place page", async () => {
+    const buildingName = "卫星遥感地面接收站";
+    const englishName = "Satellite Remote Sensing Receiving Station";
+    mocks.listBuildings.mockResolvedValueOnce([
+      {
+        buildingId: "00000000-0000-4000-8000-000000008162",
+        name: buildingName,
+        englishName,
+        code: "H40",
+        aliases: [],
+        anchor: null,
+        floors: [
+          {
+            floorId: "00000000-0000-4000-8000-000000008163",
+            displayLabel: "1/F",
+            sortOrder: 1,
+          },
+        ],
+      },
+      {
+        buildingId: "00000000-0000-4000-8000-000000008164",
+        name: buildingName,
+        englishName,
+        code: "E13",
+        aliases: [],
+        anchor: null,
+        floors: [],
+      },
+    ]);
+
+    const element = await CampusMapPlacePage({
+      params: Promise.resolve({ placeId }),
+    });
+
+    expect(element.props.building).toEqual({
+      name: "卫星遥感地面接收站（H40）",
+      floorLabel: "1/F",
+    });
+  });
 });

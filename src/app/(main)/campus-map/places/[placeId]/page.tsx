@@ -3,6 +3,10 @@ import { notFound } from "next/navigation";
 import { CampusMapPlaceDetail } from "@/components/campus-map/place-detail";
 import { getAuthenticatedUserForApi } from "@/lib/auth-guard";
 import {
+  campusMapBuildingDisplayFor,
+  projectCampusMapBuildingDisplay,
+} from "@/lib/campus-map/building-display";
+import {
   getCampusMapPlaceHistory,
   getCampusMapPlaceRevision,
   listCampusMapBrowseBuildings,
@@ -50,6 +54,11 @@ export default async function CampusMapPlacePage({
     fact?.floorId && buildingRecord
       ? buildingRecord.floors.find((item) => item.floorId === fact.floorId)
       : null;
+  const buildingDisplay = projectCampusMapBuildingDisplay(buildings);
+  const buildingName = buildingRecord
+    ? (campusMapBuildingDisplayFor(buildingDisplay, buildingRecord.buildingId)
+        ?.label ?? buildingRecord.name)
+    : null;
 
   return (
     <CampusMapPlaceDetail
@@ -65,7 +74,7 @@ export default async function CampusMapPlacePage({
       building={
         buildingRecord
           ? {
-              name: buildingRecord.name,
+              name: buildingName ?? buildingRecord.name,
               floorLabel: floorRecord?.displayLabel ?? null,
             }
           : null

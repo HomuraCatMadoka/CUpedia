@@ -12,6 +12,7 @@ import {
 } from "react";
 import {
   ArrowLeftIcon,
+  Building2Icon,
   CheckCircle2Icon,
   LocateFixedIcon,
   MapPinIcon,
@@ -82,6 +83,10 @@ import {
 } from "@/lib/campus-map/browse-projection-store";
 import { summarizeCampusMapAccess } from "@/lib/campus-map/access-summary";
 import { projectCampusMapBuildingDirectory } from "@/lib/campus-map/building-directory";
+import {
+  campusMapBuildingDisplayFor,
+  projectCampusMapBuildingDisplay,
+} from "@/lib/campus-map/building-display";
 import {
   CAMPUS_MAP_CATEGORY_PEEK_RESULT_LIMIT,
   campusMapMobilePanelHeight,
@@ -472,12 +477,14 @@ function metadataLabel(...parts: Array<string | null | undefined>) {
 function facilityResultLocationLabel(
   facility: Place,
   building: CampusMapBrowseBuilding | undefined,
+  buildingLabel?: string,
 ) {
   if (facility.location.kind === "outdoor-point") return "室外位置";
   if (!building) return placeLocationLabel(facility);
+  const visibleBuildingLabel = buildingLabel ?? building.name;
   return facility.location.kind === "floor"
-    ? `${building.name} · ${facility.location.floor.displayLabel}`
-    : `${building.name} · 楼层未知`;
+    ? `${visibleBuildingLabel} · ${facility.location.floor.displayLabel}`
+    : `${visibleBuildingLabel} · 楼层未知`;
 }
 
 function publishedPlaceNotice(
@@ -493,7 +500,11 @@ function publishedPlaceNotice(
     (candidate) => candidate.buildingId === place.buildingId,
   );
   if (!building) return "地点已发布";
-  const location = `${building.name} · ${floorLabel(place.floorId, place.floorLabel)}`;
+  const display = projectCampusMapBuildingDisplay(projection.buildings);
+  const buildingLabel =
+    campusMapBuildingDisplayFor(display, building.buildingId)?.label ??
+    building.name;
+  const location = `${buildingLabel} · ${floorLabel(place.floorId, place.floorLabel)}`;
   return operation === "create"
     ? `已添加到 ${location}`
     : `地点已发布 · ${location}`;
@@ -579,6 +590,10 @@ export function CampusMapRuntime({
   );
   const buildings = browseProjection.buildings;
   const places = browseProjection.places;
+  const buildingDisplay = useMemo(
+    () => projectCampusMapBuildingDisplay(buildings),
+    [buildings],
+  );
   const buildingsRef = useRef(buildings);
   const facilitiesRef = useRef(places);
   useEffect(() => {
@@ -2209,12 +2224,23 @@ export function CampusMapRuntime({
   const selectedBuildingFloor = selectedBuilding?.floors.find(
     (floor) => floor.floorId === state.buildingContext.floorId,
   );
+  const selectedBuildingDisplay = selectedBuilding
+    ? campusMapBuildingDisplayFor(buildingDisplay, selectedBuilding.buildingId)
+    : null;
+  const selectedBuildingDisplayName =
+    selectedBuildingDisplay?.label ?? selectedBuilding?.name ?? null;
+  const selectedBuildingQualifier = selectedBuildingDisplay?.qualifier ?? null;
+  const visibleSelectedBuildingQualifier =
+    selectedBuildingQualifier &&
+    selectedBuildingQualifier !== selectedBuilding?.englishName?.trim()
+      ? selectedBuildingQualifier
+      : null;
   const buildingAddAccessibleName = selectedBuilding
     ? selectedBuildingIsEmpty
-      ? `在${selectedBuilding.name}新增第一处设施`
+      ? `在${selectedBuildingDisplayName}新增第一处设施`
       : selectedBuildingFloor
-        ? `在${selectedBuilding.name}的 ${selectedBuildingFloor.displayLabel} 新增设施`
-        : `在${selectedBuilding.name}新增设施`
+        ? `在${selectedBuildingDisplayName}的 ${selectedBuildingFloor.displayLabel} 新增设施`
+        : `在${selectedBuildingDisplayName}新增设施`
     : "新增设施";
   const panelHidden = Boolean(
     !editSession &&
@@ -2409,26 +2435,63 @@ export function CampusMapRuntime({
                     result.kind === "building"
                       ? result.building.buildingId
                       : result.facility.placeId;
+                  const resultStyle =
+                    result.kind === "place"
+                      ? amenityStyle(result.facility.pinType)
+                      : null;
+                  const ResultIcon = resultStyle?.icon ?? Building2Icon;
+                  const resultBuilding = result.building;
+                  const resultBuildingDisplay = resultBuilding
+                    ? campusMapBuildingDisplayFor(
+                        buildingDisplay,
+                        resultBuilding.buildingId,
+                      )
+                    : null;
+                  const buildingQualifier =
+                    result.kind === "building"
+                      ? (resultBuildingDisplay?.qualifier ?? null)
+                      : null;
+                  const visibleBuildingQualifier =
+                    result.kind === "building" &&
+                    buildingQualifier !== result.building.englishName?.trim()
+                      ? buildingQualifier
+                      : null;
+                  const resultBuildingLabel =
+                    result.kind === "place" && resultBuilding
+                      ? (resultBuildingDisplay?.label ?? resultBuilding.name)
+                      : null;
                   const subtitle =
                     result.kind === "building"
                       ? result.building.englishName
                       : metadataLabel(
-                          result.building?.name,
+                          resultBuildingLabel,
                           placeLocationLabel(result.facility),
                           summarizeCampusMapAccess(result.facility.access),
                         );
                   const content = (
                     <>
-                      <span className="grid size-9 place-items-center rounded-lg bg-[#e4f1eb] text-xs font-bold text-[#176346]">
-                        {result.kind === "building"
-                          ? (result.building.code ?? "校舍")
-                          : (result.building?.code ?? "地点")}
+                      <span
+                        className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#e4f1eb] text-[#176346]"
+                        style={
+                          resultStyle
+                            ? { background: resultStyle.color, color: "white" }
+                            : undefined
+                        }
+                      >
+                        <ResultIcon aria-hidden="true" className="size-4" />
                       </span>
-                      <span className="min-w-0">
-                        <strong className="block truncate text-sm">
-                          {result.kind === "building"
-                            ? result.building.name
-                            : result.facility.name}
+                      <span className="min-w-0 flex-1">
+                        <strong className="flex min-w-0 items-center gap-1.5 text-sm">
+                          <span className="truncate">
+                            {result.kind === "building"
+                              ? result.building.name
+                              : result.facility.name}
+                          </span>
+                          {visibleBuildingQualifier ? (
+                            <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-600">
+                              {visibleBuildingQualifier}
+                            </span>
+                          ) : null}
                         </strong>
                         {subtitle ? (
                           <span className="block truncate text-xs text-neutral-500">
@@ -2580,7 +2643,7 @@ export function CampusMapRuntime({
         >
           <LocateFixedIcon aria-hidden="true" className="size-5" />
         </button>
-        {!selectedBuilding && !activeAmenity ? (
+        {!selectedBuilding && !activeAmenity && !selectedProviderPoi ? (
           <button
             type="button"
             aria-label="新增设施"
@@ -2798,7 +2861,16 @@ export function CampusMapRuntime({
                   <FacilityResultButton
                     key={facility.placeId}
                     facility={facility}
-                    location={facilityResultLocationLabel(facility, building)}
+                    location={facilityResultLocationLabel(
+                      facility,
+                      building,
+                      building
+                        ? campusMapBuildingDisplayFor(
+                            buildingDisplay,
+                            building.buildingId,
+                          )?.label
+                        : undefined,
+                    )}
                     summary={metadataLabel(
                       feedbackSummaryLabel(
                         initialFeedbackSummaries[facility.placeId],
@@ -2898,7 +2970,7 @@ export function CampusMapRuntime({
                     {metadataLabel(
                       amenityStyle(selectedFacility.pinType).label,
                       selectedBuilding
-                        ? selectedBuilding.name
+                        ? selectedBuildingDisplayName
                         : placeLocationLabel(selectedFacility),
                       selectedBuilding
                         ? floorLabel(
@@ -2910,19 +2982,20 @@ export function CampusMapRuntime({
                   </p>
                 ) : selectedBuilding ? (
                   <>
-                    {selectedBuilding.englishName || selectedBuilding.code ? (
+                    {selectedBuilding.englishName ||
+                    visibleSelectedBuildingQualifier ? (
                       <p className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-sm text-neutral-500">
                         {selectedBuilding.englishName ? (
                           <span className="min-w-0 truncate">
                             {selectedBuilding.englishName}
                           </span>
                         ) : null}
-                        {selectedBuilding.code ? (
+                        {visibleSelectedBuildingQualifier ? (
                           <span
-                            title={selectedBuilding.code}
+                            title={visibleSelectedBuildingQualifier}
                             className="max-w-full shrink-0 truncate rounded-md bg-neutral-100 px-1.5 py-0.5 text-xs font-medium text-neutral-600"
                           >
-                            {selectedBuilding.code}
+                            {visibleSelectedBuildingQualifier}
                           </span>
                         ) : null}
                       </p>
@@ -3112,6 +3185,7 @@ export function CampusMapRuntime({
                             location={facilityResultLocationLabel(
                               buildingPreviewFacility,
                               selectedBuilding,
+                              selectedBuildingDisplayName ?? undefined,
                             )}
                             summary={metadataLabel(
                               amenityStyle(buildingPreviewFacility.pinType)
@@ -3191,6 +3265,7 @@ export function CampusMapRuntime({
                                     location={facilityResultLocationLabel(
                                       facility,
                                       selectedBuilding,
+                                      selectedBuildingDisplayName ?? undefined,
                                     )}
                                     summary={metadataLabel(
                                       amenityStyle(facility.pinType).label,

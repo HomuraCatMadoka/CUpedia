@@ -703,6 +703,7 @@ export async function listCampusMapBrowseBuildings(): Promise<
       eq(campusMapBuildings.id, campusMapFloors.buildingId),
     )
     .orderBy(
+      asc(campusMapBuildings.name),
       asc(campusMapBuildings.id),
       asc(campusMapFloors.sortOrder),
       asc(campusMapFloors.id),
