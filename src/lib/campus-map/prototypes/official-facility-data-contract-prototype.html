@@ -1,0 +1,1435 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4f7f3" />
+    <title>校园设施资料验证 · Prototype #847</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --page: #f4f7f3;
+        --paper: #ffffff;
+        --ink: #17231b;
+        --muted: #5d6a62;
+        --line: #dce4de;
+        --accent: #246b45;
+        --accent-strong: #174d31;
+        --accent-soft: #e8f3eb;
+        --warn: #7a5615;
+        --warn-soft: #fff6d8;
+        --shadow: 0 14px 34px rgba(24, 55, 36, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--page);
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 10% 0%, rgba(75, 139, 98, 0.11), transparent 28rem),
+          var(--page);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button,
+      a {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: rgba(36, 107, 69, 0.14);
+      }
+
+      .skip-link {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        z-index: 20;
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: var(--ink);
+        color: white;
+        transform: translateY(-150%);
+      }
+
+      .skip-link:focus {
+        transform: translateY(0);
+      }
+
+      .shell {
+        width: min(1220px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 24px 0 64px;
+      }
+
+      .hero,
+      .section {
+        border: 1px solid rgba(214, 224, 216, 0.95);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        padding: 30px;
+      }
+
+      .section {
+        margin-top: 18px;
+        padding: 24px;
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        text-wrap: pretty;
+      }
+
+      h1 {
+        max-width: 760px;
+        margin: 0;
+        font-size: clamp(30px, 5vw, 52px);
+        line-height: 1.08;
+        letter-spacing: -0.035em;
+      }
+
+      h2 {
+        margin: 0;
+        font-size: clamp(22px, 3vw, 30px);
+        letter-spacing: -0.02em;
+      }
+
+      h3 {
+        margin: 0;
+        font-size: 17px;
+      }
+
+      .lede {
+        max-width: 790px;
+        margin: 15px 0 0;
+        color: var(--muted);
+        font-size: 17px;
+        line-height: 1.75;
+      }
+
+      .rule {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 14px;
+        max-width: 880px;
+        margin-top: 22px;
+      }
+
+      .rule-card {
+        min-height: 92px;
+        padding: 15px 17px;
+        border: 1px solid #b8d4c1;
+        border-radius: 15px;
+        background: var(--accent-soft);
+      }
+
+      .rule-card strong {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--accent-strong);
+      }
+
+      .rule-card span {
+        color: #385744;
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      .rule-plus {
+        color: var(--accent);
+        font-size: 25px;
+        font-weight: 900;
+      }
+
+      .prototype-note {
+        display: inline-flex;
+        margin-top: 18px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: var(--warn-soft);
+        color: var(--warn);
+        font-size: 12px;
+        font-weight: 750;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+
+      .section-head p {
+        margin: 7px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      .search-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr);
+        gap: 18px;
+      }
+
+      .search-box,
+      .selected-panel {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fbfdfb;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 14px;
+        font-weight: 850;
+      }
+
+      input[type="search"] {
+        width: 100%;
+        min-height: 48px;
+        padding: 11px 14px;
+        border: 1px solid #aebbb2;
+        border-radius: 12px;
+        background: var(--paper);
+        color: var(--ink);
+      }
+
+      input[type="search"]:focus-visible,
+      button:focus-visible,
+      a:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid rgba(36, 107, 69, 0.34);
+        outline-offset: 2px;
+      }
+
+      .quick-searches,
+      .button-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .quick-searches {
+        margin-top: 11px;
+      }
+
+      .button,
+      .chip-button {
+        min-height: 40px;
+        padding: 8px 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--paper);
+        color: var(--ink);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .button:hover,
+      .chip-button:hover {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+
+      .button.active,
+      .chip-button.active {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: white;
+      }
+
+      .search-summary,
+      .interaction-feedback {
+        margin: 14px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .interaction-feedback:not(:empty) {
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        font-weight: 750;
+      }
+
+      .result-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .result {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--paper);
+        color: var(--ink);
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .result:hover,
+      .result.active {
+        border-color: var(--accent);
+      }
+
+      .result strong,
+      .result small {
+        display: block;
+      }
+
+      .result small {
+        margin-top: 4px;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      .case-stack {
+        display: grid;
+        gap: 14px;
+      }
+
+      .case-row {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 17px;
+        background: #fbfdfb;
+      }
+
+      .case-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .case-title-row p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .verdict-badge {
+        flex: 0 0 auto;
+        padding: 6px 9px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .case-columns {
+        display: grid;
+        grid-template-columns: 1.05fr 1.05fr 0.9fr 1.2fr 0.9fr;
+        gap: 9px;
+      }
+
+      .case-cell {
+        min-width: 0;
+        padding: 12px;
+        border-radius: 12px;
+        background: var(--paper);
+        overflow-wrap: anywhere;
+      }
+
+      .case-cell > strong {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.05em;
+      }
+
+      .case-cell p,
+      .case-cell ul {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .case-cell ul {
+        padding-left: 17px;
+      }
+
+      .record-tree {
+        color: var(--accent-strong);
+        font-weight: 800;
+        white-space: pre-line;
+      }
+
+      .mini-searches {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .mini-searches .chip-button {
+        min-height: 32px;
+        padding: 5px 8px;
+        font-size: 12px;
+      }
+
+      .place-card {
+        padding: 15px;
+        border: 1px solid #cfd9d1;
+        border-radius: 14px;
+        background: var(--paper);
+        box-shadow: 0 8px 20px rgba(24, 55, 36, 0.07);
+      }
+
+      .card-type {
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .card-title {
+        margin: 5px 0 0;
+        font-size: 18px;
+        line-height: 1.3;
+      }
+
+      .card-location,
+      .card-key,
+      .card-more {
+        margin: 6px 0 0;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .card-location,
+      .card-more {
+        color: var(--muted);
+      }
+
+      .card-details {
+        margin-top: 10px;
+        border: 0;
+        border-radius: 9px;
+        background: #f2f5f3;
+      }
+
+      .card-details > summary {
+        padding: 8px 10px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .card-details .card-more {
+        padding: 0 10px 10px;
+      }
+
+      .card-key {
+        font-weight: 800;
+      }
+
+      .card-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-top: 12px;
+      }
+
+      .card-actions button,
+      .card-actions a {
+        min-height: 34px;
+        padding: 6px 9px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: var(--paper);
+        color: var(--ink);
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 800;
+        text-decoration: none;
+      }
+
+      .card-actions .primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: white;
+      }
+
+      details {
+        margin-top: 18px;
+        border: 1px solid var(--line);
+        border-radius: 15px;
+        background: #fbfdfb;
+      }
+
+      summary {
+        padding: 15px 17px;
+        cursor: pointer;
+        font-weight: 850;
+      }
+
+      .details-body {
+        padding: 0 17px 17px;
+      }
+
+      .migration-warning {
+        padding: 13px 15px;
+        border-radius: 12px;
+        background: var(--warn-soft);
+        color: var(--warn);
+        font-size: 13px;
+        font-weight: 750;
+        line-height: 1.6;
+      }
+
+      .technical-grid {
+        display: grid;
+        grid-template-columns: 0.9fr 1.1fr;
+        gap: 14px;
+        margin-top: 14px;
+      }
+
+      .technical-panel {
+        min-width: 0;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--paper);
+      }
+
+      .check-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 11px;
+      }
+
+      .check {
+        display: grid;
+        grid-template-columns: 22px minmax(0, 1fr);
+        gap: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .check span:first-child {
+        display: grid;
+        width: 21px;
+        height: 21px;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      pre {
+        max-height: 340px;
+        margin: 11px 0 0;
+        padding: 13px;
+        overflow: auto;
+        border-radius: 10px;
+        background: #142019;
+        color: #e9f5ec;
+        font-size: 11px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .walkthrough-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .steps {
+        display: grid;
+        gap: 8px;
+      }
+
+      .step {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 9px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: var(--paper);
+      }
+
+      .step-number {
+        display: grid;
+        width: 26px;
+        height: 26px;
+        place-items: center;
+        border-radius: 50%;
+        background: #edf1ee;
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .step.done .step-number {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .footer-note {
+        margin: 16px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      @media (max-width: 1040px) {
+        .case-columns {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .case-cell.card-cell {
+          grid-column: span 2;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .shell {
+          width: min(100% - 20px, 1220px);
+          padding-top: 10px;
+        }
+
+        .hero,
+        .section {
+          padding: 18px;
+          border-radius: 16px;
+        }
+
+        .rule,
+        .search-layout,
+        .technical-grid,
+        .case-columns {
+          grid-template-columns: 1fr;
+        }
+
+        .rule-plus {
+          transform: rotate(90deg);
+          text-align: center;
+        }
+
+        .case-cell.card-cell {
+          grid-column: auto;
+        }
+
+        .section-head,
+        .case-title-row {
+          align-items: flex-start;
+        }
+
+        .step {
+          grid-template-columns: 28px minmax(0, 1fr);
+        }
+
+        .step .button {
+          grid-column: 1 / -1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">跳到主要内容</a>
+    <main id="main-content" class="shell">
+      <header class="hero">
+        <p class="eyebrow">可丢弃原型 · Issue 847</p>
+        <h1>三种校园资料，怎样变成可搜索的地点？</h1>
+        <p class="lede">
+          这页只验证一件事：课室、游泳池和保健处能不能放进同一套地点资料，同时保留学生真正需要的信息。
+          不用判断数据库字段，只看下面的搜索结果和三行结论是否符合常识。
+        </p>
+        <div class="rule" aria-label="地点划分规则">
+          <div class="rule-card">
+            <strong>能单独搜索、到达或办理</strong>
+            <span>就建立一个“地点”，例如 LSK LT6、游泳池或牙科。</span>
+          </div>
+          <span class="rule-plus" aria-hidden="true">+</span>
+          <div class="rule-card">
+            <strong>建筑关系确实有帮助</strong>
+            <span>才建立“建筑”，例如保健处包含门诊和牙科。</span>
+          </div>
+        </div>
+        <span class="prototype-note">只用少量人工短事实 · 不连接生产数据库</span>
+      </header>
+
+      <section class="section" aria-labelledby="search-title">
+        <div class="section-head">
+          <div>
+            <h2 id="search-title">1. 真的搜一下</h2>
+            <p>搜索结果与下方三行数据来自同一份资料，不是另外写死的演示文案。</p>
+          </div>
+        </div>
+        <div class="search-layout">
+          <div class="search-box">
+            <form id="search-form" role="search">
+              <label for="campus-search">搜索地点</label>
+              <input
+                id="campus-search"
+                name="campus-search"
+                type="search"
+                autocomplete="off"
+                placeholder="例如：LT6、游泳池、牙科…"
+              />
+            </form>
+            <div class="quick-searches" aria-label="搜索例子">
+              <button class="chip-button" type="button" data-query="LT6">试搜 LT6</button>
+              <button class="chip-button" type="button" data-query="游泳池">试搜游泳池</button>
+              <button class="chip-button" type="button" data-query="牙科">试搜牙科</button>
+              <button class="chip-button" type="button" data-query="李兆基楼">试搜李兆基楼</button>
+            </div>
+            <p id="search-summary" class="search-summary" aria-live="polite"></p>
+            <div id="search-results" class="result-list"></div>
+          </div>
+          <div class="selected-panel">
+            <h3>选中结果的地图卡片</h3>
+            <div id="selected-card" style="margin-top: 12px"></div>
+            <p id="interaction-feedback" class="interaction-feedback" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="cases-title">
+        <div class="section-head">
+          <div>
+            <h2 id="cases-title">2. 不用点击也能看懂的三行结论</h2>
+            <p>每行都说明官网给什么、我们保存什么、学生怎样找到，以及刻意不保存什么。</p>
+          </div>
+        </div>
+        <div id="case-stack" class="case-stack"></div>
+      </section>
+
+      <section class="section" aria-labelledby="details-title">
+        <div class="section-head">
+          <div>
+            <h2 id="details-title">3. 技术验证放在后面</h2>
+            <p>上面的结论已经完整；只有要实现或审核数据时才需要打开下面两项。</p>
+          </div>
+        </div>
+
+        <details>
+          <summary>开发者：查看 V2 输出和自动检查</summary>
+          <div class="details-body">
+            <div class="migration-warning">
+              重要：最新 main 仍是 V1。这里验证的是 #844 决定的 V2 草案，不宣称当前数据库已经兼容；正式接入仍需单独设计 schema 迁移。
+            </div>
+            <div class="technical-grid">
+              <article class="technical-panel">
+                <h3>可自动证明的项目</h3>
+                <div id="validation-report" class="check-list"></div>
+              </article>
+              <article class="technical-panel">
+                <h3>当前规范化输出</h3>
+                <div id="technical-case-buttons" class="button-row" style="margin-top: 10px"></div>
+                <pre id="normalized-output"></pre>
+              </article>
+            </div>
+          </div>
+        </details>
+
+        <details>
+          <summary>可选：按步骤走完一个例子</summary>
+          <div class="details-body">
+            <div id="walkthrough-tabs" class="walkthrough-tabs"></div>
+            <div id="walkthrough-body"></div>
+          </div>
+        </details>
+
+        <p class="footer-note">
+          事实样例核对日期：2026-09-01。原型不保存完整官网页面、ICS、个人预约资料或生产写入。
+        </p>
+      </section>
+    </main>
+
+    <script>
+      const FacilityContractPrototype = (() => {
+        const typeLabels = {
+          building: "建筑",
+          classroom: "课室",
+          "sports-facility": "运动设施",
+          "health-service": "医疗服务",
+        };
+
+        const cases = [
+          {
+            id: "classroom",
+            label: "课室",
+            question: "缺少楼层的课室还能不能收录？",
+            answer: "可以；有证据才填楼层，不猜资料。",
+            provider: "cuhk-res",
+            sourceSummary: "课室编号、建筑、部分楼层、容量、座位类型",
+            recordTree: "建筑 → 楼层（可选） → 每间课室",
+            searchTerms: ["LT6", "BMS LT", "李兆基楼"],
+            notStored: ["猜测的楼层", "官网整页副本"],
+            featuredId: "place-lsk-lt6",
+            sourceItems: [
+              { externalId: "LSK-LT6", targetId: "place-lsk-lt6" },
+              { externalId: "BMS-LT", targetId: "place-bms-lt" },
+              { externalId: "ARC-G03", targetId: "place-arc-g03" },
+            ],
+            mappings: [
+              ["cuhk-res", "LSK-LT6", "place-lsk-lt6"],
+              ["cuhk-res", "BMS-LT", "place-bms-lt"],
+              ["cuhk-res", "ARC-G03", "place-arc-g03"],
+            ],
+            records: [
+              {
+                id: "building-lsk",
+                kind: "building",
+                name: "Lee Shau Kee Building",
+                aliases: ["李兆基楼", "LSK"],
+                locationLabel: "Main Campus",
+              },
+              {
+                id: "floor-lsk-1",
+                kind: "floor",
+                name: "1/F",
+                buildingId: "building-lsk",
+                sortOrder: 1,
+              },
+              {
+                id: "place-lsk-lt6",
+                kind: "place",
+                name: "LSK LT6",
+                aliases: ["LT6", "李兆基楼六号演讲厅"],
+                placeType: "classroom",
+                location: { buildingId: "building-lsk", floorId: "floor-lsk-1" },
+                capacity: 446,
+                seatType: "Lecture Theatre",
+                officialActions: [],
+              },
+              {
+                id: "building-bms",
+                kind: "building",
+                name: "Basic Medical Sciences Building",
+                aliases: ["基础医学大楼", "BMS"],
+                locationLabel: "Main Campus",
+              },
+              {
+                id: "place-bms-lt",
+                kind: "place",
+                name: "BMS LT",
+                aliases: ["BMS Lecture Theatre"],
+                placeType: "classroom",
+                location: { buildingId: "building-bms" },
+                capacity: 76,
+                seatType: "Lecture Theatre",
+                officialActions: [],
+              },
+              {
+                id: "building-arc",
+                kind: "building",
+                name: "Lee Shau Kee Architecture Building",
+                aliases: ["李兆基建筑学大楼", "ARC"],
+                locationLabel: "Near University Station",
+              },
+              {
+                id: "floor-arc-g",
+                kind: "floor",
+                name: "G/F",
+                buildingId: "building-arc",
+                sortOrder: 0,
+              },
+              {
+                id: "place-arc-g03",
+                kind: "place",
+                name: "ARC G03",
+                aliases: ["G03"],
+                placeType: "classroom",
+                location: { buildingId: "building-arc", floorId: "floor-arc-g" },
+                capacity: 84,
+                seatType: "Armchair / Table & Chair",
+                officialActions: [],
+              },
+            ],
+          },
+          {
+            id: "pool",
+            label: "游泳池",
+            question: "只有一个目的地，要不要再套一层同名建筑？",
+            answer: "不要；游泳池本身就是可直接导航的地点。",
+            provider: "cuhk-osa",
+            sourceSummary: "名称、通常开放时间、收费提示、官方最新安排",
+            recordTree: "游泳池（直接是一个地点）",
+            searchTerms: ["游泳池", "Swimming Pool"],
+            notStored: ["同名建筑包装", "完整日历事件"],
+            featuredId: "place-university-pool",
+            sourceItems: [
+              { externalId: "university-swimming-pool", targetId: "place-university-pool" },
+            ],
+            mappings: [
+              ["cuhk-osa", "university-swimming-pool", "place-university-pool"],
+            ],
+            records: [
+              {
+                id: "place-university-pool",
+                kind: "place",
+                name: "University Swimming Pool",
+                aliases: ["大学游泳池", "游泳池", "Swimming Pool"],
+                placeType: "sports-facility",
+                location: {
+                  kind: "outdoor-point",
+                  label: "Central Campus · 坐标待独立核对",
+                  precision: "approximate",
+                },
+                regularHours: "星期一至四 10:30–13:30、15:00–19:30",
+                officialActions: [
+                  {
+                    label: "查看最新安排",
+                    url: "https://www.osa.cuhk.edu.hk/campus-life/amenities/swimming-pool/",
+                  },
+                ],
+                visitNote: "学生 HK$5；只收八达通；CU Link 可作入场凭证",
+              },
+            ],
+          },
+          {
+            id: "health",
+            label: "保健处",
+            question: "楼里的每项服务都要变成一个地点吗？",
+            answer: "不要；只有预约或办理入口不同的服务才拆开。",
+            provider: "cuhk-umso",
+            sourceSummary: "建筑地址、门诊与牙科各自的预约入口和电话",
+            recordTree: "保健处建筑\n↳ 门诊地点\n↳ 牙科地点",
+            searchTerms: ["保健处", "门诊", "牙科"],
+            notStored: ["每项小服务一个地点", "个人预约资料"],
+            featuredId: "place-outpatient",
+            sourceItems: [
+              { externalId: "university-health-centre", targetId: "building-health-centre" },
+              { externalId: "outpatient-service", targetId: "place-outpatient" },
+              { externalId: "dental-service", targetId: "place-dental" },
+            ],
+            mappings: [
+              ["cuhk-umso", "university-health-centre", "building-health-centre"],
+              ["cuhk-umso", "outpatient-service", "place-outpatient"],
+              ["cuhk-umso", "dental-service", "place-dental"],
+            ],
+            records: [
+              {
+                id: "building-health-centre",
+                kind: "building",
+                name: "University Health Centre",
+                aliases: ["大学保健处", "保健处", "校医室"],
+                locationLabel: "Clinic Road",
+              },
+              {
+                id: "place-outpatient",
+                kind: "place",
+                name: "Outpatient Service",
+                aliases: ["门诊", "普通科门诊"],
+                placeType: "health-service",
+                location: { buildingId: "building-health-centre" },
+                regularHours: "星期一至四 08:45–13:00、14:00–17:30",
+                capabilities: ["药房", "化验", "物理治疗"],
+                officialActions: [
+                  { label: "网上预约", url: "https://www.umso.cuhk.edu.hk/" },
+                  { label: "电话预约", url: "tel:+85239436439" },
+                  { label: "查看官方详情", url: "https://www.umso.cuhk.edu.hk/" },
+                ],
+                visitNote: "登记时需出示身份证明",
+              },
+              {
+                id: "place-dental",
+                kind: "place",
+                name: "Dental Service",
+                aliases: ["牙科", "牙医"],
+                placeType: "health-service",
+                location: { buildingId: "building-health-centre" },
+                officialActions: [
+                  { label: "电话预约", url: "tel:+85239436412" },
+                  { label: "查看官方详情", url: "https://www.umso.cuhk.edu.hk/" },
+                ],
+              },
+            ],
+          },
+        ];
+
+        const allRecords = cases.flatMap((item) => item.records);
+        const recordById = new Map(allRecords.map((item) => [item.id, item]));
+
+        function normalizeText(value) {
+          return String(value).toLocaleLowerCase().replaceAll(/\s+/g, "");
+        }
+
+        function getPath(record) {
+          if (record.kind === "building") return record.locationLabel || "校内建筑";
+          if (record.kind !== "place") return "";
+          if (record.location?.kind === "outdoor-point") return record.location.label;
+          const building = recordById.get(record.location?.buildingId);
+          const floor = recordById.get(record.location?.floorId);
+          return [building?.name, floor?.name].filter(Boolean).join(" · ") || "位置待核对";
+        }
+
+        function searchableParts(record) {
+          const parts = [record.name, ...(record.aliases || [])].map((value) => ({
+            value,
+            relation: "direct",
+          }));
+          if (record.kind === "place" && record.location?.buildingId) {
+            const building = recordById.get(record.location.buildingId);
+            parts.push(
+              ...[building?.name, ...(building?.aliases || [])]
+                .filter(Boolean)
+                .map((value) => ({ value, relation: "container" })),
+            );
+          }
+          return parts;
+        }
+
+        function search(query) {
+          const needle = normalizeText(query);
+          if (!needle) return [];
+          return allRecords
+            .filter((record) => record.kind === "building" || record.kind === "place")
+            .map((record) => {
+              const parts = searchableParts(record);
+              const normalized = parts.map((part) => normalizeText(part.value));
+              const exactIndex = normalized.findIndex((value) => value === needle);
+              const prefixIndex = normalized.findIndex((value) => value.startsWith(needle));
+              const containsIndex = normalized.findIndex((value) => value.includes(needle));
+              const matchedIndex = exactIndex >= 0 ? exactIndex : prefixIndex >= 0 ? prefixIndex : containsIndex;
+              const baseScore = exactIndex >= 0 ? 100 : prefixIndex >= 0 ? 80 : containsIndex >= 0 ? 60 : 0;
+              const score = matchedIndex >= 0 && parts[matchedIndex].relation === "container" ? baseScore - 45 : baseScore;
+              return {
+                record,
+                score,
+                matchedBy: matchedIndex >= 0 ? parts[matchedIndex].value : "",
+                matchedRelation: matchedIndex >= 0 ? parts[matchedIndex].relation : "direct",
+              };
+            })
+            .filter((result) => result.score > 0)
+            .sort((left, right) => right.score - left.score || left.record.name.localeCompare(right.record.name))
+            .slice(0, 8);
+        }
+
+        function projectCard(record) {
+          const isBuilding = record.kind === "building";
+          const children = isBuilding
+            ? allRecords.filter(
+                (candidate) => candidate.kind === "place" && candidate.location?.buildingId === record.id,
+              )
+            : [];
+          let keyFact = "";
+          if (record.temporaryStatus && record.temporaryStatus !== "normal") keyFact = record.temporaryStatus;
+          else if (record.regularHours) keyFact = `通常开放：${record.regularHours}`;
+          else if (Number.isFinite(record.capacity)) keyFact = `${record.capacity} 个座位`;
+          else if (children.length) keyFact = `${children.length} 个可独立办理的地点`;
+
+          const officialActions = (record.officialActions || []).slice(0, 2);
+          const more = [
+            record.seatType ? `座位类型：${record.seatType}` : null,
+            record.capabilities?.length ? `可提供：${record.capabilities.join("、")}` : null,
+            record.visitNote ? `到访提示：${record.visitNote}` : null,
+            record.officialActions?.length > 2 ? `另有 ${record.officialActions.length - 2} 个官方入口` : null,
+          ].filter(Boolean);
+
+          return {
+            id: record.id,
+            title: record.name,
+            typeLabel: isBuilding ? typeLabels.building : typeLabels[record.placeType],
+            location: getPath(record),
+            keyFact,
+            actions: [
+              { label: "导航", kind: "navigate" },
+              ...officialActions.map((action) => ({ ...action, kind: "official" })),
+            ],
+            more,
+          };
+        }
+
+        function validate() {
+          const checks = [];
+          const ids = allRecords.map((record) => record.id);
+          checks.push({ pass: new Set(ids).size === ids.length, text: "Building、Floor、Place 的稳定 ID 不重复" });
+
+          const exactMappings = new Map();
+          const mappingRows = cases.flatMap((entry) => entry.mappings);
+          const mappingKeys = mappingRows.map((item) => `${item[0]}:${item[1]}`);
+          for (const item of mappingRows) {
+            exactMappings.set(`${item[0]}:${item[1]}`, item[2]);
+          }
+          const allSourcesMapped = cases.every((entry) =>
+            entry.sourceItems.every(
+              (sourceItem) =>
+                exactMappings.get(`${entry.provider}:${sourceItem.externalId}`) === sourceItem.targetId &&
+                recordById.has(sourceItem.targetId),
+            ),
+          );
+          checks.push({
+            pass: allSourcesMapped && new Set(mappingKeys).size === mappingKeys.length,
+            text: "每个官网项目按 provider + 外部 ID 唯一绑定到真实记录",
+          });
+
+          const allowedPlaceTypes = new Set(["classroom", "sports-facility", "health-service"]);
+          checks.push({
+            pass: allRecords
+              .filter((record) => record.kind === "place")
+              .every((record) => allowedPlaceTypes.has(record.placeType)),
+            text: "Place 只使用本次 V2 草案允许的可复用宽类别",
+          });
+
+          const poolCase = cases.find((entry) => entry.id === "pool");
+          const poolHasWrapper = poolCase.records.some((record) => record.kind === "building");
+          checks.push({ pass: !poolHasWrapper, text: "游泳池没有被包装成同名 Building → Place" });
+
+          const searchExpectations = [
+            ["LT6", "place-lsk-lt6"],
+            ["游泳池", "place-university-pool"],
+            ["牙科", "place-dental"],
+            ["保健处", "building-health-centre"],
+          ];
+          const searchesPass = searchExpectations.every(([query, id]) =>
+            search(query).some((result) => result.record.id === id),
+          );
+          checks.push({ pass: searchesPass, text: "课室、游泳池、保健处和牙科均能按真实搜索词找到" });
+
+          const cardsPass = allRecords
+            .filter((record) => record.kind === "building" || record.kind === "place")
+            .every((record) => {
+              const card = projectCard(record);
+              return card.actions.length <= 3 && !JSON.stringify(card).includes("unknown");
+            });
+          checks.push({ pass: cardsPass, text: "默认卡最多为导航加两个官方入口，并隐藏 unknown" });
+          return checks;
+        }
+
+        const walkthroughs = {
+          classroom: {
+            label: "课室",
+            description: "确认有楼层和缺楼层的课室都能被找到。",
+            steps: [
+              { label: "搜索 LT6", action: { type: "SET_QUERY", query: "LT6" } },
+              { label: "搜索 BMS LT", action: { type: "SET_QUERY", query: "BMS LT" } },
+            ],
+          },
+          pool: {
+            label: "游泳池",
+            description: "确认游泳池直接出现为一个地点，而不是两层同名结果。",
+            steps: [{ label: "搜索游泳池", action: { type: "SET_QUERY", query: "游泳池" } }],
+          },
+          health: {
+            label: "保健处",
+            description: "确认建筑、门诊和牙科可以分别被找到。",
+            steps: [
+              { label: "搜索保健处", action: { type: "SET_QUERY", query: "保健处" } },
+              { label: "搜索牙科", action: { type: "SET_QUERY", query: "牙科" } },
+            ],
+          },
+        };
+
+        function initialState() {
+          return {
+            query: "LT6",
+            selectedId: "place-lsk-lt6",
+            technicalCaseId: "classroom",
+            walkthroughId: "classroom",
+            walkthroughStep: 0,
+            feedback: "",
+          };
+        }
+
+        function reduce(state, action) {
+          const next = { ...state };
+          if (action.type === "SET_QUERY") {
+            next.query = action.query;
+            next.selectedId = search(action.query)[0]?.record.id || "";
+            next.feedback = "";
+          }
+          if (action.type === "SELECT_RESULT") {
+            next.selectedId = action.id;
+            next.feedback = "";
+          }
+          if (action.type === "SELECT_TECHNICAL_CASE") next.technicalCaseId = action.id;
+          if (action.type === "CARD_ACTION") {
+            next.feedback = `${action.label}是地图卡片上的真实操作入口；这个原型不会启动实际路线。`;
+          }
+          if (action.type === "START_WALKTHROUGH") {
+            const reset = initialState();
+            reset.walkthroughId = action.id;
+            return reset;
+          }
+          if (action.type === "RUN_STEP") {
+            const walkthrough = walkthroughs[next.walkthroughId];
+            const step = walkthrough.steps[action.index];
+            const advanced = reduce(next, step.action);
+            advanced.walkthroughId = next.walkthroughId;
+            advanced.walkthroughStep = Math.max(next.walkthroughStep, action.index + 1);
+            return advanced;
+          }
+          return next;
+        }
+
+        return {
+          cases,
+          recordById,
+          search,
+          projectCard,
+          validate,
+          walkthroughs,
+          initialState,
+          reduce,
+        };
+      })();
+
+      let state = FacilityContractPrototype.initialState();
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function dispatch(action) {
+        state = FacilityContractPrototype.reduce(state, action);
+        render();
+      }
+
+      function renderCard(record) {
+        if (!record) return '<p class="search-summary">没有选中地点。</p>';
+        const card = FacilityContractPrototype.projectCard(record);
+        return `
+          <article class="place-card">
+            <span class="card-type">${escapeHtml(card.typeLabel)}</span>
+            <h4 class="card-title">${escapeHtml(card.title)}</h4>
+            <p class="card-location">${escapeHtml(card.location)}</p>
+            ${card.keyFact ? `<p class="card-key">${escapeHtml(card.keyFact)}</p>` : ""}
+            <div class="card-actions">
+              ${card.actions
+                .map((action, index) => {
+                  if (action.kind === "official") {
+                    return `<a href="${escapeHtml(action.url)}" target="_blank" rel="noreferrer">${escapeHtml(action.label)}</a>`;
+                  }
+                  return `<button class="${index === 0 ? "primary" : ""}" type="button" data-card-action="${escapeHtml(card.title)}" data-card-action-label="${escapeHtml(action.label)}">${escapeHtml(action.label)}</button>`;
+                })
+                .join("")}
+            </div>
+            ${
+              card.more.length
+                ? `<details class="card-details"><summary>更多资料</summary><p class="card-more">${escapeHtml(card.more.join("；"))}</p></details>`
+                : ""
+            }
+          </article>`;
+      }
+
+      function renderSearch() {
+        const input = document.querySelector("#campus-search");
+        if (input.value !== state.query) input.value = state.query;
+        const results = FacilityContractPrototype.search(state.query);
+        const summary = document.querySelector("#search-summary");
+        summary.textContent = state.query
+          ? results.length
+            ? `“${state.query}”找到 ${results.length} 个结果。点击结果可以查看地图卡片。`
+            : `“${state.query}”没有找到结果。`
+          : "输入课室、建筑或设施名称开始搜索。";
+        document.querySelector("#search-results").innerHTML = results.length
+          ? results
+              .map(
+                ({ record, matchedBy, matchedRelation }) => `
+                  <button class="result ${state.selectedId === record.id ? "active" : ""}" type="button"
+                    data-select-result="${escapeHtml(record.id)}">
+                    <strong>${escapeHtml(record.name)}</strong>
+                    <small>${escapeHtml(record.kind === "building" ? "建筑" : "地点")} · ${escapeHtml(FacilityContractPrototype.projectCard(record).location)} · ${matchedRelation === "container" ? "所在建筑" : "名称"}匹配“${escapeHtml(matchedBy)}”</small>
+                  </button>`,
+              )
+              .join("")
+          : '<p class="search-summary">没有结果。原型只收录三组少量样例。</p>';
+        document.querySelector("#selected-card").innerHTML = renderCard(
+          FacilityContractPrototype.recordById.get(state.selectedId),
+        );
+        document.querySelector("#interaction-feedback").textContent = state.feedback;
+      }
+
+      function renderCases() {
+        document.querySelector("#case-stack").innerHTML = FacilityContractPrototype.cases
+          .map((item) => {
+            const featured = FacilityContractPrototype.recordById.get(item.featuredId);
+            return `
+              <article class="case-row" data-case-row="${escapeHtml(item.id)}">
+                <div class="case-title-row">
+                  <div>
+                    <h3>${escapeHtml(item.label)}：${escapeHtml(item.question)}</h3>
+                    <p>${escapeHtml(item.answer)}</p>
+                  </div>
+                  <span class="verdict-badge">可以接入</span>
+                </div>
+                <div class="case-columns">
+                  <div class="case-cell">
+                    <strong>官网短事实</strong>
+                    <p>${escapeHtml(item.sourceSummary)}</p>
+                  </div>
+                  <div class="case-cell">
+                    <strong>我们保存什么</strong>
+                    <p class="record-tree">${escapeHtml(item.recordTree)}</p>
+                  </div>
+                  <div class="case-cell">
+                    <strong>学生搜什么</strong>
+                    <div class="mini-searches">
+                      ${item.searchTerms
+                        .map(
+                          (term) => `<button class="chip-button" type="button" data-query="${escapeHtml(term)}">${escapeHtml(term)}</button>`,
+                        )
+                        .join("")}
+                    </div>
+                  </div>
+                  <div class="case-cell card-cell">
+                    <strong>地图卡片</strong>
+                    ${renderCard(featured)}
+                  </div>
+                  <div class="case-cell">
+                    <strong>刻意不保存</strong>
+                    <ul>${item.notStored.map((fact) => `<li>${escapeHtml(fact)}</li>`).join("")}</ul>
+                  </div>
+                </div>
+              </article>`;
+          })
+          .join("");
+      }
+
+      function renderTechnical() {
+        document.querySelector("#validation-report").innerHTML = FacilityContractPrototype.validate()
+          .map(
+            (check) => `
+              <div class="check">
+                <span aria-hidden="true">${check.pass ? "✓" : "×"}</span>
+                <span>${escapeHtml(check.text)}</span>
+              </div>`,
+          )
+          .join("");
+        document.querySelector("#technical-case-buttons").innerHTML = FacilityContractPrototype.cases
+          .map(
+            (item) => `
+              <button class="button ${state.technicalCaseId === item.id ? "active" : ""}" type="button"
+                aria-pressed="${state.technicalCaseId === item.id}"
+                data-technical-case="${escapeHtml(item.id)}">${escapeHtml(item.label)}</button>`,
+          )
+          .join("");
+        const selectedCase = FacilityContractPrototype.cases.find(
+          (item) => item.id === state.technicalCaseId,
+        );
+        document.querySelector("#normalized-output").textContent = JSON.stringify(
+          {
+            provider: selectedCase.provider,
+            mappings: selectedCase.mappings,
+            records: selectedCase.records,
+          },
+          null,
+          2,
+        );
+      }
+
+      function renderWalkthrough() {
+        const walkthroughs = FacilityContractPrototype.walkthroughs;
+        document.querySelector("#walkthrough-tabs").innerHTML = Object.entries(walkthroughs)
+          .map(
+            ([id, item]) => `
+              <button class="button ${state.walkthroughId === id ? "active" : ""}" type="button"
+                aria-pressed="${state.walkthroughId === id}"
+                data-start-walkthrough="${escapeHtml(id)}">${escapeHtml(item.label)}</button>`,
+          )
+          .join("");
+        const current = walkthroughs[state.walkthroughId];
+        document.querySelector("#walkthrough-body").innerHTML = `
+          <p class="search-summary">${escapeHtml(current.description)}</p>
+          <div class="steps">
+            ${current.steps
+              .map(
+                (step, index) => `
+                  <div class="step ${index < state.walkthroughStep ? "done" : ""}">
+                    <span class="step-number">${index < state.walkthroughStep ? "✓" : index + 1}</span>
+                    <span>${escapeHtml(step.label)}</span>
+                    <button class="button" type="button" data-run-step="${index}"
+                      ${index > state.walkthroughStep ? "disabled" : ""}>
+                      ${index < state.walkthroughStep ? "再看一次" : "执行"}
+                    </button>
+                  </div>`,
+              )
+              .join("")}
+          </div>`;
+      }
+
+      function render() {
+        renderSearch();
+        renderCases();
+        renderTechnical();
+        renderWalkthrough();
+      }
+
+      document.querySelector("#campus-search").addEventListener("input", (event) => {
+        dispatch({ type: "SET_QUERY", query: event.target.value });
+      });
+
+      document.querySelector("#search-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+      });
+
+      document.addEventListener("click", (event) => {
+        const target = event.target.closest("button");
+        if (!target) return;
+        if (target.dataset.query !== undefined) {
+          dispatch({ type: "SET_QUERY", query: target.dataset.query });
+          document.querySelector("#campus-search").focus();
+        }
+        if (target.dataset.selectResult) {
+          dispatch({ type: "SELECT_RESULT", id: target.dataset.selectResult });
+        }
+        if (target.dataset.cardAction) {
+          dispatch({ type: "CARD_ACTION", label: target.dataset.cardActionLabel });
+        }
+        if (target.dataset.technicalCase) {
+          dispatch({ type: "SELECT_TECHNICAL_CASE", id: target.dataset.technicalCase });
+        }
+        if (target.dataset.startWalkthrough) {
+          dispatch({ type: "START_WALKTHROUGH", id: target.dataset.startWalkthrough });
+        }
+        if (target.dataset.runStep !== undefined) {
+          dispatch({ type: "RUN_STEP", index: Number(target.dataset.runStep) });
+        }
+      });
+
+      render();
+    </script>
+  </body>
+</html>
