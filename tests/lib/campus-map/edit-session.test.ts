@@ -72,7 +72,7 @@ function editSession(): CampusMapEditSession {
 }
 
 describe("Campus Map edit session transition", () => {
-  it("starts a building-required Add directly in the form", () => {
+  it("starts a global Add in the building-required form", () => {
     const started = transitionCampusMapEdit(null, {
       type: "START_FACILITY_ADD",
       idempotencyKey: firstKey,
@@ -102,7 +102,7 @@ describe("Campus Map edit session transition", () => {
     expect(isCampusMapEditDirty(started.session)).toBe(false);
   });
 
-  it("restores a global building-required Add before a Building is chosen", () => {
+  it("restores a global Add while its building is being chosen", () => {
     const started = transitionCampusMapEdit(null, {
       type: "START_FACILITY_ADD",
       idempotencyKey: firstKey,
@@ -116,6 +116,8 @@ describe("Campus Map edit session transition", () => {
         audience: "cuhk-member",
       },
     }).session!;
+
+    expect(changed.status).toBe("editing");
 
     expect(
       decodeCampusMapEditSnapshot(encodeCampusMapEditSnapshot(changed)),

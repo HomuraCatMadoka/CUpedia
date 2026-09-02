@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState } from "react";
-import { ChevronDownIcon, MapPinIcon } from "lucide-react";
+import { useId, useMemo, useState } from "react";
+import {
+  Building2Icon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  MapPinIcon,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { AmapPlaceContextResult } from "@/lib/campus-map/amap-place-context";
@@ -23,6 +28,11 @@ import {
   campusMapPinTypeLabel,
   CAMPUS_MAP_DISPLAY_REGISTRY,
 } from "@/lib/campus-map/display-registry";
+import {
+  campusMapBuildingDisplayFor,
+  projectCampusMapBuildingDisplay,
+  type CampusMapBuildingDisplayProjection,
+} from "@/lib/campus-map/building-display";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
 
@@ -123,6 +133,7 @@ function hasUnreadablePlacementConflict(
 function describeLocation(
   fact: CampusMapEditSession["draft"]["fact"],
   display?: CampusMapIndoorLocationDisplay | null,
+  buildingDisplay?: CampusMapBuildingDisplayProjection,
 ): string {
   if (!fact.location) return "尚未定位";
   if (fact.location.kind === "outdoor-point") {
@@ -131,7 +142,11 @@ function describeLocation(
     }`;
   }
   const canonicalDisplay = matchingDisplay(fact, display);
-  const buildingName = canonicalDisplay?.buildingName;
+  const buildingName = fact.buildingId
+    ? ((buildingDisplay
+        ? campusMapBuildingDisplayFor(buildingDisplay, fact.buildingId)?.label
+        : null) ?? canonicalDisplay?.buildingName)
+    : canonicalDisplay?.buildingName;
   if (fact.location.kind === "floor") {
     if (buildingName && canonicalDisplay?.floorLabel) {
       return `${buildingName} · ${canonicalDisplay.floorLabel}`;
@@ -144,13 +159,14 @@ function describeLocation(
 function describeLocationSummary(
   fact: CampusMapEditSession["draft"]["fact"],
   display?: CampusMapIndoorLocationDisplay | null,
+  buildingDisplay?: CampusMapBuildingDisplayProjection,
 ): string {
   if (fact.location?.kind === "outdoor-point") {
     return `WGS84 · ${
       fact.location.precision === "precise" ? "精确位置" : "约略位置"
     }`;
   }
-  return describeLocation(fact, display);
+  return describeLocation(fact, display, buildingDisplay);
 }
 
 const NEARBY_BUILDING_DISTANCE_METERS = 50;
@@ -175,9 +191,10 @@ function distanceBetweenPositions(
 function nearbyBuildingLabel(
   position: readonly [number, number],
   buildings: readonly CampusMapBrowseBuilding[],
+  buildingDisplay?: CampusMapBuildingDisplayProjection,
 ): string | null {
   const nearest = buildings.reduce<
-    { name: string; distance: number } | undefined
+    { id: string; name: string; distance: number } | undefined
   >((current, building) => {
     if (!building.anchor) return current;
     const distance = distanceBetweenPositions(position, [
@@ -185,11 +202,15 @@ function nearbyBuildingLabel(
       building.anchor.latitude,
     ]);
     return !current || distance < current.distance
-      ? { name: building.name, distance }
+      ? { id: building.buildingId, name: building.name, distance }
       : current;
   }, undefined);
   return nearest && nearest.distance <= NEARBY_BUILDING_DISTANCE_METERS
-    ? `${nearest.name}附近`
+    ? `${
+        (buildingDisplay
+          ? campusMapBuildingDisplayFor(buildingDisplay, nearest.id)?.label
+          : null) ?? nearest.name
+      }附近`
     : null;
 }
 
@@ -207,17 +228,25 @@ function friendlyLocationLabel(
   fact: CampusMapEditSession["draft"]["fact"],
   display?: CampusMapIndoorLocationDisplay | null,
   buildings: readonly CampusMapBrowseBuilding[] = [],
+  buildingDisplay?: CampusMapBuildingDisplayProjection,
 ): string {
   if (fact.location?.kind === "outdoor-point") {
     return (
       nearbyBuildingLabel(
         [fact.location.longitude, fact.location.latitude],
         buildings,
+        buildingDisplay,
       ) ?? "地图选点"
     );
   }
   if (fact.buildingId) {
-    return matchingDisplay(fact, display)?.buildingName ?? "建筑内位置";
+    return (
+      (buildingDisplay
+        ? campusMapBuildingDisplayFor(buildingDisplay, fact.buildingId)?.label
+        : null) ??
+      matchingDisplay(fact, display)?.buildingName ??
+      "建筑内位置"
+    );
   }
   return "尚未定位";
 }
@@ -381,6 +410,7 @@ function conflictValue(
   choice: ConflictChoice,
   fact: CampusMapEditSession["draft"]["fact"],
   display?: CampusMapIndoorLocationDisplay | null,
+  buildingDisplay?: CampusMapBuildingDisplayProjection,
 ): string {
   switch (choice.key) {
     case "name":
@@ -420,7 +450,7 @@ function conflictValue(
     case "temporaryStatus":
       return optionLabel(displayOptions.temporaryStatus, fact.temporaryStatus);
     case "placement":
-      return describeLocation(fact, display);
+      return describeLocation(fact, display, buildingDisplay);
     case "observedAt":
       return formatObservationTime(fact.observedAt);
   }
@@ -518,6 +548,17 @@ export function CampusMapEditSheet({
   const selectedFloors = [...(selectedBuilding?.floors ?? [])].sort(
     (left, right) => left.sortOrder - right.sortOrder,
   );
+  const selectedFloorLabel = selectedFloors.find(
+    (floor) => floor.floorId === fact.floorId,
+  )?.displayLabel;
+  const buildingDisplay = useMemo(
+    () => projectCampusMapBuildingDisplay(buildings),
+    [buildings],
+  );
+  const selectedBuildingQualifier = selectedBuilding
+    ? (campusMapBuildingDisplayFor(buildingDisplay, selectedBuilding.buildingId)
+        ?.qualifier ?? null)
+    : null;
   const buildingDirectoryBlocked =
     (buildingLocationRequired || isPendingIndoorLocation) &&
     buildings.length === 0;
@@ -674,6 +715,7 @@ export function CampusMapEditSheet({
   const nearbyPlacementLabel = nearbyBuildingLabel(
     [placementPosition.longitude, placementPosition.latitude],
     buildings,
+    buildingDisplay,
   );
   const placementLabel =
     resolvedContext?.label && resolvedContext.label !== "地图中心位置"
@@ -855,7 +897,11 @@ export function CampusMapEditSheet({
               },
               {
                 buildingId: building.buildingId,
-                buildingName: building.name,
+                buildingName:
+                  campusMapBuildingDisplayFor(
+                    buildingDisplay,
+                    building.buildingId,
+                  )?.label ?? building.name,
                 floorId: null,
                 floorLabel: null,
               },
@@ -865,8 +911,8 @@ export function CampusMapEditSheet({
           <option value="">请选择建筑</option>
           {buildings.map((building) => (
             <option key={building.buildingId} value={building.buildingId}>
-              {building.name}
-              {building.code ? `（${building.code}）` : ""}
+              {campusMapBuildingDisplayFor(buildingDisplay, building.buildingId)
+                ?.label ?? building.name}
             </option>
           ))}
         </select>
@@ -900,7 +946,11 @@ export function CampusMapEditSheet({
               },
               {
                 buildingId: selectedBuilding.buildingId,
-                buildingName: selectedBuilding.name,
+                buildingName:
+                  campusMapBuildingDisplayFor(
+                    buildingDisplay,
+                    selectedBuilding.buildingId,
+                  )?.label ?? selectedBuilding.name,
                 floorId: floor?.floorId ?? null,
                 floorLabel: floor?.displayLabel ?? null,
               },
@@ -1145,6 +1195,7 @@ export function CampusMapEditSheet({
                             choice,
                             session.draft.fact,
                             session.draft.locationDisplay,
+                            buildingDisplay,
                           )}
                         </span>
                         <span className="block break-words text-xs text-amber-900">
@@ -1153,6 +1204,7 @@ export function CampusMapEditSheet({
                             choice,
                             conflict.currentFact,
                             conflict.currentLocationDisplay,
+                            buildingDisplay,
                           )}
                         </span>
                       </span>
@@ -1371,34 +1423,51 @@ export function CampusMapEditSheet({
             <fieldset
               data-edit-field="location"
               tabIndex={-1}
-              className="rounded-xl bg-[#edf5f1] p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+              className="rounded-xl border border-[#176346]/10 bg-[#edf5f1] px-2.5 pb-2 pt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
             >
               <legend className="px-1 text-sm font-semibold">所属建筑</legend>
               {compactBuildingContext ? (
-                <div className="flex items-start gap-3">
-                  <MapPinIcon
+                <button
+                  type="button"
+                  aria-label="更改所属建筑或楼层"
+                  aria-describedby={`${fieldPrefix}-building-summary`}
+                  className="flex min-h-14 w-full touch-manipulation items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-white/70 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none"
+                  onClick={() => setLocationEditorOpen(true)}
+                >
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/80 text-[#176346] ring-1 ring-[#176346]/10">
+                    <Building2Icon aria-hidden="true" className="size-5" />
+                  </span>
+                  <span
+                    id={`${fieldPrefix}-building-summary`}
+                    className="min-w-0 flex-1"
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold leading-5">
+                      <span className="truncate">
+                        {compactBuildingContext.name}
+                      </span>
+                      {selectedBuildingQualifier ? (
+                        <span
+                          title={selectedBuildingQualifier}
+                          className="max-w-[42%] shrink-0 truncate rounded bg-white/80 px-1.5 py-0.5 text-[11px] font-medium text-neutral-600 ring-1 ring-black/5"
+                        >
+                          {selectedBuildingQualifier}
+                        </span>
+                      ) : null}
+                    </span>
+                    {selectedFloorLabel ? (
+                      <span className="mt-0.5 block truncate text-xs text-neutral-600">
+                        {selectedFloorLabel}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span
                     aria-hidden="true"
-                    className="mt-0.5 size-5 shrink-0 text-[#176346]"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold">
-                      {compactBuildingContext.name}
-                    </p>
-                    <p className="mt-0.5 text-xs text-neutral-600">
-                      {selectedFloors.find(
-                        (floor) => floor.floorId === fact.floorId,
-                      )?.displayLabel ?? "未指定楼层"}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="更改所属建筑或楼层"
-                    className="min-h-11 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-                    onClick={() => setLocationEditorOpen(true)}
+                    className="flex shrink-0 items-center gap-0.5 text-xs font-semibold text-[#176346]"
                   >
                     更改
-                  </button>
-                </div>
+                    <ChevronRightIcon className="size-4" />
+                  </span>
+                </button>
               ) : (
                 buildingFields
               )}
@@ -1423,12 +1492,17 @@ export function CampusMapEditSheet({
                           fact,
                           draft.locationDisplay,
                           buildings,
+                          buildingDisplay,
                         )}
                   </p>
                   <p className="mt-0.5 break-words text-xs text-neutral-600">
                     {isPendingIndoorLocation
                       ? "请选择建筑，楼层不确定时可以只确认建筑。"
-                      : describeLocationSummary(fact, draft.locationDisplay)}
+                      : describeLocationSummary(
+                          fact,
+                          draft.locationDisplay,
+                          buildingDisplay,
+                        )}
                   </p>
                   {!isPendingIndoorLocation && lockedProviderCandidate ? (
                     <p className="mt-0.5 flex min-w-0 gap-1 text-xs text-neutral-500">

@@ -24,7 +24,7 @@ const buildings: CampusMapBrowseBuilding[] = [
     buildingId,
     name: "科学馆",
     englishName: "Science Centre",
-    code: "SC",
+    code: "H10",
     aliases: [],
     anchor: { longitude: 114.209, latitude: 22.419, crs: "wgs84" },
     floors: [
@@ -37,6 +37,25 @@ const buildings: CampusMapBrowseBuilding[] = [
     ],
     placeIds: [],
     selectionTarget: { kind: "building", buildingId },
+  },
+];
+
+const duplicateNameBuildings: CampusMapBrowseBuilding[] = [
+  {
+    ...buildings[0],
+    buildingId: "50000000-0000-4000-8000-000000000002",
+    name: "卫星遥感地面接收站",
+    englishName: "Satellite Remote Sensing Receiving Station",
+    code: "H40",
+    floors: [],
+  },
+  {
+    ...buildings[0],
+    buildingId: "50000000-0000-4000-8000-000000000003",
+    name: "卫星遥感地面接收站",
+    englishName: "Satellite Remote Sensing Receiving Station",
+    code: "E13",
+    floors: [],
   },
 ];
 
@@ -93,6 +112,101 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.queryByRole("radio", { name: "室外" })).toBeNull();
     expect(screen.queryByRole("radio", { name: "建筑内" })).toBeNull();
     expect(screen.queryByRole("button", { name: "修改位置" })).toBeNull();
+  });
+
+  it("keeps the compact building context short when no floor is selected", () => {
+    const session = transitionCampusMapEdit(null, {
+      type: "START_FACILITY_ADD",
+      idempotencyKey: "10000000-0000-4000-8000-000000000001",
+      entry: {
+        kind: "building",
+        locationDisplay: {
+          buildingId,
+          buildingName: "科学馆",
+          floorId: null,
+          floorLabel: null,
+        },
+      },
+    }).session!;
+
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.209, 22.419]}
+        buildings={buildings}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    const buildingGroup = screen.getByRole("group", { name: "所属建筑" });
+    expect(within(buildingGroup).getByText("科学馆")).toBeTruthy();
+    expect(within(buildingGroup).queryByText("未指定楼层")).toBeNull();
+    expect(within(buildingGroup).queryByText("H10")).toBeNull();
+  });
+
+  it("shows a building code only when it disambiguates duplicate names", () => {
+    const session = transitionCampusMapEdit(null, {
+      type: "START_FACILITY_ADD",
+      idempotencyKey: "10000000-0000-4000-8000-000000000001",
+      entry: { kind: "global" },
+    }).session!;
+
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.209, 22.419]}
+        buildings={[...buildings, ...duplicateNameBuildings]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    const buildingSelect = screen.getByRole("combobox", { name: "建筑" });
+    expect(
+      within(buildingSelect).getByRole("option", { name: "科学馆" }),
+    ).toBeTruthy();
+    expect(
+      within(buildingSelect).queryByRole("option", { name: /H10/u }),
+    ).toBeNull();
+    expect(
+      within(buildingSelect).getByRole("option", {
+        name: "卫星遥感地面接收站（H40）",
+      }),
+    ).toBeTruthy();
+    expect(
+      within(buildingSelect).getByRole("option", {
+        name: "卫星遥感地面接收站（E13）",
+      }),
+    ).toBeTruthy();
+  });
+
+  it("keeps a disambiguating code in the compact building context", () => {
+    const selectedStation = duplicateNameBuildings[0];
+    const session = transitionCampusMapEdit(null, {
+      type: "START_FACILITY_ADD",
+      idempotencyKey: "10000000-0000-4000-8000-000000000001",
+      entry: {
+        kind: "building",
+        locationDisplay: {
+          buildingId: selectedStation.buildingId,
+          buildingName: selectedStation.name,
+          floorId: null,
+          floorLabel: null,
+        },
+      },
+    }).session!;
+
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.209, 22.419]}
+        buildings={duplicateNameBuildings}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    const buildingGroup = screen.getByRole("group", { name: "所属建筑" });
+    expect(within(buildingGroup).getByText("H40")).toBeTruthy();
+    expect(within(buildingGroup).queryByText("E13")).toBeNull();
   });
 
   it("keeps publish available so a missing building can be explained and focused", () => {
@@ -1831,7 +1945,8 @@ describe("Campus Map single-page edit Sheet", () => {
         precision: "approximate" as const,
       },
     };
-    const buildingId = "50000000-0000-4000-8000-000000000001";
+    const conflictingBuilding = duplicateNameBuildings[0];
+    const buildingId = conflictingBuilding.buildingId;
     const floorId = "60000000-0000-4000-8000-000000000001";
     const currentFact = {
       ...baseDraft.fact,
@@ -1848,7 +1963,7 @@ describe("Campus Map single-page edit Sheet", () => {
         currentFact,
         currentLocationDisplay: {
           buildingId,
-          buildingName: "科学馆",
+          buildingName: conflictingBuilding.name,
           floorId,
           floorLabel: "1/F",
         },
@@ -1858,6 +1973,7 @@ describe("Campus Map single-page edit Sheet", () => {
       <CampusMapEditSheet
         session={session}
         centerPosition={[114.2, 22.4]}
+        buildings={duplicateNameBuildings}
         onEvent={onEvent}
       />,
     );
@@ -1878,7 +1994,9 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(
       screen.getByText("我的：114.210000, 22.420000 · WGS84 · 约略"),
     ).toBeTruthy();
-    expect(screen.getByText("最新：科学馆 · 1/F")).toBeTruthy();
+    expect(
+      screen.getByText("最新：卫星遥感地面接收站（H40） · 1/F"),
+    ).toBeTruthy();
     expect(document.body.textContent).not.toContain(buildingId);
     expect(document.body.textContent).not.toContain(floorId);
   });

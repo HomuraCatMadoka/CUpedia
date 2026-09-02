@@ -550,6 +550,28 @@ test("one provider callback produces one canonical effect and a map gesture clos
   );
 });
 
+test("a mapped AMap Building starts Add with its canonical Building selected", async ({
+  page,
+}) => {
+  await page.goto("/campus-map");
+
+  await emitAmapProviderClick(page, {
+    id: mappedBuildingProviderId,
+    name: "高德正式测试楼",
+    lnglat: { lng: 114.2072, lat: 22.4191 },
+  });
+
+  await expect(page.getByRole("heading", { name: "正式测试楼" })).toBeVisible();
+  await expect(page.getByText("高德地图地点")).toHaveCount(0);
+  await page.getByRole("button", { name: "在正式测试楼新增设施" }).click();
+
+  await expect(page.getByRole("heading", { name: "新增设施" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "所属建筑" })).toContainText(
+    "正式测试楼",
+  );
+  await expect(page.getByRole("combobox", { name: "建筑" })).toHaveCount(0);
+});
+
 test("mapped and unmapped provider POIs never duplicate cards", async ({
   page,
 }) => {
@@ -598,6 +620,10 @@ test("mapped and unmapped provider POIs never duplicate cards", async ({
   const providerCardBox = await providerCard.boundingBox();
   expect(providerCardBox).not.toBeNull();
   expect(providerCardBox!.height).toBeLessThanOrEqual(120);
+  await expect(
+    providerCard.getByRole("button", { name: "新增设施" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "新增设施" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "建议修改" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "查看完整详情" })).toHaveCount(0);
   expect(await page.evaluate(() => window.history.length)).toBe(
@@ -837,16 +863,6 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
     const facilitySummary = card.getByRole("list", { name: "楼内设施" });
     await expect(facilitySummary).toContainText("饮水点");
     await expect(facilitySummary).toContainText("1 处");
-    const buildingCode = card.getByText("QA648-LONG", { exact: true });
-    await expect(buildingCode).toBeVisible();
-    const buildingCodeBox = await buildingCode.boundingBox();
-    expect(buildingCodeBox).not.toBeNull();
-    expect(buildingCodeBox!.height).toBeLessThan(32);
-    expect(
-      await buildingCode.evaluate(
-        (element) => element.scrollHeight <= element.clientHeight,
-      ),
-    ).toBe(true);
 
     const cardBox = await card.boundingBox();
     expect(cardBox).not.toBeNull();

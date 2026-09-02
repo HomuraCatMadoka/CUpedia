@@ -841,6 +841,13 @@
       "when": 1788239358500,
       "tag": "0119_campus-map-place-feedback",
       "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1788319112543,
+      "tag": "0120_bootstrap_campus_map_buildings",
+      "breakpoints": true
     }
   ]
 }

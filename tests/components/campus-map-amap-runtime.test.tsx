@@ -8,6 +8,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -1907,6 +1908,11 @@ describe("Campus Map AMap runtime effects", () => {
       name: "科学馆东座",
     });
     expect(screen.getByText("高德地图地点")).not.toBeNull();
+    const providerCard = screen.getByRole("region", { name: "科学馆东座" });
+    expect(
+      within(providerCard).queryByRole("button", { name: "新增设施" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "新增设施" })).toBeNull();
     expect(screen.queryByRole("button", { name: "建议修改" })).toBeNull();
     expect(screen.queryByRole("link", { name: "查看完整详情" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
@@ -1920,6 +1926,65 @@ describe("Campus Map AMap runtime effects", () => {
     });
     await runtime.flushAnimationFrames();
     expect(screen.queryByRole("heading", { name: "科学馆东座" })).toBeNull();
+  });
+
+  it("starts Add from a confirmed AMap Building mapping with the Building selected", async () => {
+    const { map } = await renderWithRuntime();
+
+    await act(async () => {
+      map.emit("hotspotclick", {
+        id: "B0J2RXUQB6",
+        name: "ScienceCentre科学馆",
+        lnglat: { lng: 114.20801, lat: 22.41966 },
+      });
+    });
+
+    await screen.findByRole("heading", { name: "科学馆" });
+    expect(screen.queryByText("高德地图地点")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "在科学馆新增设施" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "新增设施" }),
+    ).not.toBeNull();
+    const location = screen.getByRole("group", { name: "所属建筑" });
+    expect(location.textContent).toContain("科学馆");
+    expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
+  });
+
+  it("keeps global Add building-required when no canonical Buildings exist", async () => {
+    const baseProjection = createCampusMapBrowseFixture();
+    const emptyProjection: CampusMapBrowseProjection = {
+      ...baseProjection,
+      buildings: [],
+      places: [],
+      markers: [],
+    };
+    mockLoadBrowseProjection.mockResolvedValue(emptyProjection);
+    const { runtime } = await renderWithRuntime({
+      projection: emptyProjection,
+      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+    });
+
+    fireEvent.click(screen.getByLabelText("新增设施"));
+
+    expect(
+      await screen.findByRole("heading", { name: "新增设施" }),
+    ).not.toBeNull();
+    expect(
+      screen.getByText("目前没有可选建筑，暂时无法新增设施。"),
+    ).not.toBeNull();
+    expect(screen.queryByRole("heading", { name: "选择设施位置" })).toBeNull();
+    expect(screen.getByRole("combobox", { name: "建筑" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(screen.getByRole("button", { name: "发布设施" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(screen.queryByText(/高德地图地点：/)).toBeNull();
+    expect(runtime.geocodeRequests).toHaveLength(0);
   });
 
   it("does not bind an exact provider name without an explicit POI mapping", async () => {
