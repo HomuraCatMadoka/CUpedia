@@ -2,137 +2,177 @@
 
 Status: Research snapshot
 
-Last verified: 2026-09-01
+Last verified: 2026-09-02 (Asia/Hong_Kong)
 
-> 本文为产品与工程风险研究，不构成法律意见。结论只覆盖本文逐项核对的 CUHK 中央网站、Registration and Examinations Section（RES）、Office of Student Affairs（OSA）、University Medical Service Office（UMSO）公开页面及所链接的公开 feed。站点条款和响应头可随时改变。
+> 本文是产品和工程风险研究，不构成法律意见。结论只覆盖本文列出的 CUHK 中央网站、Registration and Examinations Section（RES）、Office of Student Affairs（OSA）和 University Medical Service Office（UMSO）公开页面。网站内容、条款和 `robots.txt` 都可能改变。
 
-## 结论
+## 一句话结论
 
-截至核对日期，没有在四组来源的目标页面、免责声明、隐私页、robots、sitemap 或公开 CMS 接口中找到 Creative Commons、开放数据或其他明确授权 CUpedia 定期抓取、长期保存原文并对公众再发布的许可。相反，CUHK 中央站、RES、OSA 和 UMSO 均显示 **All Rights Reserved**；它们的免责声明只说明资料可能改变并排除依赖责任，没有授予复制或再发布权。[CUHK 首页](https://www.cuhk.edu.hk/english/index.html)、[CUHK 免责声明](https://www.cuhk.edu.hk/english/disclaimer.html)、[RES 免责声明](https://www.res.cuhk.edu.hk/disclaimer/)、[OSA 游泳池页](https://www.osa.cuhk.edu.hk/campus-life/amenities/swimming-pool/)、[UMSO 免责声明](https://www.umso.cuhk.edu.hk/disclaimer/)
+**不用把“先取得书面许可”设为 P0 上线门槛。** 截至 2026-09-02，没有在目标页面、其页脚所链接的免责声明/隐私页或四个站点的 `robots.txt` 中找到“必须先取得书面许可才可低频读取公开页面”或禁止自动抓取这些目标路径的条款。CUpedia 可以直接做一个保守的 **no-permission mode**：管理员手动、低频读取白名单公开 URL，只保存和展示少量重新组织的事实，附官方来源和核验时间，并在发布前人工确认。
 
-`robots.txt` 对目标公开页面没有设置禁止规则，因此低频、守规矩的抓取在技术层面没有被 robots 排除；但 Robots Exclusion Protocol 的规范明确说明 robots 规则不是访问授权，更不是版权许可。[RFC 9309](https://www.rfc-editor.org/rfc/rfc9309.html)
+这不等于“网页内容随便复制”。香港知识产权署说明，版权保护作品的表达而非背后的意念或资料，同时网上作品仍受版权保护；版权拥有者有复制和向公众分发作品的专有权，是否取用了作品的“实质部分”看质量而不只看数量。[香港知识产权署：What is Copyright（网页修订日期 2025-08-20；核对于 2026-09-02）](https://www.ipd.gov.hk/en/copyright/what-is-copyright/index.html) 《版权条例》第 4(1)(a) 条也把因内容选择或编排构成智力创作的数据汇编（包括表格）纳入文学作品定义，第 22、23 条涵盖复制作品整体或实质部分以及以电子方式储存。[香港法例第 528 章《版权条例》（现行官方法例入口；核对于 2026-09-02）](https://www.elegislation.gov.hk/hk/cap528!en)
 
-建议采用以下 fail-closed 边界：
+因此，本文的边界是：
 
-| 行为                                                           | 未取得书面许可时的产品边界                                                          |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 定期 GET 公开 HTML，用来发现变化                               | 可先在 shadow mode 低频运行；不绕过登录、401、403、验证码或限流；不自动发布         |
-| 保存 URL、状态码、抓取时间、内容 hash、解析器版本              | 可以；这些资料不能还原网页正文                                                      |
-| 长期保存完整 HTML、ICS、PDF、图片或截图                        | 不启用；解析完成即丢弃 response body                                                |
-| 人工录入少量地点名、房号、地址、电话、开放时段等事实           | 可作为低风险首发边界；用 CUpedia 自己的数据结构和文字表达，并链接来源、显示核验时间 |
-| 完整导入 RES 课室表、完整镜像日历事件或对外提供派生数据集/API  | 先取得来源单位书面许可；系统性复制可能涉及资料汇编的选择和编排                      |
-| 自动把抓取差异发布到生产                                       | 先取得来源单位书面许可，再经过 shadow sync、字段白名单和回滚验证                    |
-| 复制网页说明、医疗/预约指引段落、规章、图片、PDF、版式、校徽   | 不做；需要逐项授权时另行申请                                                        |
-| 抓取或保存学生、预约、门诊、病历、症状、登录状态或其他个人资料 | 不做；不属于本产品的必要资料                                                        |
+- 可以读取公开、无需登录的页面，并抽取房号、楼层、开放时段、公共电话和官方链接等事实；
+- 不复制网页正文、图片、地图、PDF、说明步骤、表格版式或完整日历事件；
+- 不把 RES 页面原样做成镜像、CSV/API 或可下载的替代资料库；
+- 一旦 CUHK 明确反对、目标路径被 `robots.txt` 禁止、服务返回 401/403/429/验证码，立即停止，而不是绕过；
+- 如果以后要镜像完整内容、自动发布复杂规则、保存原始快照或提供批量数据下载，再取得书面许可或法律意见。
 
-因此，**P0 可以先上线“人工核验的事实卡片 + 官方深链 + 只生成差异的抓取器”，但 RES 全量课室自动导入、OSA ICS 事件公开重放和 UMSO 指引自动改写不得在没有书面许可时自动发布。**
+## 为什么原先的“必须申请”判断过严
 
-## 为什么“公开可访问”不等于“可以再发布”
+原先研究正确发现四组页面没有 Creative Commons 或开放数据许可，但把“没有开放许可”直接推成了“任何抓取和事实展示都要先申请书面许可”。中间少了一步：**访问网页**、**复制作品**和**重新表达事实**是三个不同问题。
 
-CUHK Library 的官方版权说明将复制、向公众发放、在互联网上提供和改编列为版权拥有人的专有权，同时指出名称、标题、短语等低原创性内容通常不受版权保护；它也提醒，公开发表第三方版权内容时，若没有适用例外，应向版权拥有人取得许可。[CUHK Library Copyright Basics](https://www.lib.cuhk.edu.hk/en/research/copyright/basics/)、[Copyright in Research](https://www.lib.cuhk.edu.hk/en/research/copyright/research/)
+| 问题                          | 本次核对结果                                                                                                                                             | 对 CUpedia 的意思                                                                                 |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 能否访问                      | 目标 URL 都能以匿名 `GET` 返回公开页面；目标路径未被对应 `robots.txt` 禁止（2026-09-02 实测）                                                            | 可以低频读取；不能绕过登录、拒绝或技术限制                                                        |
+| 是否有禁止 crawler 的网站条款 | 目标页面只找到免责声明、隐私政策和版权页脚；没有找到适用于这些目标页面的 crawler、scraping、bulk download 或 prior written permission 条款（2026-09-02） | 没有发现一条会把书面许可变成当前 P0 硬门槛的站点规则；以后仍要复查                                |
+| 能否复制网页                  | “All Rights Reserved” 和香港版权规则仍覆盖有原创性的正文、图片、版式以及可能有原创选择/编排的资料汇编                                                    | 不保存或重发这些内容；署名和链接不能代替许可                                                      |
+| 能否使用事实                  | 香港知识产权署把“表达”与背后的意念/资料区分开；单个设施事实本身通常不像一段说明文字那样有表达性                                                          | 抽取后用自己的字段和 UI 呈现，风险明显低于复制网页                                                |
+| 能否全量搬表                  | 完整 RES 课室表可能涉及受保护的选择/编排；“实质部分”没有固定百分比                                                                                       | 导航用的最小课室索引可以先做，但不保留来源顺序/布局，不提供镜像或批量导出；全量再分发仍有不确定性 |
 
-香港知识产权署同样说明，版权保护意念的表达而不是意念本身，网上作品也受保护；只有取用作品的实质部分才可能构成侵权，而“实质”是质量而不只是数量。[Intellectual Property Department: What is Copyright](https://www.ipd.gov.hk/en/copyright/what-is-copyright/index.html) 官方资料亦把 data compilation 列为可能受版权保护的文学作品，因此“每一个开放时间都是事实”并不自然推出“可以把完整课室表或完整事件 feed 原样搬走”。[IP-intensive industries study](https://www.ipd.gov.hk/filemanager/ipd/en/content_161/Study-on-IP-Intensive-Industries-to-HK-Economy-e.pdf)
+“All Rights Reserved” 是对可受版权保护内容的权利声明，不等于页面上的每个数字或地点事实都变成专有资料，也不等于另行写出了一条禁止机器人访问的合同条款。香港知识产权署也明确区分资料本身与其受版权保护的表达形式。反过来，标注“来源：CUHK”不会自动让复制正文合法。[香港知识产权署版权说明（核对于 2026-09-02）](https://www.ipd.gov.hk/en/copyright/what-is-copyright/index.html)、[香港知识产权署：Trade Secrets（核对于 2026-09-02）](https://www.ipd.gov.hk/en/ip-overview/trade-secrets/index.html)
 
-对 CUpedia 来说，稳妥的工程含义是：
+## 访问、robots 与法律边界
 
-- 单个名称、房号、楼层、容量、电话号码、日期和时段是低风险事实候选；
-- 应重新归一化为自己的字段，不复制表格次序、标题层级、说明文字或视觉布局；
-- 抽取越接近完整表格、完整日历或完整网页，越需要书面许可；
-- 引用和链接是必要的来源说明，但引用本身不是使用许可；
-- 非商业、学生项目或开源代码并不会自动取得复制和再发布权。
+### 本次站点检查
 
-## 四组来源的逐项结果
+以下都是 2026-09-02 以普通匿名请求核对的结果：
 
-### CUHK 中央网站
+| 来源        | 公开目标                                                                                                                                       | robots 结果                                                                                                                       | 发现的页面规则                                                                                                                            |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| CUHK 中央站 | [CUHK 首页](https://www.cuhk.edu.hk/english/index.html)                                                                                        | [中央 `robots.txt`](https://www.cuhk.edu.hk/robots.txt) 只禁止 `/english/admissions/style/ejs.js`                                 | [中央免责声明](https://www.cuhk.edu.hk/english/disclaimer.html) 只说内容可变及排除依赖责任；页脚显示 All Rights Reserved                  |
+| RES         | [List of Communal Classrooms](https://www.res.cuhk.edu.hk/teaching-timetable-classroom-booking/classroom-booking/list-of-communal-classrooms/) | [RES `robots.txt`](https://www.res.cuhk.edu.hk/robots.txt) 禁止 `/wp-admin/`，允许 `admin-ajax.php`；课室页未被禁止               | [RES 免责声明](https://www.res.cuhk.edu.hk/disclaimer/) 只说内容可变及排除依赖责任；页脚显示 All Rights Reserved                          |
+| OSA         | [University Swimming Pool](https://www.osa.cuhk.edu.hk/campus-life/amenities/swimming-pool/)                                                   | [OSA `robots.txt`](https://www.osa.cuhk.edu.hk/robots.txt) 禁止插件与管理路径、允许 uploads 和 `admin-ajax.php`；游泳池页未被禁止 | 目标页链接中央免责声明/隐私政策，页脚显示 All Rights Reserved；没有找到 crawler 专项条款                                                  |
+| UMSO        | [Medical Service](https://www.umso.cuhk.edu.hk/medical-service/) 与 [Dental Service](https://www.umso.cuhk.edu.hk/dental-service/)             | [UMSO `robots.txt`](https://www.umso.cuhk.edu.hk/robots.txt) 禁止 `/wp-admin/`、允许 `admin-ajax.php`；两项服务页未被禁止         | [UMSO 免责声明 URL](https://www.umso.cuhk.edu.hk/disclaimer/) 跳转到中央免责声明；页脚显示 All Rights Reserved；没有找到 crawler 专项条款 |
 
-**权利与责任。** 中央首页显示 All Rights Reserved；免责声明表示内容可无预告改变，并不保证依赖后果；没有找到面向网站内容或校园设施数据的开放许可。[CUHK 首页](https://www.cuhk.edu.hk/english/index.html)、[免责声明](https://www.cuhk.edu.hk/english/disclaimer.html)
+`robots.txt` 必须遵守，但它不是法律许可。Robots Exclusion Protocol 的正式规范明确说，robots 规则不是 access authorization。[IETF RFC 9309，第 1 节，2022-09；核对于 2026-09-02](https://www.rfc-editor.org/rfc/rfc9309.html#section-1)
 
-**隐私。** 中央隐私页表示网站会记录访客的 DNS 地址和访问页面，并链接至大学个人资料政策。大学政策要求可识别个人资料准确、安全并只用于收集目的，特别提到学生、职员和病人等资料主体。[CUHK Privacy Policy](https://www.cuhk.edu.hk/english/privacy.html)、[Protection of Personal Data](https://www.cuhk.edu.hk/policy/pdo/en/)
+香港政府的信息安全页面把《电讯条例》第 27A 条的“以电讯方式未经授权取用电脑”列为电脑相关罪行。[香港政府 InfoSec：Related Ordinances（核对于 2026-09-02）](https://www.infosec.gov.hk/en/useful-resources/related-ordinances) 本次研究没有找到香港官方资料直接裁定“访问一个无登录、无阻挡的公开网页是否当然属于获授权访问”，所以不作这个法律结论。工程上采用清楚的安全线：只请求网站主动公开的 canonical URL；任何拒绝、身份门槛或反机器人挑战都视为没有授权继续。
 
-**robots 与 sitemap。** [中央 robots.txt](https://www.cuhk.edu.hk/robots.txt) 只禁止一个招生 JavaScript 路径，没有禁止目标设施 HTML；`/sitemap.xml` 与 `/wp-sitemap.xml` 在核对时返回 404。这个结果允许对已知公开 URL 做保守请求，但不适合用站点遍历来发现所有资料。
+### 页面公开不代表内容开放许可
 
-**可先做。** 对单个中央设施页人工整理地点名、地址、一般查询电话和官方 URL；显示“资料由 CUHK 提供”会造成官方背书误解，因此应使用“来源：CUHK 官方页面”而非“CUHK 授权/合作”。
+[CUHK 中央免责声明（核对于 2026-09-02）](https://www.cuhk.edu.hk/english/disclaimer.html)和 [RES 免责声明（核对于 2026-09-02）](https://www.res.cuhk.edu.hk/disclaimer/)没有授予复制权，但也没有写抓取禁令。OSA、UMSO 目标页同样没有开放许可。正确结论不是“绝对允许”或“绝对禁止”，而是：
 
-**需要许可。** 批量复制中央 facilities/venues 表、说明文案、图片、建筑图、PDF、校徽或网站版式，以及把派生设施数据作为公开 API/下载资料提供。
+- 对匿名公开页面做少量、低频读取，没有发现必须先获得书面许可的明确网站条件；
+- 对有原创性的网页内容做复制和公开传播，仍需许可、法定例外或其他法律依据；
+- 抽取少量事实并用自己的模型重新表达，和复制原作品不是同一种行为；
+- 完整资料汇编是否、以及多大程度受保护，最终是事实和法律问题，本文不能保证零风险。
 
-**联系人。** 中央 [Contact Us](https://www.cuhk.edu.hk/english/contact.html) 把 Public Relations 联系列为 `cpr@cuhk.edu.hk`。CUHK Library Copyright Clearing Office 可在 `cco@lib.cuhk.edu.hk` 提供版权资讯和转介，但明确不是法律意见。[Copyright service](https://www.lib.cuhk.edu.hk/en/research/copyright/)
+搜索时会找到 CUHK 其他系统自己的 Terms of Use，但不能把某个独立系统的条款自动套到 RES、OSA 或 UMSO。例如 [CUHK ITSC Web Hosting Service Policy（核对于 2026-09-02）](https://www.itsc.cuhk.edu.hk/it-policies/itsc-policy-for-web-hosting-service/)约束使用 CUHK 托管服务的网站负责人；CUPro、CUPIS 等系统也各有自己的入口和用途。本次判断只依据目标来源实际展示或链接的规则；如果目标来源以后新增专项条款，就重新判断。
 
-### RES 公用课室
+## 版权：事实、表达和资料汇编怎么分
 
-**目标资料。** [List of Communal Classrooms](https://www.res.cuhk.edu.hk/teaching-timetable-classroom-booking/classroom-booking/list-of-communal-classrooms/) 是课室名称/编号、位置、容量、座位等资料的第一方来源。
+下面是工程风险分层，不是个案法律裁决。
 
-**权利。** RES 页脚显示 All Rights Reserved；免责声明只排除资料变化与依赖责任，没有开放数据或再发布许可。[RES 免责声明](https://www.res.cuhk.edu.hk/disclaimer/)
+| 内容          | 例子                                               | no-permission mode                                         |
+| ------------- | -------------------------------------------------- | ---------------------------------------------------------- |
+| 地点身份事实  | 建筑短名、课室编号、楼层、设施名称                 | 可保存为自己的 canonical 字段；附来源和核验时间            |
+| 数值/时段事实 | 座位数、座位类型、公共电话、星期、开关门时间       | 可结构化；UI 使用自己生成的标签，不照搬表格或句子          |
+| 公共操作链接  | 官方地图、官方预约入口、官方最新安排页             | 保存 canonical URL，按钮明确写“前往官方网站”               |
+| 简短服务事实  | 门诊、牙科、泳池                                   | 使用自己的受控枚举；不复制宣传或医疗说明                   |
+| 规则和步骤    | 入场资格、预约流程、恶劣天气安排、紧急医疗指引     | 默认不抽取；只链接官方页面。确需展示时人工写极短提示并复核 |
+| 日期事件汇编  | Google Calendar/ICS 的全部活动、关闭事件标题和说明 | P0 不抓、不重放、不保存完整 feed                           |
+| 网页表达      | 介绍、FAQ、段落、表格标题/次序、翻译、说明文字     | 不保存或再发布                                             |
+| 视觉作品      | 图片、校徽、地图、楼层图、PDF 和网页布局           | 不抓取或再发布                                             |
+| 完整资料镜像  | 原样课室表、完整费用表、CSV/JSON/API 下载          | 不提供；若产品以后需要，先申请许可或法律复核               |
+| 个人/医疗资料 | 姓名、学号、电邮、预约、病历、症状、token          | 不访问、不采集、不落库、不写日志                           |
 
-**隐私。** RES 隐私声明针对学生资料，说明其会按香港个人资料法律管理和传递学生资料。P0 课室目录不需要任何学生记录，抓取器也不应访问 CUSIS、教学班名单、预约申请或登录后页面。[RES Privacy Policy Statement](https://www.res.cuhk.edu.hk/privacy-policy-statement/)
+香港知识产权署说明，网上作品也受版权保护；只有取用作品的实质部分才构成相关侵权判断，而“实质”看质量而不只看数量。[香港知识产权署：What is Copyright（修订日期 2025-08-20；核对于 2026-09-02）](https://www.ipd.gov.hk/en/copyright/what-is-copyright/index.html) 香港官方 IP 平台说明，文学、戏剧、音乐或艺术作品须有原创性，即作品源自作者而非照抄其他作品。[香港区域知识产权贸易中心：Requirements for copyright（核对于 2026-09-02）](https://www.ip.gov.hk/en/types-of-ip/copyright/requirements-for-copyright/index.html)
 
-**robots/API/feed。** [RES robots.txt](https://www.res.cuhk.edu.hk/robots.txt) 禁止 `/wp-admin/`、允许 `admin-ajax.php` 并指向 [WordPress sitemap](https://www.res.cuhk.edu.hk/wp-sitemap.xml)，目标课室页不在禁止范围。核对时：
+对 RES 来说，最大的不确定性不是一个房号，而是“把官方列出的所有课室作为一个完整集合搬走”是否取用了该汇编的实质部分。no-permission mode 因此只做学生导航所需的重新组织索引，不复制原顺序、分组、备注或样式，也暂不提供批量下载。若将来要把完整目录作为独立数据产品、公开 API 或定期数据转售/再授权，书面许可就有实际意义。
 
-- 公开课室 HTML 返回 200；
-- [WordPress REST 的课室查询](https://www.res.cuhk.edu.hk/wp-json/wp/v2/pages?slug=list-of-communal-classrooms) 返回 401；
-- [RSS](https://www.res.cuhk.edu.hk/feed/) 返回 403；
-- robots 所列 `wp-sitemap.xml` 返回 XML 内容，但 HTTP 状态为 404。
+## 可直接运行的 no-permission mode
 
-这些状态必须按原样尊重；不能改 User-Agent、模拟登录、调用内部 endpoint 或采取其他方式绕过 401/403。生产解析器只能使用已知的公开 HTML，不能把 REST 或 RSS 当作已获授权的稳定 API。
+### 1. 运行方式
 
-**未获许可时的上线边界。** 可以人工核验并展示有限的课室事实，或让抓取器只生成“页面发生变化”的内部提醒。**完整导入整张公用课室目录**会接近系统性复制一个资料汇编；在收到 RES 对字段、频率、留存和再发布的书面确认前，不自动发布全量结果。
+- 后台只有管理员可触发；P0 不设 cron。
+- 每个来源默认每 30 天最多成功检查一次；管理员因纠错强制重跑时必须填写原因。
+- 每个来源只请求经过审核的 canonical URL，不从 sitemap 遍历站点，也不跟随页面去批量发现新内容。
+- 每个 host 串行请求，并为客户端使用可识别的 `User-Agent` 和联系地址。
+- 请求设置短超时；支持时使用条件请求。没有公开配额不代表可以高频请求。
+- 401、403、429、验证码、新登录要求或新 `robots.txt` 禁止立即停止；不换 User-Agent、代理或 endpoint 规避。
+- 5xx、超时或解析异常保留 last-known-good，标记来源检查失败；绝不把一次空结果当成删除全部资料。
 
-**联系人。** [RES Contact Us](https://www.res.cuhk.edu.hk/contact-us/) 把课室事务联系人列为 `roombooking@cuhk.edu.hk`，一般查询为 `ugadmin@cuhk.edu.hk`。许可请求应首先发送给前者，并请其确认是否有权代表 Registry 批准数据再使用。
+### 2. 允许落库的最小字段
 
-### OSA 大学游泳池
+```text
+source_id
+source_url
+source_owner                 # CUHK / RES / OSA / UMSO
+robots_checked_at
+fetched_at
+http_status
+content_hash                 # 只用于判断页面是否变化
+parser_version
 
-**目标资料。** [University Swimming Pool](https://www.osa.cuhk.edu.hk/campus-life/amenities/swimming-pool/) 提供常规开放时段、费用、容量、设施、资格、清洁安排和规则链接，并明确链接一个公开 Google Calendar 让访客查看最新安排。
+place_name_zh / place_name_en
+building_name_zh / building_name_en
+floor
+room_code
+capacity                     # RES 可选
+seat_type                    # RES 可选、自己的枚举
+service_type                 # 自己的枚举，例如 outpatient / dental / pool
+public_phone
+regular_hours                # 结构化 weekday + open/close
+official_map_url
+official_action_url
+verified_at
+publication_status           # draft / approved / stale
+```
 
-**权利。** OSA 页脚显示 All Rights Reserved，并链接 CUHK 中央免责声明和隐私政策；没有找到 OSA 自己的开放数据、内容许可或 feed 再发布条款。
+字段中不保存来源段落、HTML 片段、CSS selector 附近原文或可复原整页的 JSON。`content_hash` 只能说明页面变了，不能重建旧网页；这是刻意接受的审计取舍。
 
-**robots/API/feed。** [OSA robots.txt](https://www.osa.cuhk.edu.hk/robots.txt) 禁止插件与管理路径、明确允许 uploads 和 admin-ajax；游泳池页不受禁止。公开 [sitemap index](https://www.osa.cuhk.edu.hk/sitemap_index.xml)、[RSS](https://www.osa.cuhk.edu.hk/feed/) 和 [游泳池 WordPress REST 记录](https://www.osa.cuhk.edu.hk/wp-json/wp/v2/pages?slug=swimming-pool&_fields=id,modified,link,slug,title,content) 技术上可读，但 endpoint 没有独立内容许可、稳定性承诺或版本合同；响应的 `Allow: GET` 只表示 HTTP 方法，`X-Robots-Tag: noindex` 只表达索引指示，两者都不表示可复制内容。
+### 3. 三个来源实际怎么接
 
-**Google Calendar。** OSA 页面链接的日历可由公开 [ICS feed](https://calendar.google.com/calendar/ical/swimmingpoolcuhk%40gmail.com/public/basic.ics) 订阅。Google 的官方说明表示公开日历可与其他应用同步或订阅，但没有因此把事件内容置于开放许可下。[Google Calendar: public calendars](https://support.google.com/calendar/answer/37083?hl=en) 若改用 Google Calendar API，Google API 条款还说明访问 API 内容不会取得内容所有权，且未经内容所有人或法律允许不得建立永久复制品或超出 cache header 留存。[Google APIs Terms](https://developers.google.com/terms)
+#### RES 课室
 
-核对时，公开 ICS 响应包含 `Cache-Control: no-cache, no-store, max-age=0, must-revalidate`。RFC 9111 对 `no-store` 的定义是缓存不得保存 response；因此即使公开订阅本身是预期用途，生产抓取器也不应把完整 ICS body 当作永久 snapshot 保存。[RFC 9111](https://www.rfc-editor.org/rfc/rfc9111.html)
+读取 [List of Communal Classrooms（核对于 2026-09-02）](https://www.res.cuhk.edu.hk/teaching-timetable-classroom-booking/classroom-booking/list-of-communal-classrooms/) 的单一公开 HTML 页面，生成 Building → 可选 Floor → Classroom 的导航索引。
 
-**未获许可时的上线边界。** 可以人工发布游泳池名称、位置、常规开放时间、数字费用、容量和官方日历链接；可嵌入或跳转官方日历。抓取器可以在内存中读取 ICS 用于 shadow diff，但不长期保存原始 feed，不公开重放完整事件列表，也不自动发布由事件摘要推导的整池关闭/局部限制。
+允许保存课室短名/编号、建筑、楼层，以及确有产品用途时的容量和座位类型。解析后按 CUpedia 自己的建筑和课室 ID 组织，不保留官方表格顺序、学院分组、脚注、说明文字或链接文案；前台不提供“下载完整 RES 表”。因为这仍会覆盖许多记录，三项来源中它的汇编风险最高，应保留快速下架开关，并把来源异议视为立即暂停信号。
 
-**需要许可。** 自动把 ICS 事件转换成 CUpedia 运营事件并对公众显示、保存 UID/摘要/描述的长期历史、公开派生 ICS/API，以及使用 OSA 图片或规章正文。许可还应确认 OSA 是否控制 `swimmingpoolcuhk@gmail.com` 并有权授权其日历内容。
+这只适用于静态课室清单，不代表可以抓任何 RES 系统。公开教学时间表入口目前带 CAPTCHA；no-permission mode 不访问、不自动填写也不尝试绕过该入口。[RES Public Teaching Timetable（核对于 2026-09-02）](https://rgsntl.rgs.cuhk.edu.hk/rws_prd_applx2/Public/tt_dsp_timetable.aspx)
 
-**联系人。** [OSA Contact Us](https://www.osa.cuhk.edu.hk/about-osa/contact-us/) 把游泳池联系人列为 `aaas@cuhk.edu.hk`，OSA 一般邮箱为 `osa@cuhk.edu.hk`。
+#### OSA 游泳池
 
-### UMSO 门诊与牙科
+读取 [University Swimming Pool（核对于 2026-09-02）](https://www.osa.cuhk.edu.hk/campus-life/amenities/swimming-pool/) 的公开页面，只保存泳池名称、地点、常规每周开放时段和“查看最新安排”的官方 URL。
 
-**目标资料。** [Medical Service](https://www.umso.cuhk.edu.hk/medical-service/)、[Dental Service](https://www.umso.cuhk.edu.hk/dental-service/) 及其子页提供地点、办公时间、电话、预约入口和操作说明。
+P0 不抓 Google Calendar/ICS，不复制入场资格、清洁通知、规则、费用说明或网页图片，也不把日历事件自动变成“今日开放/关闭”。页面变化后进入草稿，由管理员比对官网再批准。
 
-**权利。** UMSO 页脚显示 All Rights Reserved；它的免责声明和隐私页沿用中央短文，没有开放数据或再发布授权。[UMSO 免责声明](https://www.umso.cuhk.edu.hk/disclaimer/)、[UMSO Privacy Policy](https://www.umso.cuhk.edu.hk/privacy-policy/)
+#### UMSO 保健处
 
-**医疗资料。** UMSO 明确表示医疗资料严格保密，未经当事人同意不会向第三方披露。[Mission & Confidentiality](https://www.umso.cuhk.edu.hk/mission-confidentiality/) CUpedia 只需要单位级公开事实；不得进入登录后的预约系统，也不得收集病人身份、症状、病历、预约、资格判断、表单内容或 token。香港私隐专员公署亦提醒，网上公开可见的个人资料仍受资料保护法律约束，抓取方不能把公开可见当作无限制使用。[PCPD joint statement on data scraping](https://www.pcpd.org.hk/english/news_events/media_statements/press_20230825.html)
+读取 [Medical Service（核对于 2026-09-02）](https://www.umso.cuhk.edu.hk/medical-service/)与 [Dental Service（核对于 2026-09-02）](https://www.umso.cuhk.edu.hk/dental-service/) 的公开页面，只保存保健处建筑/楼层、门诊和牙科服务类型、公共查询电话、常规办公时段和官方预约入口。
 
-**robots/API/feed。** [UMSO robots.txt](https://www.umso.cuhk.edu.hk/robots.txt) 禁止 `/wp-admin/`、允许 `admin-ajax.php` 并列出 [sitemap](https://www.umso.cuhk.edu.hk/wp-sitemap.xml)。公开 HTML、[RSS](https://www.umso.cuhk.edu.hk/feed/) 和 [Medical Service WordPress REST 记录](https://www.umso.cuhk.edu.hk/wp-json/wp/v2/pages?slug=medical-service&_fields=id,modified,link,slug,title,content) 技术上可读，但没有 endpoint-specific license 或稳定 schema 承诺。只可使用公开、无需身份的入口，并在 401/403/429 时停止。
+前台按钮跳转官方预约入口，不代理预约，也不复制预约步骤、费用表、FAQ、紧急/医疗指引。CUpedia 的卡片必须看起来像地点导航和服务入口，而不是医疗建议。UMSO 说明医疗资料会被严格保密；这进一步支持完全避开登录系统和个人数据。[UMSO Mission & Confidentiality（核对于 2026-09-02）](https://www.umso.cuhk.edu.hk/mission-confidentiality/)
 
-**未获许可时的上线边界。** 可以人工展示建筑/楼层、服务类型、办公时段、部门电话和官方预约链接；预约、闭门后安排或医疗处置只能写成非常短的事实提示并深链官方说明。不要复制医疗建议、紧急指引、预约步骤、FAQ 或费用表正文；不要让 CUpedia 的摘要看起来像医疗建议。
+### 4. 发布流程
 
-**需要许可。** 自动同步并公开发布 UMSO 的开放时间、电话、费用、预约规则或紧急安排；保存原始页面/PDF；翻译或改写完整操作指引；使用第三方牙科承办商 PDF。第三方 PDF 需要内容拥有人的单独许可，UMSO 同意不一定覆盖承办商内容。
+```text
+管理员点击检查
+  → 核对 robots 与公开访问状态
+  → 临时读取页面并解析白名单事实
+  → 立即丢弃 response body
+  → 生成字段级 diff 草稿
+  → 管理员打开官方页面复核
+  → 批准后发布；否则维持旧数据并标记 stale
+```
 
-**联系人。** [UMSO Contact Us](https://www.umso.cuhk.edu.hk/contact-us/) 列出一般行政邮箱 `umso@cuhk.edu.hk`、门诊 `umso-outpatient@cuhk.edu.hk` 和牙科 `umso-dental@cuhk.edu.hk`。权利许可先向 `umso@cuhk.edu.hk` 申请，服务邮箱用于字段正确性确认。
+前台每张卡显示：
 
-## 内容类型判定
+- `来源：CUHK RES / OSA / UMSO`；
+- 可点击的官方页面；
+- `最近核验：YYYY-MM-DD`；
+- `CUpedia 为非官方学生平台`；
+- 超过预设期限未复核时显示“资料可能已更新”，不猜测当前开放状态。
 
-下面是工程上的风险分层，不是对个案的法律裁断。
+署名的作用是让用户追溯来源和避免官方背书误解，不是版权许可。
 
-| 内容          | 例子                                               | 未获许可时如何处理                                             |
-| ------------- | -------------------------------------------------- | -------------------------------------------------------------- |
-| 短身份事实    | `LSK 301`、建筑中英文名、房号、楼层                | 可存 canonical fact；来源链接和核验时间必填                    |
-| 数值/时间事实 | 容量、座位数、电话、费用金额、星期和开放区间       | 可独立结构化；不要照搬整张表的编排                             |
-| 日期事件事实  | 关闭日期、起止时间、受影响区域                     | 人工核验后可存；不要复制公告标题/描述；ICS 自动发布需 OSA 许可 |
-| 简短服务能力  | 门诊、牙科、游泳、热水淋浴                         | 用受控 capability code，不复制宣传说明                         |
-| 资格/规则     | 谁可使用、证件、取消、恶劣天气安排                 | 只保留必要的简短事实摘要并链接；自动更新前人工批准             |
-| 网页正文      | 设施介绍、办理步骤、FAQ、医疗/紧急指引             | 不复制；深链官方页面；需要展示较长内容时申请许可               |
-| 视觉作品      | 图片、校徽、图标、地图、楼面图、PDF 排版、网页布局 | 不抓取或再发布；逐项授权                                       |
-| 完整资料汇编  | 全量课室表、完整事件 feed、完整费用表              | 未获许可不公开镜像、不提供下载/API                             |
-| 个人/医疗资料 | 姓名、邮箱、预约、病历、症状、登录状态             | 不采集、不落库、不写日志                                       |
+### 5. 原始响应与日志
 
-## 原始快照与证据留存
+未取得另行许可时，HTML response body 只在单次任务内存中存在，解析后丢弃。生产、CI 和错误监控均不得保存完整 HTML、PDF、图片、ICS、页面截图或带敏感参数的预约 URL。解析器测试使用手工制作的最小 fixture，不提交 CUHK 网页副本。
 
-先前设计假设“为审计永久保存 immutable raw snapshot”。在目前没有开放许可的情况下，这个假设应收窄：完整 HTML、PDF 或 ICS snapshot 本身是内容复制，不应因为它只放在后台就自动视为获准。
-
-未获许可时，生产任务只保留：
+日志只保留：
 
 ```text
 source_url
@@ -141,107 +181,55 @@ fetched_at
 content_hash
 content_length
 parser_version
-robots_checked_at
-normalized_facts
-field_locator_without_source_prose
+normalized_diff_without_source_prose
 ```
 
-`normalized_facts` 这里只指已落在上述“少量事实”首发边界内、经人工选择的字段；它不包括从 RES 全表或 OSA 全 feed 批量生成并留存的全部记录。
+## 个人资料不是本功能的数据源
 
-并遵守以下约束：
+这些设施卡不需要个人资料。香港个人资料私隐专员公署指出，公开可见的个人资料仍受资料保护法律约束，批量抓取个人资料会产生身份欺诈、定向攻击等风险。[PCPD：Data Scraping on Social Media Raises Concerns，发布于 2023-08-25；核对于 2026-09-02](https://www.pcpd.org.hk/english/news_events/media_statements/press_20230825.html)
 
-- response body 优先只在单次 job 的进程内存中存在；普通 HTML 如因解析器限制必须使用唯一临时文件，job 结束立即删除；带 `no-store` 的 OSA ICS 不落磁盘；
-- logs、error monitoring 和 CI artifact 不记录 HTML、ICS、PDF body 或含参数的预约 URL；
-- parser fixtures 使用人工制作的最小合成 HTML/ICS，不提交官方页面副本；
-- 证据定位保存 selector/heading key/row key，不保存整段来源文字；
-- 若某字段必须靠原文复核，审核员打开 canonical URL，不在 CUpedia 后台重放整页；
-- `content_hash` 只能证明内容改变，不能证明旧值是什么；这是未获存档许可时有意接受的审计取舍。
+因此 crawler 不进入 CUSIS、课室预约、门诊/牙科预约或任何登录页面，不收集学生、职员、病人或预约资料，不提交表单，也不把 URL query、cookie 或 token 写入日志。公开部门电话属于单位联系资料；个人姓名、个人直线电话或个人电邮默认不抓。
 
-如取得书面许可，再明确以下细节后才能启用原始快照：允许的媒体类型、保留期限、访问角色、是否可放在第三方云、加密和删除期限、是否可用于 parser fixture、许可撤回后的清除要求。OSA ICS 即使获 OSA 内容许可，也应同时处理 Google 响应的 `no-store` 指示。
+## 什么时候书面许可仍然有意义
 
-## 抓取器运行边界
+书面许可不是这个最小 P0 的前置门槛，但在以下扩张场景能实际降低风险并明确双方预期：
 
-允许 shadow mode 不代表可以无限抓取。四个来源均没有公开 crawl quota 或 SLA，目标 HTML 也没有稳定 ETag/Last-Modified，因此缺省运行策略应保守：
+- 原样或近乎完整地复制 RES 课室表、费用表或其他资料汇编；
+- 提供 CSV、JSON、ICS、公开 API 或批量下载；
+- 抓取并重放 OSA Google Calendar 的完整事件；
+- 保存 HTML/PDF/ICS 原始历史快照或把官方内容当 parser fixture；
+- 复制、翻译或改写较长说明、医疗/紧急指引、FAQ；
+- 使用图片、地图、楼层图、校徽或网站视觉；
+- 取消人工审核，让 crawler 自动改生产资料；
+- 显著提高频率、扩大 URL 范围或商业化/向第三方再授权数据。
 
-1. 只抓白名单 canonical URL，不遍历整个站点。
-2. 使用能识别 CUpedia 和联系邮箱的 User-Agent。
-3. RES 课室目录、OSA 游泳池 HTML、UMSO 服务页最多每日一次；稳定静态页可降为每周。
-4. OSA 日历在获准前不用于生产发布；shadow probe 最快每小时一次且单请求串行。
-5. 每次执行前或至少每日缓存并重新核对对应 `robots.txt`；新 `Disallow` 立即停用 source。
-6. 429 按 `Retry-After` 停止；401/403 不重试规避；连续 5xx 指数退避并通知人工。
-7. 响应结构、记录数或关键字段异常时只产生告警；保持 last-known-good，不以空抓取删除事实。
-8. 任何新 source、URL 范围、字段类型或公开用途都重新经过许可检查，不能把一个单位的同意扩张到另一个单位。
+若未来进入这些范围，可分别联系 [RES Contact Us（核对于 2026-09-02）](https://www.res.cuhk.edu.hk/contact-us/) 所列 `roombooking@cuhk.edu.hk`、[OSA Contact Us（核对于 2026-09-02）](https://www.osa.cuhk.edu.hk/about-osa/contact-us/) 所列泳池联系人，以及 [UMSO Contact Us（核对于 2026-09-02）](https://www.umso.cuhk.edu.hk/contact-us/) 所列 `umso@cuhk.edu.hk`。申请的意义是授权更广的复制/发布和约定频率、字段、留存、署名及撤回方式，不是为了给普通公开事实“办许可证”。
 
-## 书面许可需要问清的问题
+## 停止与下架条件
 
-不要只问“我们可以爬吗”。应把以下内容写入同一封请求，让对方逐项明确：
+发生以下任一情况，来源立即进入 paused，现有事实标记 stale，并交人工处理：
 
-1. 是否允许 CUpedia 以说明身份的自动化客户端定期读取列出的公开 URL；认可的最高频率和 User-Agent/contact 是什么？
-2. 是否允许提取并公开再发布列明的字段：地点名、房号、楼层、容量、座位类型、开放/关闭时间、费用、部门电话、预约 URL？
-3. 是否允许完整覆盖该来源的所有记录，还是只允许逐项事实；是否允许对外搜索、公开 API、CSV/JSON/ICS 下载？
-4. 是否允许在私有云保存原始 HTML/PDF/ICS；允许多久、谁可访问、是否可用于测试或审计？
-5. 是否允许把中英文资料归一化、翻译和用 CUpedia 自己的短文字呈现？
-6. 需要什么 attribution、免责声明、更新时间和官方链接？可否使用 CUHK/单位名称；是否明确禁止校徽、图片或“官方合作”表述？
-7. 哪些页面或文件含第三方权利，单位无权代为许可？特别是 Google Calendar 和承办商 PDF。
-8. 资料变化或许可撤回时，对方用什么渠道通知；CUpedia 需要在多久内更新或删除？
-9. 低风险字段可否在 shadow period 后自动发布；高风险字段是否必须逐次人工确认？
-10. 同意由哪个职位/单位作出，是否可以保留书面回复作为长期运行依据？
+1. 对方书面要求停止或下架；
+2. `robots.txt` 新增适用 `Disallow`；
+3. 目标出现登录、验证码、401、403 或持续 429；
+4. 新页面条款明确禁止相关自动访问或再使用；
+5. 解析器无法证明字段仍来自原来的标题/表格位置；
+6. 来源开始包含个人资料或第三方作品；
+7. 请求造成异常负载或 CUHK 联系 CUpedia 反映运营影响。
 
-建议分别发送：
+删除、改名或空页面都先作为待审差异，不自动删除生产数据。管理员确认后才更新或下架。
 
-| 范围                               | 主联系人                  | 抄送/咨询                                                           |
-| ---------------------------------- | ------------------------- | ------------------------------------------------------------------- |
-| CUHK 中央设施目录与总体权利        | `cpr@cuhk.edu.hk`         | `cco@lib.cuhk.edu.hk` 用于版权资讯/转介                             |
-| RES 公用课室表                     | `roombooking@cuhk.edu.hk` | `ugadmin@cuhk.edu.hk`                                               |
-| OSA 游泳池 HTML 与 Google Calendar | `aaas@cuhk.edu.hk`        | `osa@cuhk.edu.hk`                                                   |
-| UMSO 门诊/牙科公开资料             | `umso@cuhk.edu.hk`        | `umso-outpatient@cuhk.edu.hk`、`umso-dental@cuhk.edu.hk` 仅核对事实 |
+## 仍然不确定的地方
 
-## 对 P0 的直接影响
+- 没有香港法院或 CUHK 权利负责人对 CUpedia 这个具体做法给出判断；本文不能承诺零法律风险。
+- 没有找到目标页面的开放数据许可，也没有找到适用于这些目标页的 crawler 专项条款；“没有找到”不代表以后不会新增或存在未链接文件。
+- 完整 RES 课室集合是否构成受保护汇编、导航索引覆盖全部房间时是否取用了其实质部分，需要结合具体选择/编排和产品呈现判断。
+- 公开、无认证的网页请求在《电讯条例》第 27A 条下如何被法院定性，不在已核对的一手资料中得到直接答案；因此本方案绝不穿越任何拒绝或技术门槛。
+- 本文没有判断第三方牙科承办商资料、Google Calendar 内容、CUHK 图片、地图或楼层图的权利；no-permission mode 一律不接入它们。
+- 没有公开 crawl quota 或服务级别承诺；“每月一次、管理员触发”是保守产品选择，不是 CUHK 批准的额度。
 
-### 可以先实现
+## 研究方法与最终产品判断
 
-- 来源注册、robots 检查、低频抓取和 hash change detection；
-- 用合成 fixture 完成 parser/staging；真实 RES 全表和 OSA 全 feed 在许可前不落成批 extracted claims；
-- 不保留 body 的 source observation；
-- Campus Map 内人工核验的 Building/Floor/Place；
-- 少量事实字段、官方链接、`verifiedAt`/`fetchedAt`、stale/unknown 状态；
-- 预约按钮只跳转官方入口，不代理表单、不持有身份信息；
-- 内容变化后停止自动发布并要求复核。
+2026-09-02 使用匿名 `GET` 和页面阅读核对了四组目标页、免责声明、隐私/保密说明和 `robots.txt`；没有登录、提交表单、遍历隐藏 endpoint 或测试绕过。法律部分只引用香港官方法例/政府/监管机构资料和 IETF 标准。
 
-### 取得书面许可后才能打开
-
-- RES 全量课室首次导入及定期字段更新；
-- OSA ICS 转 Operational Event，并在卡片显示即将关闭/局部限制；
-- UMSO 时间、电话、费用或办理规则的自动发布；
-- 任何完整 raw snapshot、历史原文或官方数据导出；
-- 由 crawler 直接合并生产 Changeset。
-
-### 即使取得一般许可也不默认做
-
-- 复制官方图片、校徽、PDF、网页布局或长段文字；
-- 抓登录后的课室预约、门诊预约或可用名额；
-- 保存个人、学生、病人或预约数据；
-- 根据 UMSO 文字生成个性化医疗判断；
-- 声称 CUpedia 是 CUHK 官方产品、合作方或获背书，除非许可明确这样写。
-
-## 仍未验证或需要外部答复
-
-- 没有收到 CUHK、RES、OSA 或 UMSO 对 CUpedia 的书面许可；本文不能替代许可。
-- 没有找到四组目标来源的开放数据 licence 或正式 crawler/API terms；“未找到”不等于它们内部不存在。
-- 尚未确认 `swimmingpoolcuhk@gmail.com` 的权利拥有者，以及 OSA 是否能授权其事件内容供第三方再发布。
-- 尚未确认完整 RES 课室表在本案中是否构成受保护资料汇编；这是应交 CUHK 权利负责人或法律顾问判断的问题。
-- 尚未获得允许的请求频率、服务窗口、联系人通知或 SLA；本文的频率只是保守工程建议。
-- 尚未确认 CUpedia 与 CUHK 的组织关系会否影响内部使用许可；不能仅因开发者是 CUHK 学生就假定取得授权。
-- 没有进入任何登录、表单或预约系统，也没有测试绕过限制；这些行为明确不在研究范围内。
-- 没有为第三方牙科承办商 PDF、Google 平台内容或 CUHK 图片逐项查权；默认不接入。
-
-## 核对方法
-
-核对在 2026-09-01 以普通匿名 `GET`/header probe 完成，未登录、未提交表单、未绕过访问限制。检查了：
-
-- 四组站点首页、目标设施页、免责声明、隐私页和联系页；
-- `robots.txt`、标准 sitemap 路径、站点公开 sitemap；
-- 目标 WordPress REST、RSS 和 OSA 公开 Google Calendar/ICS 的匿名状态与响应头；
-- CUHK Library、香港知识产权署、香港个人资料私隐专员公署、IETF 和 Google 的一手说明。
-
-建议在任何生产 crawler 首次启用以及条款、robots 或来源域名改变时，重新执行同一核对。
+最终产品判断是：**直接抓，但保持小、慢、透明、可停。** P0 不应等待许可邮件；应实现管理员手动检查、每月级频率、事实字段白名单、来源链接、人工发布和一键暂停。把书面许可留给“完整复制、自动发布、长期存档、批量导出或使用创作性内容”这些真正需要扩大权利边界的阶段。
