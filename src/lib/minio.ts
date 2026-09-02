@@ -6,6 +6,8 @@ import {
 } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 
+import { requirePrivateMinioBucket } from "@/lib/minio-config";
+
 const endpoint = process.env.MINIO_PORT
   ? `http://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}`
   : process.env.MINIO_ENDPOINT!;
@@ -79,16 +81,51 @@ export async function putPublicObject(
   );
 }
 
+export async function putPrivateObject(
+  key: string,
+  body: Buffer,
+  contentType: string,
+  cacheControl: string,
+): Promise<void> {
+  const privateBucket = requirePrivateMinioBucket();
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: privateBucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+      CacheControl: cacheControl,
+    }),
+  );
+}
+
 export async function getObject(key: string) {
   return s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
 }
 
+export async function getPrivateObject(key: string) {
+  return s3.send(
+    new GetObjectCommand({ Bucket: requirePrivateMinioBucket(), Key: key }),
+  );
+}
+
 export async function deleteObjects(keys: string[]) {
+  return deleteObjectsFromBucket(bucket, keys);
+}
+
+export async function deletePrivateObjects(keys: string[]) {
+  return deleteObjectsFromBucket(requirePrivateMinioBucket(), keys);
+}
+
+async function deleteObjectsFromBucket(bucketName: string, keys: string[]) {
   if (keys.length === 0) return;
-  await s3.send(
+  const response = await s3.send(
     new DeleteObjectsCommand({
-      Bucket: bucket,
+      Bucket: bucketName,
       Delete: { Objects: keys.map((Key) => ({ Key })) },
     }),
   );
+  if (response.Errors && response.Errors.length > 0) {
+    throw new Error("Object storage did not delete every requested object");
+  }
 }

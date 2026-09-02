@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getCampusMapCurrentPlace: vi.fn(),
+  getCampusMapRevisionPhotoViews: vi.fn(),
   getOptionalUser: vi.fn(),
   getViewer: vi.fn(),
   publish: vi.fn(),
@@ -10,6 +11,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/campus-map/fact-store", () => ({
   getCampusMapCurrentPlace: mocks.getCampusMapCurrentPlace,
+}));
+vi.mock("@/lib/campus-map/place-photos", () => ({
+  getCampusMapRevisionPhotoViews: mocks.getCampusMapRevisionPhotoViews,
 }));
 vi.mock("@/lib/auth-guard", () => ({
   getOptionalUser: mocks.getOptionalUser,
@@ -31,6 +35,7 @@ describe("Campus Map edit action adapter", () => {
     vi.clearAllMocks();
     mocks.getOptionalUser.mockResolvedValue({ id: "user-1", role: "user" });
     mocks.getViewer.mockResolvedValue({ id: "user-1", role: "user" });
+    mocks.getCampusMapRevisionPhotoViews.mockResolvedValue({});
     mocks.headers.mockResolvedValue(new Headers());
   });
 
@@ -171,6 +176,7 @@ describe("Campus Map edit action adapter", () => {
         floorId,
         floorLabel: "1/F",
       },
+      photos: [],
     });
   });
 });

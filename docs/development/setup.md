@@ -30,7 +30,9 @@ Open `http://localhost:3000` after Next.js starts.
 
 1. Copy `.env.example` to `.env.local` when the local file is absent
 2. Start the `db` and `minio` Docker services and wait for their health checks
-3. Create the `cuclaw-uploads` MinIO bucket
+3. Create the public `cuclaw-uploads` bucket and the private
+   `cuclaw-private-uploads` bucket used by controlled Campus Map Place-photo
+   routes
 4. Apply every migration with `pnpm drizzle-kit migrate`
 5. Load the idempotent development fixtures with `pnpm seed`
 
@@ -75,7 +77,12 @@ The main local groups are:
 - **Database**: `DATABASE_URL` points to PostgreSQL on port `5433`
 - **Authentication**: `AUTH_SECRET` and `AUTH_URL`; the template enables the development-only email whitelist bypass
 - **Email**: `BREVO_API_KEY` and `EMAIL_FROM` are required only for real one-time-password email delivery
-- **Storage**: `MINIO_*` points to the local S3-compatible MinIO service
+- **Storage**: `MINIO_*` points to the local S3-compatible MinIO service;
+  `MINIO_BUCKET` is public Wiki media while `MINIO_PRIVATE_BUCKET` must not
+  grant anonymous reads
+- **Scheduled cleanup**: production needs `CRON_SECRET`; Vercel calls the
+  bounded Campus Map Place-photo cleanup route hourly so expired, unbound
+  objects do not depend on a later user request for removal
 - **Product flags**: optional canteen, danmaku, sensitive-content, and Campus Bus settings are documented beside their variables
 
 Seeded password login does not require Brevo.

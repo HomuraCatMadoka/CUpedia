@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   listBuildings: vi.fn(),
   listPlaces: vi.fn(),
   getCurrentPlace: vi.fn(),
+  getCurrentPlaceCoverViews: vi.fn(),
+  getRevisionPhotoViews: vi.fn(),
   getOptionalUser: vi.fn(),
   resolveMapping: vi.fn(),
   projectAmapPoiCard: vi.fn(),
@@ -22,6 +24,10 @@ vi.mock("@/lib/campus-map/fact-store", () => ({
   listCampusMapBrowseBuildings: mocks.listBuildings,
   listCampusMapCurrentPlaces: mocks.listPlaces,
   getCampusMapCurrentPlace: mocks.getCurrentPlace,
+}));
+vi.mock("@/lib/campus-map/place-photos", () => ({
+  getCampusMapCurrentPlaceCoverViews: mocks.getCurrentPlaceCoverViews,
+  getCampusMapRevisionPhotoViews: mocks.getRevisionPhotoViews,
 }));
 vi.mock("@/lib/campus-map/provider-mapping-registry", () => ({
   resolveCampusMapProviderSelection: mocks.resolveMapping,
@@ -40,6 +46,7 @@ vi.mock("next/headers", () => ({
 import {
   loadCampusMapAmapPoiCard,
   loadCampusMapBrowseProjection,
+  loadCampusMapPlaceCover,
 } from "@/lib/campus-map/browse-actions";
 import { loadCampusMapEditablePlace } from "@/lib/campus-map/edit-actions";
 
@@ -49,6 +56,8 @@ describe("Campus Map beta server-action authentication", () => {
     mocks.requireAuth.mockResolvedValue({ id: "user-1" });
     mocks.readBrowse.mockResolvedValue({ buildings: [], places: [] });
     mocks.getCurrentPlace.mockResolvedValue(null);
+    mocks.getCurrentPlaceCoverViews.mockResolvedValue({});
+    mocks.getRevisionPhotoViews.mockResolvedValue({});
   });
 
   it("rejects anonymous browse requests before reading public projections", async () => {
@@ -71,6 +80,15 @@ describe("Campus Map beta server-action authentication", () => {
       }),
     ).rejects.toThrow("NEXT_REDIRECT");
     expect(mocks.resolveMapping).not.toHaveBeenCalled();
+  });
+
+  it("rejects anonymous cover refreshes before reading Place photos", async () => {
+    mocks.requireAuth.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+
+    await expect(loadCampusMapPlaceCover("place-1")).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+    expect(mocks.getCurrentPlaceCoverViews).not.toHaveBeenCalled();
   });
 
   it("rejects anonymous editable-place reads before accessing facts", async () => {

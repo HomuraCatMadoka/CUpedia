@@ -10,6 +10,7 @@ import {
   listCampusMapBrowseBuildings,
   listCampusMapCurrentPlaces,
 } from "@/lib/campus-map/fact-store";
+import { getCampusMapCurrentPlaceCoverViews } from "@/lib/campus-map/place-photos";
 import { resolveCampusMapProviderSelection } from "@/lib/campus-map/provider-mapping-registry";
 
 function readBrowseProjection() {
@@ -23,6 +24,13 @@ function readBrowseProjection() {
 export async function loadCampusMapBrowseProjection() {
   await requireAuth();
   return readBrowseProjection();
+}
+
+/** Refreshes one category-card cover after a Place publish. */
+export async function loadCampusMapPlaceCover(placeId: string) {
+  await requireAuth();
+  const covers = await getCampusMapCurrentPlaceCoverViews([placeId]);
+  return covers[placeId] ?? null;
 }
 
 /** Returns one linked or transient AMap card without exposing mapping rules. */

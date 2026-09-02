@@ -1,6 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["hkg1"],
+  "crons": [
+    {
+      "path": "/api/internal/campus-map/place-photo-cleanup",
+      "schedule": "17 * * * *"
+    }
+  ],
   "git": {
     "deploymentEnabled": {
       "*": false,

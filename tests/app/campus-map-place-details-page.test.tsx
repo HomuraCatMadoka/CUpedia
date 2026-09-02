@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getViewer: vi.fn(),
   getFeedbackPage: vi.fn(),
   getViewerFeedback: vi.fn(),
+  getPlacePhotos: vi.fn(),
   notFound: vi.fn(),
 }));
 
@@ -21,6 +22,9 @@ vi.mock("@/lib/auth-guard", () => ({
 vi.mock("@/lib/campus-map/place-feedback", () => ({
   getCampusMapPlaceFeedbackPage: mocks.getFeedbackPage,
   getCampusMapViewerPlaceFeedback: mocks.getViewerFeedback,
+}));
+vi.mock("@/lib/campus-map/place-photos", () => ({
+  getCampusMapRevisionPhotoViews: mocks.getPlacePhotos,
 }));
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
 
@@ -109,6 +113,7 @@ describe("Campus Map stable Place page (#816)", () => {
       page: { items: [], nextCursor: null, isPaginated: false },
     });
     mocks.getViewerFeedback.mockResolvedValue(null);
+    mocks.getPlacePhotos.mockResolvedValue({ [revisionId]: [] });
   });
 
   it("uses the current revision for the tombstone reason and exposes lifecycle UI only to a fresh admin", async () => {
@@ -118,6 +123,7 @@ describe("Campus Map stable Place page (#816)", () => {
 
     expect(element.type).toBe(CampusMapPlaceDetail);
     expect(mocks.getRevision).toHaveBeenCalledWith(placeId, revisionId);
+    expect(mocks.getPlacePhotos).toHaveBeenCalledWith([revisionId]);
     expect(element.props).toMatchObject({
       placeId,
       retirementReason: "地点已拆除",

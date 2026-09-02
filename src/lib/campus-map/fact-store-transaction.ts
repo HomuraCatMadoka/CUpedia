@@ -11,6 +11,7 @@ import {
   campusMapFactSchemas,
   campusMapPlaceChanges,
   campusMapPlaceFeedback,
+  campusMapRevisionPhotos,
   campusMapPlaces,
   campusMapProvenanceSources,
   campusMapRevisionProvenance,
@@ -27,6 +28,7 @@ import {
   type CampusMapLocationKind,
   type CampusMapPinType,
   type CampusMapPlaceOperation,
+  type CampusMapPlacePhotoRole,
   type CampusMapPointPrecision,
   type CampusMapProvenanceKind,
   type CampusMapReservationRequirement,
@@ -112,6 +114,7 @@ export interface CampusMapAppendPlaceChange {
   mergedIntoPlaceId: string | null;
   fact: CampusMapAppendFact;
   provenanceIds: string[];
+  photos?: Array<{ assetId: string; role: CampusMapPlacePhotoRole }>;
   visibility:
     | { visibility: "public" }
     | { visibility: "redacted"; redactionRef: string; updatedBy?: string };
@@ -774,6 +777,16 @@ export class CampusMapFactStoreTransaction {
             ? (change.visibility.updatedBy ?? null)
             : null,
       });
+      if ((change.photos?.length ?? 0) > 0) {
+        await this.transaction.insert(campusMapRevisionPhotos).values(
+          change.photos!.map((item, sortOrder) => ({
+            revisionId: change.revisionId,
+            assetId: item.assetId,
+            role: item.role,
+            sortOrder,
+          })),
+        );
+      }
 
       // Remove the child projection before advancing its immediate FK parent.
       await this.transaction

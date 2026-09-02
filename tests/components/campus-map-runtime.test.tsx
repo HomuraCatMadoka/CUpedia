@@ -15,10 +15,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockLoadBrowseProjection,
+  mockLoadPlaceCover,
   mockLoadProviderPoiCard,
   mockRequestContributorSetup,
 } = vi.hoisted(() => ({
   mockLoadBrowseProjection: vi.fn(),
+  mockLoadPlaceCover: vi.fn(),
   mockLoadProviderPoiCard: vi.fn(),
   mockRequestContributorSetup: vi.fn(),
 }));
@@ -71,6 +73,7 @@ vi.mock("@/lib/campus-map/edit-actions", () => ({
 }));
 vi.mock("@/lib/campus-map/browse-actions", () => ({
   loadCampusMapBrowseProjection: mockLoadBrowseProjection,
+  loadCampusMapPlaceCover: mockLoadPlaceCover,
   loadCampusMapAmapPoiCard: mockLoadProviderPoiCard,
 }));
 
@@ -142,6 +145,8 @@ beforeEach(() => {
   mockLoadBrowseProjection.mockImplementation(async () =>
     createCampusMapBrowseFixture(),
   );
+  mockLoadPlaceCover.mockReset();
+  mockLoadPlaceCover.mockResolvedValue(null);
   mockLoadProviderPoiCard.mockReset();
   window.sessionStorage.clear();
   Object.defineProperty(navigator, "locks", {
@@ -429,6 +434,20 @@ describe("CampusMapRuntime", () => {
             reviewCount: 3,
           },
         }}
+        initialPlaceCovers={{
+          [placeId]: {
+            id: "71000000-0000-4000-8000-000000000818",
+            url: "/api/campus-map/place-photos/71000000-0000-4000-8000-000000000818/full",
+            thumbnailUrl:
+              "/api/campus-map/place-photos/71000000-0000-4000-8000-000000000818/thumbnail",
+            width: 1200,
+            height: 800,
+            thumbnailWidth: 480,
+            thumbnailHeight: 320,
+            role: "overview",
+            sortOrder: 0,
+          },
+        }}
       />,
     );
 
@@ -437,6 +456,10 @@ describe("CampusMapRuntime", () => {
       name: /饮水机.*科学馆 · 1\/F.*4.4 分 · 5 个评分 · 3 条评价/u,
     });
     expect(result.textContent).not.toContain("饮水点");
+    expect(result.querySelector("img")?.getAttribute("alt")).toBe("");
+    expect(result.querySelector("img")?.getAttribute("src")).toContain(
+      "place-photos",
+    );
   });
 
   it("rejects a malformed persisted publish receipt", () => {
@@ -1686,7 +1709,7 @@ describe("CampusMapRuntime", () => {
     ).toBe("饮水点 · 3 处");
     expect(screen.queryByText(/校园内已收录/)).toBeNull();
     expect(document.querySelectorAll("[data-return-result] svg")).toHaveLength(
-      0,
+      3,
     );
   });
 
@@ -2019,6 +2042,75 @@ describe("CampusMapRuntime", () => {
     expect(publishStatus.textContent).not.toContain("添加");
   });
 
+  it("refreshes a removed Place-photo cover before reopening the category", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000005";
+    const assetId = "71000000-0000-4000-8000-000000000818";
+    window.history.replaceState(
+      null,
+      "",
+      `/campus-map?v=1&scene=place&id=${placeId}&snap=peek`,
+    );
+    const current = await vi.mocked(loadCampusMapEditablePlace)(placeId);
+    if (!current) throw new Error("missing edit fixture");
+    vi.mocked(loadCampusMapEditablePlace).mockResolvedValueOnce({
+      ...current,
+      photos: [{ assetId, role: "overview" }],
+    });
+    vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
+      status: "published",
+      changesetId: "50000000-0000-4000-8000-000000000818",
+      changes: [
+        {
+          placeId,
+          revisionId: "40000000-0000-4000-8000-000000000818",
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    });
+    mockLoadBrowseProjection.mockResolvedValueOnce(
+      createCampusMapBrowseFixture(),
+    );
+    mockLoadPlaceCover.mockResolvedValueOnce(null);
+
+    render(
+      <CampusMapRuntime
+        initialSearch={window.location.search}
+        initialPlaceCovers={{
+          [placeId]: {
+            id: assetId,
+            url: `/api/campus-map/place-photos/${assetId}/full`,
+            thumbnailUrl: `/api/campus-map/place-photos/${assetId}/thumbnail`,
+            width: 1200,
+            height: 800,
+            thumbnailWidth: 480,
+            thumbnailHeight: 320,
+            role: "overview",
+            sortOrder: 0,
+          },
+        }}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "饮水机" });
+    fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
+    await screen.findByRole("heading", { name: "修改设施" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "移除第 1 张地点照片" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "发布修改" }));
+    await screen.findByRole("status");
+    await waitFor(() =>
+      expect(mockLoadPlaceCover).toHaveBeenCalledWith(placeId),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    const result = await screen.findByRole("button", {
+      name: /饮水机.*大学图书馆 · G\/F/u,
+    });
+    expect(result.querySelector("img")).toBeNull();
+  });
+
   it("recovers a Note-origin Edit task directly from its refreshed URL", async () => {
     const placeId = "71000000-0000-4000-8000-000000000005";
     const noteId = "72000000-0000-4000-8000-000000000003";
@@ -2168,6 +2260,7 @@ describe("CampusMapRuntime", () => {
       placeId,
       baseRevisionId: currentRevisionId,
       fact: currentFact,
+      photos: [],
       locationDisplay: {
         buildingId,
         buildingName: "科学馆",

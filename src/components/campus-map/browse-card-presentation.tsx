@@ -5,6 +5,7 @@ import {
   ToiletIcon,
   UsersRoundIcon,
 } from "lucide-react";
+import Image from "next/image";
 
 import type { CampusMapBrowsePlace } from "@/lib/campus-map/browse-projection";
 import {
@@ -13,6 +14,7 @@ import {
 } from "@/lib/campus-map/display-registry";
 import type { CampusMapAmenity } from "@/lib/campus-map/facility-marker";
 import type { CampusMapPlaceFeedbackSummary } from "@/lib/campus-map/place-feedback";
+import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_PRESENTATION = {
@@ -80,12 +82,14 @@ export function CampusMapFacilityResultButton({
   facility,
   location,
   summary,
+  coverPhoto,
   variant,
   onSelect,
 }: {
   facility: CampusMapBrowsePlace;
   location: string;
   summary: string;
+  coverPhoto?: CampusMapPlacePhotoView | null;
   variant: "category" | "building" | "preview";
   onSelect: () => void;
 }) {
@@ -110,11 +114,31 @@ export function CampusMapFacilityResultButton({
           ? "min-h-20 gap-3 py-3"
           : variant === "preview"
             ? "min-h-14 border-b border-black/8 py-1"
-            : "min-h-16 border-b border-black/8 py-2",
+            : "min-h-20 gap-3 border-b border-black/8 py-2",
       )}
       onClick={onSelect}
     >
-      {showsIcon ? (
+      {variant === "category" ? (
+        <span className="relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-xl text-white">
+          {coverPhoto ? (
+            <Image
+              unoptimized
+              fill
+              sizes="64px"
+              className="object-cover"
+              src={coverPhoto.thumbnailUrl}
+              alt=""
+            />
+          ) : (
+            <span
+              className="grid size-full place-items-center"
+              style={{ background: style.color }}
+            >
+              <Icon aria-hidden="true" className="size-6" />
+            </span>
+          )}
+        </span>
+      ) : showsIcon ? (
         <span
           className="grid size-9 shrink-0 place-items-center rounded-full text-white"
           style={{ background: style.color }}

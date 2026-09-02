@@ -35,6 +35,7 @@ import {
 } from "@/lib/campus-map/building-display";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
+import { PlacePhotoEditor } from "@/components/campus-map/place-photo-editor";
 
 interface CampusMapEditSheetProps {
   session: CampusMapEditSession;
@@ -76,6 +77,14 @@ function messageForError(code: string): string {
     "invalid-location": "位置资料不完整，请修改位置。",
     "base-revision-conflict": "地点资料已被其他人更新，请刷新后重试。",
     "invalid-place-id": "这个地点暂时无法发布，请返回地图后重试。",
+    "photo-limit-exceeded": "一个地点最多保留 3 张照片。",
+    "photo-invalid": "照片资料不完整，请移除后重新上传。",
+    "photo-invalid-id": "照片资料已失效，请移除后重新上传。",
+    "photo-duplicate": "同一张照片不能重复加入。",
+    "photo-role-invalid": "请选择照片展示的内容。",
+    "photo-not-ready": "照片已过期或仍在处理，请移除后重新上传。",
+    "photo-not-owned": "这张照片不能用于当前修改，请移除后重新上传。",
+    "photo-place-mismatch": "这张照片已属于另一个地点，请重新上传。",
   };
   return messages[code] ?? "服务器暂时无法接受这项资料，请稍后重试。";
 }
@@ -274,7 +283,8 @@ type ConflictChoiceKey =
       "buildingId" | "floorId" | "location"
     >
   | "preset"
-  | "placement";
+  | "placement"
+  | "photos";
 
 interface ConflictChoice {
   key: ConflictChoiceKey;
@@ -453,6 +463,8 @@ function conflictValue(
       return describeLocation(fact, display, buildingDisplay);
     case "observedAt":
       return formatObservationTime(fact.observedAt);
+    case "photos":
+      return "地点照片";
   }
 }
 
@@ -475,6 +487,7 @@ export function CampusMapEditSheet({
     String(centerPosition[1]),
   );
   const [showCoordinateEntry, setShowCoordinateEntry] = useState(false);
+  const [photoUploadPending, setPhotoUploadPending] = useState(false);
   const [conflictSelection, setConflictSelection] = useState<{
     key: string;
     fields: ConflictChoiceKey[];
@@ -1142,6 +1155,9 @@ export function CampusMapEditSheet({
         );
       }
       const changedFields = conflictFields(session);
+      const currentPhotos = conflict.currentPhotos ?? [];
+      const photosChanged =
+        JSON.stringify(session.draft.photos) !== JSON.stringify(currentPhotos);
       return (
         <div
           className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm"
@@ -1149,7 +1165,7 @@ export function CampusMapEditSheet({
         >
           <p className="font-semibold">这处地点刚刚被其他人更新</p>
           <p className="mt-1">你的输入仍保留。请逐项比较后选择要保留的内容。</p>
-          {changedFields.length ? (
+          {changedFields.length || photosChanged ? (
             <fieldset className="mt-3 rounded-lg border border-amber-300 p-2">
               <legend className="px-1 font-medium">
                 明确选择要保留的草稿字段
@@ -1212,6 +1228,37 @@ export function CampusMapEditSheet({
                   </label>
                 );
               })}
+              {photosChanged ? (
+                <label className="grid min-h-11 grid-cols-[auto_1fr] items-start gap-2 py-1">
+                  <input
+                    type="checkbox"
+                    name="conflict-photos"
+                    className="mt-1"
+                    checked={conflictKeepFields.includes("photos")}
+                    onChange={(event) =>
+                      setConflictSelection((current) => {
+                        const fields =
+                          current.key === conflictKey ? current.fields : [];
+                        return {
+                          key: conflictKey,
+                          fields: event.target.checked
+                            ? [...fields, "photos"]
+                            : fields.filter((item) => item !== "photos"),
+                        };
+                      })
+                    }
+                  />
+                  <span>
+                    <span className="block font-medium">保留我的地点照片</span>
+                    <span className="mt-0.5 block text-xs">
+                      我的：{session.draft.photos.length} 张
+                    </span>
+                    <span className="block text-xs text-amber-900">
+                      最新：{currentPhotos.length} 张
+                    </span>
+                  </span>
+                </label>
+              ) : null}
             </fieldset>
           ) : null}
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -1239,6 +1286,9 @@ export function CampusMapEditSheet({
                 onEvent({
                   type: "CONTINUE_FROM_CONFLICT",
                   idempotencyKey: crypto.randomUUID(),
+                  photos: conflictKeepFields.includes("photos")
+                    ? session.draft.photos
+                    : currentPhotos,
                   fact: Object.fromEntries(
                     Object.entries(conflict.currentFact).map(
                       ([field, value]) => [
@@ -1418,6 +1468,19 @@ export function CampusMapEditSheet({
               ))}
             </div>
           </fieldset>
+
+          <PlacePhotoEditor
+            pinType={fact.pinType}
+            photos={draft.photos}
+            disabled={
+              session.status !== "editing" &&
+              session.status !== "temporarily-unavailable"
+            }
+            onPendingChange={setPhotoUploadPending}
+            onChange={(photos) =>
+              onEvent({ type: "CHANGE_PHOTOS", photos, ...freshAttempt() })
+            }
+          />
 
           {buildingLocationRequired ? (
             <fieldset
@@ -1948,7 +2011,8 @@ export function CampusMapEditSheet({
                 ? placementPending
                 : session.status !== "editing" ||
                   (draft.mode === "edit" && !isCampusMapEditDirty(session)) ||
-                  buildingDirectoryBlocked
+                  buildingDirectoryBlocked ||
+                  photoUploadPending
             }
             onClick={() => {
               if (!isPlacing && requiredBuildingMissing) {
@@ -1974,9 +2038,11 @@ export function CampusMapEditSheet({
                 : "使用此位置"
               : session.status === "publishing"
                 ? "正在发布…"
-                : draft.mode === "add"
-                  ? "发布设施"
-                  : "发布修改"}
+                : photoUploadPending
+                  ? "正在处理图片…"
+                  : draft.mode === "add"
+                    ? "发布设施"
+                    : "发布修改"}
           </button>
         </div>
       ) : null}

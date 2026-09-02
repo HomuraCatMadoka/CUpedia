@@ -15,6 +15,7 @@ import {
   getCampusMapPlaceFeedbackPage,
   getCampusMapViewerPlaceFeedback,
 } from "@/lib/campus-map/place-feedback";
+import { getCampusMapRevisionPhotoViews } from "@/lib/campus-map/place-photos";
 import { encodeCampusMapPlaceHref } from "@/lib/campus-map/scene-codec";
 
 export const dynamic = "force-dynamic";
@@ -33,15 +34,17 @@ export default async function CampusMapPlacePage({
   const history = await getCampusMapPlaceHistory(placeId, { limit: 1 });
   const head = history.head;
   if (!head) notFound();
-  const [current, buildings, viewer, feedback] = await Promise.all([
-    getCampusMapPlaceRevision(placeId, head.revisionId),
-    listCampusMapBrowseBuildings(),
-    getAuthenticatedUserForApi(),
-    getCampusMapPlaceFeedbackPage(placeId, {
-      cursor: reviewsAfter,
-      limit: 10,
-    }),
-  ]);
+  const [current, buildings, viewer, feedback, photosByRevision] =
+    await Promise.all([
+      getCampusMapPlaceRevision(placeId, head.revisionId),
+      listCampusMapBrowseBuildings(),
+      getAuthenticatedUserForApi(),
+      getCampusMapPlaceFeedbackPage(placeId, {
+        cursor: reviewsAfter,
+        limit: 10,
+      }),
+      getCampusMapRevisionPhotoViews([head.revisionId]),
+    ]);
   const viewerFeedback = viewer
     ? await getCampusMapViewerPlaceFeedback(placeId, viewer.id)
     : null;
@@ -84,6 +87,11 @@ export default async function CampusMapPlacePage({
       viewerFeedback={viewerFeedback}
       viewerCanWrite={Boolean(viewer)}
       reviewsAfter={reviewsAfter ?? null}
+      photos={
+        fact && head.status === "active"
+          ? (photosByRevision[head.revisionId] ?? [])
+          : []
+      }
     />
   );
 }

@@ -12,7 +12,7 @@ import {
   wikiPageUrl,
 } from "./helpers/wiki";
 import { emulateColorScheme } from "./helpers/theme";
-import { deleteObjects } from "../src/lib/minio";
+import { deleteObjects } from "@/lib/minio";
 import { PAGE_IDS } from "../scripts/seed-data";
 
 const MOBILE_VIEWPORT = { width: 393, height: 851 };

@@ -18,6 +18,7 @@ type WorkflowStep = {
   with?: Record<string, unknown>;
 };
 type WorkflowJob = {
+  env?: Record<string, string>;
   name?: string;
   needs?: string | string[];
   if?: string;
@@ -150,6 +151,29 @@ describe("tiered CI topology (#670)", () => {
     );
   });
 
+  it("runs every Campus Map persistence boundary on real PostgreSQL", () => {
+    const campusMapPersistence = namedStep(
+      "quality",
+      "Test Campus Map persistence",
+    );
+    expect(campusMapPersistence.if).toContain(".postgres");
+    expect(campusMapPersistence.env).toMatchObject({
+      AUTH_SECRET: expect.any(String),
+      DATABASE_URL:
+        "postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test",
+    });
+    expect(campusMapPersistence.run).toContain("--no-file-parallelism");
+    expect(campusMapPersistence.run).toContain(
+      "tests/db/campus-map-place-feedback.test.ts",
+    );
+    expect(campusMapPersistence.run).toContain(
+      "tests/db/campus-map-place-photo.test.ts",
+    );
+    expect(campusMapPersistence.run).toContain(
+      "tests/db/campus-map-publish.test.ts",
+    );
+  });
+
   it("replays and tests the scheduler on the pinned Supabase PostgreSQL 17 image", () => {
     const setupCli = steps("quality").find(
       (step) => step.uses === "supabase/setup-cli@v2",
@@ -221,7 +245,18 @@ describe("tiered CI topology (#670)", () => {
     expect(namedStep("e2e", "Create uploads bucket").if).toBe(
       "${{ matrix.minio }}",
     );
-    expect(JSON.stringify(job("browser-third"))).not.toContain("MinIO");
+    expect(
+      (job("browser-third").steps ?? []).some(
+        (step) => step.name === "Start MinIO",
+      ),
+    ).toBe(false);
+    expect(job("browser-third").env).toMatchObject({
+      MINIO_BUCKET: "ci-public-placeholder",
+      MINIO_PRIVATE_BUCKET: "ci-private-placeholder",
+    });
+    expect(job("browser-third").env?.MINIO_PRIVATE_BUCKET).not.toBe(
+      job("browser-third").env?.MINIO_BUCKET,
+    );
   });
 
   it("checks every upstream result and keeps retry-pass flakes impossible", () => {
