@@ -18,6 +18,7 @@ import type {
   CampusMapPublishCommand,
   CampusMapPublishFactInput,
   CampusMapPublishIssueAnchor,
+  CampusMapPublishPhotoInput,
   CampusMapPublishResult,
   CampusMapPublishSourceInput,
   CampusMapPublishValidationIssue,
@@ -27,6 +28,10 @@ import {
   isCampusMapUuid,
 } from "@/lib/campus-map/canonical-uuid";
 import { campusMapFactNameError } from "@/lib/campus-map/edit-schema";
+import {
+  CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT,
+  CAMPUS_MAP_PLACE_PHOTO_ROLES,
+} from "@/lib/campus-map/place-photos-contract";
 
 const MAX_COMMENT_BYTES = 2_000;
 const MAX_SOURCE_SUMMARY_BYTES = 2_000;
@@ -48,6 +53,18 @@ const POSTGRES_TIMESTAMP_MIN_MILLISECONDS = Date.parse(
   "-004712-01-01T00:00:00.000Z",
 );
 
+function normalizeOptionalPhotos(
+  photos: CampusMapPublishPhotoInput[] | undefined,
+) {
+  if (photos === undefined) return {};
+  return {
+    photos: photos.map((item) => ({
+      ...item,
+      assetId: canonicalizeCampusMapUuid(item.assetId),
+    })),
+  };
+}
+
 /** Normalizes UUID identity once before fingerprinting or domain comparisons. */
 export function normalizePublishCommandIdentifiers(
   command: CampusMapPublishCommand,
@@ -59,6 +76,7 @@ export function normalizePublishCommandIdentifiers(
       if (change.operation === "create") {
         return {
           ...change,
+          ...normalizeOptionalPhotos(change.photos),
           fact: {
             ...change.fact,
             buildingId: canonicalizeCampusMapUuid(change.fact.buildingId),
@@ -86,6 +104,9 @@ export function normalizePublishCommandIdentifiers(
       if (change.operation === "update" || change.operation === "restore") {
         return {
           ...change,
+          ...(change.operation === "update"
+            ? normalizeOptionalPhotos(change.photos)
+            : {}),
           placeId: canonicalizeCampusMapUuid(change.placeId),
           baseRevisionId: canonicalizeCampusMapUuid(change.baseRevisionId),
           fact: {
@@ -141,6 +162,12 @@ export function hasPublishCommandStructure(
   return command.changes.every((change) => {
     if (!isRecord(change) || !Array.isArray(change.sources)) return false;
     if (!change.sources.every(isRecord)) return false;
+    if (
+      "photos" in change &&
+      (!Array.isArray(change.photos) || !change.photos.every(isRecord))
+    ) {
+      return false;
+    }
     return (
       change.operation === "retire" ||
       change.operation === "merge" ||
@@ -352,6 +379,59 @@ export function validateChangeIdentities(
             placeId: change.placeId,
             field: "mergedIntoPlaceId",
           },
+        });
+      }
+    }
+  }
+  for (const [changeIndex, change] of command.changes.entries()) {
+    if (change.operation !== "create" && change.operation !== "update") {
+      if ("photos" in change) {
+        errors.push({
+          code: "photos-operation-not-supported",
+          anchor: { changeIndex, field: "photos" },
+        });
+      }
+      continue;
+    }
+    if (change.photos === undefined) continue;
+    if (change.photos.length > CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT) {
+      errors.push({
+        code: "photo-limit-exceeded",
+        anchor: { changeIndex, field: "photos" },
+      });
+      continue;
+    }
+    const seenAssetIds = new Set<string>();
+    for (const item of change.photos) {
+      if (!isRecord(item)) {
+        errors.push({
+          code: "photo-invalid",
+          anchor: { changeIndex, field: "photos" },
+        });
+        continue;
+      }
+      if (typeof item.assetId !== "string" || !isCampusMapUuid(item.assetId)) {
+        errors.push({
+          code: "photo-invalid-id",
+          anchor: { changeIndex, field: "photos" },
+        });
+      } else if (seenAssetIds.has(item.assetId)) {
+        errors.push({
+          code: "photo-duplicate",
+          anchor: { changeIndex, field: "photos" },
+        });
+      } else {
+        seenAssetIds.add(item.assetId);
+      }
+      if (
+        typeof item.role !== "string" ||
+        !CAMPUS_MAP_PLACE_PHOTO_ROLES.includes(
+          item.role as (typeof CAMPUS_MAP_PLACE_PHOTO_ROLES)[number],
+        )
+      ) {
+        errors.push({
+          code: "photo-role-invalid",
+          anchor: { changeIndex, field: "photos" },
         });
       }
     }

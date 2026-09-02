@@ -41,10 +41,11 @@ const mobileWebKitTest =
 // None of these specs uploads files, so MinIO remains exclusive to wiki-media.
 const balancedChromiumTest =
   /(?:sidebar|wiki-create|wiki-edit\.(?:shell|toolbar))\.spec\.ts$/;
-// This is also the only group with upload coverage, and therefore the only one
-// whose CI runner starts MinIO.
+// This is also the only group with object-upload coverage, and therefore the
+// only one whose CI runner starts MinIO. The project name is retained for CI
+// compatibility even though Campus Map Place photos now share the lane.
 const wikiMediaTest =
-  /(?:sidebar|wiki-(?!(?:edit\.(?:shell|toolbar|mobile-webkit)|lifecycle|links|routing)\.spec\.ts$).*)\.spec\.ts$/;
+  /(?:campus-map-place-details|sidebar|wiki-(?!(?:edit\.(?:shell|toolbar|mobile-webkit)|lifecycle|links|routing)\.spec\.ts$).*)\.spec\.ts$/;
 
 // Point this process (and the spec workers it forks) at the isolated db so
 // fixtures land in the same db the webServer reads. Specs load .env.local with

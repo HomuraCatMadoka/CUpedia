@@ -14,6 +14,8 @@ import { register } from "@/instrumentation";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("MINIO_BUCKET", "public-test-bucket");
+  vi.stubEnv("MINIO_PRIVATE_BUCKET", "private-test-bucket");
 });
 
 afterEach(() => {
@@ -52,4 +54,19 @@ describe("register — SKIP_EMAIL_WHITELIST production guard", () => {
     vi.stubEnv("SKIP_EMAIL_WHITELIST", "true");
     await expect(register()).resolves.toBeUndefined();
   });
+});
+
+describe("register — private object-storage boundary", () => {
+  it.each([undefined, "public-test-bucket"])(
+    "fails closed in production for private bucket %s",
+    async (privateBucket) => {
+      vi.stubEnv("NODE_ENV", "production");
+      if (privateBucket === undefined) {
+        vi.stubEnv("MINIO_PRIVATE_BUCKET", "");
+      } else {
+        vi.stubEnv("MINIO_PRIVATE_BUCKET", privateBucket);
+      }
+      await expect(register()).rejects.toThrow(/distinct public and private/u);
+    },
+  );
 });

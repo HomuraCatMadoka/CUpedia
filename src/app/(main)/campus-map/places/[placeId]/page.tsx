@@ -3,28 +3,51 @@ import { notFound } from "next/navigation";
 import { CampusMapPlaceDetail } from "@/components/campus-map/place-detail";
 import { getAuthenticatedUserForApi } from "@/lib/auth-guard";
 import {
+  campusMapBuildingDisplayFor,
+  projectCampusMapBuildingDisplay,
+} from "@/lib/campus-map/building-display";
+import {
   getCampusMapPlaceHistory,
   getCampusMapPlaceRevision,
   listCampusMapBrowseBuildings,
 } from "@/lib/campus-map/fact-store";
+import {
+  getCampusMapPlaceFeedbackPage,
+  getCampusMapViewerPlaceFeedback,
+} from "@/lib/campus-map/place-feedback";
+import { getCampusMapRevisionPhotoViews } from "@/lib/campus-map/place-photos";
 import { encodeCampusMapPlaceHref } from "@/lib/campus-map/scene-codec";
 
 export const dynamic = "force-dynamic";
 
 export default async function CampusMapPlacePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ placeId: string }>;
+  searchParams?: Promise<{ reviewsAfter?: string | string[] }>;
 }) {
   const { placeId } = await params;
+  const rawReviewsAfter = (await searchParams)?.reviewsAfter;
+  const reviewsAfter =
+    typeof rawReviewsAfter === "string" ? rawReviewsAfter : undefined;
   const history = await getCampusMapPlaceHistory(placeId, { limit: 1 });
   const head = history.head;
   if (!head) notFound();
-  const [current, buildings, viewer] = await Promise.all([
-    getCampusMapPlaceRevision(placeId, head.revisionId),
-    listCampusMapBrowseBuildings(),
-    getAuthenticatedUserForApi(),
-  ]);
+  const [current, buildings, viewer, feedback, photosByRevision] =
+    await Promise.all([
+      getCampusMapPlaceRevision(placeId, head.revisionId),
+      listCampusMapBrowseBuildings(),
+      getAuthenticatedUserForApi(),
+      getCampusMapPlaceFeedbackPage(placeId, {
+        cursor: reviewsAfter,
+        limit: 10,
+      }),
+      getCampusMapRevisionPhotoViews([head.revisionId]),
+    ]);
+  const viewerFeedback = viewer
+    ? await getCampusMapViewerPlaceFeedback(placeId, viewer.id)
+    : null;
   const fact =
     current?.content.visibility === "public" ? current.content.fact : null;
   const buildingRecord = fact?.buildingId
@@ -34,6 +57,11 @@ export default async function CampusMapPlacePage({
     fact?.floorId && buildingRecord
       ? buildingRecord.floors.find((item) => item.floorId === fact.floorId)
       : null;
+  const buildingDisplay = projectCampusMapBuildingDisplay(buildings);
+  const buildingName = buildingRecord
+    ? (campusMapBuildingDisplayFor(buildingDisplay, buildingRecord.buildingId)
+        ?.label ?? buildingRecord.name)
+    : null;
 
   return (
     <CampusMapPlaceDetail
@@ -49,12 +77,21 @@ export default async function CampusMapPlacePage({
       building={
         buildingRecord
           ? {
-              name: buildingRecord.name,
+              name: buildingName ?? buildingRecord.name,
               floorLabel: floorRecord?.displayLabel ?? null,
             }
           : null
       }
       isAdmin={viewer?.role === "admin"}
+      feedback={feedback}
+      viewerFeedback={viewerFeedback}
+      viewerCanWrite={Boolean(viewer)}
+      reviewsAfter={reviewsAfter ?? null}
+      photos={
+        fact && head.status === "active"
+          ? (photosByRevision[head.revisionId] ?? [])
+          : []
+      }
     />
   );
 }

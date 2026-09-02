@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
-import { deleteObjects, getObject } from "../src/lib/minio";
+import { deleteObjects, getObject } from "@/lib/minio";
 import { loginAsAdmin, loginWithPassword } from "./helpers/auth";
 import {
   dropPublishedWikiFixtures,

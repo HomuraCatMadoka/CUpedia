@@ -92,7 +92,7 @@ describe("CampusMapNoteControls", () => {
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("备注刚被其他人更新，已载入最新状态");
     expect(refresh).toHaveBeenCalledOnce();
-    expect(document.activeElement).toBe(alert);
+    await waitFor(() => expect(document.activeElement).toBe(alert));
   });
 
   it("lets a signed-in viewer unsubscribe without changing note history", async () => {

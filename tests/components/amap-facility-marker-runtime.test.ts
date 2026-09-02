@@ -60,6 +60,88 @@ const projection: CampusMapBrowseProjection = {
   ],
 };
 
+function duplicateBuildingProjection(): CampusMapBrowseProjection {
+  const buildingName = "卫星遥感地面接收站";
+  const englishName = "Satellite Remote Sensing Receiving Station";
+  const westBuildingId = "80700000-0000-4000-8000-000000000040";
+  const eastBuildingId = "80700000-0000-4000-8000-000000000013";
+  const buildingPlace = {
+    ...projection.places[0]!,
+    buildingId: westBuildingId,
+    location: {
+      kind: "building" as const,
+      building: {
+        id: westBuildingId,
+        name: buildingName,
+        englishName,
+        code: "H40",
+      },
+    },
+    selectionTarget: {
+      kind: "place" as const,
+      placeId,
+      buildingId: westBuildingId,
+      floorId: null,
+    },
+  };
+  return {
+    buildings: [
+      {
+        buildingId: westBuildingId,
+        name: buildingName,
+        englishName,
+        code: "H40",
+        aliases: [],
+        anchor: {
+          longitude: position[0],
+          latitude: position[1],
+          crs: "wgs84",
+        },
+        floors: [],
+        placeIds: [placeId],
+        selectionTarget: { kind: "building", buildingId: westBuildingId },
+      },
+      {
+        buildingId: eastBuildingId,
+        name: buildingName,
+        englishName,
+        code: "E13",
+        aliases: [],
+        anchor: {
+          longitude: 114.21,
+          latitude: 22.42,
+          crs: "wgs84",
+        },
+        floors: [],
+        placeIds: [],
+        selectionTarget: { kind: "building", buildingId: eastBuildingId },
+      },
+    ],
+    places: [buildingPlace],
+    presences: [
+      {
+        buildingId: westBuildingId,
+        pinType: "printer",
+        placeIds: [placeId],
+        floorIds: [],
+      },
+    ],
+    markers: [
+      {
+        kind: "building-presence",
+        buildingId: westBuildingId,
+        pinType: "printer",
+        placeIds: [placeId],
+        position: {
+          longitude: position[0],
+          latitude: position[1],
+          crs: "wgs84",
+        },
+      },
+    ],
+  };
+}
+
 class StickyEmptyMarker {
   content = "";
 
@@ -172,5 +254,31 @@ describe("AmapFacilityMarkerRuntime", () => {
     expect(StickyEmptyCluster.instances[1]?.markers[0]?.content).toContain(
       'aria-pressed="true"',
     );
+  });
+
+  it("keeps duplicate-name Building markers distinguishable", () => {
+    StickyEmptyCluster.instances = [];
+    const runtime = new AmapFacilityMarkerRuntime();
+    const duplicateProjection = duplicateBuildingProjection();
+
+    runtime.sync({
+      map: {},
+      provider: { MarkerCluster: StickyEmptyCluster },
+      projection: duplicateProjection,
+      providerPositions: {
+        "building:80700000-0000-4000-8000-000000000040": position,
+      },
+      markerScope: "category:printer",
+      visibleAmenity: "printer",
+      selectedPlaceId: null,
+      claimProviderTarget: vi.fn(),
+      selectBuilding: vi.fn(),
+      selectPlace: vi.fn(),
+      fitCluster: vi.fn(),
+    });
+
+    const content = StickyEmptyCluster.instances[0]?.markers[0]?.content;
+    expect(content).toContain("卫星遥感地面接收站（H40）");
+    expect(content).not.toContain("E13");
   });
 });

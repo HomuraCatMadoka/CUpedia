@@ -5,6 +5,7 @@ export const CAMPUS_MAP_MODERATION_TARGET_KINDS = [
   "revision",
   "map-note",
   "map-note-event",
+  "place-feedback",
   "actor",
 ] as const;
 export type CampusMapModerationTargetKind =
@@ -69,6 +70,13 @@ type MapNoteEventVisibilityCommand<
   eventId: string;
   expectedVisibility: "public" | "hidden";
 };
+type PlaceFeedbackVisibilityCommand<
+  Kind extends "hide-place-feedback" | "unhide-place-feedback",
+> = AdminCommandBase & {
+  kind: Kind;
+  feedbackId: string;
+  expectedVisibility: "public" | "hidden";
+};
 type RevisionVisibilityCommand = AdminCommandBase & {
   kind: "revoke-revision-redaction";
   revisionId: string;
@@ -94,6 +102,8 @@ export type CampusMapModerationCommand =
   | MapNoteVisibilityCommand<"unhide-map-note">
   | MapNoteEventVisibilityCommand<"hide-map-note-event">
   | MapNoteEventVisibilityCommand<"unhide-map-note-event">
+  | PlaceFeedbackVisibilityCommand<"hide-place-feedback">
+  | PlaceFeedbackVisibilityCommand<"unhide-place-feedback">
   | (AdminCommandBase & {
       kind: "redact-revision";
       revisionId: string;
@@ -305,6 +315,18 @@ export function normalizeCampusMapModerationCommand(
       reason,
       caseId,
       eventId: canonicalizeCampusMapUuid(command.eventId),
+    };
+  }
+  if (
+    command.kind === "hide-place-feedback" ||
+    command.kind === "unhide-place-feedback"
+  ) {
+    return {
+      ...command,
+      idempotencyKey,
+      reason,
+      caseId,
+      feedbackId: canonicalizeCampusMapUuid(command.feedbackId),
     };
   }
   if (

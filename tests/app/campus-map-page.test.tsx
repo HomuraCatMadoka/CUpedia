@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   loadProjection: vi.fn(),
   loadProviderPoiCard: vi.fn(),
   getFactSchema: vi.fn(),
+  getFeedbackSummaries: vi.fn(),
+  getPlacePhotos: vi.fn(),
   redirect: vi.fn(),
 }));
 
@@ -17,6 +19,12 @@ vi.mock("@/lib/campus-map/browse-actions", () => ({
 }));
 vi.mock("@/lib/campus-map/fact-store", () => ({
   getCampusMapFactSchema: mocks.getFactSchema,
+}));
+vi.mock("@/lib/campus-map/place-feedback", () => ({
+  getCampusMapPlaceFeedbackSummaries: mocks.getFeedbackSummaries,
+}));
+vi.mock("@/lib/campus-map/place-photos", () => ({
+  getCampusMapCurrentPlaceCoverViews: mocks.getPlacePhotos,
 }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 
@@ -30,6 +38,8 @@ describe("formal Campus Map route", () => {
     vi.clearAllMocks();
     mocks.loadProjection.mockResolvedValue(EMPTY_CAMPUS_MAP_BROWSE_PROJECTION);
     mocks.getFactSchema.mockResolvedValue(null);
+    mocks.getFeedbackSummaries.mockResolvedValue({});
+    mocks.getPlacePhotos.mockResolvedValue({});
   });
 
   it("requires authentication before rendering the provider-backed canonical runtime", async () => {
@@ -60,6 +70,41 @@ describe("formal Campus Map route", () => {
     await expect(
       CampusMapPage({ searchParams: Promise.resolve({ v: "1" }) }),
     ).rejects.toThrow("CAMPUS_MAP_PROJECTION_UNAVAILABLE");
+  });
+
+  it("loads all visible card summaries through one batch read", async () => {
+    const projection = {
+      ...EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
+      places: [
+        { placeId: "00000000-0000-4000-8000-000000008171" },
+        { placeId: "00000000-0000-4000-8000-000000008172" },
+      ],
+    };
+    mocks.loadProjection.mockResolvedValueOnce(projection);
+    mocks.getFeedbackSummaries.mockResolvedValueOnce({
+      "00000000-0000-4000-8000-000000008171": {
+        averageRating: 4.5,
+      },
+    });
+
+    const element = await CampusMapPage({
+      searchParams: Promise.resolve({ v: "1" }),
+    });
+
+    expect(mocks.getFeedbackSummaries).toHaveBeenCalledOnce();
+    expect(mocks.getFeedbackSummaries).toHaveBeenCalledWith([
+      "00000000-0000-4000-8000-000000008171",
+      "00000000-0000-4000-8000-000000008172",
+    ]);
+    expect(element.props.initialFeedbackSummaries).toEqual({
+      "00000000-0000-4000-8000-000000008171": {
+        averageRating: 4.5,
+      },
+    });
+    expect(mocks.getPlacePhotos).toHaveBeenCalledWith([
+      "00000000-0000-4000-8000-000000008171",
+      "00000000-0000-4000-8000-000000008172",
+    ]);
   });
 
   it("does not disguise an initial fact-schema failure as an absent schema", async () => {

@@ -10,6 +10,8 @@ import {
   campusMapFactRevisions,
   campusMapFactSchemas,
   campusMapPlaceChanges,
+  campusMapPlaceFeedback,
+  campusMapRevisionPhotos,
   campusMapPlaces,
   campusMapProvenanceSources,
   campusMapRevisionProvenance,
@@ -26,6 +28,7 @@ import {
   type CampusMapLocationKind,
   type CampusMapPinType,
   type CampusMapPlaceOperation,
+  type CampusMapPlacePhotoRole,
   type CampusMapPointPrecision,
   type CampusMapProvenanceKind,
   type CampusMapReservationRequirement,
@@ -111,6 +114,7 @@ export interface CampusMapAppendPlaceChange {
   mergedIntoPlaceId: string | null;
   fact: CampusMapAppendFact;
   provenanceIds: string[];
+  photos?: Array<{ assetId: string; role: CampusMapPlacePhotoRole }>;
   visibility:
     | { visibility: "public" }
     | { visibility: "redacted"; redactionRef: string; updatedBy?: string };
@@ -613,6 +617,48 @@ export class CampusMapFactStoreTransaction {
       }
     }
 
+    const mergeChanges = orderedChanges.filter(
+      (
+        change,
+      ): change is CampusMapAppendPlaceChange & {
+        operation: "merge";
+        mergedIntoPlaceId: string;
+      } => change.operation === "merge" && change.mergedIntoPlaceId !== null,
+    );
+    if (mergeChanges.length > 0) {
+      const feedbackPlaceIds = [
+        ...new Set(
+          mergeChanges.flatMap((change) => [
+            change.placeId,
+            change.mergedIntoPlaceId,
+          ]),
+        ),
+      ].sort((left, right) => left.localeCompare(right));
+      await this.transaction
+        .select({ id: campusMapPlaceFeedback.id })
+        .from(campusMapPlaceFeedback)
+        .where(inArray(campusMapPlaceFeedback.placeId, feedbackPlaceIds))
+        .orderBy(
+          campusMapPlaceFeedback.placeId,
+          campusMapPlaceFeedback.userId,
+          campusMapPlaceFeedback.id,
+        )
+        .for("update");
+      for (const change of mergeChanges) {
+        await this.transaction.execute(sql`
+          update campus_map_place_feedback as loser_feedback
+             set place_id = ${change.mergedIntoPlaceId}
+           where loser_feedback.place_id = ${change.placeId}
+             and not exists (
+               select 1
+                 from campus_map_place_feedback as survivor_feedback
+                where survivor_feedback.place_id = ${change.mergedIntoPlaceId}
+                  and survivor_feedback.user_id = loser_feedback.user_id
+             )
+        `);
+      }
+    }
+
     const buildingIds = [
       ...new Set(
         orderedChanges
@@ -731,6 +777,16 @@ export class CampusMapFactStoreTransaction {
             ? (change.visibility.updatedBy ?? null)
             : null,
       });
+      if ((change.photos?.length ?? 0) > 0) {
+        await this.transaction.insert(campusMapRevisionPhotos).values(
+          change.photos!.map((item, sortOrder) => ({
+            revisionId: change.revisionId,
+            assetId: item.assetId,
+            role: item.role,
+            sortOrder,
+          })),
+        );
+      }
 
       // Remove the child projection before advancing its immediate FK parent.
       await this.transaction

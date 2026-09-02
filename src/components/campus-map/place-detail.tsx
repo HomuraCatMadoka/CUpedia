@@ -1,6 +1,8 @@
 import Link from "next/link";
 
+import { PlaceFeedbackSection } from "@/components/campus-map/place-feedback-section";
 import { PlaceLifecycleControls } from "@/components/campus-map/place-lifecycle-controls";
+import { PlacePhotoGallery } from "@/components/campus-map/place-photo-gallery";
 import {
   campusMapDisplayOptionLabel,
   campusMapFactFieldLabel,
@@ -11,6 +13,11 @@ import type {
   CampusMapHistoricalFact,
   CampusMapPlaceHistoryHead,
 } from "@/lib/campus-map/fact-store";
+import type {
+  CampusMapPlaceFeedbackPage,
+  CampusMapPlaceFeedbackView,
+} from "@/lib/campus-map/place-feedback";
+import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
 
 function scheduleLabel(schedule: CampusMapHistoricalFact["accessSchedule"]) {
   if (schedule.kind !== "weekly") {
@@ -65,6 +72,11 @@ export function CampusMapPlaceDetail({
   mapHref,
   building,
   isAdmin,
+  feedback,
+  viewerFeedback = null,
+  viewerCanWrite = true,
+  reviewsAfter = null,
+  photos = [],
 }: {
   placeId: string;
   head: CampusMapPlaceHistoryHead;
@@ -73,6 +85,11 @@ export function CampusMapPlaceDetail({
   mapHref: string;
   building: { name: string; floorLabel: string | null } | null;
   isAdmin: boolean;
+  feedback?: CampusMapPlaceFeedbackPage;
+  viewerFeedback?: CampusMapPlaceFeedbackView | null;
+  viewerCanWrite?: boolean;
+  reviewsAfter?: string | null;
+  photos?: CampusMapPlacePhotoView[];
 }) {
   const statusLabel =
     head.status === "active"
@@ -80,6 +97,16 @@ export function CampusMapPlaceDetail({
       : head.status === "retired"
         ? "地图已停用"
         : "地图已合并";
+  const feedbackView: CampusMapPlaceFeedbackPage = feedback ?? {
+    placeStatus: head.status,
+    summary: {
+      placeId,
+      averageRating: null,
+      ratingCount: 0,
+      reviewCount: 0,
+    },
+    page: { items: [], nextCursor: null, isPaginated: false },
+  };
 
   return (
     <main className="w-full min-w-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_oklab,var(--color-emerald-500)_10%,transparent),transparent_42%)] px-4 py-8 sm:px-6 lg:py-12">
@@ -211,12 +238,27 @@ export function CampusMapPlaceDetail({
                 )}
               />
             </dl>
+            {photos.length > 0 ? (
+              <div className="mt-5 border-t pt-5">
+                <h3 className="text-sm font-semibold">地点照片</h3>
+                <PlacePhotoGallery photos={photos} />
+              </div>
+            ) : null}
           </section>
         ) : (
           <section className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground">
             这份地点资料目前不可公开，但稳定链接和公开历史仍然保留。
           </section>
         )}
+
+        <PlaceFeedbackSection
+          placeId={placeId}
+          feedback={feedbackView}
+          viewerFeedback={viewerFeedback}
+          viewerCanWrite={viewerCanWrite}
+          isAdmin={isAdmin}
+          reviewsAfter={reviewsAfter}
+        />
 
         <div>
           <Link

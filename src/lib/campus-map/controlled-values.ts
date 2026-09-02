@@ -84,3 +84,11 @@ export const CAMPUS_MAP_COORDINATE_CONVERSION_METHODS = [
   "provider-adapter",
   "other",
 ] as const;
+
+export const CAMPUS_MAP_PLACE_PHOTO_ROLES = [
+  "entrance",
+  "overview",
+  "interior",
+  "equipment",
+  "accessibility",
+] as const;

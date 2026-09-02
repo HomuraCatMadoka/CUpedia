@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -100,6 +100,17 @@ export function PlaceLifecycleControls({
     kind: "reason" | "action";
   } | null>(null);
   const [pending, startTransition] = useTransition();
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const refreshedVersionRef = useRef(0);
+
+  // A Server Action response can carry the revalidated route tree. Starting a
+  // second refresh while that response is settling aborts it, so wait until
+  // the transition has committed before requesting the defensive refresh.
+  useEffect(() => {
+    if (pending || refreshVersion <= refreshedVersionRef.current) return;
+    refreshedVersionRef.current = refreshVersion;
+    router.refresh();
+  }, [pending, refreshVersion, router]);
 
   function changeOpen(nextOpen: boolean) {
     if (pending) return;
@@ -134,7 +145,7 @@ export function PlaceLifecycleControls({
           setOpen(false);
           setReason("");
           setIdempotencyKey(null);
-          router.refresh();
+          setRefreshVersion((version) => version + 1);
           return;
         }
         setError(lifecycleError(result.code));

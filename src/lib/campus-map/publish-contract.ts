@@ -28,6 +28,7 @@ import {
   CAMPUS_MAP_TEMPORARY_STATUSES,
   CAMPUS_MAP_WHEELCHAIR_ACCESS,
 } from "@/lib/campus-map/controlled-values";
+import type { CampusMapPlacePhotoRole } from "@/lib/campus-map/place-photos-contract";
 
 /** Runtime values shared by publish clients and versioned snapshot codecs. */
 export const CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES = {
@@ -107,11 +108,17 @@ export interface CampusMapPublishSourceInput {
   } | null;
 }
 
+export interface CampusMapPublishPhotoInput {
+  assetId: string;
+  role: CampusMapPlacePhotoRole;
+}
+
 export type CampusMapPublishChange =
   | {
       operation: "create";
       fact: CampusMapPublishFactInput;
       sources: CampusMapPublishSourceInput[];
+      photos?: CampusMapPublishPhotoInput[];
     }
   | {
       operation: "update";
@@ -119,6 +126,8 @@ export type CampusMapPublishChange =
       baseRevisionId: string;
       fact: CampusMapPublishFactInput;
       sources: CampusMapPublishSourceInput[];
+      /** Omit to carry the base revision's photos forward unchanged. */
+      photos?: CampusMapPublishPhotoInput[];
     }
   /** Lifecycle governance operation; the publish seam requires a fresh admin role. */
   | {
@@ -204,6 +213,7 @@ export type CampusMapPublishResult =
         currentRevisionId: string | null;
         currentStatus: "active" | "retired" | "merged" | null;
         currentSnapshot: CampusMapPublishSafeSnapshot | null;
+        currentPhotos?: CampusMapPublishPhotoInput[];
       }>;
     }
   | {

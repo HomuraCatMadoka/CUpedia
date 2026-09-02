@@ -4,6 +4,7 @@ import {
   CAMPUS_MAP_CAPABILITIES,
   CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
   CAMPUS_MAP_GENDERS,
+  CAMPUS_MAP_PLACE_PHOTO_ROLES,
   CAMPUS_MAP_PROVENANCE_KINDS,
   CAMPUS_MAP_RESERVATION_REQUIREMENTS,
   CAMPUS_MAP_TEMPORARY_STATUSES,
@@ -95,6 +96,14 @@ const provenanceKindLabels = {
   "provider-candidate": "地图供应商候选",
   other: "其他资料",
 } satisfies LabelRecord<typeof CAMPUS_MAP_PROVENANCE_KINDS>;
+
+const placePhotoRoleLabels = {
+  entrance: "入口",
+  overview: "整体环境",
+  interior: "内部",
+  equipment: "设备",
+  accessibility: "无障碍设施",
+} satisfies LabelRecord<typeof CAMPUS_MAP_PLACE_PHOTO_ROLES>;
 
 const accessScheduleKinds = ["unknown", "always", "weekly"] as const;
 const accessScheduleLabels = {
@@ -200,6 +209,12 @@ export function campusMapProvenanceKindLabel(
   value: CampusMapPublishSourceInput["kind"],
 ) {
   return campusMapDisplayOptionLabel("provenanceKind", value);
+}
+
+export function campusMapPlacePhotoRoleLabel(
+  value: (typeof CAMPUS_MAP_PLACE_PHOTO_ROLES)[number],
+) {
+  return placePhotoRoleLabels[value];
 }
 
 const factOptionGroups = {

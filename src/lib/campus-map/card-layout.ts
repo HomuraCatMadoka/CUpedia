@@ -25,7 +25,7 @@ export function campusMapMobilePanelHeight(
     case "placing":
       return "min(336px, 48dvh)";
     case "edit":
-      return "var(--campus-map-edit-sheet-height)";
+      return "100dvh";
     case "expanded": {
       const contentHeight =
         layout.content === "building"
@@ -36,11 +36,11 @@ export function campusMapMobilePanelHeight(
     case "provider-poi":
       return "120px";
     case "empty-building":
-      return "136px";
+      return "208px";
     case "place":
       return "min(264px, 35dvh)";
     case "building":
-      return "min(312px, 39dvh)";
+      return "min(352px, 44dvh)";
     case "category": {
       if (layout.resultCount > CAMPUS_MAP_CATEGORY_PEEK_RESULT_LIMIT) {
         return "min(352px, 44dvh)";
