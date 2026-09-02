@@ -5,7 +5,11 @@ import {
   CAMPUS_BUS_FEEDBACK_SESSION_COOKIE,
   getCampusBusFeedbackSession,
 } from "@/lib/campus-transport/feedback-session";
-import { getCampusBusRoute } from "@/lib/campus-transport/routes-data";
+import {
+  campusBusRoutes,
+  getCampusBusRoute,
+  isRetiredCampusBusRouteId,
+} from "@/lib/campus-transport/routes-data";
 import { getChampionCampusBusRoute } from "@/lib/campus-transport/prediction-model-cache";
 
 const MAX_PAST_MILLISECONDS = 15 * 60_000;
@@ -34,6 +38,16 @@ export async function POST(request: NextRequest) {
   const routeId = typeof body.routeId === "string" ? body.routeId : "";
   const stopOccurrenceId =
     typeof body.stopOccurrenceId === "string" ? body.stopOccurrenceId : "";
+  if (isRetiredCampusBusRouteId(routeId)) {
+    return NextResponse.json(
+      {
+        error: "ROUTE_CATALOG_STALE",
+        message: "Route 1B retired on 2026-09-01; refresh the route catalog.",
+        currentRouteCodes: campusBusRoutes.map((route) => route.code),
+      },
+      { status: 409 },
+    );
+  }
   const route =
     (await getChampionCampusBusRoute(routeId)) ?? getCampusBusRoute(routeId);
   if (!route) {

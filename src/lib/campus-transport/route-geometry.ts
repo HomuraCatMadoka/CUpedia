@@ -21,9 +21,7 @@ function haversineDistance(from: LngLat, to: LngLat) {
 }
 
 /** 把 MultiLineString / LineString 几何展开为按序排列的折线点列，去掉相邻重复点。 */
-export function flattenRouteGeometry(
-  geometry: RouteGeometry,
-): LngLat[] {
+export function flattenRouteGeometry(geometry: RouteGeometry): LngLat[] {
   if (geometry.type !== "Feature") return [];
   const inner = geometry.geometry;
   if (!inner) return [];
@@ -38,11 +36,7 @@ export function flattenRouteGeometry(
     for (const [longitude, latitude] of line) {
       const point: LngLat = [longitude, latitude];
       const previous = flattened[flattened.length - 1];
-      if (
-        !previous ||
-        previous[0] !== point[0] ||
-        previous[1] !== point[1]
-      ) {
+      if (!previous || previous[0] !== point[0] || previous[1] !== point[1]) {
         flattened.push(point);
       }
     }
@@ -56,9 +50,7 @@ export type ArcLength = {
 };
 
 /** 计算折线逐顶点累计弧长（米）。 */
-export function computeCumulativeArcLength(
-  points: LngLat[],
-): ArcLength {
+export function computeCumulativeArcLength(points: LngLat[]): ArcLength {
   const cumulative: number[] = [0];
   let total = 0;
   for (let index = 1; index < points.length; index += 1) {
@@ -90,9 +82,7 @@ export function interpolateAlongPolyline(
   const segmentLength =
     cumulative[segmentIndex + 1]! - cumulative[segmentIndex]!;
   const ratio =
-    segmentLength > 0
-      ? (along - cumulative[segmentIndex]!) / segmentLength
-      : 0;
+    segmentLength > 0 ? (along - cumulative[segmentIndex]!) / segmentLength : 0;
   return [
     start[0] + (end[0] - start[0]) * ratio,
     start[1] + (end[1] - start[1]) * ratio,
@@ -122,8 +112,7 @@ export function nearestPointOnPolyline(
   for (let index = 0; index < points.length - 1; index += 1) {
     const start = points[index]!;
     const end = points[index + 1]!;
-    const segmentLength =
-      cumulative[index + 1]! - cumulative[index]!;
+    const segmentLength = cumulative[index + 1]! - cumulative[index]!;
 
     // 垂足投影比例（clamp 到 [0,1]）
     const dx = end[0] - start[0];
@@ -268,10 +257,7 @@ export function buildStopAnchoredPath(
   };
 
   // Dijkstra：返回从 start 到 end 的顶点 key 序列
-  const shortestPath = (
-    start: string,
-    end: string,
-  ): string[] | null => {
+  const shortestPath = (start: string, end: string): string[] | null => {
     if (start === end) return [start];
     const distances = new Map<string, number>([[start, 0]]);
     const previous = new Map<string, string>();
@@ -331,6 +317,36 @@ export function buildStopAnchoredPath(
   }
 
   return { segments };
+}
+
+/** Compile a display geometry that contains only paths between listed stops. */
+export function buildStopAnchoredRouteGeometry(
+  candidateGeometry: RouteGeometry,
+  stopSequences: readonly (readonly LngLat[])[],
+  properties: Record<string, unknown> = {},
+): RouteGeometry {
+  const coordinates: number[][][] = [];
+  const seen = new Set<string>();
+
+  for (const stops of stopSequences) {
+    const path = buildStopAnchoredPath(candidateGeometry, stops);
+    for (const segment of path.segments) {
+      const forward = segment.points.map(vertexKey).join("|");
+      const reverse = [...segment.points].reverse().map(vertexKey).join("|");
+      const key = forward < reverse ? forward : reverse;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      coordinates.push(
+        segment.points.map(([longitude, latitude]) => [longitude, latitude]),
+      );
+    }
+  }
+
+  return {
+    type: "Feature",
+    properties,
+    geometry: { type: "MultiLineString", coordinates },
+  };
 }
 
 /** 在分段路径上按累计里程插值（跨段连续），边界自动 clamp。 */

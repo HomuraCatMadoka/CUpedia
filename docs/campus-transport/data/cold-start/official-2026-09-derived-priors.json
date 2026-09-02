@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "cupedia-campus-bus-derived-priors/1",
+  "effectiveFrom": "2026-09-01",
+  "derivations": {
+    "route2s": {
+      "revisionId": "route-2s-spliced-segments/2026-09-01",
+      "sourceKind": "derived-spliced-segment-prior",
+      "origin": {
+        "outputOccurrenceId": "cuhk-wp-stop-2812#1",
+        "sourceRouteId": "2",
+        "sourcePatternId": "2:default",
+        "sourceOccurrenceId": "cuhk-wp-stop-2812#1"
+      },
+      "segments": [
+        {
+          "outputOccurrenceId": "cuhk-wp-stop-3172#1",
+          "sourceRouteId": "1b",
+          "sourcePatternId": "1b:via-pgh1",
+          "fromOccurrenceId": "cuhk-wp-stop-2552#1",
+          "toOccurrenceId": "cuhk-wp-stop-3172#1"
+        },
+        {
+          "outputOccurrenceId": "cuhk-wp-stop-2546#1",
+          "sourceRouteId": "1b",
+          "sourcePatternId": "1b:via-pgh1",
+          "fromOccurrenceId": "cuhk-wp-stop-3172#1",
+          "toOccurrenceId": "cuhk-wp-stop-2546#1"
+        },
+        {
+          "outputOccurrenceId": "cuhk-wp-stop-2544#1",
+          "sourceRouteId": "2",
+          "sourcePatternId": "2:via-shaw-hall",
+          "fromOccurrenceId": "cuhk-wp-stop-2546#1",
+          "toOccurrenceId": "cuhk-wp-stop-2544#1"
+        },
+        {
+          "outputOccurrenceId": "cuhk-wp-stop-2814#1",
+          "sourceRouteId": "2",
+          "sourcePatternId": "2:via-shaw-hall",
+          "fromOccurrenceId": "cuhk-wp-stop-2544#1",
+          "toOccurrenceId": "cuhk-wp-stop-2814#1"
+        },
+        {
+          "outputOccurrenceId": "cuhk-wp-stop-2816#1",
+          "sourceRouteId": "2",
+          "sourcePatternId": "2:via-shaw-hall",
+          "fromOccurrenceId": "cuhk-wp-stop-2814#1",
+          "toOccurrenceId": "cuhk-wp-stop-2816#1"
+        },
+        {
+          "outputOccurrenceId": "cuhk-wp-stop-2820#1",
+          "sourceRouteId": "2",
+          "sourcePatternId": "2:via-shaw-hall",
+          "fromOccurrenceId": "cuhk-wp-stop-2816#1",
+          "toOccurrenceId": "cuhk-wp-stop-2820#1"
+        },
+        {
+          "outputOccurrenceId": "cuhk-wp-stop-2818#1",
+          "sourceRouteId": "2",
+          "sourcePatternId": "2:via-shaw-hall",
+          "fromOccurrenceId": "cuhk-wp-stop-2820#1",
+          "toOccurrenceId": "cuhk-wp-stop-2818#1"
+        },
+        {
+          "outputOccurrenceId": "cuhk-wp-stop-2548#1",
+          "sourceRouteId": "2",
+          "sourcePatternId": "2:via-shaw-hall",
+          "fromOccurrenceId": "cuhk-wp-stop-2818#1",
+          "toOccurrenceId": "cuhk-wp-stop-2548#1"
+        },
+        {
+          "outputOccurrenceId": "cuhk-wp-stop-2550#1",
+          "sourceRouteId": "2",
+          "sourcePatternId": "2:via-shaw-hall",
+          "fromOccurrenceId": "cuhk-wp-stop-2548#1",
+          "toOccurrenceId": "cuhk-wp-stop-2550#1"
+        },
+        {
+          "outputOccurrenceId": "cuhk-wp-stop-3172#2",
+          "sourceRouteId": "1b",
+          "sourcePatternId": "1b:via-pgh1",
+          "fromOccurrenceId": "cuhk-wp-stop-2550#1",
+          "toOccurrenceId": "cuhk-wp-stop-3172#2"
+        },
+        {
+          "outputOccurrenceId": "cuhk-wp-stop-2552#1",
+          "sourceRouteId": "1b",
+          "sourcePatternId": "1b:via-pgh1",
+          "fromOccurrenceId": "cuhk-wp-stop-3172#2",
+          "toOccurrenceId": "cuhk-wp-stop-2552#2"
+        }
+      ]
+    },
+    "route8": {
+      "revisionId": "route-8-prefixed-segments/2026-09-01",
+      "sourceKind": "derived-prefixed-segment-prior",
+      "sourceRouteId": "4",
+      "sourcePatternId": "4:default",
+      "prefixOccurrenceIds": [
+        "cuhk-wp-stop-2913#1",
+        "cuhk-wp-stop-2932#1",
+        "cuhk-wp-stop-2936#1"
+      ],
+      "connectorOccurrenceId": "cuhk-wp-stop-2939#1"
+    }
+  }
+}

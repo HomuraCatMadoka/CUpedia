@@ -59,7 +59,10 @@ const SQUARE_STOPS: [number, number][] = [
 
 describe("buildStopAnchoredPath", () => {
   it("reconstructs a square loop ignoring the duplicate segment", () => {
-    const path = buildStopAnchoredPath(multiLineString(SQUARE_LINES), SQUARE_STOPS);
+    const path = buildStopAnchoredPath(
+      multiLineString(SQUARE_LINES),
+      SQUARE_STOPS,
+    );
     expect(path.segments).toHaveLength(4);
     for (const segment of path.segments) {
       expect(segment.totalLength).toBeGreaterThan(0);
@@ -83,8 +86,8 @@ describe("buildStopAnchoredPath", () => {
     expect(path.segments).toHaveLength(0);
   });
 
-  it("matches the verified 1A loop length", () => {
-    const route = campusBusRoutes.find((c) => c.routeId === "1a")!;
+  it("keeps the inherited Route 1 loop length", () => {
+    const route = campusBusRoutes.find((candidate) => candidate.slug === "1")!;
     const stops = route.stops.map(
       (stop) => route.map.stopCoordinates[stop.id]!,
     );

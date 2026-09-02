@@ -28,12 +28,14 @@ import type {
   CampusBusRouteMap,
   CampusBusServiceBand,
   CampusBusServiceDayRule,
-  LngLat,
 } from "@/lib/campus-transport/campus-bus";
+import { buildCurrentCampusBusRoutes } from "@/lib/campus-transport/current-route-revisions";
 import {
-  ROUTE_2_GEOMETRY,
-  ROUTE_2_STOP_COORDINATES,
-} from "@/lib/campus-transport/route-2-map";
+  buildOsmRouteMap,
+  buildRoute2Map,
+  buildRoute8Map,
+  type RawCampusBusGeodata,
+} from "@/lib/campus-transport/route-map-builder";
 
 type RawProjection = {
   evidence: {
@@ -109,15 +111,6 @@ type RawColdStartDataset = {
   status: "staging_only";
 };
 
-type RawGeodata = {
-  geometry: CampusBusRouteMap["geometry"];
-  source: { attribution: string; sourceUrl: string };
-  stopOccurrences: Array<{
-    coordinates: number[];
-    occurrenceId: string;
-  }>;
-};
-
 type RouteUiMetadata = {
   canonicalPatternId?: string;
   color: string;
@@ -131,6 +124,36 @@ type RouteUiMetadata = {
 // Keep this scoped constant instead of a generic default so future paid or
 // restricted route ingestion must choose its own reviewed eligibility.
 const FREE_SHUTTLE_RIDER_ELIGIBILITY = "students-and-staff" as const;
+
+const historicalServiceValidFrom: Record<string, string> = {
+  "1a": "2024-09-03",
+  "1b": "2024-09-03",
+  "2": "2024-09-03",
+  "3": "2024-09-03",
+  "4": "2024-09-03",
+  "5": "2024-09-02",
+  "6a": "2024-09-02",
+  "6b": "2024-09-02",
+  "7": "2024-09-02",
+  "8": "2024-09-03",
+  h: "2024-08-26",
+  n: "2024-08-26",
+};
+
+const legacyWordpressPostIds: Record<string, number> = {
+  "1a": 2554,
+  "1b": 2567,
+  "2": 2865,
+  "3": 2869,
+  "4": 2878,
+  "5": 2766,
+  "6a": 2768,
+  "6b": 2890,
+  "7": 2893,
+  "8": 2880,
+  h: 2885,
+  n: 2883,
+};
 
 const routeUiMetadata: Record<string, RouteUiMetadata> = {
   "1a": {
@@ -216,53 +239,6 @@ function formatFrequency(patterns: CampusBusPattern[]) {
   return minimum === maximum
     ? `約每 ${minimum} 分鐘一班`
     : `約每 ${minimum}-${maximum} 分鐘一班`;
-}
-
-function route2Map(): CampusBusRouteMap {
-  return {
-    attribution: "© OpenStreetMap contributors",
-    geometry: ROUTE_2_GEOMETRY,
-    sourceUrl: "https://www.openstreetmap.org/relation/21069990",
-    stopCoordinates: Object.fromEntries(
-      Object.entries(ROUTE_2_STOP_COORDINATES).map(([stopId, coordinates]) => [
-        `${stopId}#1`,
-        coordinates,
-      ]),
-    ),
-  };
-}
-
-function osmMap(geodata: RawGeodata): CampusBusRouteMap {
-  return {
-    attribution: geodata.source.attribution,
-    geometry: geodata.geometry,
-    sourceUrl: geodata.source.sourceUrl,
-    stopCoordinates: Object.fromEntries(
-      geodata.stopOccurrences.map((stop) => {
-        if (stop.coordinates.length !== 2) {
-          throw new Error(
-            `Invalid coordinates for stop occurrence ${stop.occurrenceId}`,
-          );
-        }
-        return [
-          stop.occurrenceId,
-          [stop.coordinates[0], stop.coordinates[1]] satisfies LngLat,
-        ];
-      }),
-    ),
-  };
-}
-
-function route8Map(): CampusBusRouteMap {
-  const map = osmMap(route8Geodata as RawGeodata);
-  return {
-    ...map,
-    stopCoordinates: {
-      ...map.stopCoordinates,
-      "cuhk-wp-stop-2812#1": [114.2097625, 22.4139575],
-      "cuhk-wp-stop-2810#1": [114.208359, 22.4160358],
-    },
-  };
 }
 
 function buildRoute(
@@ -391,7 +367,11 @@ function buildRoute(
     datasetProvenance: { ...rawDataset.derivedFrom },
     defaultStopId: metadata.defaultStopId ?? stops[0]?.id ?? "",
     frequencyLabel: formatFrequency(patterns),
-    map: { ...map, stopCoordinates: { ...map.stopCoordinates } },
+    map: {
+      ...map,
+      sources: map.sources.map((source) => ({ ...source })),
+      stopCoordinates: { ...map.stopCoordinates },
+    },
     officialUrl: rawDataset.route.officialUrl,
     patterns,
     publicHolidayDates: [...rawDataset.service.publicHolidayDates],
@@ -400,6 +380,17 @@ function buildRoute(
       endDate: week.endDate,
     })),
     routeId: rawDataset.route.routeId,
+    routeRevisionId: `${rawDataset.route.routeId}:through-2026-08-31`,
+    lineageId: `route-lineage-${rawDataset.route.routeId}`,
+    validFrom: historicalServiceValidFrom[rawDataset.route.routeId] ?? null,
+    validTo: "2026-08-31",
+    sourceIdentity: {
+      displayCode: rawDataset.route.routeId.toUpperCase(),
+      wordpressPostId: legacyWordpressPostIds[rawDataset.route.routeId]!,
+      wordpressSlug: rawDataset.route.routeId,
+      sourceUrl: rawDataset.route.officialUrl,
+      sourceContentSha256: rawDataset.derivedFrom.snapshotSha256,
+    },
     seedModelRevisionId: rawDataset.seedModelRevisionId,
     routeNameEn: rawDataset.route.nameEn,
     routeNameZhHant: rawDataset.route.nameZhHant,
@@ -413,31 +404,118 @@ function buildRoute(
   };
 }
 
-const datasets: Array<[RawColdStartDataset, CampusBusRouteMap]> = [
-  [route1aDataset as RawColdStartDataset, osmMap(route1aGeodata as RawGeodata)],
-  [route1bDataset as RawColdStartDataset, osmMap(route1bGeodata as RawGeodata)],
-  [route2Dataset as RawColdStartDataset, route2Map()],
-  [route3Dataset as RawColdStartDataset, osmMap(route3Geodata as RawGeodata)],
-  [route4Dataset as RawColdStartDataset, osmMap(route4Geodata as RawGeodata)],
-  [route5Dataset as RawColdStartDataset, osmMap(route5Geodata as RawGeodata)],
-  [route6aDataset as RawColdStartDataset, osmMap(route6aGeodata as RawGeodata)],
-  [route6bDataset as RawColdStartDataset, osmMap(route6bGeodata as RawGeodata)],
-  [route7Dataset as RawColdStartDataset, osmMap(route7Geodata as RawGeodata)],
-  [route8Dataset as RawColdStartDataset, route8Map()],
-  [routeNDataset as RawColdStartDataset, osmMap(routeNGeodata as RawGeodata)],
-  [routeHDataset as RawColdStartDataset, osmMap(routeHGeodata as RawGeodata)],
+const historicalDatasets: Array<[RawColdStartDataset, CampusBusRouteMap]> = [
+  [
+    route1aDataset as RawColdStartDataset,
+    buildOsmRouteMap(route1aGeodata as RawCampusBusGeodata),
+  ],
+  [
+    route1bDataset as RawColdStartDataset,
+    buildOsmRouteMap(route1bGeodata as RawCampusBusGeodata),
+  ],
+  [route2Dataset as RawColdStartDataset, buildRoute2Map()],
+  [
+    route3Dataset as RawColdStartDataset,
+    buildOsmRouteMap(route3Geodata as RawCampusBusGeodata),
+  ],
+  [
+    route4Dataset as RawColdStartDataset,
+    buildOsmRouteMap(route4Geodata as RawCampusBusGeodata),
+  ],
+  [
+    route5Dataset as RawColdStartDataset,
+    buildOsmRouteMap(route5Geodata as RawCampusBusGeodata),
+  ],
+  [
+    route6aDataset as RawColdStartDataset,
+    buildOsmRouteMap(route6aGeodata as RawCampusBusGeodata),
+  ],
+  [
+    route6bDataset as RawColdStartDataset,
+    buildOsmRouteMap(route6bGeodata as RawCampusBusGeodata),
+  ],
+  [
+    route7Dataset as RawColdStartDataset,
+    buildOsmRouteMap(route7Geodata as RawCampusBusGeodata),
+  ],
+  [
+    route8Dataset as RawColdStartDataset,
+    buildRoute8Map(route8Geodata as RawCampusBusGeodata),
+  ],
+  [
+    routeNDataset as RawColdStartDataset,
+    buildOsmRouteMap(routeNGeodata as RawCampusBusGeodata),
+  ],
+  [
+    routeHDataset as RawColdStartDataset,
+    buildOsmRouteMap(routeHGeodata as RawCampusBusGeodata),
+  ],
 ];
 
-export const campusBusRoutes = datasets.map(([dataset, map]) =>
-  buildRoute(dataset, map),
+export const historicalCampusBusRoutes = historicalDatasets.map(
+  ([dataset, map]) => buildRoute(dataset, map),
+);
+
+export const campusBusRoutes = buildCurrentCampusBusRoutes(
+  historicalCampusBusRoutes,
 );
 
 export const route2ViewData = campusBusRoutes.find(
   (route) => route.routeId === "2",
 )!;
 
-export function getCampusBusRoute(routeId: string) {
-  return campusBusRoutes.find(
-    (route) => route.routeId.toLowerCase() === routeId.toLowerCase(),
+function routeMatchesIdentifier(route: CampusBusRoute, identifier: string) {
+  const normalizedIdentifier = identifier.toLocaleLowerCase("en");
+  return (
+    route.routeId.toLocaleLowerCase("en") === normalizedIdentifier ||
+    route.slug.toLocaleLowerCase("en") === normalizedIdentifier ||
+    route.code.toLocaleLowerCase("en") === normalizedIdentifier
   );
+}
+
+export function getCampusBusRoute(routeId: string) {
+  return campusBusRoutes.find((route) =>
+    routeMatchesIdentifier(route, routeId),
+  );
+}
+
+function isValidServiceDate(serviceDate: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(serviceDate);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
+function routeIsValidOn(route: CampusBusRoute, serviceDate: string) {
+  return (
+    (!route.validFrom || serviceDate >= route.validFrom) &&
+    (!route.validTo || serviceDate <= route.validTo)
+  );
+}
+
+export function getCampusBusRoutesForServiceDate(serviceDate: string) {
+  if (!isValidServiceDate(serviceDate)) return [];
+  return [...historicalCampusBusRoutes, ...campusBusRoutes].filter((route) =>
+    routeIsValidOn(route, serviceDate),
+  );
+}
+
+export function getCampusBusRouteForServiceDate(
+  routeId: string,
+  serviceDate: string,
+) {
+  return getCampusBusRoutesForServiceDate(serviceDate).find((route) =>
+    routeMatchesIdentifier(route, routeId),
+  );
+}
+
+export function isRetiredCampusBusRouteId(routeId: string) {
+  return routeId.toLowerCase() === "1b";
 }

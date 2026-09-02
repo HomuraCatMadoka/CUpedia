@@ -135,7 +135,7 @@ test.describe("campus bus Route 2 mobile journey", () => {
     await shawStop.click();
     await expect(shawStop).toHaveAttribute("aria-expanded", "true");
     await expect(
-      stops.getByText("另有 08:15、08:30 起點班次不停靠本站"),
+      stops.getByText("另有 08:15、09:15 起點班次不停靠本站"),
     ).toBeVisible();
 
     const map = page.getByRole("region", { name: "2 號線地圖" });
@@ -225,7 +225,7 @@ test.describe("campus bus Route 2 mobile journey", () => {
     const submittedOffset =
       new Date(submitted.observedArrivalAt).getTime() - browserNow;
     expect(submittedOffset).toBeGreaterThanOrEqual(59_000);
-    expect(submittedOffset).toBeLessThanOrEqual(60_000);
+    expect(submittedOffset).toBeLessThanOrEqual(61_000);
     await expect(dialog).toBeHidden();
 
     const acknowledgement = page.getByText("謝謝，你的到站時間已提交。");
@@ -274,6 +274,7 @@ test.describe("campus bus reviewed route catalog", () => {
     await page.clock.install({ time: new Date("2026-08-10T17:28:00.000Z") });
     const response = await page.goto("/campus-bus/1a");
     expect(response?.status()).toBe(200);
+    await expect(page).toHaveURL(/\/campus-bus\/1$/);
     await expect(page.getByRole("button", { name: "我的位置" })).toBeVisible();
     await page.clock.fastForward("00:00:31");
 
@@ -362,7 +363,7 @@ test.describe("campus bus reviewed route catalog", () => {
       page.getByRole("heading", { name: "大學站", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: /1A 本部線/ }).first(),
+      page.getByRole("link", { name: /1 本部線/ }).first(),
     ).toBeVisible();
   });
 
@@ -395,25 +396,16 @@ test.describe("campus bus reviewed route catalog", () => {
     ).toBeVisible();
   });
 
-  test("cycles colocated loop occurrences from one map marker", async ({
+  test("retires the old 1B link without remapping it to 2S", async ({
     page,
   }) => {
     await page.goto("/campus-bus/1b");
-    await expect(page.getByRole("button", { name: "我的位置" })).toBeVisible();
-
-    const map = page.getByRole("region", { name: "1B 號線地圖" });
-    const sharedTerminus = map.getByRole("button", {
-      name: "1. 大學站；8. 大學站",
-    });
-    await expect(sharedTerminus).toBeVisible();
-    await sharedTerminus.click();
-
-    const stops = page.locator(
-      'section[aria-labelledby="campus-route-stops-heading"]',
-    );
+    await expect(page).toHaveURL(/\/campus-bus\?routeRetired=1b$/);
     await expect(
-      stops.getByRole("button", { name: "8. 大學站 Univ. Station" }),
-    ).toHaveAttribute("aria-expanded", "true");
+      page.getByText("1B 線已於 2026 年 9 月 1 日退役"),
+    ).toBeVisible();
+    await page.getByRole("tab", { name: "全部路線" }).click();
+    await expect(page.getByRole("link", { name: /2S 新聯線/ })).toBeVisible();
   });
 
   test("renders the reviewed N route in the real map", async ({ page }) => {

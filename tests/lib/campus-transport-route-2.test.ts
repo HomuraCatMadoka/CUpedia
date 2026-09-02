@@ -46,9 +46,9 @@ describe("Route 2 passenger projection", () => {
 
     expect(board.serviceStatus).toBe("in_service");
     expect(board.upcomingArrivals).toEqual([
-      expect.objectContaining({ arrivalTime: "08:13", waitMinutes: 4 }),
       expect.objectContaining({ arrivalTime: "08:28", waitMinutes: 19 }),
-      expect.objectContaining({ arrivalTime: "08:43", waitMinutes: 34 }),
+      expect.objectContaining({ arrivalTime: "08:58", waitMinutes: 49 }),
+      expect.objectContaining({ arrivalTime: "09:28", waitMinutes: 79 }),
     ]);
   });
 
@@ -56,11 +56,11 @@ describe("Route 2 passenger projection", () => {
     const board = getCampusBusStopBoard(
       route2ViewData,
       "cuhk-wp-stop-2550#1",
-      hkt(2026, 8, 11, 8, 13) + 30_000,
+      hkt(2026, 8, 11, 8, 28) + 30_000,
     );
 
     expect(board.upcomingArrivals[0]).toMatchObject({
-      arrivalTime: "08:13",
+      arrivalTime: "08:28",
       waitMinutes: 0,
     });
   });
@@ -76,7 +76,7 @@ describe("Route 2 passenger projection", () => {
       arrivalTime: "08:49",
       departureTime: "08:45",
     });
-    expect(board.skippedDepartureTimes).toEqual(["08:15", "08:30"]);
+    expect(board.skippedDepartureTimes).toEqual(["08:15", "09:15"]);
   });
 
   it("does not roll after the last bus into tomorrow", () => {

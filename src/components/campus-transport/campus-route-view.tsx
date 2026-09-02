@@ -237,6 +237,9 @@ function FeedbackDialog({
         if (response.status === 429 || error?.error === "RATE_LIMIT_EXCEEDED") {
           throw new Error("RATE_LIMIT_EXCEEDED");
         }
+        if (response.status === 409 || error?.error === "ROUTE_CATALOG_STALE") {
+          throw new Error("ROUTE_CATALOG_STALE");
+        }
         throw new Error("arrival observation rejected");
       }
 
@@ -246,7 +249,9 @@ function FeedbackDialog({
       toast.error(
         error instanceof Error && error.message === "RATE_LIMIT_EXCEEDED"
           ? "提交太頻密，請稍後再試。"
-          : "提交失敗，請稍後再試。",
+          : error instanceof Error && error.message === "ROUTE_CATALOG_STALE"
+            ? "路線資料已更新，請刷新頁面後重新選擇。"
+            : "提交失敗，請稍後再試。",
       );
     } finally {
       setSubmitting(false);

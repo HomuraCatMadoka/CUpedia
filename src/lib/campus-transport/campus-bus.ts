@@ -72,9 +72,11 @@ export type CampusBusServiceBand = {
 };
 
 export type CampusBusRouteMap = {
-  attribution: string;
   geometry: GeoJSONSourceSpecification["data"];
-  sourceUrl: string;
+  sources: Array<{
+    attribution: string;
+    url: string;
+  }>;
   stopCoordinates: Record<string, LngLat>;
 };
 
@@ -98,6 +100,17 @@ export type CampusBusRoute = {
   publicHolidayDates: string[];
   readingWeeks: Array<{ startDate: string; endDate: string }>;
   routeId: string;
+  routeRevisionId: string;
+  lineageId: string;
+  validFrom: string | null;
+  validTo: string | null;
+  sourceIdentity: {
+    displayCode: string;
+    wordpressPostId: number;
+    wordpressSlug: string;
+    sourceUrl: string;
+    sourceContentSha256: string;
+  };
   routeNameEn: string;
   routeNameZhHant: string;
   riderEligibility: "public-paid" | "staff-only" | "students-and-staff";

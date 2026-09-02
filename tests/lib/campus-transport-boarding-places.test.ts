@@ -45,19 +45,19 @@ describe("campus bus Boarding places", () => {
           (occurrence) => occurrence.routeId,
         ),
       ),
-    ).toEqual(new Set(["1a", "1b", "2", "4", "8", "n", "h"]));
+    ).toEqual(new Set(["1a", "2", "2s", "4", "8", "n", "h"]));
     expect(
       universityStation.stopOccurrences.filter(
-        (occurrence) => occurrence.routeId === "1b",
+        (occurrence) => occurrence.routeId === "1a",
       ),
     ).toEqual([
       expect.objectContaining({
-        patternIds: expect.arrayContaining(["1b:via-pgh1"]),
+        patternIds: expect.arrayContaining(["1a:default"]),
         stopId: "cuhk-wp-stop-2552",
         stopOccurrenceId: "cuhk-wp-stop-2552#1",
       }),
       expect.objectContaining({
-        patternIds: expect.arrayContaining(["1b:via-pgh1"]),
+        patternIds: expect.arrayContaining(["1a:default"]),
         stopId: "cuhk-wp-stop-2552",
         stopOccurrenceId: "cuhk-wp-stop-2552#2",
       }),

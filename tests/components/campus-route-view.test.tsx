@@ -96,14 +96,14 @@ describe("CampusRouteView", () => {
 
   it("selects an exact operational stop occurrence from the boarding flow", () => {
     renderRoute(
-      "1b",
+      "2s",
       Date.parse("2026-08-10T23:38:00.000Z"),
-      "cuhk-wp-stop-2552#2",
+      "cuhk-wp-stop-3172#2",
     );
 
     expect(
       screen
-        .getByRole("button", { name: /8\. 大學站/ })
+        .getByRole("button", { name: /11\. 研究生宿舍一座/ })
         .getAttribute("aria-expanded"),
     ).toBe("true");
   });
