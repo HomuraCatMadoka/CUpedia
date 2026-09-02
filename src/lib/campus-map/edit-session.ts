@@ -165,6 +165,7 @@ export type CampusMapEditCommand =
       kind: "camera";
       intent: "recenter-placement";
       position: readonly [longitude: number, latitude: number];
+      precision: OutdoorPoint["precision"];
     }
   | { kind: "persist-snapshot" }
   | { kind: "clear-snapshot" }
@@ -684,6 +685,7 @@ export function transitionCampusMapEdit(
                   placementCandidate.longitude,
                   placementCandidate.latitude,
                 ] as const,
+                precision: placementCandidate.precision,
               },
             ]
           : []),
@@ -827,6 +829,7 @@ export function transitionCampusMapEdit(
                   placementCandidate.longitude,
                   placementCandidate.latitude,
                 ] as const,
+                precision: placementCandidate.precision,
               },
             ]
           : []),

@@ -13,16 +13,49 @@ import {
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockLoadBrowseProjection, mockLoadProviderPoiCard } = vi.hoisted(
-  () => ({
-    mockLoadBrowseProjection: vi.fn(),
-    mockLoadProviderPoiCard: vi.fn(),
-  }),
-);
+const {
+  mockAmapProjection,
+  mockLoadBrowseProjection,
+  mockLoadProviderPoiCard,
+} = vi.hoisted(() => ({
+  mockAmapProjection: {
+    longitude: 0,
+    latitude: 0,
+    providerFallbackPosition: null as readonly [number, number] | null,
+  },
+  mockLoadBrowseProjection: vi.fn(),
+  mockLoadProviderPoiCard: vi.fn(),
+}));
 
 vi.mock("@/lib/campus-map/browse-actions", () => ({
   loadCampusMapBrowseProjection: mockLoadBrowseProjection,
   loadCampusMapAmapPoiCard: mockLoadProviderPoiCard,
+}));
+vi.mock("@/lib/campus-map/amap-position", () => ({
+  asWgs84Position: (position: readonly [number, number]) => [...position],
+  asAmapPosition: (position: readonly [number, number]) => [...position],
+  projectCampusMapWgs84ToAmap: (
+    position: readonly [number, number],
+    precision: "approximate" | "precise",
+  ) =>
+    precision === "precise" ||
+    (mockAmapProjection.providerFallbackPosition?.[0] === position[0] &&
+      mockAmapProjection.providerFallbackPosition?.[1] === position[1])
+      ? { status: "requires-provider" }
+      : {
+          status: "projected",
+          position: [
+            position[0] + mockAmapProjection.longitude,
+            position[1] + mockAmapProjection.latitude,
+          ],
+        },
+  projectAmapPositionToWgs84: (position: readonly [number, number]) => ({
+    status: "projected",
+    position: [
+      position[0] - mockAmapProjection.longitude,
+      position[1] - mockAmapProjection.latitude,
+    ],
+  }),
 }));
 vi.mock("@/lib/campus-map/edit-actions", () => ({
   identifyCampusMapEditPublisher: vi.fn(async () => ({
@@ -212,6 +245,9 @@ function restoreFacilityFixtures() {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  mockAmapProjection.longitude = 0;
+  mockAmapProjection.latitude = 0;
+  mockAmapProjection.providerFallbackPosition = null;
   scrollIntoView.mockReset();
   Object.defineProperty(Element.prototype, "scrollIntoView", {
     configurable: true,
@@ -299,10 +335,8 @@ afterEach(() => {
 async function renderWithRuntime(options?: {
   projection?: CampusMapBrowseProjection;
   initialSearch?: string;
-  deferConvertFrom?: boolean;
-  convertFromFails?: boolean;
-  convertFromMutatesInput?: boolean;
-  convertFromOffset?: { longitude: number; latitude: number };
+  projectionOffset?: { longitude: number; latitude: number };
+  providerFallbackPosition?: readonly [number, number];
   markerClusterStatus?:
     | "ready"
     | "pending"
@@ -312,9 +346,24 @@ async function renderWithRuntime(options?: {
   panelRect?: { top: number; right: number; bottom: number; left: number };
   projectedPoint?: { x: number; y: number };
   placementAnchorPosition?: { longitude: number; latitude: number };
+  convertFromFails?: boolean;
+  deferConvertFrom?: boolean;
 }) {
-  const { projection, initialSearch, ...runtimeOptions } = options ?? {};
-  const runtime = installAmapRuntime(runtimeOptions);
+  const {
+    projection,
+    initialSearch,
+    projectionOffset,
+    providerFallbackPosition,
+    ...runtimeOptions
+  } = options ?? {};
+  mockAmapProjection.longitude = projectionOffset?.longitude ?? 0;
+  mockAmapProjection.latitude = projectionOffset?.latitude ?? 0;
+  mockAmapProjection.providerFallbackPosition =
+    providerFallbackPosition ?? null;
+  const runtime = installAmapRuntime({
+    ...runtimeOptions,
+    convertFromOffset: projectionOffset,
+  });
   render(
     <CampusMapRuntime
       initialBrowseProjection={projection ?? createCampusMapBrowseFixture()}
@@ -323,13 +372,11 @@ async function renderWithRuntime(options?: {
   );
   await waitFor(() => expect(runtime.maps).toHaveLength(1));
   const map = runtime.maps[0]!;
-  await waitFor(() =>
-    expect(runtime.coordinateConversionRequests).toHaveLength(1),
-  );
-  if (!options?.deferConvertFrom) {
-    await act(async () => {
-      await Promise.resolve();
-    });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  if (!initialSearch) {
+    expect(runtime.coordinateConversionRequests).toHaveLength(0);
   }
   return { runtime, map };
 }
@@ -355,9 +402,8 @@ async function openOutdoorPlaceEdit(
 }
 
 describe("Campus Map AMap runtime effects", () => {
-  it("opens a building-required Add without waiting for coordinate conversion", async () => {
+  it("opens a building-required Add without a coordinate service request", async () => {
     const { runtime } = await renderWithRuntime({
-      deferConvertFrom: true,
       placementAnchorPosition: { longitude: 114.22, latitude: 22.43 },
     });
 
@@ -389,7 +435,7 @@ describe("Campus Map AMap runtime effects", () => {
 
   it("recenters an existing outdoor Place before repositioning it", async () => {
     const { runtime, map } = await openOutdoorPlaceEdit({
-      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+      projectionOffset: { longitude: 0.01, latitude: 0.01 },
     });
     map.setZoomAndCenter.mockClear();
 
@@ -418,7 +464,7 @@ describe("Campus Map AMap runtime effects", () => {
 
   it("routes coordinate input through an existing outdoor Place edit", async () => {
     const { runtime, map } = await openOutdoorPlaceEdit({
-      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+      projectionOffset: { longitude: 0.01, latitude: 0.01 },
     });
     fireEvent.click(screen.getByRole("button", { name: "修改位置" }));
     await screen.findByRole("heading", { name: "修改设施位置" });
@@ -581,7 +627,7 @@ describe("Campus Map AMap runtime effects", () => {
     );
 
     const { runtime, map } = await renderWithRuntime({
-      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+      projectionOffset: { longitude: 0.01, latitude: 0.01 },
     });
     await screen.findByRole("heading", { name: "选择设施位置" });
     await runtime.flushAnimationFrames();
@@ -625,7 +671,7 @@ describe("Campus Map AMap runtime effects", () => {
     );
 
     const { runtime } = await renderWithRuntime({
-      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+      projectionOffset: { longitude: 0.01, latitude: 0.01 },
     });
     await screen.findByRole("heading", { name: "新增设施" });
     await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
@@ -694,29 +740,6 @@ describe("Campus Map AMap runtime effects", () => {
     expect(push).toHaveBeenCalledTimes(1);
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();
     expect(map.panTo).not.toHaveBeenCalled();
-  });
-
-  it("does not let a late coordinate projection override a newer linked hotspot", async () => {
-    const { runtime, map } = await renderWithRuntime({
-      deferConvertFrom: true,
-    });
-
-    await act(async () => {
-      map.emit("hotspotclick", {
-        id: "B0J2RXUQB6",
-        name: "ScienceCentre科学馆",
-        lnglat: { lng: 114.20801, lat: 22.41966 },
-      });
-    });
-    await screen.findByRole("heading", { name: "科学馆" });
-
-    await runtime.flushCoordinateConversions();
-    await runtime.flushAnimationFrames();
-
-    expect(window.location.search).toContain(
-      "scene=building&id=science-centre",
-    );
-    expect(map.setZoomAndCenter).not.toHaveBeenCalled();
   });
 
   it("does not dismiss a linked hotspot when its companion map click arrives later", async () => {
@@ -1458,7 +1481,7 @@ describe("Campus Map AMap runtime effects", () => {
 
   it("projects the University Library water fixture at the library building anchor", async () => {
     const { runtime } = await renderWithRuntime({
-      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+      projectionOffset: { longitude: 0.01, latitude: 0.01 },
     });
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
     await waitFor(() =>
@@ -1674,6 +1697,22 @@ describe("Campus Map AMap runtime effects", () => {
     );
   });
 
+  it("projects an in-campus browser GPS position without a service request", async () => {
+    const { runtime } = await renderWithRuntime();
+
+    expect(runtime.coordinateConversionRequests).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+    await act(async () => {
+      positionCallbacks[0]!.success(
+        geolocationPosition(114.20781, 22.41881, 24),
+      );
+      await Promise.resolve();
+    });
+
+    expect(runtime.coordinateConversionRequests).toHaveLength(0);
+    expect(screen.getByText(/已显示当前位置/u)).not.toBeNull();
+  });
+
   it("shows one icon-only location control", async () => {
     await renderWithRuntime();
 
@@ -1810,6 +1849,35 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "清除位置" }));
     await runtime.flushAnimationFrames();
 
+    expect(map.panTo).not.toHaveBeenCalled();
+    expect(map.setZoomAndCenter).not.toHaveBeenCalled();
+  });
+
+  it("does not leave location loading when navigation cancels its deferred camera", async () => {
+    const { runtime, map } = await renderWithRuntime({
+      deferConvertFrom: true,
+      providerFallbackPosition: [114.20781, 22.41881],
+    });
+    map.panTo.mockClear();
+    map.setZoomAndCenter.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+    await act(async () => {
+      positionCallbacks[0]!.success(
+        geolocationPosition(114.20781, 22.41881, 24),
+      );
+      await Promise.resolve();
+    });
+    expect(screen.getByText(/正在准备地图标记/u)).not.toBeNull();
+
+    await act(async () => {
+      window.dispatchEvent(
+        new PopStateEvent("popstate", { state: window.history.state }),
+      );
+    });
+    await runtime.flushCoordinateConversions();
+    await runtime.flushAnimationFrames();
+
+    expect(screen.getByText(/定位精度约 20 米/u)).not.toBeNull();
     expect(map.panTo).not.toHaveBeenCalled();
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();
   });
@@ -1963,7 +2031,7 @@ describe("Campus Map AMap runtime effects", () => {
     mockLoadBrowseProjection.mockResolvedValue(emptyProjection);
     const { runtime } = await renderWithRuntime({
       projection: emptyProjection,
-      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+      projectionOffset: { longitude: 0.01, latitude: 0.01 },
     });
 
     fireEvent.click(screen.getByLabelText("新增设施"));
@@ -2282,12 +2350,11 @@ describe("Campus Map AMap runtime effects", () => {
     expect(map.panTo).not.toHaveBeenCalled();
   });
 
-  it("keeps Current facts search and cards usable when the proxy-backed conversion fails", async () => {
-    await renderWithRuntime({ convertFromFails: true });
+  it("keeps Current facts search and cards usable without coordinate conversion", async () => {
+    const { runtime } = await renderWithRuntime();
 
-    const status = await screen.findByRole("status");
-    expect(status.textContent).toContain("地图暂时不可用");
-    expect(status.textContent).not.toContain("高德");
+    expect(runtime.coordinateConversionRequests).toHaveLength(0);
+    expect(screen.queryByText("地图暂时不可用")).toBeNull();
 
     const search = screen.getByPlaceholderText("搜索建筑或地点…");
     expect(search.hasAttribute("disabled")).toBe(false);
@@ -2297,5 +2364,52 @@ describe("Campus Map AMap runtime effects", () => {
     expect(
       await screen.findByRole("heading", { name: "科学馆" }),
     ).not.toBeNull();
+  });
+
+  it("converts a precise Place only when its marker becomes visible", async () => {
+    const projection = createNullablePlaceFixture();
+    const { runtime } = await renderWithRuntime({ projection });
+
+    expect(runtime.coordinateConversionRequests).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+
+    await waitFor(() =>
+      expect(runtime.coordinateConversionRequests).toEqual([
+        [[114.2078, 22.4188]],
+      ]),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭饮水点列表" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(runtime.coordinateConversionRequests).toHaveLength(1);
+  });
+
+  it("keeps the map and list usable when a precise marker conversion fails", async () => {
+    const projection = createNullablePlaceFixture();
+    const { runtime } = await renderWithRuntime({
+      projection,
+      convertFromFails: true,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    await waitFor(() =>
+      expect(runtime.coordinateConversionRequests).toHaveLength(1),
+    );
+
+    expect(screen.queryByText("地图暂时不可用")).toBeNull();
+    expect(screen.getByRole("heading", { name: "饮水点" })).not.toBeNull();
+    expect(
+      screen.getByPlaceholderText("搜索建筑或地点…").hasAttribute("disabled"),
+    ).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭饮水点列表" }));
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(runtime.coordinateConversionRequests).toHaveLength(1);
   });
 });

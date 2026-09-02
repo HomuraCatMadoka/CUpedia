@@ -195,6 +195,21 @@ describe("campus map AMap same-origin service", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects a coordinate batch larger than the SDK limit", async () => {
+    const response = await GET(
+      coordinateConvertRequest(
+        Array.from(
+          { length: 41 },
+          (_, index) => `${114.2 + index / 100_000},22.4`,
+        ).join(";"),
+      ),
+      context("v3", "assistant", "coordinate", "convert"),
+    );
+
+    expect(response.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("rejects a reverse-geocoding language the runtime does not use", async () => {
     const response = await GET(
       reverseGeocodeRequest(undefined, "en"),

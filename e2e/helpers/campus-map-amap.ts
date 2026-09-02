@@ -364,12 +364,14 @@ export async function installFakeCampusMapAmap(page: Page) {
           _source: string,
           callback: (
             status: string,
-            result: { locations: FakeLngLat[] },
+            result: { info: string; locations: FakeLngLat[] },
           ) => void,
         ) {
           callback("complete", {
+            info: "OK",
             locations: positions.map(
-              ([longitude, latitude]) => new FakeLngLat(longitude, latitude),
+              ([longitude, latitude]) =>
+                new FakeLngLat(longitude + 0.004877, latitude - 0.002832),
             ),
           });
         },

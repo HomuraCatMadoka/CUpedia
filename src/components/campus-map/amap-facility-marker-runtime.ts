@@ -16,7 +16,10 @@ import {
   facilityMarkerContent,
   type CampusMapAmenity,
 } from "@/lib/campus-map/facility-marker";
-import type { CampusMapPosition } from "@/lib/campus-map/amap-position";
+import {
+  asAmapPosition,
+  type CampusMapAmapPosition,
+} from "@/lib/campus-map/amap-position";
 
 interface ProviderLngLat {
   lng: number;
@@ -32,7 +35,7 @@ interface ProviderMarker {
 
 interface ProviderClusterEvent {
   clusterData?: ReadonlyArray<{
-    lnglat: ProviderLngLat | CampusMapPosition;
+    lnglat: ProviderLngLat | CampusMapAmapPosition;
   }>;
 }
 
@@ -53,14 +56,14 @@ export interface AmapFacilityMarkerRuntimeInput<ProviderMap extends object> {
   map: ProviderMap;
   provider: ProviderNamespace<ProviderMap>;
   projection: CampusMapBrowseProjection;
-  providerPositions: Readonly<Record<string, CampusMapPosition>>;
+  providerPositions: Readonly<Record<string, CampusMapAmapPosition>>;
   markerScope: string | null;
   visibleAmenity: CampusMapAmenity | null;
   selectedPlaceId: string | null;
   claimProviderTarget(action: () => void): void;
   selectBuilding(buildingId: string): void;
   selectPlace(placeId: string): void;
-  fitCluster(positions: readonly CampusMapPosition[]): void;
+  fitCluster(positions: readonly CampusMapAmapPosition[]): void;
 }
 
 function markerKey(marker: CampusMapBrowseMarker) {
@@ -75,7 +78,7 @@ function markerContainsPlace(marker: CampusMapBrowseMarker, placeId: string) {
     : marker.placeIds.includes(placeId);
 }
 
-function providerPositionKey(position: ProviderLngLat | CampusMapPosition) {
+function providerPositionKey(position: ProviderLngLat | CampusMapAmapPosition) {
   const longitude = "lng" in position ? position.lng : position[0];
   const latitude = "lat" in position ? position.lat : position[1];
   return `${longitude.toFixed(12)}:${latitude.toFixed(12)}`;
@@ -309,7 +312,7 @@ export class AmapFacilityMarkerRuntime {
           input.claimProviderTarget(() => {
             const positions = event.clusterData?.map(({ lnglat }) =>
               "lng" in lnglat
-                ? ([lnglat.lng, lnglat.lat] as CampusMapPosition)
+                ? asAmapPosition([lnglat.lng, lnglat.lat])
                 : lnglat,
             );
             if (positions?.length) fitCluster(positions);

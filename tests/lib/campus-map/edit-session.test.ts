@@ -360,6 +360,7 @@ describe("Campus Map edit session transition", () => {
           kind: "camera",
           intent: "recenter-placement",
           position: [114.215, 22.425],
+          precision: "approximate",
         },
       ],
     });
@@ -793,6 +794,7 @@ describe("Campus Map edit session transition", () => {
       kind: "camera",
       intent: "recenter-placement",
       position: [114.2049, 22.4195],
+      precision: "approximate",
     });
     expect(repositioned.session).toMatchObject({
       status: "editing",

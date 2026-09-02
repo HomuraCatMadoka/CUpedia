@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { AmapFacilityMarkerRuntime } from "@/components/campus-map/amap-facility-marker-runtime";
+import { asAmapPosition } from "@/lib/campus-map/amap-position";
 import type { CampusMapBrowseProjection } from "@/lib/campus-map/browse-projection";
 
 const placeId = "80700000-0000-4000-8000-000000000001";
 const position = [114.205304, 22.422607] as const;
+const providerPosition = asAmapPosition(position);
 
 const projection: CampusMapBrowseProjection = {
   buildings: [],
@@ -243,7 +245,7 @@ describe("AmapFacilityMarkerRuntime", () => {
     runtime.sync({ ...input, providerPositions: {} });
     runtime.sync({
       ...input,
-      providerPositions: { [`place:${placeId}`]: position },
+      providerPositions: { [`place:${placeId}`]: providerPosition },
     });
 
     expect(StickyEmptyCluster.instances).toHaveLength(2);
@@ -266,7 +268,7 @@ describe("AmapFacilityMarkerRuntime", () => {
       provider: { MarkerCluster: StickyEmptyCluster },
       projection: duplicateProjection,
       providerPositions: {
-        "building:80700000-0000-4000-8000-000000000040": position,
+        "building:80700000-0000-4000-8000-000000000040": providerPosition,
       },
       markerScope: "category:printer",
       visibleAmenity: "printer",

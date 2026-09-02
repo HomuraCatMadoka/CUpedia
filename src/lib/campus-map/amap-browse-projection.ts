@@ -1,35 +1,40 @@
 import {
   CAMPUS_MAP_DEFAULT_VIEW_CENTER,
+  type CampusMapBrowseMarker,
   type CampusMapBrowseProjection,
 } from "@/lib/campus-map/browse-projection";
+import {
+  asAmapPosition,
+  asWgs84Position,
+  projectCampusMapWgs84ToAmap,
+  type CampusMapAmapPosition,
+} from "@/lib/campus-map/amap-position";
+import type { CampusMapAmapCoordinateRequest } from "@/lib/campus-map/amap-coordinate-resolver";
 import type { CampusMapSelectionTarget } from "@/lib/campus-map/fact-store";
 
-export type CampusMapAmapPosition = readonly [
-  longitude: number,
-  latitude: number,
-];
-
-export interface CampusMapAmapCoordinateConverter {
-  convertFrom(
-    positions: ReadonlyArray<CampusMapAmapPosition>,
-    source: "gps",
-    callback: (
-      status: "complete" | "error",
-      result: {
-        locations?: ReadonlyArray<{ lng: number; lat: number }>;
-      },
-    ) => void,
-  ): void;
+interface CampusMapAmapProjectionDemand {
+  visibleAmenity: CampusMapBrowseMarker["pinType"] | null;
+  selectedBuildingId: string | null;
+  selectedPlaceId: string | null;
 }
 
-export type CampusMapAmapCoordinateProjection =
-  | {
-      status: "ready";
-      center: CampusMapAmapPosition;
-      offset: CampusMapAmapPosition;
-      positions: Readonly<Record<string, CampusMapAmapPosition>>;
-    }
-  | { status: "error" };
+interface CampusMapAmapCoordinateProjection {
+  center: CampusMapAmapPosition;
+  positions: Readonly<Record<string, CampusMapAmapPosition>>;
+  providerRequests: readonly CampusMapAmapCoordinateRequest[];
+}
+
+export function campusMapAmapCoordinateProjectionSignature(
+  projection: CampusMapAmapCoordinateProjection,
+) {
+  const positions = Object.entries(projection.positions).sort(
+    ([left], [right]) => left.localeCompare(right),
+  );
+  const providerRequests = [...projection.providerRequests]
+    .map(({ key, position }) => [key, position[0], position[1]] as const)
+    .sort(([left], [right]) => left.localeCompare(right));
+  return JSON.stringify([projection.center, positions, providerRequests]);
+}
 
 export interface CampusMapAmapPoiInput {
   providerObjectId: string | null;
@@ -38,7 +43,7 @@ export interface CampusMapAmapPoiInput {
   position: CampusMapAmapPosition;
 }
 
-export type CampusMapAmapPoiCard =
+type CampusMapAmapPoiCard =
   | {
       kind: "linked";
       title: string;
@@ -62,113 +67,86 @@ function isValidPosition(position: CampusMapAmapPosition) {
   );
 }
 
-function roundedCoordinateDelta(value: number) {
-  return Math.round(value * 1_000_000_000_000) / 1_000_000_000_000;
-}
-
 /**
- * Converts only presentation coordinates. Canonical WGS84 assertions remain
- * inside the provider-neutral browse projection and are never mutated.
+ * Locally projects presentation coordinates. Canonical WGS84 assertions remain
+ * inside the provider-neutral browse projection and no provider request is made.
  */
 export function projectCampusMapBrowseToAmap(
   projection: CampusMapBrowseProjection,
-  converter: CampusMapAmapCoordinateConverter,
-): Promise<CampusMapAmapCoordinateProjection> {
-  const entries = [
-    ...projection.buildings.flatMap((building) =>
-      building.anchor
-        ? [
-            {
-              key: `building:${building.buildingId}`,
-              position: [
-                building.anchor.longitude,
-                building.anchor.latitude,
-              ] as const,
-            },
-          ]
-        : [],
+  demand: CampusMapAmapProjectionDemand = {
+    visibleAmenity: null,
+    selectedBuildingId: null,
+    selectedPlaceId: null,
+  },
+): CampusMapAmapCoordinateProjection {
+  const positions: Record<string, CampusMapAmapPosition> = {};
+  const providerRequests: CampusMapAmapCoordinateRequest[] = [];
+  const visibleMarkers = projection.markers.filter(
+    (marker) =>
+      demand.visibleAmenity !== null &&
+      marker.pinType === demand.visibleAmenity &&
+      (demand.selectedPlaceId === null ||
+        (marker.kind === "place"
+          ? marker.placeId === demand.selectedPlaceId
+          : marker.placeIds.includes(demand.selectedPlaceId))),
+  );
+  const visibleBuildingIds = new Set(
+    visibleMarkers.flatMap((marker) =>
+      marker.kind === "building-presence" ? [marker.buildingId] : [],
     ),
-    ...projection.markers.flatMap((marker) =>
-      marker.kind === "place"
-        ? [
-            {
-              key: `place:${marker.placeId}`,
-              position: [
-                marker.position.longitude,
-                marker.position.latitude,
-              ] as const,
-            },
-          ]
-        : [],
-    ),
-  ];
-  const canonicalPositions: CampusMapAmapPosition[] = [
-    [...CAMPUS_MAP_DEFAULT_VIEW_CENTER],
-    ...entries.map(
-      ({ position }) => [position[0], position[1]] as CampusMapAmapPosition,
-    ),
-  ];
-  const providerInput = canonicalPositions.map(
-    ([longitude, latitude]) => [longitude, latitude] as CampusMapAmapPosition,
   );
 
-  return new Promise((resolve) => {
-    try {
-      converter.convertFrom(providerInput, "gps", (status, result) => {
-        const locations = status === "complete" ? result.locations : undefined;
-        if (
-          !locations ||
-          locations.length !== canonicalPositions.length ||
-          locations.some(({ lng, lat }) => !isValidPosition([lng, lat]))
-        ) {
-          resolve({ status: "error" });
-          return;
-        }
-        const center = [locations[0]!.lng, locations[0]!.lat] as const;
-        const positions = Object.fromEntries(
-          entries.map((entry, index) => {
-            const location = locations[index + 1]!;
-            return [entry.key, [location.lng, location.lat] as const];
-          }),
-        );
-        resolve({
-          status: "ready",
-          center,
-          offset: [
-            roundedCoordinateDelta(
-              center[0] - CAMPUS_MAP_DEFAULT_VIEW_CENTER[0],
-            ),
-            roundedCoordinateDelta(
-              center[1] - CAMPUS_MAP_DEFAULT_VIEW_CENTER[1],
-            ),
-          ],
-          positions,
-        });
-      });
-    } catch {
-      resolve({ status: "error" });
+  for (const building of projection.buildings) {
+    if (!building.anchor) continue;
+    if (
+      demand.selectedBuildingId !== building.buildingId &&
+      !visibleBuildingIds.has(building.buildingId)
+    ) {
+      continue;
     }
-  });
-}
-
-export class CampusMapAmapCoordinateProjector {
-  private revision = 0;
-
-  invalidate() {
-    this.revision += 1;
+    const key = `building:${building.buildingId}`;
+    const position = asWgs84Position([
+      building.anchor.longitude,
+      building.anchor.latitude,
+    ]);
+    const local = projectCampusMapWgs84ToAmap(position, "approximate");
+    if (local.status === "projected") {
+      positions[key] = local.position;
+    } else {
+      providerRequests.push({ key, position });
+    }
   }
 
-  async projectLatest(
-    projection: CampusMapBrowseProjection,
-    converter: CampusMapAmapCoordinateConverter,
-  ): Promise<CampusMapAmapCoordinateProjection | { status: "superseded" }> {
-    const revision = ++this.revision;
-    const result = await projectCampusMapBrowseToAmap(projection, converter);
-    return revision === this.revision ? result : { status: "superseded" };
+  for (const marker of visibleMarkers) {
+    if (marker.kind !== "place") continue;
+    const key = `place:${marker.placeId}`;
+    const position = asWgs84Position([
+      marker.position.longitude,
+      marker.position.latitude,
+    ]);
+    const local = projectCampusMapWgs84ToAmap(
+      position,
+      marker.position.precision,
+    );
+    if (local.status === "projected") positions[key] = local.position;
+    else providerRequests.push({ key, position });
   }
+
+  const center = projectCampusMapWgs84ToAmap(
+    asWgs84Position(CAMPUS_MAP_DEFAULT_VIEW_CENTER),
+    "approximate",
+  );
+  if (center.status !== "projected") {
+    throw new Error("Campus Map default center is outside AMap calibration");
+  }
+  return {
+    center: center.position,
+    positions,
+    providerRequests,
+  };
 }
 
-export function createTransientCampusMapAmapPoiCard(
+function createTransientCampusMapAmapPoiCard(
   input: CampusMapAmapPoiInput,
 ): CampusMapAmapPoiCard | null {
   if (!isValidPosition(input.position)) return null;
@@ -177,7 +155,7 @@ export function createTransientCampusMapAmapPoiCard(
     kind: "transient",
     externalId: providerObjectId ?? `${input.position[0]},${input.position[1]}`,
     title: input.name.trim() || "高德地图地点",
-    position: [input.position[0], input.position[1]],
+    position: asAmapPosition([input.position[0], input.position[1]]),
   };
 }
 

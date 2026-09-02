@@ -965,6 +965,7 @@ describe("CampusMapSceneDriver", () => {
       {
         kind: "edit-position",
         position: [114.2101, 22.4198],
+        precision: "approximate",
         reason: "draft-restore",
       },
       expect.any(Object),
