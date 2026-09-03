@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ upload: vi.fn(), viewer: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  discard: vi.fn(),
+  upload: vi.fn(),
+  viewer: vi.fn(),
+}));
 
 vi.mock("@/lib/auth-guard", () => ({
   getAuthenticatedUserForApi: mocks.viewer,
@@ -11,11 +15,12 @@ vi.mock("@/lib/campus-map/place-photos", async () => {
   >("@/lib/campus-map/place-photos");
   return {
     CampusMapPlacePhotoError: actual.CampusMapPlacePhotoError,
+    discardCampusMapPlacePhotoAssets: mocks.discard,
     uploadCampusMapPlacePhoto: mocks.upload,
   };
 });
 
-import { POST } from "@/app/api/campus-map/place-photos/route";
+import { DELETE, POST } from "@/app/api/campus-map/place-photos/route";
 import { CampusMapPlacePhotoError } from "@/lib/campus-map/place-photos";
 
 const actorId = "10000000-0000-4000-8000-000000000818";
@@ -108,5 +113,51 @@ describe("Campus Map Place photo upload route (#818)", () => {
     expect(response.status).toBe(413);
     expect(mocks.viewer).not.toHaveBeenCalled();
     expect(mocks.upload).not.toHaveBeenCalled();
+  });
+});
+
+describe("Campus Map Place photo discard route (#862)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.viewer.mockResolvedValue({ id: actorId });
+    mocks.discard.mockResolvedValue({ deleted: 1 });
+  });
+
+  function discardRequest(body: unknown, origin = "http://localhost"): Request {
+    return new Request("http://localhost/api/campus-map/place-photos", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Origin: origin },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("immediately discards the signed-in owner's unbound assets", async () => {
+    const response = await DELETE(discardRequest({ assetIds: [assetId] }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.discard).toHaveBeenCalledWith({
+      actorId,
+      assetIds: [assetId],
+    });
+    await expect(response.json()).resolves.toEqual({
+      status: "discarded",
+      deleted: 1,
+    });
+  });
+
+  it("rejects cross-origin, anonymous, and malformed discard requests", async () => {
+    const crossOrigin = await DELETE(
+      discardRequest({ assetIds: [assetId] }, "https://evil.test"),
+    );
+    expect(crossOrigin.status).toBe(403);
+    expect(mocks.viewer).not.toHaveBeenCalled();
+
+    mocks.viewer.mockResolvedValueOnce(null);
+    const anonymous = await DELETE(discardRequest({ assetIds: [assetId] }));
+    expect(anonymous.status).toBe(401);
+
+    const malformed = await DELETE(discardRequest({ assetIds: ["bad-id"] }));
+    expect(malformed.status).toBe(400);
+    expect(mocks.discard).not.toHaveBeenCalled();
   });
 });

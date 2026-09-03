@@ -1,5 +1,6 @@
 export {
   cleanupCampusMapPlacePhotoAssets,
+  discardCampusMapPlacePhotoAssets,
   uploadCampusMapPlacePhoto,
 } from "@/lib/campus-map/place-photo-assets";
 export {
