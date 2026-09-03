@@ -1,6 +1,7 @@
 export const CAMPUS_MAP_CATEGORY_PEEK_RESULT_LIMIT = 3;
 
 export type CampusMapMobilePanelLayout =
+  | { kind: "location-selection" }
   | { kind: "placing" }
   | { kind: "edit" }
   | {
@@ -22,6 +23,8 @@ export function campusMapMobilePanelHeight(
   layout: CampusMapMobilePanelLayout,
 ): string {
   switch (layout.kind) {
+    case "location-selection":
+      return "min(168px, 42dvh)";
     case "placing":
       return "min(336px, 48dvh)";
     case "edit":

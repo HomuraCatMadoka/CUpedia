@@ -318,9 +318,12 @@ test("Campus Map and its AMap config require authentication", async ({
 
   await page.goto("/campus-map");
   await page.getByRole("button", { name: "新增设施" }).click();
+  await expect(
+    page.getByRole("heading", { name: "设施在哪里？" }),
+  ).toBeVisible();
   await page
-    .getByRole("combobox", { name: "建筑" })
-    .selectOption(browseIds.building);
+    .getByRole("button", { name: "选择正式测试楼作为所属建筑" })
+    .click();
   await page
     .getByRole("group", { name: "设施类型" })
     .getByText("洗手间", { exact: true })
@@ -506,7 +509,9 @@ test("long-press and right-click leave contribution to the explicit Add action",
     await expect(page).toHaveURL(/\/campus-map\?v=1$/);
 
     await page.getByRole("button", { name: "新增设施" }).click();
-    await expect(page.getByRole("heading", { name: "新增设施" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "设施在哪里？" }),
+    ).toBeVisible();
     await expect(page).toHaveURL(/task=create/);
 
     await page.evaluate(() => window.sessionStorage.clear());
@@ -743,9 +748,11 @@ test("publish handoff shows one success prompt and never restores the form", asy
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/campus-map");
   await page.getByRole("button", { name: "新增设施" }).click();
-  await page
-    .getByRole("combobox", { name: "建筑" })
-    .selectOption(browseIds.building);
+  await expect(
+    page.getByRole("heading", { name: "设施在哪里？" }),
+  ).toBeVisible();
+  await page.getByPlaceholder("搜索建筑…").fill("正式测试楼");
+  await page.locator(`[data-search-result="${browseIds.building}"]`).click();
   await page
     .getByRole("group", { name: "设施类型" })
     .getByText("打印服务", { exact: true })

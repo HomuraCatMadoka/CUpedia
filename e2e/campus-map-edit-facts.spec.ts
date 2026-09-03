@@ -1,4 +1,4 @@
-// ref #814, #821, #838
+// ref #814, #821, #838, #864
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 
@@ -144,21 +144,74 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const scenario of [
-  { kind: "building", name: fixtureNames[0] },
-  { kind: "floor", name: fixtureNames[1] },
+  {
+    kind: "building",
+    name: fixtureNames[0],
+    pinType: "water",
+    defaultName: "饮水机",
+  },
+  {
+    kind: "floor",
+    name: fixtureNames[1],
+    pinType: "printer",
+    defaultName: "打印站",
+  },
 ] as const) {
-  test(`publishes and reopens ${scenario.kind} name, location, and access facts`, async ({
+  test(`publishes minimal ${scenario.kind} Add facts, then completes details in Edit`, async ({
     page,
   }) => {
     await page.goto("/campus-map");
     await page.getByRole("button", { name: "新增设施" }).click();
-    await page
-      .getByRole("textbox", { name: "设施名称或编号" })
-      .fill(scenario.name);
-    await page.getByRole("combobox", { name: "建筑" }).selectOption(buildingId);
+    await expect(
+      page.getByRole("heading", { name: "设施在哪里？" }),
+    ).toBeVisible();
+    const buildingPicker = page.getByRole("button", {
+      name: "选择QA 814 测试楼作为所属建筑",
+    });
+    await expect(buildingPicker).toContainText("QA 814 测试楼");
+    const buildingPickerBox = await buildingPicker.boundingBox();
+    expect(buildingPickerBox).not.toBeNull();
+    expect(buildingPickerBox!.height).toBeGreaterThanOrEqual(44);
+    expect(buildingPickerBox!.width).toBeGreaterThanOrEqual(44);
+    await page.locator('input[name="campus-map-search"]').focus();
+    await page.keyboard.press("Shift+Tab");
+    await expect(buildingPicker).toBeFocused();
+    await expect(buildingPicker.locator("span").last()).toHaveCSS(
+      "opacity",
+      "1",
+    );
+    await buildingPicker.press(
+      scenario.kind === "building" ? "Enter" : "Space",
+    );
+    await expect(page.getByRole("heading", { name: "新增设施" })).toBeVisible();
+    await expect(
+      page.getByText("QA 814 测试楼", { exact: true }),
+    ).toBeVisible();
+    const pinType = page.getByRole("radio", {
+      name: scenario.pinType === "water" ? "饮水点" : "打印服务",
+    });
+    await pinType.focus();
+    await pinType.press("Space");
     if (scenario.kind === "floor") {
       await page.getByRole("combobox", { name: "楼层" }).selectOption(floorId);
     }
+    await expect(
+      page.getByRole("textbox", { name: "设施名称或编号" }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "更多信息" })).toHaveCount(0);
+    await expect(page.getByRole("combobox", { name: "建筑" })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "发布设施" }).click();
+    await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
+    await expect(
+      page.getByRole("heading", { name: scenario.defaultName }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "建议修改" }).click();
+
+    await expect(page.getByRole("heading", { name: "修改设施" })).toBeVisible();
+    await page
+      .getByRole("textbox", { name: "设施名称或编号" })
+      .fill(scenario.name);
     await page.getByRole("button", { name: "更多信息" }).click();
     await page
       .getByRole("combobox", { name: "开放对象" })
@@ -179,7 +232,7 @@ for (const scenario of [
     await page.getByRole("textbox", { name: "开始" }).fill("09:00");
     await page.getByRole("textbox", { name: "结束" }).fill("17:00");
 
-    await page.getByRole("button", { name: "发布设施" }).click();
+    await page.getByRole("button", { name: "发布修改" }).click();
     await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
     await expect(
       page.getByRole("heading", { name: scenario.name }),
