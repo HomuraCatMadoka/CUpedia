@@ -14,6 +14,7 @@ import type { CampusMapPinType } from "@/db/schema";
 import { cn } from "@/lib/utils";
 import { campusMapPlacePhotoRoleLabel } from "@/lib/campus-map/display-registry";
 import type { CampusMapEditPhoto } from "@/lib/campus-map/edit-session";
+import { discardCampusMapPlacePhotos } from "@/lib/campus-map/place-photo-client";
 import {
   campusMapPlacePhotoUrl,
   CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT,
@@ -102,9 +103,11 @@ export function PlacePhotoEditor({
     setUploading(true);
     onPendingChange?.(true);
     let nextPhotos = [...photos];
+    let pendingAssetId: string | null = null;
     try {
       for (const file of selected) {
         const assetId = window.crypto.randomUUID();
+        pendingAssetId = assetId;
         const form = new FormData();
         form.set("assetId", assetId);
         form.set("photo", file);
@@ -128,8 +131,14 @@ export function PlacePhotoEditor({
           },
         ];
         onChange(nextPhotos);
+        pendingAssetId = null;
       }
     } catch (uploadError) {
+      if (pendingAssetId) {
+        void discardCampusMapPlacePhotos([pendingAssetId]).catch(
+          () => undefined,
+        );
+      }
       setError(
         messageForUploadError(
           uploadError instanceof Error ? uploadError.message : "upload-failed",

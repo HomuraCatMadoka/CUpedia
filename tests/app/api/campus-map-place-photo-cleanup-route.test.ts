@@ -29,13 +29,13 @@ describe("Campus Map place-photos cleanup cron (#818)", () => {
     expect(cleanup).not.toHaveBeenCalled();
   });
 
-  it("is scheduled independently of later user requests", () => {
+  it("uses a Hobby-compatible daily schedule as a reconciliation safety net", () => {
     const vercel = JSON.parse(
       readFileSync(resolve(process.cwd(), "vercel.json"), "utf8"),
     ) as { crons?: Array<{ path: string; schedule: string }> };
     expect(vercel.crons).toContainEqual({
       path: "/api/internal/campus-map/place-photo-cleanup",
-      schedule: "17 * * * *",
+      schedule: "17 0 * * *",
     });
   });
 

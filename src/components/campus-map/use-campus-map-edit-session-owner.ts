@@ -30,6 +30,7 @@ import type {
   CampusMapPublishReceiptOutcome,
   CampusMapPublishTransportResult,
 } from "@/lib/campus-map/publish-receipt-consumer";
+import { discardCampusMapPlacePhotos } from "@/lib/campus-map/place-photo-client";
 
 const SNAPSHOT_KEY = "cupedia:campus-map:edit-session:v1";
 const CONFLICT_DISPLAY_TIMEOUT_MS = 1_500;
@@ -234,6 +235,10 @@ export function useCampusMapEditSessionOwner({
           );
         } else if (command.kind === "clear-snapshot") {
           window.sessionStorage.removeItem(SNAPSHOT_KEY);
+        } else if (command.kind === "discard-place-photos") {
+          void discardCampusMapPlacePhotos(command.assetIds).catch(
+            () => undefined,
+          );
         } else if (command.kind === "scene") {
           if (command.intent === "start-create") {
             dispatch({ type: "START_CREATE" });

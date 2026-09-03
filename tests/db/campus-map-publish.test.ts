@@ -15,7 +15,10 @@ import {
   listCampusMapChangesets,
   listCampusMapCurrentPlaces,
 } from "@/lib/campus-map/fact-store";
-import { getCampusMapPlacePhotoObject } from "@/lib/campus-map/place-photos";
+import {
+  discardCampusMapPlacePhotoAssets,
+  getCampusMapPlacePhotoObject,
+} from "@/lib/campus-map/place-photos";
 import {
   commandCampusMapModeration,
   getCampusMapModerationTarget,
@@ -1631,6 +1634,15 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     expect(binding.rows).toEqual([
       { asset_id: assetId, role: "entrance", sort_order: 0 },
     ]);
+    await expect(
+      discardCampusMapPlacePhotoAssets({
+        actorId,
+        assetIds: [assetId],
+        deleteStoredObjects: async () => {
+          throw new Error("a bound object must not be deleted");
+        },
+      }),
+    ).resolves.toEqual({ deleted: 0 });
     const provenance = await pool.query<{
       source_kind: string;
       source_ref: string;

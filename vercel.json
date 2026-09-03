@@ -4,7 +4,7 @@
   "crons": [
     {
       "path": "/api/internal/campus-map/place-photo-cleanup",
-      "schedule": "17 * * * *"
+      "schedule": "17 0 * * *"
     }
   ],
   "git": {

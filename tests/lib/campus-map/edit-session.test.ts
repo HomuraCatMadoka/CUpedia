@@ -871,6 +871,73 @@ describe("Campus Map edit session transition", () => {
     ]);
   });
 
+  it("discards only newly uploaded photos when they leave a draft", () => {
+    const baselineAssetId = "30000000-0000-4000-8000-000000000010";
+    const uploadedAssetId = "30000000-0000-4000-8000-000000000011";
+    const session = transitionCampusMapEdit(null, {
+      type: "START_EDIT",
+      placeId,
+      baseRevisionId,
+      fact,
+      sources: [source],
+      photos: [{ assetId: baselineAssetId, role: "overview" }],
+      idempotencyKey: firstKey,
+    }).session!;
+    const withUpload = transitionCampusMapEdit(session, {
+      type: "CHANGE_PHOTOS",
+      photos: [
+        ...session.draft.photos,
+        { assetId: uploadedAssetId, role: "entrance" },
+      ],
+    }).session!;
+
+    const removeHistorical = transitionCampusMapEdit(withUpload, {
+      type: "CHANGE_PHOTOS",
+      photos: [{ assetId: uploadedAssetId, role: "entrance" }],
+    });
+    expect(removeHistorical.commands).toEqual([{ kind: "persist-snapshot" }]);
+
+    const removeUpload = transitionCampusMapEdit(removeHistorical.session, {
+      type: "CHANGE_PHOTOS",
+      photos: [],
+    });
+    expect(removeUpload.commands).toEqual([
+      { kind: "persist-snapshot" },
+      { kind: "discard-place-photos", assetIds: [uploadedAssetId] },
+    ]);
+  });
+
+  it("discards every unbound upload when the user confirms draft removal", () => {
+    const baselineAssetId = "30000000-0000-4000-8000-000000000012";
+    const uploadedAssetId = "30000000-0000-4000-8000-000000000013";
+    const session = transitionCampusMapEdit(null, {
+      type: "START_EDIT",
+      placeId,
+      baseRevisionId,
+      fact,
+      sources: [source],
+      photos: [{ assetId: baselineAssetId, role: "overview" }],
+      idempotencyKey: firstKey,
+    }).session!;
+    const changed = transitionCampusMapEdit(session, {
+      type: "CHANGE_PHOTOS",
+      photos: [
+        ...session.draft.photos,
+        { assetId: uploadedAssetId, role: "entrance" },
+      ],
+    }).session!;
+    const closing = transitionCampusMapEdit(changed, { type: "REQUEST_CLOSE" });
+    const discarded = transitionCampusMapEdit(closing.session, {
+      type: "DISCARD",
+    });
+
+    expect(discarded.commands).toEqual([
+      { kind: "clear-snapshot" },
+      { kind: "discard-place-photos", assetIds: [uploadedAssetId] },
+      { kind: "scene", intent: "cancel-task" },
+    ]);
+  });
+
   it("round-trips a versioned draft and safely rejects damaged snapshots", () => {
     const changed = transitionCampusMapEdit(editSession(), {
       type: "CHANGE_FACT",

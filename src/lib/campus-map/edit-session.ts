@@ -169,6 +169,7 @@ export type CampusMapEditCommand =
     }
   | { kind: "persist-snapshot" }
   | { kind: "clear-snapshot" }
+  | { kind: "discard-place-photos"; assetIds: string[] }
   | { kind: "focus"; target: string }
   | { kind: "publish"; command: CampusMapPublishCommand }
   | {
@@ -426,6 +427,25 @@ export function isCampusMapEditDirty(
   );
 }
 
+function discardedUnboundPhotoAssetIds(
+  draft: CampusMapEditDraft,
+  nextPhotos: readonly CampusMapEditPhoto[],
+): string[] {
+  const baselineIds = new Set(
+    draft.baselinePhotos.map((photo) => photo.assetId),
+  );
+  const retainedIds = new Set(nextPhotos.map((photo) => photo.assetId));
+  return [
+    ...new Set(
+      draft.photos
+        .map((photo) => photo.assetId)
+        .filter(
+          (assetId) => !baselineIds.has(assetId) && !retainedIds.has(assetId),
+        ),
+    ),
+  ];
+}
+
 function rejected(
   session: CampusMapEditSession | null,
 ): CampusMapEditTransition {
@@ -434,6 +454,21 @@ function rejected(
 
 function persisted(session: CampusMapEditSession): CampusMapEditTransition {
   return { accepted: true, session, commands: [{ kind: "persist-snapshot" }] };
+}
+
+function persistedWithPhotoDiscard(
+  session: CampusMapEditSession,
+  previousDraft: CampusMapEditDraft,
+): CampusMapEditTransition {
+  const transition = persisted(session);
+  const assetIds = discardedUnboundPhotoAssetIds(
+    previousDraft,
+    session.draft.photos,
+  );
+  if (assetIds.length > 0) {
+    transition.commands.push({ kind: "discard-place-photos", assetIds });
+  }
+  return transition;
 }
 
 function presentedPublishState(
@@ -936,10 +971,13 @@ export function transitionCampusMapEdit(
     const attemptDraft = draftForPayloadChange(session, event.idempotencyKey);
     if (!attemptDraft) return rejected(session);
     const next = editable({ ...session, draft: attemptDraft });
-    return persisted({
-      ...next,
-      draft: { ...next.draft, photos: clone(event.photos) },
-    });
+    return persistedWithPhotoDiscard(
+      {
+        ...next,
+        draft: { ...next.draft, photos: clone(event.photos) },
+      },
+      session.draft,
+    );
   }
 
   if (event.type === "REQUEST_CLOSE") {
@@ -1018,11 +1056,15 @@ export function transitionCampusMapEdit(
   }
   if (event.type === "DISCARD") {
     if (session.status !== "confirm-discard") return rejected(session);
+    const assetIds = discardedUnboundPhotoAssetIds(session.draft, []);
     return {
       accepted: true,
       session: null,
       commands: [
         { kind: "clear-snapshot" },
+        ...(assetIds.length > 0
+          ? ([{ kind: "discard-place-photos", assetIds }] as const)
+          : []),
         { kind: "scene", intent: "cancel-task" },
       ],
     };
@@ -1381,42 +1423,48 @@ export function transitionCampusMapEdit(
       : samePlacement(event.fact, session.draft.fact)
         ? session.draft.locationDisplay
         : null;
-    return persisted({
-      status: "editing",
-      draft: {
-        ...session.draft,
-        fact: clone(event.fact),
-        photos: clone(event.photos ?? session.conflict.currentPhotos ?? []),
-        locationDisplay: matchingLocationDisplay(event.fact, locationDisplay),
-        baseRevisionId: session.conflict.currentRevisionId,
-        baselineFact: clone(session.conflict.currentFact),
-        baselinePhotos: clone(session.conflict.currentPhotos ?? []),
-        idempotencyKey: event.idempotencyKey,
-        warningAcknowledgements: [],
+    return persistedWithPhotoDiscard(
+      {
+        status: "editing",
+        draft: {
+          ...session.draft,
+          fact: clone(event.fact),
+          photos: clone(event.photos ?? session.conflict.currentPhotos ?? []),
+          locationDisplay: matchingLocationDisplay(event.fact, locationDisplay),
+          baseRevisionId: session.conflict.currentRevisionId,
+          baselineFact: clone(session.conflict.currentFact),
+          baselinePhotos: clone(session.conflict.currentPhotos ?? []),
+          idempotencyKey: event.idempotencyKey,
+          warningAcknowledgements: [],
+        },
       },
-    });
+      session.draft,
+    );
   }
 
   if (event.type === "USE_CURRENT_FACT") {
     if (session.status !== "conflict" || session.conflict?.kind !== "current")
       return rejected(session);
-    return persisted({
-      status: "editing",
-      draft: {
-        ...session.draft,
-        fact: clone(session.conflict.currentFact),
-        photos: clone(session.conflict.currentPhotos ?? []),
-        locationDisplay: matchingLocationDisplay(
-          session.conflict.currentFact,
-          session.conflict.currentLocationDisplay,
-        ),
-        baselineFact: clone(session.conflict.currentFact),
-        baselinePhotos: clone(session.conflict.currentPhotos ?? []),
-        baseRevisionId: session.conflict.currentRevisionId,
-        idempotencyKey: event.idempotencyKey,
-        warningAcknowledgements: [],
+    return persistedWithPhotoDiscard(
+      {
+        status: "editing",
+        draft: {
+          ...session.draft,
+          fact: clone(session.conflict.currentFact),
+          photos: clone(session.conflict.currentPhotos ?? []),
+          locationDisplay: matchingLocationDisplay(
+            session.conflict.currentFact,
+            session.conflict.currentLocationDisplay,
+          ),
+          baselineFact: clone(session.conflict.currentFact),
+          baselinePhotos: clone(session.conflict.currentPhotos ?? []),
+          baseRevisionId: session.conflict.currentRevisionId,
+          idempotencyKey: event.idempotencyKey,
+          warningAcknowledgements: [],
+        },
       },
-    });
+      session.draft,
+    );
   }
 
   return rejected(session);

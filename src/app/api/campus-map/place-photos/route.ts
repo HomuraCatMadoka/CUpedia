@@ -3,9 +3,14 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedUserForApi } from "@/lib/auth-guard";
 import {
   CampusMapPlacePhotoError,
+  discardCampusMapPlacePhotoAssets,
   uploadCampusMapPlacePhoto,
 } from "@/lib/campus-map/place-photos";
-import { CAMPUS_MAP_PLACE_PHOTO_MAX_FILE_BYTES } from "@/lib/campus-map/place-photos-contract";
+import { isCanonicalCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
+import {
+  CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT,
+  CAMPUS_MAP_PLACE_PHOTO_MAX_FILE_BYTES,
+} from "@/lib/campus-map/place-photos-contract";
 
 const MAX_MULTIPART_BYTES = CAMPUS_MAP_PLACE_PHOTO_MAX_FILE_BYTES + 512 * 1024;
 
@@ -84,5 +89,44 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json({ error: "upload-failed" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  const origin = request.headers.get("origin");
+  if (!origin || origin !== new URL(request.url).origin) {
+    return NextResponse.json({ error: "invalid-origin" }, { status: 403 });
+  }
+  const viewer = await getAuthenticatedUserForApi();
+  if (!viewer) {
+    return NextResponse.json(
+      { status: "authentication-required" },
+      { status: 401 },
+    );
+  }
+
+  try {
+    const body = (await request.json()) as unknown;
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      !("assetIds" in body) ||
+      !Array.isArray(body.assetIds) ||
+      body.assetIds.length === 0 ||
+      body.assetIds.length > CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT ||
+      !body.assetIds.every(isCanonicalCampusMapUuid)
+    ) {
+      return NextResponse.json({ error: "invalid-form" }, { status: 400 });
+    }
+    const result = await discardCampusMapPlacePhotoAssets({
+      actorId: viewer.id,
+      assetIds: body.assetIds,
+    });
+    return NextResponse.json({ status: "discarded", ...result });
+  } catch (error) {
+    if (error instanceof CampusMapPlacePhotoError) {
+      return NextResponse.json({ error: "invalid-form" }, { status: 400 });
+    }
+    return NextResponse.json({ error: "discard-failed" }, { status: 500 });
   }
 }

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, lte, notExists, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lte, notExists, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -13,6 +13,7 @@ import {
   processCampusMapPlacePhoto,
 } from "@/lib/campus-map/place-photo-processing";
 import {
+  CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT,
   toCampusMapPlacePhotoView,
   type CampusMapPlacePhotoAssetView,
 } from "@/lib/campus-map/place-photos-contract";
@@ -31,6 +32,7 @@ export async function uploadCampusMapPlacePhoto(input: {
   source: Buffer;
   now?: Date;
   putStoredObject?: typeof putPrivateObject;
+  deleteStoredObjects?: (keys: string[]) => Promise<void>;
 }): Promise<CampusMapPlacePhotoAssetView> {
   const actorId = input.actorId.toLowerCase();
   const assetId = input.assetId.toLowerCase();
@@ -174,19 +176,145 @@ export async function uploadCampusMapPlacePhoto(input: {
     }
     throw new CampusMapPlacePhotoError("photo-upload-failed");
   } catch {
-    await db
-      .update(campusMapPlacePhotoAssets)
-      .set({ expiresAt: now, uploadLeaseExpiresAt: now, updatedAt: now })
-      .where(
-        and(
-          eq(campusMapPlacePhotoAssets.id, assetId),
-          eq(campusMapPlacePhotoAssets.ownerUserId, actorId),
-          eq(campusMapPlacePhotoAssets.status, "pending"),
-          eq(campusMapPlacePhotoAssets.uploadToken, uploadToken),
-        ),
-      );
+    try {
+      const [claimed] = await db
+        .update(campusMapPlacePhotoAssets)
+        .set({
+          status: "deleting",
+          uploadToken: null,
+          uploadLeaseExpiresAt: null,
+          expiresAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(campusMapPlacePhotoAssets.id, assetId),
+            eq(campusMapPlacePhotoAssets.ownerUserId, actorId),
+            eq(campusMapPlacePhotoAssets.status, "pending"),
+            eq(campusMapPlacePhotoAssets.uploadToken, uploadToken),
+          ),
+        )
+        .returning({
+          id: campusMapPlacePhotoAssets.id,
+          fullObjectKey: campusMapPlacePhotoAssets.fullObjectKey,
+          thumbnailObjectKey: campusMapPlacePhotoAssets.thumbnailObjectKey,
+        });
+      if (claimed) {
+        await deleteClaimedCampusMapPlacePhotoAssets(
+          [claimed],
+          input.deleteStoredObjects ?? deletePrivateObjects,
+        );
+      }
+    } catch {
+      // A daily reconciliation pass retries rows left in `deleting`.
+    }
     throw new CampusMapPlacePhotoError("photo-upload-failed");
   }
+}
+
+interface ClaimedCampusMapPlacePhotoAsset {
+  id: string;
+  fullObjectKey: string;
+  thumbnailObjectKey: string;
+}
+
+async function deleteClaimedCampusMapPlacePhotoAssets(
+  claimed: readonly ClaimedCampusMapPlacePhotoAsset[],
+  deleteStoredObjects: (keys: string[]) => Promise<void>,
+) {
+  if (claimed.length === 0) return { deleted: 0 };
+  await deleteStoredObjects(
+    claimed.flatMap((row) => [row.fullObjectKey, row.thumbnailObjectKey]),
+  );
+  const deleted = await db
+    .delete(campusMapPlacePhotoAssets)
+    .where(
+      and(
+        inArray(
+          campusMapPlacePhotoAssets.id,
+          claimed.map((row) => row.id),
+        ),
+        eq(campusMapPlacePhotoAssets.status, "deleting"),
+        notExists(
+          db
+            .select({ assetId: campusMapRevisionPhotos.assetId })
+            .from(campusMapRevisionPhotos)
+            .where(
+              eq(campusMapRevisionPhotos.assetId, campusMapPlacePhotoAssets.id),
+            ),
+        ),
+      ),
+    )
+    .returning({ id: campusMapPlacePhotoAssets.id });
+  return { deleted: deleted.length };
+}
+
+export async function discardCampusMapPlacePhotoAssets(input: {
+  actorId: string;
+  assetIds: readonly string[];
+  now?: Date;
+  deleteStoredObjects?: (keys: string[]) => Promise<void>;
+}) {
+  const actorId = input.actorId.toLowerCase();
+  const assetIds = [...new Set(input.assetIds.map((id) => id.toLowerCase()))];
+  if (
+    !isCanonicalCampusMapUuid(actorId) ||
+    assetIds.length > CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT ||
+    !assetIds.every(isCanonicalCampusMapUuid)
+  ) {
+    throw new CampusMapPlacePhotoError("photo-invalid-id");
+  }
+  if (assetIds.length === 0) return { deleted: 0 };
+  const now = input.now ?? new Date();
+  const claimed = await db.transaction(async (transaction) => {
+    const rows = await transaction
+      .select({
+        id: campusMapPlacePhotoAssets.id,
+        fullObjectKey: campusMapPlacePhotoAssets.fullObjectKey,
+        thumbnailObjectKey: campusMapPlacePhotoAssets.thumbnailObjectKey,
+      })
+      .from(campusMapPlacePhotoAssets)
+      .where(
+        and(
+          inArray(campusMapPlacePhotoAssets.id, assetIds),
+          eq(campusMapPlacePhotoAssets.ownerUserId, actorId),
+          eq(campusMapPlacePhotoAssets.status, "ready"),
+          isNotNull(campusMapPlacePhotoAssets.expiresAt),
+          notExists(
+            transaction
+              .select({ assetId: campusMapRevisionPhotos.assetId })
+              .from(campusMapRevisionPhotos)
+              .where(
+                eq(
+                  campusMapRevisionPhotos.assetId,
+                  campusMapPlacePhotoAssets.id,
+                ),
+              ),
+          ),
+        ),
+      )
+      .orderBy(campusMapPlacePhotoAssets.id)
+      .for("update");
+    if (rows.length === 0) return rows;
+    await transaction
+      .update(campusMapPlacePhotoAssets)
+      .set({
+        status: "deleting",
+        expiresAt: now,
+        updatedAt: now,
+      })
+      .where(
+        inArray(
+          campusMapPlacePhotoAssets.id,
+          rows.map((row) => row.id),
+        ),
+      );
+    return rows;
+  });
+  return deleteClaimedCampusMapPlacePhotoAssets(
+    claimed,
+    input.deleteStoredObjects ?? deletePrivateObjects,
+  );
 }
 
 async function consumeCampusMapPlacePhotoUploadAttempt(
@@ -330,28 +458,8 @@ export async function cleanupCampusMapPlacePhotoAssets(
   });
   if (claimed.length === 0) return { deleted: 0 };
 
-  await (input.deleteStoredObjects ?? deletePrivateObjects)(
-    claimed.flatMap((row) => [row.fullObjectKey, row.thumbnailObjectKey]),
+  return deleteClaimedCampusMapPlacePhotoAssets(
+    claimed,
+    input.deleteStoredObjects ?? deletePrivateObjects,
   );
-  const deleted = await db
-    .delete(campusMapPlacePhotoAssets)
-    .where(
-      and(
-        inArray(
-          campusMapPlacePhotoAssets.id,
-          claimed.map((row) => row.id),
-        ),
-        eq(campusMapPlacePhotoAssets.status, "deleting"),
-        notExists(
-          db
-            .select({ assetId: campusMapRevisionPhotos.assetId })
-            .from(campusMapRevisionPhotos)
-            .where(
-              eq(campusMapRevisionPhotos.assetId, campusMapPlacePhotoAssets.id),
-            ),
-        ),
-      ),
-    )
-    .returning({ id: campusMapPlacePhotoAssets.id });
-  return { deleted: deleted.length };
 }

@@ -1869,6 +1869,45 @@ describe("CampusMapRuntime", () => {
     ).toBeNull();
   });
 
+  it("asks the server to discard unbound photos when a draft is abandoned", async () => {
+    const assetId = "71000000-0000-4000-8000-000000000862";
+    const started = transitionCampusMapEdit(null, {
+      type: "START_FACILITY_ADD",
+      idempotencyKey: "10000000-0000-4000-8000-000000000862",
+      entry: { kind: "global" },
+    }).session!;
+    const withPhoto = transitionCampusMapEdit(started, {
+      type: "CHANGE_PHOTOS",
+      photos: [{ assetId, role: "overview" }],
+    }).session!;
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(withPhoto),
+    );
+    window.history.replaceState(
+      null,
+      "",
+      "/campus-map?v=1&task=create&anchor=map",
+    );
+
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
+
+    await screen.findByRole("heading", { name: "新增设施" });
+    fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
+    fireEvent.click(await screen.findByRole("button", { name: "放弃草稿" }));
+
+    await waitFor(() => {
+      const discardCall = vi
+        .mocked(fetch)
+        .mock.calls.find(([, init]) => init?.method === "DELETE");
+      expect(discardCall).toBeTruthy();
+      expect(JSON.parse(String(discardCall?.[1]?.body))).toEqual({
+        assetIds: [assetId],
+      });
+      expect(discardCall?.[1]).toMatchObject({ keepalive: true });
+    });
+  });
+
   it("uses one building-required Add session and keeps a selected building on dirty close", async () => {
     render(<CampusMapRuntime />);
 
