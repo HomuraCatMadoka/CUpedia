@@ -163,11 +163,26 @@ for (const scenario of [
     await page.goto("/campus-map");
     await page.getByRole("button", { name: "新增设施" }).click();
     await expect(
-      page.getByRole("heading", { name: "选择设施位置" }),
+      page.getByRole("heading", { name: "设施在哪里？" }),
     ).toBeVisible();
-    await page
-      .getByRole("button", { name: "选择QA 814 测试楼作为所属建筑" })
-      .click();
+    const buildingPicker = page.getByRole("button", {
+      name: "选择QA 814 测试楼作为所属建筑",
+    });
+    await expect(buildingPicker).toContainText("QA 814 测试楼");
+    const buildingPickerBox = await buildingPicker.boundingBox();
+    expect(buildingPickerBox).not.toBeNull();
+    expect(buildingPickerBox!.height).toBeGreaterThanOrEqual(44);
+    expect(buildingPickerBox!.width).toBeGreaterThanOrEqual(44);
+    await page.locator('input[name="campus-map-search"]').focus();
+    await page.keyboard.press("Shift+Tab");
+    await expect(buildingPicker).toBeFocused();
+    await expect(buildingPicker.locator("span").last()).toHaveCSS(
+      "opacity",
+      "1",
+    );
+    await buildingPicker.press(
+      scenario.kind === "building" ? "Enter" : "Space",
+    );
     await expect(page.getByRole("heading", { name: "新增设施" })).toBeVisible();
     await expect(
       page.getByText("QA 814 测试楼", { exact: true }),

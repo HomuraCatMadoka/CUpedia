@@ -90,7 +90,7 @@ _Avoid_: Application；待审核地点；把草稿 marker 放进其他用户的�
 
 **设施新增入口（Facility Add entry）**: 全局入口先让用户在地图上明确选择带锚点的 canonical
 Building；Building 卡片入口固定带入该 Building 与当前 Floor；类别入口额外带入 Pin type。只有用户
-明确选择“这是室外设施”时，才进入 center pin / WGS84 选点。Add 使用 Pin type 的 canonical 默认名，
+明确点击“选择室外位置”时，才进入 center pin / WGS84 选点。Add 使用 Pin type 的 canonical 默认名，
 只要求确认位置、可选楼层、设施类型与发布；访问条件保持 unknown，名称与其他资料留给后续 Edit。
 入口来源属于草稿交互上下文，不是可发布事实；入口自动带入的值是任务初始状态，用户未修改时关闭
 任务无需确认放弃。

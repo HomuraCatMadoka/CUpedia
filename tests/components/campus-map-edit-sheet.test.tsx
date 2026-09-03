@@ -180,10 +180,12 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "选择设施位置" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "设施在哪里？" })).toBeTruthy();
+    expect(screen.getByText("点选建筑图钉，或在上方搜索建筑。")).toBeTruthy();
+    expect(screen.queryByText("先选择所属建筑")).toBeNull();
     expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
     expect(screen.queryByRole("button", { name: "发布设施" })).toBeNull();
-    expect(screen.getByRole("button", { name: "这是室外设施" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "选择室外位置" })).toBeTruthy();
   });
 
   it("keeps a disambiguating code in the compact building context", () => {
@@ -233,9 +235,9 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "选择设施位置" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "设施在哪里？" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "发布设施" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "这是室外设施" }));
+    fireEvent.click(screen.getByRole("button", { name: "选择室外位置" }));
     expect(onEvent).toHaveBeenLastCalledWith({
       type: "START_OUTDOOR_PLACEMENT",
     });
@@ -1018,9 +1020,7 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    expect(screen.getByRole("status").textContent).toContain(
-      "正在读取可选建筑",
-    );
+    expect(screen.getByRole("status").textContent).toContain("正在载入建筑");
 
     view.rerender(
       <CampusMapEditSheet
@@ -1037,7 +1037,7 @@ describe("Campus Map single-page edit Sheet", () => {
     fireEvent.click(screen.getByRole("button", { name: "重新加载建筑" }));
     expect(onRetryBuildings).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
-    expect(screen.getByRole("button", { name: "这是室外设施" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "选择室外位置" })).toBeTruthy();
   });
 
   it("expands access details when a session update adds meaningful values", () => {

@@ -84,7 +84,6 @@ describe("Campus Map edit session transition", () => {
       session: {
         status: "selecting-location",
         draft: {
-          locationPolicy: "flexible",
           entrySource: "global",
           fact: {
             buildingId: null,
@@ -149,7 +148,6 @@ describe("Campus Map edit session transition", () => {
     expect(started.session).toMatchObject({
       status: "editing",
       draft: {
-        locationPolicy: "building-required",
         entrySource: "building",
         fact: {
           buildingId: "50000000-0000-4000-8000-000000000001",
@@ -194,7 +192,6 @@ describe("Campus Map edit session transition", () => {
     expect(outdoor.session).toMatchObject({
       status: "placing",
       draft: {
-        locationPolicy: "flexible",
         fact: { buildingId: null, floorId: null, location: null },
         placementCandidate: null,
       },
@@ -1232,7 +1229,7 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
-  it("migrates a version 4 Add with flexible location metadata", () => {
+  it("migrates version 4 Add entry metadata", () => {
     const started = transitionCampusMapEdit(null, {
       type: "START_ADD",
       idempotencyKey: firstKey,
@@ -1242,7 +1239,6 @@ describe("Campus Map edit session transition", () => {
       session: { draft: Record<string, unknown> };
     };
     legacy.version = 4;
-    delete legacy.session.draft.locationPolicy;
     delete legacy.session.draft.entrySource;
     delete legacy.session.draft.locationIntent;
     legacy.session.draft.baselineFact = null;
@@ -1253,7 +1249,6 @@ describe("Campus Map edit session transition", () => {
       status: "restored",
       session: {
         draft: {
-          locationPolicy: "flexible",
           entrySource: "global",
           locationIntent: null,
           baselineFact: null,
@@ -1265,6 +1260,239 @@ describe("Campus Map edit session transition", () => {
         ? isCampusMapEditDirty(restored.session)
         : false,
     ).toBe(false);
+  });
+
+  it("removes hidden legacy details when restoring a pre-M2 Add draft", () => {
+    const selected = transitionCampusMapEdit(
+      transitionCampusMapEdit(null, {
+        type: "START_FACILITY_ADD",
+        idempotencyKey: firstKey,
+        entry: { kind: "global", pinType: "printer" },
+      }).session,
+      {
+        type: "SELECT_BUILDING_LOCATION",
+        locationDisplay: {
+          buildingId: "50000000-0000-4000-8000-000000000001",
+          buildingName: "科学馆",
+          floorId: null,
+          floorLabel: null,
+        },
+      },
+    ).session!;
+    const legacy = JSON.parse(encodeCampusMapEditSnapshot(selected)) as {
+      version: number;
+      session: {
+        draft: {
+          fact: Record<string, unknown>;
+          baselineFact: Record<string, unknown> | null;
+          sources: unknown[];
+          baselineSources: unknown[];
+          photos: unknown[];
+          baselinePhotos: unknown[];
+        };
+      };
+    };
+    legacy.version = 6;
+    Object.assign(legacy.session.draft.fact, {
+      name: "旧自定义名称",
+      gender: "female",
+      wheelchairAccess: "yes",
+      audience: "cuhk-member",
+      credentialRequirement: "campus-card",
+      reservationRequirement: "none",
+      temporaryStatus: "normal",
+      observedAt: "2026-08-25T04:00:00.000Z",
+    });
+    legacy.session.draft.sources = [source];
+    legacy.session.draft.photos = [
+      {
+        assetId: "30000000-0000-4000-8000-000000000014",
+        role: "overview",
+      },
+    ];
+
+    const restored = decodeCampusMapEditSnapshot(JSON.stringify(legacy));
+
+    expect(restored).toMatchObject({
+      status: "restored",
+      session: {
+        draft: {
+          fact: {
+            name: "打印站",
+            pinType: "printer",
+            gender: "unknown",
+            wheelchairAccess: "unknown",
+            audience: "unknown",
+            credentialRequirement: "unknown",
+            accessSchedule: { kind: "unknown" },
+            reservationRequirement: "unknown",
+            temporaryStatus: "unknown",
+            observedAt: null,
+          },
+          sources: [],
+          baselineSources: [],
+          photos: [],
+          baselinePhotos: [],
+        },
+      },
+    });
+    if (restored.status !== "restored") {
+      throw new Error("snapshot not restored");
+    }
+    expect(restored.session.draft.idempotencyKey).not.toBe(firstKey);
+    expect(
+      deriveCampusMapPublishCommand(restored.session.draft).changes[0],
+    ).toMatchObject({
+      operation: "create",
+      fact: {
+        name: "打印站",
+        audience: "unknown",
+        credentialRequirement: "unknown",
+        reservationRequirement: "unknown",
+        temporaryStatus: "unknown",
+      },
+      sources: [],
+      photos: [],
+    });
+  });
+
+  it.each([
+    {
+      label: "authentication required",
+      state: { status: "authentication-required" as const },
+    },
+    {
+      label: "warning",
+      state: {
+        status: "warning" as const,
+        warnings: [
+          {
+            code: "duplicate-candidate",
+            fingerprint: "a".repeat(64),
+            anchor: { changeIndex: 0, field: "name" },
+          },
+        ],
+      },
+    },
+    {
+      label: "profile setup required",
+      state: {
+        status: "forbidden" as const,
+        forbiddenCode: "profile-incomplete" as const,
+      },
+    },
+    {
+      label: "rate limited",
+      state: {
+        status: "rate-limited" as const,
+        retryAfter: 0,
+        rateScope: "actor" as const,
+      },
+    },
+    {
+      label: "temporarily unavailable",
+      state: { status: "temporarily-unavailable" as const },
+    },
+  ])("removes hidden legacy Add details when $label", ({ state }) => {
+    const selected = transitionCampusMapEdit(
+      transitionCampusMapEdit(null, {
+        type: "START_FACILITY_ADD",
+        idempotencyKey: firstKey,
+        entry: { kind: "global", pinType: "printer" },
+      }).session,
+      {
+        type: "SELECT_BUILDING_LOCATION",
+        locationDisplay: {
+          buildingId: "50000000-0000-4000-8000-000000000001",
+          buildingName: "科学馆",
+          floorId: null,
+          floorLabel: null,
+        },
+      },
+    ).session!;
+    const legacy = JSON.parse(encodeCampusMapEditSnapshot(selected)) as {
+      version: number;
+      session: CampusMapEditSession;
+    };
+    legacy.version = 6;
+    legacy.session = { ...legacy.session, ...state };
+    legacy.session.draft.fact.name = "旧自定义名称";
+    legacy.session.draft.fact.audience = "cuhk-member";
+    legacy.session.draft.photos = [
+      {
+        assetId: "30000000-0000-4000-8000-000000000015",
+        role: "overview",
+      },
+    ];
+
+    const restored = decodeCampusMapEditSnapshot(JSON.stringify(legacy));
+    expect(restored).toMatchObject({
+      status: "restored",
+      session: {
+        status: "editing",
+        draft: {
+          fact: { name: "打印站", audience: "unknown" },
+          photos: [],
+        },
+      },
+    });
+    if (restored.status !== "restored") {
+      throw new Error("snapshot not restored");
+    }
+    expect(restored.session.draft.idempotencyKey).not.toBe(firstKey);
+  });
+
+  it.each([
+    { status: "publishing" as const },
+    {
+      status: "publish-unknown" as const,
+      publishFeedbackReason: "missing-target" as const,
+    },
+    {
+      status: "publish-identity" as const,
+      publishFeedbackReason: "identity-unavailable" as const,
+    },
+    {
+      status: "publish-recovery-unavailable" as const,
+      publishFeedbackReason: "receipt-lock-unavailable" as const,
+    },
+  ])("preserves the exact legacy Add payload while $status", (state) => {
+    const selected = transitionCampusMapEdit(
+      transitionCampusMapEdit(null, {
+        type: "START_FACILITY_ADD",
+        idempotencyKey: firstKey,
+        entry: { kind: "global", pinType: "printer" },
+      }).session,
+      {
+        type: "SELECT_BUILDING_LOCATION",
+        locationDisplay: {
+          buildingId: "50000000-0000-4000-8000-000000000001",
+          buildingName: "科学馆",
+          floorId: null,
+          floorLabel: null,
+        },
+      },
+    ).session!;
+    const legacy = JSON.parse(encodeCampusMapEditSnapshot(selected)) as {
+      version: number;
+      session: CampusMapEditSession;
+    };
+    legacy.version = 6;
+    legacy.session = { ...legacy.session, ...state };
+    legacy.session.draft.fact.name = "已尝试发布的旧名称";
+
+    const restored = decodeCampusMapEditSnapshot(JSON.stringify(legacy));
+    expect(restored).toMatchObject({
+      status: "restored",
+      session: {
+        status: state.status,
+        draft: { fact: { name: "已尝试发布的旧名称" } },
+      },
+    });
+    if (restored.status !== "restored") {
+      throw new Error("snapshot not restored");
+    }
+    expect(restored.session.draft.idempotencyKey).toBe(firstKey);
   });
 
   it("derives typed comment/source summary and always disables review requests", () => {

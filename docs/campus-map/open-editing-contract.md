@@ -199,7 +199,7 @@ Changeset 投影。相同 key 重试必须返回最初的成功结果，不能�
 ```text
 Browse
  ├─ 全局 / 类别 Add → 地图上选择 canonical Building ───────────┐
- │                 └─ 明确选择“这是室外设施” → center pin ────┤
+ │                 └─ 明确选择“选择室外位置” → center pin ──────────────┤
  ├─ Building 卡片 Add → 固定 Building / 当前 Floor ────────────┤
  └─ Place card → Edit ─────────────────────────────────────────┤
                                                                ↓
@@ -208,15 +208,15 @@ Browse
 
 - `Browse`、`Select Place` 与 `Add Point` 是互斥模式；MVP 不展示 Line、Area 或 Relation。
 - Add 与 Edit 共用同一 session 与 Sheet shell，不增加多步骤 wizard。全局与类别 Add 先显示紧凑的
-  地图选 Building 状态；地图上的临时按钮只来自 CUpedia canonical Building 锚点。点击 provider
-  hotspot 时，只有已经映射到该 canonical Building 的对象才可选；距离、地图中心和 provider 名称
-  都不能推断 containment。
+  地图选 Building 状态；地图上的临时按钮只来自 CUpedia canonical Building 锚点，provider hotspot
+  不参与 Building 选择。现有校园搜索在此状态保持可用，并把所选 Building 带入同一个 Add session；
+  地图加载失败时仍可搜索或退出。距离、地图中心和 provider 名称都不能推断 containment。
 - Building 卡片 Add 固定 Building，只允许楼层保持当前值、改选或设为未知；全局 Add 选定 Building
   后，“更改位置”返回地图选择，而不是打开长 Building 下拉框。类别入口在整个过程保留 Pin type。
 - Add 表单只显示位置、可选楼层、设施类型和发布。名称采用 Pin type 的 canonical 默认名且不在 Add
   暴露输入；照片、开放对象、凭证、预约、开放时间和临时状态不作为新增门槛，typed 值保持 unknown。
   这些详情与自定义名称可以在发布后的 Edit 中补充。普通贡献者界面仍不显示“资料依据”自由文本。
-- 用户明确选择“这是室外设施”后，center pin 与键盘路径先更新可恢复、provider-neutral 的 WGS84 placement
+- 用户明确点击“选择室外位置”后，center pin 与键盘路径先更新可恢复、provider-neutral 的 WGS84 placement
   candidate。candidate 本身不是 Current fact，也不单独产生 dirty；两条路径都经同一
   `CONFIRM_POSITION` transition 锁定 position、CRS 和诚实 precision。锁定后地图手势不能改写
   位置，除非用户明确选择重新定位。

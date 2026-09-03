@@ -83,8 +83,6 @@ export interface CampusMapEditDraft {
   baselinePhotos: CampusMapEditPhoto[];
   placementCandidate: CampusMapPlacement | null;
   placementMethod: CampusMapPlacement["method"] | null;
-  /** Location choices allowed by the contribution entry point. */
-  locationPolicy: "building-required" | "flexible";
   /** The visible UI action that started a new facility draft. */
   entrySource: "global" | "building" | null;
   /** An incomplete location choice owned by the edit session, never published. */
@@ -303,6 +301,57 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
+function minimalAddFact(
+  fact: CampusMapEditDraft["fact"],
+): CampusMapEditDraft["fact"] {
+  const preset = CAMPUS_MAP_EDIT_SCHEMA.presets.find(
+    (candidate) => candidate.pinType === fact.pinType,
+  );
+  return {
+    ...clone(DEFAULT_FACT),
+    name: preset?.defaultName ?? DEFAULT_FACT.name,
+    pinType: fact.pinType,
+    buildingId: fact.buildingId,
+    floorId: fact.floorId,
+    location: clone(fact.location),
+  };
+}
+
+function clearDraftLocation(draft: CampusMapEditDraft): CampusMapEditDraft {
+  return {
+    ...draft,
+    fact: {
+      ...draft.fact,
+      buildingId: null,
+      floorId: null,
+      location: null,
+    },
+    placementCandidate: null,
+    placementMethod: null,
+    locationIntent: null,
+    locationDisplay: null,
+    warningAcknowledgements: [],
+  };
+}
+
+function normalizeRestoredMinimalAddDraft(
+  draft: CampusMapEditDraft,
+): CampusMapEditDraft {
+  return {
+    ...draft,
+    idempotencyKey: globalThis.crypto.randomUUID(),
+    fact: minimalAddFact(draft.fact),
+    sources: [],
+    photos: [],
+    baselineFact: draft.baselineFact
+      ? minimalAddFact(draft.baselineFact)
+      : null,
+    baselineSources: [],
+    baselinePhotos: [],
+    warningAcknowledgements: [],
+  };
+}
+
 export function createCampusMapEditDraft(input: {
   mode: "add" | "edit";
   idempotencyKey: string;
@@ -312,7 +361,6 @@ export function createCampusMapEditDraft(input: {
   placeId?: string;
   baseRevisionId?: string;
   locationDisplay?: CampusMapIndoorLocationDisplay | null;
-  locationPolicy?: CampusMapEditDraft["locationPolicy"];
   entrySource?: CampusMapEditDraft["entrySource"];
 }): CampusMapEditDraft {
   const fact = input.fact ? clone(input.fact) : clone(DEFAULT_FACT);
@@ -331,7 +379,6 @@ export function createCampusMapEditDraft(input: {
     baselinePhotos: clone(photos),
     placementCandidate: null,
     placementMethod: null,
-    locationPolicy: input.locationPolicy ?? "flexible",
     entrySource: input.entrySource ?? (input.mode === "add" ? "global" : null),
     locationIntent: null,
     locationDisplay: matchingLocationDisplay(
@@ -579,7 +626,8 @@ function publishTransition(
         }
       : session.draft;
   const buildingLocationMissing =
-    draft.locationPolicy === "building-required" &&
+    draft.mode === "add" &&
+    draft.entrySource === "building" &&
     (!draft.fact.buildingId ||
       (draft.fact.location?.kind !== "building" &&
         draft.fact.location?.kind !== "floor"));
@@ -680,8 +728,6 @@ export function transitionCampusMapEdit(
       idempotencyKey: event.idempotencyKey,
       fact: initialFact,
       locationDisplay,
-      locationPolicy:
-        event.entry.kind === "building" ? "building-required" : "flexible",
       entrySource: event.entry.kind,
     });
     const next: CampusMapEditSession = {
@@ -864,20 +910,7 @@ export function transitionCampusMapEdit(
       accepted: true,
       session: {
         status: "placing",
-        draft: {
-          ...session.draft,
-          fact: {
-            ...session.draft.fact,
-            buildingId: null,
-            floorId: null,
-            location: null,
-          },
-          placementCandidate: null,
-          placementMethod: null,
-          locationIntent: null,
-          locationDisplay: null,
-          warningAcknowledgements: [],
-        },
+        draft: clearDraftLocation(session.draft),
       },
       commands: [
         { kind: "persist-snapshot" },
@@ -902,20 +935,7 @@ export function transitionCampusMapEdit(
       accepted: true,
       session: {
         status: "selecting-location",
-        draft: {
-          ...attemptDraft,
-          fact: {
-            ...attemptDraft.fact,
-            buildingId: null,
-            floorId: null,
-            location: null,
-          },
-          placementCandidate: null,
-          placementMethod: null,
-          locationIntent: null,
-          locationDisplay: null,
-          warningAcknowledgements: [],
-        },
+        draft: clearDraftLocation(attemptDraft),
       },
       commands: [
         { kind: "persist-snapshot" },
@@ -2064,7 +2084,6 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
         validUuid(value.receipt.changesetId)));
   const globalAddAwaitingLocation =
     draft.mode === "add" &&
-    draft.locationPolicy === "flexible" &&
     draft.entrySource === "global" &&
     isRecord(draft.fact) &&
     draft.fact.location === null &&
@@ -2092,8 +2111,6 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
     (draft.placementMethod === null ||
       draft.placementMethod === "pointer" ||
       draft.placementMethod === "keyboard") &&
-    (draft.locationPolicy === "building-required" ||
-      draft.locationPolicy === "flexible") &&
     (draft.entrySource === "global" ||
       draft.entrySource === "building" ||
       draft.entrySource === null) &&
@@ -2169,7 +2186,6 @@ export function decodeCampusMapEditSnapshot(
       draft: {
         ...sessionValue.draft,
         ...(value.version === 1 ? { placementCandidate: null } : {}),
-        locationPolicy: "flexible",
         entrySource: sessionValue.draft.mode === "add" ? "global" : null,
         locationIntent: null,
         photos: [],
@@ -2210,10 +2226,6 @@ export function decodeCampusMapEditSnapshot(
           sessionValue.returnStatus === "editing"
             ? { returnStatus: "selecting-location" }
             : {}),
-          draft: {
-            ...sessionValue.draft,
-            locationPolicy: "flexible",
-          },
         }
       : sessionValue;
   } else if (value.version !== CAMPUS_MAP_EDIT_SNAPSHOT_VERSION) {
@@ -2222,7 +2234,29 @@ export function decodeCampusMapEditSnapshot(
   if (!looksLikeSession(sessionValue) || sessionValue.status === "published") {
     return { status: "discarded", reason: "invalid-snapshot" };
   }
-  const session = clone(sessionValue);
+  let session = clone(sessionValue);
+  const restoredStatus =
+    session.status === "confirm-discard"
+      ? session.returnStatus
+      : session.status;
+  const publishOutcomePending =
+    restoredStatus !== undefined &&
+    isCampusMapPublishOutcomePending(restoredStatus);
+  if (
+    value.version !== CAMPUS_MAP_EDIT_SNAPSHOT_VERSION &&
+    session.draft.mode === "add" &&
+    !publishOutcomePending
+  ) {
+    const draft = normalizeRestoredMinimalAddDraft(session.draft);
+    session =
+      restoredStatus === "selecting-location" ||
+      restoredStatus === "placing" ||
+      restoredStatus === "editing"
+        ? session.status === "confirm-discard"
+          ? { status: "confirm-discard", returnStatus: restoredStatus, draft }
+          : { status: restoredStatus, draft }
+        : { status: "editing", draft };
+  }
   if (
     session.conflict?.kind === "current" &&
     hasUnreadablePlacementConflict(

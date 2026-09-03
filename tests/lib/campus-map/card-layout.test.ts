@@ -7,7 +7,7 @@ import {
 
 describe("Campus Map card layout policy", () => {
   it.each([
-    [{ kind: "location-selection" } as const, "min(272px, 40dvh)"],
+    [{ kind: "location-selection" } as const, "min(168px, 42dvh)"],
     [{ kind: "placing" } as const, "min(336px, 48dvh)"],
     [{ kind: "edit" } as const, "100dvh"],
     [{ kind: "provider-error" } as const, "var(--campus-map-peek-height)"],

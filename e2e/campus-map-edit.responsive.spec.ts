@@ -11,9 +11,9 @@ test.beforeEach(async ({ page }) => {
 async function startOutdoorFacilityAdd(page: Page) {
   await page.getByRole("button", { name: "新增设施" }).click();
   await expect(
-    page.getByRole("heading", { name: "选择设施位置" }),
+    page.getByRole("heading", { name: "设施在哪里？" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "这是室外设施" }).click();
+  await page.getByRole("button", { name: "选择室外位置" }).click();
   const usePosition = page.getByRole("button", { name: "使用此位置" });
   await expect(usePosition).toBeEnabled();
   await usePosition.click();
@@ -192,14 +192,17 @@ test("Campus Map Add honestly reports an empty Building directory", async ({
   await page.getByRole("button", { name: "新增设施" }).click();
 
   await expect(
-    page.getByRole("heading", { name: "选择设施位置" }),
+    page.getByRole("heading", { name: "设施在哪里？" }),
   ).toBeVisible();
+  await expect(page.getByText("当前没有已收录建筑。")).toBeVisible();
   await expect(
-    page.getByText("暂无可选建筑。你仍可新增室外设施。"),
+    page.getByRole("button", { name: "选择室外位置" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "这是室外设施" }),
-  ).toBeVisible();
+  const locationSheet = page.getByRole("dialog", { name: "设施在哪里？" });
+  const locationSheetBox = await locationSheet.boundingBox();
+  expect(locationSheetBox).not.toBeNull();
+  expect(locationSheetBox!.y).toBeLessThanOrEqual(17);
+  expect(locationSheetBox!.height).toBeLessThanOrEqual(200);
   await expect(page.getByRole("button", { name: "发布设施" })).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: "建筑" })).toHaveCount(0);
 });

@@ -539,7 +539,7 @@ export function CampusMapEditSheet({
   );
   const accessPanelExpanded = accessExpanded || accessValidationTarget;
   const buildingLocationRequired =
-    draft.mode === "add" && draft.locationPolicy === "building-required";
+    draft.mode === "add" && draft.entrySource === "building";
   const indoorSelected =
     buildingLocationRequired ||
     draft.locationIntent === "indoor" ||
@@ -1354,7 +1354,7 @@ export function CampusMapEditSheet({
           className="mr-10 max-w-[calc(100%-2.5rem)] text-lg font-semibold text-balance focus-visible:border-l-2 focus-visible:border-[#176346] focus-visible:pl-2 focus-visible:outline-none md:text-xl"
         >
           {isSelectingLocation
-            ? "选择设施位置"
+            ? "设施在哪里？"
             : isPlacing
               ? draft.mode === "add"
                 ? "选择设施位置"
@@ -1363,7 +1363,9 @@ export function CampusMapEditSheet({
         </h2>
         {isSelectingLocation ? (
           <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm">
-            点击地图上的建筑，选择设施所在位置。
+            {buildingDirectoryStatus === "ready" && buildings.length === 0
+              ? "当前没有已收录建筑。"
+              : "点选建筑图钉，或在上方搜索建筑。"}
           </p>
         ) : isPlacing ? (
           <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm">
@@ -1375,8 +1377,10 @@ export function CampusMapEditSheet({
       </div>
       <div
         className={cn(
-          "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 md:px-5",
-          "pb-8 md:py-4",
+          "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 md:px-5",
+          isSelectingLocation
+            ? "space-y-2 py-2 pb-3 md:py-3"
+            : "space-y-4 py-4 pb-8 md:py-4",
         )}
         aria-busy={session.status === "publishing"}
         inert={session.status === "publishing" ? true : undefined}
@@ -1403,25 +1407,14 @@ export function CampusMapEditSheet({
           </div>
         ) : null}
         {isSelectingLocation ? (
-          <div className="grid gap-3 rounded-xl bg-[#edf5f1] p-3">
-            <div className="flex items-start gap-3">
-              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white text-[#176346] ring-1 ring-[#176346]/10">
-                <Building2Icon aria-hidden="true" className="size-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold">先选择所属建筑</p>
-                <p className="mt-0.5 text-xs leading-5 text-neutral-600">
-                  地图标记只代表 CUpedia 已收录的建筑，不会按距离猜测。
-                </p>
-              </div>
-            </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             {buildingDirectoryStatus === "refreshing" ? (
               <p className="text-xs text-neutral-600" role="status">
-                正在读取可选建筑…
+                正在载入建筑…
               </p>
             ) : buildingDirectoryStatus === "error" ? (
               <div
-                className="flex items-center justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-950"
+                className="flex w-full items-center justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-950"
                 role="alert"
               >
                 <span>建筑目录载入失败。</span>
@@ -1435,17 +1428,13 @@ export function CampusMapEditSheet({
                   </button>
                 ) : null}
               </div>
-            ) : buildings.length === 0 ? (
-              <p className="text-xs text-neutral-600" role="status">
-                暂无可选建筑。你仍可新增室外设施。
-              </p>
             ) : null}
             <button
               type="button"
-              className={secondaryClass}
+              className="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-[#176346] underline decoration-[#176346]/35 underline-offset-4 hover:decoration-[#176346] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
               onClick={() => onEvent({ type: "START_OUTDOOR_PLACEMENT" })}
             >
-              这是室外设施
+              选择室外位置
             </button>
           </div>
         ) : isPlacing ? (
