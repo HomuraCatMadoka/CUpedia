@@ -72,7 +72,7 @@ function editSession(): CampusMapEditSession {
 }
 
 describe("Campus Map edit session transition", () => {
-  it("starts a global Add in the building-required form", () => {
+  it("starts a global Add by selecting a canonical map location", () => {
     const started = transitionCampusMapEdit(null, {
       type: "START_FACILITY_ADD",
       idempotencyKey: firstKey,
@@ -82,9 +82,9 @@ describe("Campus Map edit session transition", () => {
     expect(started).toMatchObject({
       accepted: true,
       session: {
-        status: "editing",
+        status: "selecting-location",
         draft: {
-          locationPolicy: "building-required",
+          locationPolicy: "flexible",
           entrySource: "global",
           fact: {
             buildingId: null,
@@ -102,22 +102,29 @@ describe("Campus Map edit session transition", () => {
     expect(isCampusMapEditDirty(started.session)).toBe(false);
   });
 
-  it("restores a global Add while its building is being chosen", () => {
+  it("selects a canonical Building before opening the Add form", () => {
     const started = transitionCampusMapEdit(null, {
       type: "START_FACILITY_ADD",
       idempotencyKey: firstKey,
       entry: { kind: "global" },
     }).session!;
     const changed = transitionCampusMapEdit(started, {
-      type: "CHANGE_FACT",
-      fact: {
-        ...started.draft.fact,
-        name: "科学馆饮水机",
-        audience: "cuhk-member",
+      type: "SELECT_BUILDING_LOCATION",
+      locationDisplay: {
+        buildingId: "50000000-0000-4000-8000-000000000001",
+        buildingName: "科学馆",
+        floorId: null,
+        floorLabel: null,
       },
     }).session!;
 
     expect(changed.status).toBe("editing");
+    expect(changed.draft.fact).toMatchObject({
+      buildingId: "50000000-0000-4000-8000-000000000001",
+      floorId: null,
+      location: { kind: "building" },
+    });
+    expect(isCampusMapEditDirty(changed)).toBe(true);
 
     expect(
       decodeCampusMapEditSnapshot(encodeCampusMapEditSnapshot(changed)),
@@ -174,31 +181,43 @@ describe("Campus Map edit session transition", () => {
     ).toContainEqual(expect.objectContaining({ kind: "publish" }));
   });
 
-  it("does not publish a building-required Add without a building", () => {
+  it("enters center-pin placement only through the explicit outdoor branch", () => {
     const started = transitionCampusMapEdit(null, {
       type: "START_FACILITY_ADD",
       idempotencyKey: firstKey,
       entry: { kind: "global" },
     });
-    const changed = transitionCampusMapEdit(started.session, {
-      type: "CHANGE_PIN_TYPE",
-      pinType: "toilet",
-    });
-    const publish = transitionCampusMapEdit(changed.session, {
-      type: "REQUEST_PUBLISH",
+    const outdoor = transitionCampusMapEdit(started.session, {
+      type: "START_OUTDOOR_PLACEMENT",
     });
 
-    expect(publish.session).toMatchObject({
-      status: "editing",
-      localError: "buildingId",
+    expect(outdoor.session).toMatchObject({
+      status: "placing",
+      draft: {
+        locationPolicy: "flexible",
+        fact: { buildingId: null, floorId: null, location: null },
+        placementCandidate: null,
+      },
     });
-    expect(publish.commands).toContainEqual({
-      kind: "focus",
-      target: "building",
+    expect(outdoor.commands).toContainEqual({
+      kind: "announce",
+      message: "移动地图以选择室外设施位置",
     });
-    expect(publish.commands.some((command) => command.kind === "publish")).toBe(
-      false,
-    );
+  });
+
+  it("does not accept hidden form changes while location selection is active", () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_FACILITY_ADD",
+      idempotencyKey: firstKey,
+      entry: { kind: "global", pinType: "classroom" },
+    });
+
+    expect(
+      transitionCampusMapEdit(started.session, {
+        type: "CHANGE_PIN_TYPE",
+        pinType: "water",
+      }),
+    ).toMatchObject({ accepted: false, session: started.session });
   });
 
   it("keeps the active category when Add starts from an empty category", () => {
@@ -209,7 +228,7 @@ describe("Campus Map edit session transition", () => {
     });
 
     expect(started.session).toMatchObject({
-      status: "editing",
+      status: "selecting-location",
       draft: {
         entrySource: "global",
         fact: { pinType: "classroom", name: "课室" },
@@ -945,7 +964,7 @@ describe("Campus Map edit session transition", () => {
     }).session;
     const encoded = encodeCampusMapEditSnapshot(changed!);
 
-    expect(CAMPUS_MAP_EDIT_SNAPSHOT_VERSION).toBe(6);
+    expect(CAMPUS_MAP_EDIT_SNAPSHOT_VERSION).toBe(7);
     expect(JSON.parse(encoded)).toMatchObject({
       version: CAMPUS_MAP_EDIT_SNAPSHOT_VERSION,
       session: { draft: { placeId, baseRevisionId } },

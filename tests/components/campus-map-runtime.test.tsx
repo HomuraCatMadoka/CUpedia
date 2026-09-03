@@ -201,9 +201,16 @@ async function selectScienceCentre() {
 }
 
 async function selectScienceCentreForAdd() {
-  fireEvent.change(await screen.findByRole("combobox", { name: "建筑" }), {
-    target: { value: "science-centre" },
+  fireEvent.click(await screen.findByRole("button", { name: "这是室外设施" }));
+  fireEvent.click(screen.getByRole("button", { name: "输入坐标" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "经度（WGS84）" }), {
+    target: { value: "114.20801" },
   });
+  fireEvent.change(screen.getByRole("textbox", { name: "纬度（WGS84）" }), {
+    target: { value: "22.41966" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "使用输入坐标" }));
+  await screen.findByRole("heading", { name: "新增设施" });
 }
 
 function formalCurrentFactsProjection() {
@@ -1876,7 +1883,20 @@ describe("CampusMapRuntime", () => {
       idempotencyKey: "10000000-0000-4000-8000-000000000862",
       entry: { kind: "global" },
     }).session!;
-    const withPhoto = transitionCampusMapEdit(started, {
+    const placing = transitionCampusMapEdit(started, {
+      type: "START_OUTDOOR_PLACEMENT",
+    }).session!;
+    const positioned = transitionCampusMapEdit(placing, {
+      type: "CONFIRM_POSITION",
+      position: {
+        longitude: 114.20801,
+        latitude: 22.41966,
+        crs: "wgs84",
+        precision: "approximate",
+        method: "keyboard",
+      },
+    }).session!;
+    const withPhoto = transitionCampusMapEdit(positioned, {
       type: "CHANGE_PHOTOS",
       photos: [{ assetId, role: "overview" }],
     }).session!;
@@ -1908,32 +1928,29 @@ describe("CampusMapRuntime", () => {
     });
   });
 
-  it("uses one building-required Add session and keeps a selected building on dirty close", async () => {
+  it("keeps global Add in location selection until an explicit location is chosen", async () => {
     render(<CampusMapRuntime />);
 
     fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     expect(
-      await screen.findByRole("heading", { name: "新增设施" }),
+      await screen.findByRole("heading", { name: "选择设施位置" }),
     ).toBeTruthy();
     expect(
-      screen.getByRole("textbox", { name: "设施名称或编号" }),
-    ).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "饮水点" })).toBeTruthy();
-    expect(screen.getByRole("group", { name: "所属建筑" })).toBeTruthy();
+      screen.queryByRole("textbox", { name: "设施名称或编号" }),
+    ).toBeNull();
+    expect(screen.queryByRole("radio", { name: "饮水点" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "所属建筑" })).toBeNull();
     expect(screen.queryByRole("textbox", { name: "经度（WGS84）" })).toBeNull();
     expect(screen.queryByRole("radio", { name: "室外" })).toBeNull();
     expect(screen.queryByRole("radio", { name: "建筑内" })).toBeNull();
     expect(document.activeElement).toBe(
-      screen.getByRole("heading", { name: "新增设施" }),
+      screen.getByRole("heading", { name: "选择设施位置" }),
     );
     await selectScienceCentreForAdd();
-    expect(
-      (screen.getByRole("combobox", { name: "建筑" }) as HTMLSelectElement)
-        .value,
-    ).toBe("science-centre");
-    expect(screen.getByRole("option", { name: "未指定楼层" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "修改位置" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
+    expect(screen.getByRole("button", { name: "更改位置" })).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "无障碍通行" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "更多信息" })).toBeNull();
     expect(screen.queryByText("资料依据")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
     expect(
@@ -1963,11 +1980,8 @@ describe("CampusMapRuntime", () => {
     const buildingGroup = screen.getByRole("group", { name: "所属建筑" });
     expect(within(buildingGroup).getByText("1/F")).not.toBeNull();
     expect(within(buildingGroup).queryByText(/已从建筑卡片带入/)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "更改所属建筑或楼层" }));
-    expect(
-      (screen.getByRole("combobox", { name: "建筑" }) as HTMLSelectElement)
-        .value,
-    ).toBe("science-centre");
+    expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "更改位置" })).toBeNull();
     expect(
       (screen.getByRole("combobox", { name: "楼层" }) as HTMLSelectElement)
         .value,
@@ -1989,18 +2003,15 @@ describe("CampusMapRuntime", () => {
     fireEvent.click(await screen.findByRole("button", { name: "新增课室" }));
 
     expect(
-      await screen.findByRole("dialog", { name: "新增设施" }),
+      await screen.findByRole("dialog", { name: "选择设施位置" }),
     ).not.toBeNull();
+    await selectScienceCentreForAdd();
     expect(
       (screen.getByRole("radio", { name: "课室" }) as HTMLInputElement).checked,
     ).toBe(true);
     expect(
-      (
-        screen.getByRole("textbox", {
-          name: "设施名称或编号",
-        }) as HTMLInputElement
-      ).value,
-    ).toBe("课室");
+      screen.queryByRole("textbox", { name: "设施名称或编号" }),
+    ).toBeNull();
   });
 
   it("keeps a dirty Add draft when browser Back is cancelled", async () => {
@@ -2366,7 +2377,7 @@ describe("CampusMapRuntime", () => {
     const mapControls = addButton.parentElement;
 
     fireEvent.click(addButton);
-    await screen.findByRole("heading", { name: "新增设施" });
+    await screen.findByRole("heading", { name: "选择设施位置" });
 
     expect(searchHeader?.getAttribute("aria-hidden")).toBe("true");
     expect(searchHeader?.hasAttribute("inert")).toBe(true);
@@ -2470,12 +2481,12 @@ describe("CampusMapRuntime", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
     expect(
-      await screen.findByRole("dialog", { name: "新增设施" }),
+      await screen.findByRole("dialog", { name: "选择设施位置" }),
     ).not.toBeNull();
-    expect(screen.getByRole("combobox", { name: "建筑" })).not.toBeNull();
+    expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
     expect(
-      screen.queryByRole("heading", { name: "地图暂时不可用" }),
-    ).toBeNull();
+      screen.getByRole("heading", { name: "地图暂时不可用" }),
+    ).not.toBeNull();
   });
 
   it("retries from a fail-closed state when the AMap SDK script fails", async () => {

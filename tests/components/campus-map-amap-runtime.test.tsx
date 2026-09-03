@@ -402,7 +402,7 @@ async function openOutdoorPlaceEdit(
 }
 
 describe("Campus Map AMap runtime effects", () => {
-  it("opens a building-required Add without a coordinate service request", async () => {
+  it("selects a canonical Building from the map before opening the Add form", async () => {
     const { runtime } = await renderWithRuntime({
       placementAnchorPosition: { longitude: 114.22, latitude: 22.43 },
     });
@@ -410,26 +410,47 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
 
     expect(
+      await screen.findByRole("heading", { name: "选择设施位置" }),
+    ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "这是室外设施" })).not.toBeNull();
+    const scienceMarker = await waitFor(() => {
+      const marker = runtime.markers.findLast((candidate) =>
+        candidate.content.includes("选择科学馆作为所属建筑"),
+      );
+      expect(marker).toBeTruthy();
+      return marker!;
+    });
+    await act(async () => scienceMarker.emit("click"));
+
+    expect(
       await screen.findByRole("heading", { name: "新增设施" }),
     ).not.toBeNull();
-    expect(screen.getByRole("group", { name: "所属建筑" })).not.toBeNull();
+    expect(
+      screen.getByRole("group", { name: "所属建筑" }).textContent,
+    ).toContain("科学馆");
+    expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
     expect(screen.queryByRole("button", { name: "使用此位置" })).toBeNull();
     expect(screen.queryByText(/WGS84/)).toBeNull();
     expect(runtime.geocodeRequests).toHaveLength(0);
   });
 
-  it("does not infer a Building from the current map position", async () => {
+  it("does not infer a Building from the current map center", async () => {
     const { runtime } = await renderWithRuntime({
       placementAnchorPosition: { longitude: 114.20801, latitude: 22.41966 },
     });
 
     fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
 
-    const building = await screen.findByRole("combobox", { name: "建筑" });
-    expect((building as HTMLSelectElement).value).toBe("");
-    expect(
-      screen.getByText("请选择设施所在的建筑。楼层不确定时可以不选。"),
-    ).not.toBeNull();
+    expect(await screen.findByText("先选择所属建筑")).not.toBeNull();
+    expect(screen.queryByRole("heading", { name: "新增设施" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
+    await waitFor(() =>
+      expect(
+        runtime.markers.some((marker) =>
+          marker.content.includes("data-campus-map-building-picker"),
+        ),
+      ).toBe(true),
+    );
     expect(runtime.geocodeRequests).toHaveLength(0);
   });
 
@@ -703,7 +724,7 @@ describe("Campus Map AMap runtime effects", () => {
       ),
     );
     const push = vi.spyOn(window.history, "pushState");
-    await renderWithRuntime();
+    const { runtime } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "打印服务" }));
     expect(await screen.findByText("暂无地点")).not.toBeNull();
     push.mockClear();
@@ -711,9 +732,16 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "新增打印服务" }));
 
     expect(
-      await screen.findByRole("heading", { name: "新增设施" }),
+      await screen.findByRole("heading", { name: "选择设施位置" }),
     ).not.toBeNull();
-    expect(screen.getByRole("group", { name: "所属建筑" })).not.toBeNull();
+    const scienceMarker = await waitFor(() => {
+      const marker = runtime.markers.findLast((candidate) =>
+        candidate.content.includes("选择科学馆作为所属建筑"),
+      );
+      expect(marker).toBeTruthy();
+      return marker!;
+    });
+    await act(async () => scienceMarker.emit("click"));
     expect(
       (screen.getByRole("radio", { name: "打印服务" }) as HTMLInputElement)
         .checked,
@@ -2020,7 +2048,7 @@ describe("Campus Map AMap runtime effects", () => {
     expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
   });
 
-  it("keeps global Add building-required when no canonical Buildings exist", async () => {
+  it("keeps an explicit outdoor path when no canonical Buildings exist", async () => {
     const baseProjection = createCampusMapBrowseFixture();
     const emptyProjection: CampusMapBrowseProjection = {
       ...baseProjection,
@@ -2037,22 +2065,23 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.click(screen.getByLabelText("新增设施"));
 
     expect(
-      await screen.findByRole("heading", { name: "新增设施" }),
+      await screen.findByRole("heading", { name: "选择设施位置" }),
     ).not.toBeNull();
     expect(
-      screen.getByText("目前没有可选建筑，暂时无法新增设施。"),
+      screen.getByText("暂无可选建筑。你仍可新增室外设施。"),
     ).not.toBeNull();
-    expect(screen.queryByRole("heading", { name: "选择设施位置" })).toBeNull();
-    expect(screen.getByRole("combobox", { name: "建筑" })).toHaveProperty(
-      "disabled",
-      true,
-    );
-    expect(screen.getByRole("button", { name: "发布设施" })).toHaveProperty(
-      "disabled",
-      true,
-    );
+    expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "发布设施" })).toBeNull();
     expect(screen.queryByText(/高德地图地点：/)).toBeNull();
     expect(runtime.geocodeRequests).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "这是室外设施" }));
+    expect(
+      await screen.findByRole("heading", { name: "选择设施位置" }),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: /使用此位置|正在确定位置/ }),
+    ).not.toBeNull();
   });
 
   it("does not bind an exact provider name without an explicit POI mapping", async () => {

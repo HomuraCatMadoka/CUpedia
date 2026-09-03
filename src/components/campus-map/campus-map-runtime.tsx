@@ -32,6 +32,7 @@ import {
   knownCampusMapAmenity as knownAmenity,
 } from "@/components/campus-map/browse-card-presentation";
 import { AmapFacilityMarkerRuntime } from "@/components/campus-map/amap-facility-marker-runtime";
+import { AmapBuildingPickerRuntime } from "@/components/campus-map/amap-building-picker-runtime";
 import { CampusMapEditSheet } from "@/components/campus-map/edit-sheet";
 import { useCampusMapEditSessionOwner } from "@/components/campus-map/use-campus-map-edit-session-owner";
 
@@ -621,6 +622,7 @@ export function CampusMapRuntime({
   }, [buildings, places]);
   const editSessionActiveRef = useRef(false);
   const editSessionPlacingRef = useRef(false);
+  const editSessionSelectingLocationRef = useRef(false);
   const exactProviderPlaceRef = useRef<AmapResolvedPlaceContext | null>(null);
   const [centerPosition, setCenterPosition] = useState<CampusMapWgs84Position>(
     () => asWgs84Position(CAMPUS_CENTER),
@@ -670,6 +672,7 @@ export function CampusMapRuntime({
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
   const facilityMarkerRuntimeRef = useRef(new AmapFacilityMarkerRuntime());
+  const buildingPickerRuntimeRef = useRef(new AmapBuildingPickerRuntime());
   const cameraGateRef = useRef(new CameraRequestGate());
   const pendingDriverCameraRef = useRef<{
     command: CampusMapDriverCameraCommand;
@@ -720,6 +723,7 @@ export function CampusMapRuntime({
     pointerGestureCleanupRef.current?.();
     pointerGestureCleanupRef.current = null;
     facilityMarkerRuntimeRef.current.destroy();
+    buildingPickerRuntimeRef.current.destroy();
     mapRef.current?.destroy();
     mapRef.current = null;
     coordinateResolverRef.current = null;
@@ -1577,6 +1581,8 @@ export function CampusMapRuntime({
   useEffect(() => {
     editSessionActiveRef.current = Boolean(editSession);
     editSessionPlacingRef.current = editSession?.status === "placing";
+    editSessionSelectingLocationRef.current =
+      editSession?.status === "selecting-location";
     if (!editSession) {
       exactProviderPlaceRef.current = null;
     }
@@ -1705,13 +1711,27 @@ export function CampusMapRuntime({
 
   const selectBuilding = useCallback(
     (building: Building, source: "map" | "search" = "map") => {
+      if (editSession?.status === "selecting-location") {
+        dispatchEditEvent({
+          type: "SELECT_BUILDING_LOCATION",
+          locationDisplay: {
+            buildingId: building.buildingId,
+            buildingName:
+              campusMapBuildingDisplayFor(buildingDisplay, building.buildingId)
+                ?.label ?? building.name,
+            floorId: null,
+            floorLabel: null,
+          },
+        });
+        return;
+      }
       dispatch({
         type: "OPEN_BUILDING",
         buildingId: building.buildingId,
         source,
       });
     },
-    [dispatch],
+    [buildingDisplay, dispatch, dispatchEditEvent, editSession?.status],
   );
 
   const selectFacility = useCallback(
@@ -1920,7 +1940,9 @@ export function CampusMapRuntime({
               !stillOwnsIntent()
             )
               return;
+            const selectingLocation = editSessionSelectingLocationRef.current;
             if (result.card.kind === "transient") {
+              if (selectingLocation) return;
               dispatch({
                 type: "OPEN_PROVIDER_POI",
                 providerPoiId: result.card.externalId,
@@ -1949,6 +1971,7 @@ export function CampusMapRuntime({
               }
             }
             if (!canonicalTarget) {
+              if (selectingLocation) return;
               dispatch({
                 type: "REPORT_PROVIDER_TARGET_UNAVAILABLE",
                 title: result.card.title,
@@ -1958,7 +1981,7 @@ export function CampusMapRuntime({
             }
             if (canonicalTarget.kind === "building") {
               selectBuilding(canonicalTarget.building);
-            } else {
+            } else if (!selectingLocation) {
               selectFacility(canonicalTarget.facility, "search");
             }
           });
@@ -2163,9 +2186,11 @@ export function CampusMapRuntime({
         visibleAmenity: visibleMarkerAmenity,
         selectedBuildingId: selectedBuilding?.buildingId ?? null,
         selectedPlaceId: selectedMarkerPlaceId,
+        allBuildings: editSession?.status === "selecting-location",
       }),
     [
       browseProjection,
+      editSession?.status,
       selectedBuilding?.buildingId,
       selectedMarkerPlaceId,
       visibleMarkerAmenity,
@@ -2292,8 +2317,12 @@ export function CampusMapRuntime({
       provider: window.AMap,
       projection: browseProjection,
       providerPositions: amapPositionsRef.current,
-      markerScope,
-      visibleAmenity: visibleMarkerAmenity,
+      markerScope:
+        editSession?.status === "selecting-location" ? null : markerScope,
+      visibleAmenity:
+        editSession?.status === "selecting-location"
+          ? null
+          : visibleMarkerAmenity,
       selectedPlaceId: selectedMarkerPlaceId,
       claimProviderTarget: (action) => {
         interactionAdapterRef.current.dispatchProviderTarget(action);
@@ -2321,6 +2350,7 @@ export function CampusMapRuntime({
     clusterStatus,
     coordinateVersion,
     dispatch,
+    editSession?.status,
     mapReady,
     markerScope,
     selectedMarkerPlaceId,
@@ -2363,12 +2393,50 @@ export function CampusMapRuntime({
     selectedProviderPoi,
   ]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    const provider = window.AMap;
+    if (
+      editSession?.status !== "selecting-location" ||
+      !mapReady ||
+      coordinateVersion === 0 ||
+      !provider ||
+      !map
+    ) {
+      buildingPickerRuntimeRef.current.destroy();
+      return;
+    }
+    buildingPickerRuntimeRef.current.sync({
+      map,
+      provider,
+      projection: browseProjection,
+      providerPositions: amapPositionsRef.current,
+      scope: editSession.draft.idempotencyKey,
+      claimProviderTarget: (action) => {
+        interactionAdapterRef.current.dispatchProviderTarget(action);
+      },
+      selectBuilding: (buildingId) => {
+        const building = buildingsRef.current.find(
+          (candidate) => candidate.buildingId === buildingId,
+        );
+        if (building) selectBuilding(building);
+      },
+    });
+  }, [
+    browseProjection,
+    coordinateVersion,
+    editSession,
+    mapReady,
+    selectBuilding,
+  ]);
+
   useEffect(
     () => () => {
       userLocationRequestRef.current += 1;
       pointerGestureCleanupRef.current?.();
       pointerGestureCleanupRef.current = null;
       facilityMarkerRuntimeRef.current.destroy();
+      buildingPickerRuntimeRef.current.destroy();
       providerPoiCardResolverRef.current.invalidate();
       mapRef.current?.destroy();
       mapRef.current = null;
@@ -2520,7 +2588,9 @@ export function CampusMapRuntime({
         !selectedFacility)),
   );
   let mobilePanelLayout: CampusMapMobilePanelLayout = { kind: "default" };
-  if (editSession?.status === "placing") {
+  if (editSession?.status === "selecting-location") {
+    mobilePanelLayout = { kind: "location-selection" };
+  } else if (editSession?.status === "placing") {
     mobilePanelLayout = { kind: "placing" };
   } else if (editSession) {
     mobilePanelLayout = { kind: "edit" };
@@ -2619,7 +2689,9 @@ export function CampusMapRuntime({
       ) : null}
 
       {(config.status === "missing" || mapLoadError) &&
-      (!editSession || editSession.status === "placing") ? (
+      (!editSession ||
+        editSession.status === "selecting-location" ||
+        editSession.status === "placing") ? (
         <div className="pointer-events-none absolute inset-x-0 top-[124px] z-40 flex justify-center px-3 md:top-[132px]">
           <div
             role="status"
@@ -2951,11 +3023,14 @@ export function CampusMapRuntime({
         className={cn(
           "absolute z-30 overflow-hidden overscroll-contain border-black/10 bg-white shadow-[0_12px_40px_rgba(23,33,28,.24)]",
           "h-[var(--campus-map-panel-height)]",
-          editSession && editSession.status !== "placing"
+          editSession &&
+            editSession.status !== "selecting-location" &&
+            editSession.status !== "placing"
             ? "inset-0 rounded-none border-0 md:inset-y-4 md:right-4 md:left-auto md:h-auto md:w-[390px] md:rounded-2xl md:border"
             : cn(
                 "inset-x-0 bottom-0 rounded-t-2xl border-t md:right-4 md:left-auto md:w-[390px] md:rounded-2xl md:border",
-                editSession?.status === "placing"
+                editSession?.status === "placing" ||
+                  editSession?.status === "selecting-location"
                   ? "max-h-[65dvh] md:inset-y-4 md:h-auto md:max-h-[calc(100dvh-32px)]"
                   : "md:top-4 md:bottom-auto md:h-auto md:max-h-[calc(100dvh-32px)]",
               ),

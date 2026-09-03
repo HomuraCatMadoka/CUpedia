@@ -237,8 +237,14 @@ export async function installFakeCampusMapAmap(page: Page) {
         this.zoom -= 1;
       }
       destroy() {}
-      remove() {}
-      add() {}
+      remove(overlays: FakeMarker[]) {
+        for (const marker of overlays) marker.remove();
+      }
+      add(overlays: FakeMarker | FakeMarker[]) {
+        for (const marker of Array.isArray(overlays) ? overlays : [overlays]) {
+          marker.mount(this);
+        }
+      }
     }
 
     class FakeGeocoder {

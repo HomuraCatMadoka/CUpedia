@@ -25,7 +25,7 @@ import {
   type CampusMapPlacePhotoRole,
 } from "@/lib/campus-map/place-photos-contract";
 
-export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 6 as const;
+export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 7 as const;
 
 export type CampusMapPublishFeedbackReason = Extract<
   CampusMapPublishReceiptOutcome,
@@ -94,6 +94,7 @@ export interface CampusMapEditDraft {
 }
 
 export type CampusMapEditStatus =
+  | "selecting-location"
   | "placing"
   | "editing"
   | "confirm-discard"
@@ -203,6 +204,12 @@ export type CampusMapEditEvent =
     }
   | { type: "CONFIRM_POSITION"; position: CampusMapPlacement }
   | { type: "UPDATE_PLACEMENT_CANDIDATE"; position: CampusMapPlacement }
+  | {
+      type: "SELECT_BUILDING_LOCATION";
+      locationDisplay: CampusMapIndoorLocationDisplay;
+    }
+  | { type: "START_OUTDOOR_PLACEMENT" }
+  | { type: "START_LOCATION_SELECTION"; idempotencyKey?: string }
   | { type: "START_REPOSITION"; idempotencyKey?: string }
   | {
       type: "CHOOSE_LOCATION_KIND";
@@ -673,11 +680,13 @@ export function transitionCampusMapEdit(
       idempotencyKey: event.idempotencyKey,
       fact: initialFact,
       locationDisplay,
-      locationPolicy: "building-required",
+      locationPolicy:
+        event.entry.kind === "building" ? "building-required" : "flexible",
       entrySource: event.entry.kind,
     });
     const next: CampusMapEditSession = {
-      status: "editing",
+      status:
+        event.entry.kind === "building" ? "editing" : "selecting-location",
       draft: seededDraft,
     };
     return {
@@ -781,6 +790,14 @@ export function transitionCampusMapEdit(
   ) {
     return rejected(session);
   }
+  if (
+    session.status === "selecting-location" &&
+    event.type !== "SELECT_BUILDING_LOCATION" &&
+    event.type !== "START_OUTDOOR_PLACEMENT" &&
+    event.type !== "REQUEST_CLOSE"
+  ) {
+    return rejected(session);
+  }
 
   if (event.type === "UPDATE_PLACEMENT_CANDIDATE") {
     if (session.status !== "placing") return rejected(session);
@@ -791,6 +808,121 @@ export function transitionCampusMapEdit(
         placementCandidate: clone(event.position),
       },
     });
+  }
+
+  if (event.type === "SELECT_BUILDING_LOCATION") {
+    if (
+      session.status !== "selecting-location" ||
+      session.draft.mode !== "add" ||
+      session.draft.entrySource !== "global"
+    ) {
+      return rejected(session);
+    }
+    const locationDisplay = clone(event.locationDisplay);
+    const next: CampusMapEditSession = {
+      status: "editing",
+      draft: {
+        ...session.draft,
+        fact: {
+          ...session.draft.fact,
+          buildingId: locationDisplay.buildingId,
+          floorId: locationDisplay.floorId,
+          location: {
+            kind: locationDisplay.floorId ? "floor" : "building",
+          },
+        },
+        placementCandidate: null,
+        placementMethod: null,
+        locationIntent: null,
+        locationDisplay,
+        warningAcknowledgements: [],
+      },
+    };
+    return {
+      accepted: true,
+      session: next,
+      commands: [
+        { kind: "persist-snapshot" },
+        { kind: "focus", target: "form-heading" },
+        {
+          kind: "announce",
+          message: `已选择${locationDisplay.buildingName}，请确认设施类型`,
+        },
+      ],
+    };
+  }
+
+  if (event.type === "START_OUTDOOR_PLACEMENT") {
+    if (
+      session.status !== "selecting-location" ||
+      session.draft.mode !== "add" ||
+      session.draft.entrySource !== "global"
+    ) {
+      return rejected(session);
+    }
+    return {
+      accepted: true,
+      session: {
+        status: "placing",
+        draft: {
+          ...session.draft,
+          fact: {
+            ...session.draft.fact,
+            buildingId: null,
+            floorId: null,
+            location: null,
+          },
+          placementCandidate: null,
+          placementMethod: null,
+          locationIntent: null,
+          locationDisplay: null,
+          warningAcknowledgements: [],
+        },
+      },
+      commands: [
+        { kind: "persist-snapshot" },
+        { kind: "announce", message: "移动地图以选择室外设施位置" },
+      ],
+    };
+  }
+
+  if (event.type === "START_LOCATION_SELECTION") {
+    if (
+      session.status === "selecting-location" ||
+      session.status === "placing" ||
+      session.status === "confirm-discard" ||
+      session.draft.mode !== "add" ||
+      session.draft.entrySource !== "global"
+    ) {
+      return rejected(session);
+    }
+    const attemptDraft = draftForPayloadChange(session, event.idempotencyKey);
+    if (!attemptDraft) return rejected(session);
+    return {
+      accepted: true,
+      session: {
+        status: "selecting-location",
+        draft: {
+          ...attemptDraft,
+          fact: {
+            ...attemptDraft.fact,
+            buildingId: null,
+            floorId: null,
+            location: null,
+          },
+          placementCandidate: null,
+          placementMethod: null,
+          locationIntent: null,
+          locationDisplay: null,
+          warningAcknowledgements: [],
+        },
+      },
+      commands: [
+        { kind: "persist-snapshot" },
+        { kind: "focus", target: "form-heading" },
+        { kind: "announce", message: "请在地图上选择建筑" },
+      ],
+    };
   }
 
   if (event.type === "CONFIRM_POSITION") {
@@ -1820,6 +1952,7 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
   if (!isRecord(value) || !isRecord(value.draft)) return false;
   const draft = value.draft;
   const statuses: CampusMapEditStatus[] = [
+    "selecting-location",
     "placing",
     "editing",
     "confirm-discard",
@@ -1837,6 +1970,7 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
   ];
   if (!statuses.includes(value.status as CampusMapEditStatus)) return false;
   const returnStatuses = [
+    "selecting-location",
     "placing",
     "editing",
     "warning",
@@ -1928,16 +2062,19 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
         validUuid(value.receipt.placeId) &&
         validUuid(value.receipt.revisionId) &&
         validUuid(value.receipt.changesetId)));
-  const buildingRequiredAddAwaitingSelection =
+  const globalAddAwaitingLocation =
     draft.mode === "add" &&
-    draft.locationPolicy === "building-required" &&
+    draft.locationPolicy === "flexible" &&
     draft.entrySource === "global" &&
     isRecord(draft.fact) &&
     draft.fact.location === null &&
-    (value.status === "editing" ||
-      (value.status === "confirm-discard" && value.returnStatus === "editing"));
+    (value.status === "selecting-location" ||
+      value.status === "placing" ||
+      (value.status === "confirm-discard" &&
+        (value.returnStatus === "selecting-location" ||
+          value.returnStatus === "placing")));
   const locationStateValid =
-    buildingRequiredAddAwaitingSelection ||
+    globalAddAwaitingLocation ||
     ((value.status === "placing" ||
       (value.status === "confirm-discard" &&
         value.returnStatus === "placing")) &&
@@ -2052,6 +2189,33 @@ export function decodeCampusMapEditSnapshot(
           }
         : {}),
     };
+  } else if (
+    value.version === 6 &&
+    isRecord(sessionValue) &&
+    isRecord(sessionValue.draft)
+  ) {
+    const isGlobalAddAwaitingBuilding =
+      sessionValue.draft.mode === "add" &&
+      sessionValue.draft.entrySource === "global" &&
+      isRecord(sessionValue.draft.fact) &&
+      sessionValue.draft.fact.location === null;
+    sessionValue = isGlobalAddAwaitingBuilding
+      ? {
+          ...sessionValue,
+          status:
+            sessionValue.status === "editing"
+              ? "selecting-location"
+              : sessionValue.status,
+          ...(sessionValue.status === "confirm-discard" &&
+          sessionValue.returnStatus === "editing"
+            ? { returnStatus: "selecting-location" }
+            : {}),
+          draft: {
+            ...sessionValue.draft,
+            locationPolicy: "flexible",
+          },
+        }
+      : sessionValue;
   } else if (value.version !== CAMPUS_MAP_EDIT_SNAPSHOT_VERSION) {
     return { status: "discarded", reason: "unsupported-version" };
   }

@@ -16,6 +16,7 @@ interface CampusMapAmapProjectionDemand {
   visibleAmenity: CampusMapBrowseMarker["pinType"] | null;
   selectedBuildingId: string | null;
   selectedPlaceId: string | null;
+  allBuildings?: boolean;
 }
 
 interface CampusMapAmapCoordinateProjection {
@@ -99,6 +100,7 @@ export function projectCampusMapBrowseToAmap(
   for (const building of projection.buildings) {
     if (!building.anchor) continue;
     if (
+      !demand.allBuildings &&
       demand.selectedBuildingId !== building.buildingId &&
       !visibleBuildingIds.has(building.buildingId)
     ) {

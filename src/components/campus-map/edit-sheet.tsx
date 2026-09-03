@@ -2,12 +2,7 @@
 
 import Link from "next/link";
 import { useId, useMemo, useState } from "react";
-import {
-  Building2Icon,
-  ChevronDownIcon,
-  ChevronRightIcon,
-  MapPinIcon,
-} from "lucide-react";
+import { Building2Icon, ChevronDownIcon, MapPinIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { AmapPlaceContextResult } from "@/lib/campus-map/amap-place-context";
@@ -511,9 +506,6 @@ export function CampusMapEditSheet({
       : accessHasDetails;
   const setAccessDisclosureExpanded = (expanded: boolean) =>
     setAccessDisclosure({ key: accessDisclosureKey, expanded });
-  const [locationEditorOpen, setLocationEditorOpen] = useState(
-    draft.entrySource !== "building",
-  );
   const serverRequiredFields =
     factSchema?.definition.pinTypes[fact.pinType].requiredFields;
   const freshAttempt = () =>
@@ -539,9 +531,9 @@ export function CampusMapEditSheet({
     factSchema?.definition.pinTypes[fact.pinType].applicableFields ??
       activePreset.fields,
   );
-  const showsAccessFields = CAMPUS_MAP_EDIT_ACCESS_FIELDS.some((field) =>
-    applicableFields.has(field),
-  );
+  const showsAccessFields =
+    draft.mode === "edit" &&
+    CAMPUS_MAP_EDIT_ACCESS_FIELDS.some((field) => applicableFields.has(field));
   const accessValidationTarget = CAMPUS_MAP_EDIT_ACCESS_FIELDS.includes(
     session.localError as (typeof CAMPUS_MAP_EDIT_ACCESS_FIELDS)[number],
   );
@@ -561,9 +553,6 @@ export function CampusMapEditSheet({
   const selectedFloors = [...(selectedBuilding?.floors ?? [])].sort(
     (left, right) => left.sortOrder - right.sortOrder,
   );
-  const selectedFloorLabel = selectedFloors.find(
-    (floor) => floor.floorId === fact.floorId,
-  )?.displayLabel;
   const buildingDisplay = useMemo(
     () => projectCampusMapBuildingDisplay(buildings),
     [buildings],
@@ -579,13 +568,7 @@ export function CampusMapEditSheet({
     buildingLocationRequired && selectedBuilding === undefined;
   const restoredBuildingIsUnavailable =
     buildingLocationRequired && Boolean(fact.buildingId) && !selectedBuilding;
-  const compactBuildingContext =
-    buildingLocationRequired &&
-    draft.entrySource === "building" &&
-    selectedBuilding &&
-    !locationEditorOpen
-      ? selectedBuilding
-      : null;
+  const addIndoorLocation = draft.mode === "add" && indoorSelected;
   const formTitle = draft.mode === "add" ? "新增设施" : "修改设施";
   const weeklySchedule =
     fact.accessSchedule.kind === "weekly" ? fact.accessSchedule : null;
@@ -698,6 +681,7 @@ export function CampusMapEditSheet({
     );
   }
 
+  const isSelectingLocation = session.status === "selecting-location";
   const isPlacing = session.status === "placing";
   const showFixedFooter =
     isPlacing ||
@@ -869,6 +853,49 @@ export function CampusMapEditSheet({
     );
   }
 
+  const floorField = (
+    <label className="text-sm" htmlFor={`${fieldPrefix}-floor`}>
+      {campusMapFactFieldLabel("floorId")}
+      <select
+        id={`${fieldPrefix}-floor`}
+        name="campus-map-floor"
+        className={fieldClass}
+        disabled={!selectedBuilding}
+        value={fact.floorId ?? ""}
+        onChange={(event) => {
+          if (!selectedBuilding) return;
+          const floor = selectedFloors.find(
+            (candidate) => candidate.floorId === event.target.value,
+          );
+          changeFact(
+            {
+              buildingId: selectedBuilding.buildingId,
+              floorId: floor?.floorId ?? null,
+              location: floor ? { kind: "floor" } : { kind: "building" },
+            },
+            {
+              buildingId: selectedBuilding.buildingId,
+              buildingName:
+                campusMapBuildingDisplayFor(
+                  buildingDisplay,
+                  selectedBuilding.buildingId,
+                )?.label ?? selectedBuilding.name,
+              floorId: floor?.floorId ?? null,
+              floorLabel: floor?.displayLabel ?? null,
+            },
+          );
+        }}
+      >
+        <option value="">未指定楼层</option>
+        {selectedFloors.map((floor) => (
+          <option key={floor.floorId} value={floor.floorId}>
+            {floor.displayLabel}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
   const buildingFields = (
     <div className="grid gap-3">
       {restoredBuildingIsUnavailable ? (
@@ -938,46 +965,7 @@ export function CampusMapEditSheet({
           </span>
         ) : null}
       </label>
-      <label className="text-sm" htmlFor={`${fieldPrefix}-floor`}>
-        {campusMapFactFieldLabel("floorId")}
-        <select
-          id={`${fieldPrefix}-floor`}
-          name="campus-map-floor"
-          className={fieldClass}
-          disabled={!selectedBuilding}
-          value={fact.floorId ?? ""}
-          onChange={(event) => {
-            if (!selectedBuilding) return;
-            const floor = selectedFloors.find(
-              (candidate) => candidate.floorId === event.target.value,
-            );
-            changeFact(
-              {
-                buildingId: selectedBuilding.buildingId,
-                floorId: floor?.floorId ?? null,
-                location: floor ? { kind: "floor" } : { kind: "building" },
-              },
-              {
-                buildingId: selectedBuilding.buildingId,
-                buildingName:
-                  campusMapBuildingDisplayFor(
-                    buildingDisplay,
-                    selectedBuilding.buildingId,
-                  )?.label ?? selectedBuilding.name,
-                floorId: floor?.floorId ?? null,
-                floorLabel: floor?.displayLabel ?? null,
-              },
-            );
-          }}
-        >
-          <option value="">未指定楼层</option>
-          {selectedFloors.map((floor) => (
-            <option key={floor.floorId} value={floor.floorId}>
-              {floor.displayLabel}
-            </option>
-          ))}
-        </select>
-      </label>
+      {floorField}
       {buildingDirectoryStatus === "refreshing" ? (
         <p className="text-xs text-neutral-600" role="status">
           正在读取建筑目录…
@@ -1315,6 +1303,48 @@ export function CampusMapEditSheet({
     return null;
   })();
 
+  const facilityTypeField = (
+    <fieldset
+      data-edit-field="pinType"
+      tabIndex={-1}
+      className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
+    >
+      <legend className="mb-1.5 text-sm font-medium">设施类型</legend>
+      <div className="grid grid-cols-3 gap-1.5 md:gap-2">
+        {CAMPUS_MAP_EDIT_SCHEMA.presets.map((item) => (
+          <label
+            key={item.pinType}
+            className={cn(
+              "flex min-h-11 w-full cursor-pointer touch-manipulation items-center justify-center rounded-xl border px-1 text-center text-xs font-semibold transition-colors active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 motion-reduce:transform-none sm:text-sm md:px-2",
+              fact.pinType === item.pinType
+                ? "border-[#176346] bg-[#e4f1eb] text-[#174b38]"
+                : "border-black/15 bg-white text-neutral-700 hover:bg-neutral-50",
+            )}
+          >
+            <input
+              type="radio"
+              name={`${fieldPrefix}-pin-type`}
+              value={item.pinType}
+              checked={fact.pinType === item.pinType}
+              className="sr-only"
+              data-edit-field={
+                fact.pinType === item.pinType ? "pinType" : undefined
+              }
+              onChange={() =>
+                onEvent({
+                  type: "CHANGE_PIN_TYPE",
+                  pinType: item.pinType,
+                  ...freshAttempt(),
+                })
+              }
+            />
+            {campusMapPinTypeLabel(item.pinType)}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="border-b px-4 pt-[max(14px,env(safe-area-inset-top))] pb-3 md:px-5 md:py-4">
@@ -1323,13 +1353,19 @@ export function CampusMapEditSheet({
           tabIndex={-1}
           className="mr-10 max-w-[calc(100%-2.5rem)] text-lg font-semibold text-balance focus-visible:border-l-2 focus-visible:border-[#176346] focus-visible:pl-2 focus-visible:outline-none md:text-xl"
         >
-          {isPlacing
-            ? draft.mode === "add"
-              ? "选择设施位置"
-              : "修改设施位置"
-            : formTitle}
+          {isSelectingLocation
+            ? "选择设施位置"
+            : isPlacing
+              ? draft.mode === "add"
+                ? "选择设施位置"
+                : "修改设施位置"
+              : formTitle}
         </h2>
-        {isPlacing ? (
+        {isSelectingLocation ? (
+          <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm">
+            点击地图上的建筑，选择设施所在位置。
+          </p>
+        ) : isPlacing ? (
           <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm">
             {draft.mode === "add"
               ? "拖动地图或轻点地点名称，选择设施位置。"
@@ -1366,7 +1402,53 @@ export function CampusMapEditSheet({
             {nameErrorMessage}
           </div>
         ) : null}
-        {isPlacing ? (
+        {isSelectingLocation ? (
+          <div className="grid gap-3 rounded-xl bg-[#edf5f1] p-3">
+            <div className="flex items-start gap-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white text-[#176346] ring-1 ring-[#176346]/10">
+                <Building2Icon aria-hidden="true" className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">先选择所属建筑</p>
+                <p className="mt-0.5 text-xs leading-5 text-neutral-600">
+                  地图标记只代表 CUpedia 已收录的建筑，不会按距离猜测。
+                </p>
+              </div>
+            </div>
+            {buildingDirectoryStatus === "refreshing" ? (
+              <p className="text-xs text-neutral-600" role="status">
+                正在读取可选建筑…
+              </p>
+            ) : buildingDirectoryStatus === "error" ? (
+              <div
+                className="flex items-center justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-950"
+                role="alert"
+              >
+                <span>建筑目录载入失败。</span>
+                {onRetryBuildings ? (
+                  <button
+                    type="button"
+                    className="min-h-11 shrink-0 rounded-lg px-2 font-semibold text-[#176346] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                    onClick={onRetryBuildings}
+                  >
+                    重新加载建筑
+                  </button>
+                ) : null}
+              </div>
+            ) : buildings.length === 0 ? (
+              <p className="text-xs text-neutral-600" role="status">
+                暂无可选建筑。你仍可新增室外设施。
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className={secondaryClass}
+              onClick={() => onEvent({ type: "START_OUTDOOR_PLACEMENT" })}
+            >
+              这是室外设施
+            </button>
+          </div>
+        ) : isPlacing ? (
           <div className="rounded-xl bg-[#edf5f1] px-3 py-2.5 text-sm">
             <div className="flex items-start gap-3">
               <MapPinIcon
@@ -1398,142 +1480,103 @@ export function CampusMapEditSheet({
           </div>
         ) : null}
         {coordinateEntry}
-        <div hidden={isPlacing} className="space-y-3 md:space-y-4">
-          <label
-            className="block text-sm font-medium"
-            htmlFor={`${fieldPrefix}-name`}
-          >
-            设施名称或编号
-            <input
-              id={`${fieldPrefix}-name`}
-              name="campus-map-place-name"
-              type="text"
-              autoComplete="off"
-              required
-              data-edit-field="name"
-              aria-invalid={nameErrorMessage ? true : undefined}
-              aria-describedby={
-                nameErrorMessage ? `${fieldPrefix}-name-error` : undefined
-              }
-              className={fieldClass}
-              value={fact.name}
-              onChange={(event) => changeFact({ name: event.target.value })}
-            />
-            {nameErrorMessage ? (
-              <span
-                id={`${fieldPrefix}-name-error`}
-                className="mt-1 block text-xs text-red-700"
-              >
-                {nameErrorMessage}
-              </span>
-            ) : null}
-          </label>
-
-          <fieldset
-            data-edit-field="pinType"
-            tabIndex={-1}
-            className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
-          >
-            <legend className="mb-1.5 text-sm font-medium">设施类型</legend>
-            <div className="grid grid-cols-3 gap-1.5 md:gap-2">
-              {CAMPUS_MAP_EDIT_SCHEMA.presets.map((item) => (
-                <label
-                  key={item.pinType}
-                  className={cn(
-                    "flex min-h-11 w-full cursor-pointer touch-manipulation items-center justify-center rounded-xl border px-1 text-center text-xs font-semibold transition-colors active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 motion-reduce:transform-none sm:text-sm md:px-2",
-                    fact.pinType === item.pinType
-                      ? "border-[#176346] bg-[#e4f1eb] text-[#174b38]"
-                      : "border-black/15 bg-white text-neutral-700 hover:bg-neutral-50",
-                  )}
+        <div
+          hidden={isPlacing || isSelectingLocation}
+          className="space-y-3 md:space-y-4"
+        >
+          {draft.mode === "edit" ? (
+            <label
+              className="block text-sm font-medium"
+              htmlFor={`${fieldPrefix}-name`}
+            >
+              设施名称或编号
+              <input
+                id={`${fieldPrefix}-name`}
+                name="campus-map-place-name"
+                type="text"
+                autoComplete="off"
+                required
+                data-edit-field="name"
+                aria-invalid={nameErrorMessage ? true : undefined}
+                aria-describedby={
+                  nameErrorMessage ? `${fieldPrefix}-name-error` : undefined
+                }
+                className={fieldClass}
+                value={fact.name}
+                onChange={(event) => changeFact({ name: event.target.value })}
+              />
+              {nameErrorMessage ? (
+                <span
+                  id={`${fieldPrefix}-name-error`}
+                  className="mt-1 block text-xs text-red-700"
                 >
-                  <input
-                    type="radio"
-                    name={`${fieldPrefix}-pin-type`}
-                    value={item.pinType}
-                    checked={fact.pinType === item.pinType}
-                    className="sr-only"
-                    data-edit-field={
-                      fact.pinType === item.pinType ? "pinType" : undefined
-                    }
-                    onChange={() =>
-                      onEvent({
-                        type: "CHANGE_PIN_TYPE",
-                        pinType: item.pinType,
-                        ...freshAttempt(),
-                      })
-                    }
-                  />
-                  {campusMapPinTypeLabel(item.pinType)}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+                  {nameErrorMessage}
+                </span>
+              ) : null}
+            </label>
+          ) : null}
 
-          <PlacePhotoEditor
-            pinType={fact.pinType}
-            photos={draft.photos}
-            disabled={
-              session.status !== "editing" &&
-              session.status !== "temporarily-unavailable"
-            }
-            onPendingChange={setPhotoUploadPending}
-            onChange={(photos) =>
-              onEvent({ type: "CHANGE_PHOTOS", photos, ...freshAttempt() })
-            }
-          />
+          {draft.mode === "edit" ? facilityTypeField : null}
 
-          {buildingLocationRequired ? (
+          {draft.mode === "edit" ? (
+            <PlacePhotoEditor
+              pinType={fact.pinType}
+              photos={draft.photos}
+              disabled={
+                session.status !== "editing" &&
+                session.status !== "temporarily-unavailable"
+              }
+              onPendingChange={setPhotoUploadPending}
+              onChange={(photos) =>
+                onEvent({ type: "CHANGE_PHOTOS", photos, ...freshAttempt() })
+              }
+            />
+          ) : null}
+
+          {addIndoorLocation ? (
             <fieldset
               data-edit-field="location"
               tabIndex={-1}
-              className="rounded-xl border border-[#176346]/10 bg-[#edf5f1] px-2.5 pb-2 pt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+              className="rounded-xl border border-[#176346]/10 bg-[#edf5f1] p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
             >
               <legend className="px-1 text-sm font-semibold">所属建筑</legend>
-              {compactBuildingContext ? (
-                <button
-                  type="button"
-                  aria-label="更改所属建筑或楼层"
-                  aria-describedby={`${fieldPrefix}-building-summary`}
-                  className="flex min-h-14 w-full touch-manipulation items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-white/70 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none"
-                  onClick={() => setLocationEditorOpen(true)}
-                >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/80 text-[#176346] ring-1 ring-[#176346]/10">
-                    <Building2Icon aria-hidden="true" className="size-5" />
-                  </span>
-                  <span
-                    id={`${fieldPrefix}-building-summary`}
-                    className="min-w-0 flex-1"
-                  >
-                    <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold leading-5">
-                      <span className="truncate">
-                        {compactBuildingContext.name}
-                      </span>
-                      {selectedBuildingQualifier ? (
-                        <span
-                          title={selectedBuildingQualifier}
-                          className="max-w-[42%] shrink-0 truncate rounded bg-white/80 px-1.5 py-0.5 text-[11px] font-medium text-neutral-600 ring-1 ring-black/5"
-                        >
-                          {selectedBuildingQualifier}
-                        </span>
-                      ) : null}
+              <div className="flex min-h-11 items-center gap-3">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/80 text-[#176346] ring-1 ring-[#176346]/10">
+                  <Building2Icon aria-hidden="true" className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold leading-5">
+                    <span className="truncate">
+                      {selectedBuilding?.name ??
+                        draft.locationDisplay?.buildingName ??
+                        "建筑资料不可用"}
                     </span>
-                    {selectedFloorLabel ? (
-                      <span className="mt-0.5 block truncate text-xs text-neutral-600">
-                        {selectedFloorLabel}
+                    {selectedBuildingQualifier ? (
+                      <span
+                        title={selectedBuildingQualifier}
+                        className="max-w-[42%] shrink-0 truncate rounded bg-white/80 px-1.5 py-0.5 text-[11px] font-medium text-neutral-600 ring-1 ring-black/5"
+                      >
+                        {selectedBuildingQualifier}
                       </span>
                     ) : null}
                   </span>
-                  <span
-                    aria-hidden="true"
-                    className="flex shrink-0 items-center gap-0.5 text-xs font-semibold text-[#176346]"
+                </span>
+                {draft.entrySource === "global" ? (
+                  <button
+                    type="button"
+                    className="min-h-11 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                    onClick={() =>
+                      onEvent({
+                        type: "START_LOCATION_SELECTION",
+                        ...freshAttempt(),
+                      })
+                    }
                   >
-                    更改
-                    <ChevronRightIcon className="size-4" />
-                  </span>
-                </button>
-              ) : (
-                buildingFields
-              )}
+                    更改位置
+                  </button>
+                ) : null}
+              </div>
+              <div className="mt-3">{floorField}</div>
             </fieldset>
           ) : (
             <fieldset
@@ -1580,68 +1623,79 @@ export function CampusMapEditSheet({
                   type="button"
                   className="min-h-11 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
                   onClick={() => {
-                    onEvent({ type: "START_REPOSITION", ...freshAttempt() });
+                    onEvent(
+                      draft.mode === "add"
+                        ? {
+                            type: "START_LOCATION_SELECTION",
+                            ...freshAttempt(),
+                          }
+                        : { type: "START_REPOSITION", ...freshAttempt() },
+                    );
                   }}
                 >
-                  修改位置
+                  {draft.mode === "add" ? "更改位置" : "修改位置"}
                 </button>
               </div>
-              <div className="mt-3 border-t border-[#176346]/15 pt-3">
-                <p className="mb-2 text-sm font-medium">位置类型</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <label
-                    className={cn(
-                      "flex min-h-11 cursor-pointer touch-manipulation items-center gap-2 rounded-lg border bg-white px-3 text-sm",
-                      !indoorSelected
-                        ? "border-[#176346] text-[#174b38]"
-                        : "border-black/10 hover:bg-neutral-50",
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      name={`${fieldPrefix}-location-kind`}
-                      value="outdoor"
-                      checked={!indoorSelected}
-                      onChange={() =>
-                        onEvent({
-                          type: "CHOOSE_LOCATION_KIND",
-                          kind: "outdoor",
-                          ...freshAttempt(),
-                        })
-                      }
-                    />
-                    室外
-                  </label>
-                  <label
-                    className={cn(
-                      "flex min-h-11 cursor-pointer touch-manipulation items-center gap-2 rounded-lg border bg-white px-3 text-sm",
-                      indoorSelected
-                        ? "border-[#176346] text-[#174b38]"
-                        : "border-black/10 hover:bg-neutral-50",
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      name={`${fieldPrefix}-location-kind`}
-                      value="indoor"
-                      checked={indoorSelected}
-                      onChange={() =>
-                        onEvent({
-                          type: "CHOOSE_LOCATION_KIND",
-                          kind: "indoor",
-                          ...freshAttempt(),
-                        })
-                      }
-                    />
-                    建筑内
-                  </label>
+              {draft.mode === "edit" ? (
+                <div className="mt-3 border-t border-[#176346]/15 pt-3">
+                  <p className="mb-2 text-sm font-medium">位置类型</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label
+                      className={cn(
+                        "flex min-h-11 cursor-pointer touch-manipulation items-center gap-2 rounded-lg border bg-white px-3 text-sm",
+                        !indoorSelected
+                          ? "border-[#176346] text-[#174b38]"
+                          : "border-black/10 hover:bg-neutral-50",
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name={`${fieldPrefix}-location-kind`}
+                        value="outdoor"
+                        checked={!indoorSelected}
+                        onChange={() =>
+                          onEvent({
+                            type: "CHOOSE_LOCATION_KIND",
+                            kind: "outdoor",
+                            ...freshAttempt(),
+                          })
+                        }
+                      />
+                      室外
+                    </label>
+                    <label
+                      className={cn(
+                        "flex min-h-11 cursor-pointer touch-manipulation items-center gap-2 rounded-lg border bg-white px-3 text-sm",
+                        indoorSelected
+                          ? "border-[#176346] text-[#174b38]"
+                          : "border-black/10 hover:bg-neutral-50",
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name={`${fieldPrefix}-location-kind`}
+                        value="indoor"
+                        checked={indoorSelected}
+                        onChange={() =>
+                          onEvent({
+                            type: "CHOOSE_LOCATION_KIND",
+                            kind: "indoor",
+                            ...freshAttempt(),
+                          })
+                        }
+                      />
+                      建筑内
+                    </label>
+                  </div>
                 </div>
-              </div>
-              {indoorSelected ? (
+              ) : null}
+              {draft.mode === "edit" && indoorSelected ? (
                 <div className="mt-3">{buildingFields}</div>
               ) : null}
             </fieldset>
           )}
+
+          {draft.mode === "add" ? facilityTypeField : null}
 
           {showsAccessFields ? (
             <div>
