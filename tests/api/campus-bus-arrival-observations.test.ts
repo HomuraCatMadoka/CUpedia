@@ -100,7 +100,7 @@ describe("POST /api/campus-bus/arrival-observations", () => {
     );
   });
 
-  it("ignores client fields beyond route, stop, and arrival time", async () => {
+  it("keeps observations from older clients readable with nullable context", async () => {
     const response = await POST(
       request({
         observedArrivalAt: "2026-08-10T00:09:00.000Z",
@@ -113,13 +113,68 @@ describe("POST /api/campus-bus/arrival-observations", () => {
     expect(response.status).toBe(201);
     expect(insertArrivalObservationMock).toHaveBeenCalledWith(
       {
+        candidatePatternRevisionId: null,
+        candidateScheduledDepartureAt: null,
         observedArrivalAt: new Date("2026-08-10T00:09:00.000Z"),
+        predictionModelRevisionId: null,
         receivedAt: NOW,
         routeId: "2",
         stopId: "cuhk-wp-stop-2550",
         stopOccurrenceId: "cuhk-wp-stop-2550#1",
         submittedAnonymously: true,
       },
+      "22222222-2222-4222-8222-222222222222",
+      NOW,
+    );
+  });
+
+  it("stores the validated timetable context shown on the passenger page", async () => {
+    const response = await POST(
+      request({
+        candidateContext: {
+          patternRevisionId: "2:default:2026-09-01",
+          predictionModelRevisionId: "cold-start:2:f4454cf9e0d3f90a",
+          scheduledDepartureAt: "2026-08-10T00:15:00.000Z",
+        },
+        observedArrivalAt: "2026-08-10T00:09:00.000Z",
+        routeId: "2",
+        stopOccurrenceId: "cuhk-wp-stop-2550#1",
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(insertArrivalObservationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        candidatePatternRevisionId: "2:default:2026-09-01",
+        candidateScheduledDepartureAt: new Date("2026-08-10T00:15:00.000Z"),
+        predictionModelRevisionId: "cold-start:2:f4454cf9e0d3f90a",
+      }),
+      "22222222-2222-4222-8222-222222222222",
+      NOW,
+    );
+  });
+
+  it("discards tampered candidate context without losing the raw report", async () => {
+    const response = await POST(
+      request({
+        candidateContext: {
+          patternRevisionId: "2s:made-up-revision",
+          predictionModelRevisionId: "made-up-model",
+          scheduledDepartureAt: "2026-08-10T00:00:00.000Z",
+        },
+        observedArrivalAt: "2026-08-10T00:09:00.000Z",
+        routeId: "2",
+        stopOccurrenceId: "cuhk-wp-stop-2550#1",
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(insertArrivalObservationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        candidatePatternRevisionId: null,
+        candidateScheduledDepartureAt: null,
+        predictionModelRevisionId: null,
+      }),
       "22222222-2222-4222-8222-222222222222",
       NOW,
     );

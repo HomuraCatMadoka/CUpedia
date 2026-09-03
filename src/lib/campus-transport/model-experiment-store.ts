@@ -4,6 +4,10 @@ import { and, asc, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
+  buildArrivalEvidenceCoverage,
+  summarizeArrivalEvidenceReplay,
+} from "@/lib/campus-transport/arrival-evidence-coverage";
+import {
   campusBusArrivalObservations,
   campusBusPredictionAdjustments,
   campusBusPredictionModelRevisions,
@@ -14,12 +18,16 @@ import {
   CAMPUS_BUS_MODEL_ALGORITHM,
   candidateBeatsChampion,
   evaluatePredictionAdjustments,
+  eventsForRouteRevisions,
   predictionAdjustmentFromStorage,
   reconstructArrivalEvidence,
   trainCandidateModel,
   type ModelEvaluation,
 } from "@/lib/campus-transport/prediction-model";
-import { campusBusRoutes } from "@/lib/campus-transport/routes-data";
+import {
+  campusBusRoutes,
+  historicalCampusBusRoutes,
+} from "@/lib/campus-transport/routes-data";
 
 const EXPERIMENT_COOLDOWN_MILLISECONDS = 2 * 60_000;
 const MAX_SOURCE_OBSERVATIONS = 20_000;
@@ -74,59 +82,82 @@ export async function getModelLabOverview(viewer: ModelLabViewer) {
           eq(campusBusPredictionModelRevisions.runKind, "experiment"),
           eq(campusBusPredictionModelRevisions.createdBy, viewer.id),
         );
-  const [coverage, byRoute, experiments, champion] = await Promise.all([
-    db
-      .select({
-        firstArrivalAt: sql<Date | null>`min(${campusBusArrivalObservations.observedArrivalAt})`,
-        lastArrivalAt: sql<Date | null>`max(${campusBusArrivalObservations.observedArrivalAt})`,
-        observationCount: count(),
-      })
-      .from(campusBusArrivalObservations),
-    db
-      .select({
-        observationCount: count(),
-        routeId: campusBusArrivalObservations.routeId,
-      })
-      .from(campusBusArrivalObservations)
-      .groupBy(campusBusArrivalObservations.routeId)
-      .orderBy(asc(campusBusArrivalObservations.routeId)),
-    db
-      .select({
-        id: campusBusPredictionModelRevisions.id,
-        authorName: users.nickname,
-        authorEmail: users.email,
-        createdAt: campusBusPredictionModelRevisions.createdAt,
-        status: campusBusPredictionModelRevisions.status,
-        routeScope: campusBusPredictionModelRevisions.routeScope,
-        parameters: campusBusPredictionModelRevisions.parameters,
-        sourceObservationCount:
-          campusBusPredictionModelRevisions.sourceObservationCount,
-        trainingEventCount:
-          campusBusPredictionModelRevisions.trainingEventCount,
-        validationEventCount:
-          campusBusPredictionModelRevisions.validationEventCount,
-        metrics: campusBusPredictionModelRevisions.metrics,
-        promotedAt: campusBusPredictionModelRevisions.promotedAt,
-        runKind: campusBusPredictionModelRevisions.runKind,
-      })
-      .from(campusBusPredictionModelRevisions)
-      .leftJoin(
-        users,
-        eq(campusBusPredictionModelRevisions.createdBy, users.id),
-      )
-      .where(experimentVisibility)
-      .orderBy(desc(campusBusPredictionModelRevisions.createdAt))
-      .limit(20),
-    db.query.campusBusPredictionModelRevisions.findFirst({
-      columns: {
-        id: true,
-        createdAt: true,
-        promotedAt: true,
-        sourceObservationCount: true,
-      },
-      where: eq(campusBusPredictionModelRevisions.status, "champion"),
-      orderBy: (table, { desc }) => [desc(table.promotedAt)],
-    }),
+  const [coverage, byRoute, experiments, champion, replayRows] =
+    await Promise.all([
+      db
+        .select({
+          firstArrivalAt: sql<Date | null>`min(${campusBusArrivalObservations.observedArrivalAt})`,
+          lastArrivalAt: sql<Date | null>`max(${campusBusArrivalObservations.observedArrivalAt})`,
+          observationCount: count(),
+        })
+        .from(campusBusArrivalObservations),
+      db
+        .select({
+          observationCount: count(),
+          routeId: campusBusArrivalObservations.routeId,
+        })
+        .from(campusBusArrivalObservations)
+        .groupBy(campusBusArrivalObservations.routeId)
+        .orderBy(asc(campusBusArrivalObservations.routeId)),
+      db
+        .select({
+          id: campusBusPredictionModelRevisions.id,
+          authorName: users.nickname,
+          authorEmail: users.email,
+          createdAt: campusBusPredictionModelRevisions.createdAt,
+          status: campusBusPredictionModelRevisions.status,
+          routeScope: campusBusPredictionModelRevisions.routeScope,
+          parameters: campusBusPredictionModelRevisions.parameters,
+          sourceObservationCount:
+            campusBusPredictionModelRevisions.sourceObservationCount,
+          trainingEventCount:
+            campusBusPredictionModelRevisions.trainingEventCount,
+          validationEventCount:
+            campusBusPredictionModelRevisions.validationEventCount,
+          metrics: campusBusPredictionModelRevisions.metrics,
+          promotedAt: campusBusPredictionModelRevisions.promotedAt,
+          runKind: campusBusPredictionModelRevisions.runKind,
+        })
+        .from(campusBusPredictionModelRevisions)
+        .leftJoin(
+          users,
+          eq(campusBusPredictionModelRevisions.createdBy, users.id),
+        )
+        .where(experimentVisibility)
+        .orderBy(desc(campusBusPredictionModelRevisions.createdAt))
+        .limit(20),
+      db.query.campusBusPredictionModelRevisions.findFirst({
+        columns: {
+          id: true,
+          createdAt: true,
+          promotedAt: true,
+          sourceObservationCount: true,
+        },
+        where: eq(campusBusPredictionModelRevisions.status, "champion"),
+        orderBy: (table, { desc }) => [desc(table.promotedAt)],
+      }),
+      db
+        .select({
+          candidatePatternRevisionId:
+            campusBusArrivalObservations.candidatePatternRevisionId,
+          candidateScheduledDepartureAt:
+            campusBusArrivalObservations.candidateScheduledDepartureAt,
+          id: campusBusArrivalObservations.id,
+          observedArrivalAt: campusBusArrivalObservations.observedArrivalAt,
+          predictionModelRevisionId:
+            campusBusArrivalObservations.predictionModelRevisionId,
+          receivedAt: campusBusArrivalObservations.receivedAt,
+          routeId: campusBusArrivalObservations.routeId,
+          stopOccurrenceId: campusBusArrivalObservations.stopOccurrenceId,
+        })
+        .from(campusBusArrivalObservations)
+        .orderBy(desc(campusBusArrivalObservations.observedArrivalAt))
+        .limit(MAX_SOURCE_OBSERVATIONS),
+    ]);
+  replayRows.reverse();
+  const replay = reconstructArrivalEvidence(replayRows, [
+    ...historicalCampusBusRoutes,
+    ...campusBusRoutes,
   ]);
 
   return {
@@ -137,6 +168,13 @@ export async function getModelLabOverview(viewer: ModelLabViewer) {
     },
     routes: byRoute,
     champion: champion ?? null,
+    coverageDetails: buildArrivalEvidenceCoverage(
+      replayRows,
+      historicalCampusBusRoutes,
+      campusBusRoutes,
+      replay,
+    ),
+    replay: summarizeArrivalEvidenceReplay(replayRows, replay),
     experiments: experiments.map((experiment) => ({
       id: experiment.id,
       runKind: experiment.runKind,
@@ -167,8 +205,10 @@ export async function runModelExperiment(
       parameters.trainingWindowDays * 24 * 60 * 60_000,
   );
   const routes = parameters.routeId
-    ? campusBusRoutes.filter((route) => route.routeId === parameters.routeId)
-    : campusBusRoutes;
+    ? [...historicalCampusBusRoutes, ...campusBusRoutes].filter(
+        (route) => route.routeId === parameters.routeId,
+      )
+    : [...historicalCampusBusRoutes, ...campusBusRoutes];
 
   return db.transaction(async (tx) => {
     await tx.execute(
@@ -192,6 +232,12 @@ export async function runModelExperiment(
     const observations = await tx
       .select({
         id: campusBusArrivalObservations.id,
+        candidatePatternRevisionId:
+          campusBusArrivalObservations.candidatePatternRevisionId,
+        candidateScheduledDepartureAt:
+          campusBusArrivalObservations.candidateScheduledDepartureAt,
+        predictionModelRevisionId:
+          campusBusArrivalObservations.predictionModelRevisionId,
         routeId: campusBusArrivalObservations.routeId,
         stopOccurrenceId: campusBusArrivalObservations.stopOccurrenceId,
         observedArrivalAt: campusBusArrivalObservations.observedArrivalAt,
@@ -220,9 +266,11 @@ export async function runModelExperiment(
       candidateWindowSeconds: parameters.candidateWindowMinutes * 60,
       likelihoodScaleSeconds: parameters.likelihoodScaleMinutes * 60,
     });
-    const candidate = trainCandidateModel(reconstructed.events, {
-      minEvents: parameters.minEvents,
-      minServiceDays: parameters.minServiceDays,
+    const currentRevisionEvents = eventsForRouteRevisions(
+      reconstructed.events,
+      campusBusRoutes,
+    );
+    const candidate = trainCandidateModel(currentRevisionEvents, {
       priorStrength: parameters.priorStrength,
     });
     const champion = await tx.query.campusBusPredictionModelRevisions.findFirst(
@@ -233,7 +281,7 @@ export async function runModelExperiment(
       },
     );
     const validationDates = new Set(candidate.validationServiceDates);
-    const validationEvents = reconstructed.events.filter((event) =>
+    const validationEvents = currentRevisionEvents.filter((event) =>
       validationDates.has(event.serviceDate),
     );
     const championAdjustments = champion

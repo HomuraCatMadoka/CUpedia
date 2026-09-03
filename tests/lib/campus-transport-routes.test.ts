@@ -39,6 +39,40 @@ function geometryLineCount(route: (typeof campusBusRoutes)[number]) {
 }
 
 describe("campus bus route catalog", () => {
+  it("keeps service-date ranges non-overlapping within each route", () => {
+    const revisionsByRoute = new Map<
+      string,
+      typeof historicalCampusBusRoutes
+    >();
+    for (const route of [...historicalCampusBusRoutes, ...campusBusRoutes]) {
+      const revisions = revisionsByRoute.get(route.routeId) ?? [];
+      revisions.push(route);
+      revisionsByRoute.set(route.routeId, revisions);
+    }
+
+    const overlaps: string[] = [];
+    for (const [routeId, revisions] of revisionsByRoute) {
+      revisions.sort((left, right) =>
+        (left.validFrom ?? "").localeCompare(right.validFrom ?? ""),
+      );
+      for (let index = 1; index < revisions.length; index += 1) {
+        const previous = revisions[index - 1];
+        const current = revisions[index];
+        if (
+          previous.validTo === null ||
+          current.validFrom === null ||
+          previous.validTo >= current.validFrom
+        ) {
+          overlaps.push(
+            `${routeId}: ${previous.routeRevisionId} overlaps ${current.routeRevisionId}`,
+          );
+        }
+      }
+    }
+
+    expect(overlaps).toEqual([]);
+  });
+
   it("publishes the reviewed route batches", () => {
     expect(campusBusRoutes.map((route) => route.slug)).toEqual([
       "1",

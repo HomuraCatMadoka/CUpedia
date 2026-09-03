@@ -29,6 +29,7 @@ import {
 import { BUS_DWELL_MILLISECONDS } from "@/lib/campus-transport/bus-kinematics";
 import {
   type CampusBusPassengerRoute,
+  type CampusBusArrival,
   type CampusBusStop,
   type CampusBusStopBoard,
   formatHongKongTime,
@@ -200,12 +201,14 @@ function ArrivalBoard({
 }
 
 function FeedbackDialog({
+  candidateArrival,
   now,
   onOpenChange,
   open,
   route,
   stop,
 }: {
+  candidateArrival: CampusBusArrival | null;
   now: number;
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -225,6 +228,16 @@ function FeedbackDialog({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          candidateContext: candidateArrival
+            ? {
+                patternRevisionId: candidateArrival.patternRevisionId,
+                predictionModelRevisionId:
+                  route.predictionRevisionId ?? route.seedModelRevisionId,
+                scheduledDepartureAt: new Date(
+                  candidateArrival.departureAt,
+                ).toISOString(),
+              }
+            : null,
           observedArrivalAt: new Date(selectedTime).toISOString(),
           routeId: route.routeId,
           stopOccurrenceId: stop.id,
@@ -668,6 +681,11 @@ export function CampusRouteView({
 
       {feedbackOpen && (
         <FeedbackDialog
+          candidateArrival={
+            boards.get(selectedStop.id)?.dockingArrival ??
+            boards.get(selectedStop.id)?.upcomingArrivals[0] ??
+            null
+          }
           now={now}
           route={route}
           stop={selectedStop}

@@ -150,18 +150,13 @@ type ArrivalObservation = {
   observationId: string;
   routeId: string;
   stopId: string;
+  stopOccurrenceId: string;
   observedArrivalAt: string;
   receivedAt: string;
-  projectionId: string;
-  candidateTripId: string | null;
   candidatePatternRevisionId: string | null;
-  modelRevisionId: string;
-  gpsEvidence: {
-    distanceToStopM: number;
-    accuracyM: number;
-  } | null;
+  candidateScheduledDepartureAt: string | null;
+  predictionModelRevisionId: string | null;
   submittedAnonymously: boolean;
-  qualityFlags: string[];
 };
 ```
 
@@ -170,6 +165,8 @@ type ArrivalObservation = {
 ### 2. 模型不能把每次点击当作一辆独立巴士
 
 同一辆车到同一站时，可能有三个人同时点击，也可能一次网络重试产生两条记录。这些反馈都有效、都保存，但现实只发生了一次到站。
+
+算法先按香港服务日期选择当时有效的 Route 与 Route pattern revision，再合并短时间内同站的重复回报。之后依据时间、单调站序、重复 Stop occurrence 与可行站间耗时组成候选车辆轨迹；一条连续轨迹只能联合选择同一 Trip 和 pattern。页面保存的候选上下文只增加匹配证据，不能强制指定结果。
 
 算法按以下候选键重建 `ArrivalEvent`：
 
@@ -180,6 +177,8 @@ serviceDate
 × candidate Trip probability
 × 相近到站时间窗口
 ```
+
+起点的“车辆到站／候车”回报没有明确发车证据，因此不会被当作 departure residual；它仍保留在原始 observations 与回放排除原因中。
 
 因此：
 

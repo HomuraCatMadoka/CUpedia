@@ -16,6 +16,7 @@ import {
   CAMPUS_BUS_MODEL_ALGORITHM,
   candidateBeatsChampion,
   evaluatePredictionAdjustments,
+  eventsForRouteRevisions,
   predictionAdjustmentFromStorage,
   reconstructArrivalEvidence,
   trainCandidateModel,
@@ -23,6 +24,7 @@ import {
 import {
   campusBusRoutes,
   getCampusBusRoute,
+  historicalCampusBusRoutes,
 } from "@/lib/campus-transport/routes-data";
 
 const TRAINING_WINDOW_DAYS = 28;
@@ -77,6 +79,12 @@ export async function rebuildCampusBusPredictionModel(
     const observations = await tx
       .select({
         id: campusBusArrivalObservations.id,
+        candidatePatternRevisionId:
+          campusBusArrivalObservations.candidatePatternRevisionId,
+        candidateScheduledDepartureAt:
+          campusBusArrivalObservations.candidateScheduledDepartureAt,
+        predictionModelRevisionId:
+          campusBusArrivalObservations.predictionModelRevisionId,
         routeId: campusBusArrivalObservations.routeId,
         stopOccurrenceId: campusBusArrivalObservations.stopOccurrenceId,
         observedArrivalAt: campusBusArrivalObservations.observedArrivalAt,
@@ -96,11 +104,15 @@ export async function rebuildCampusBusPredictionModel(
         ),
       )
       .orderBy(asc(campusBusArrivalObservations.observedArrivalAt));
-    const reconstructed = reconstructArrivalEvidence(
-      observations,
+    const reconstructed = reconstructArrivalEvidence(observations, [
+      ...historicalCampusBusRoutes,
+      ...campusBusRoutes,
+    ]);
+    const currentRevisionEvents = eventsForRouteRevisions(
+      reconstructed.events,
       campusBusRoutes,
     );
-    const candidate = trainCandidateModel(reconstructed.events);
+    const candidate = trainCandidateModel(currentRevisionEvents);
     const previousChampion =
       await tx.query.campusBusPredictionModelRevisions.findFirst({
         columns: { id: true },
@@ -119,7 +131,7 @@ export async function rebuildCampusBusPredictionModel(
           )
       : [];
     const validationDates = new Set(candidate.validationServiceDates);
-    const validationEvents = reconstructed.events.filter((event) =>
+    const validationEvents = currentRevisionEvents.filter((event) =>
       validationDates.has(event.serviceDate),
     );
     const championEvaluation = previousChampion
@@ -169,8 +181,15 @@ export async function rebuildCampusBusPredictionModel(
     if (reconstructed.candidates.length > 0) {
       await tx.insert(campusBusTripMatchCandidates).values(
         reconstructed.candidates.map((match) => ({
-          ...match,
+          baselineArrivalAt: match.baselineArrivalAt,
           modelRevisionId: revision.id,
+          observationId: match.observationId,
+          patternId: match.patternId,
+          patternRevisionId: match.patternRevisionId,
+          probability: match.probability,
+          rank: match.rank,
+          routeRevisionId: match.routeRevisionId,
+          scheduledDepartureAt: match.scheduledDepartureAt,
         })),
       );
     }
@@ -183,7 +202,9 @@ export async function rebuildCampusBusPredictionModel(
             modelRevisionId: revision.id,
             eventKey: event.eventKey,
             routeId: event.routeId,
+            routeRevisionId: event.routeRevisionId,
             patternId: event.patternId,
+            patternRevisionId: event.patternRevisionId,
             stopOccurrenceId: event.stopOccurrenceId,
             scheduledDepartureAt: event.scheduledDepartureAt,
             baselineArrivalAt: event.baselineArrivalAt,
