@@ -129,4 +129,30 @@ describe("PlacePhotoEditor (#818)", () => {
       /重新导出|另一张/u,
     );
   });
+
+  it("compensates an upload whose response is lost", async () => {
+    vi.mocked(fetch)
+      .mockRejectedValueOnce(new Error("network disconnected"))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+    render(
+      <PlacePhotoEditor pinType="classroom" photos={[]} onChange={vi.fn()} />,
+    );
+
+    fireEvent.change(screen.getByLabelText("添加照片（0/3）"), {
+      target: {
+        files: [new File(["photo"], "room.png", { type: "image/png" })],
+      },
+    });
+
+    await screen.findByRole("alert");
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(fetch).mock.calls[1]).toEqual([
+      "/api/campus-map/place-photos",
+      expect.objectContaining({
+        method: "DELETE",
+        body: JSON.stringify({ assetIds: [assetId] }),
+        keepalive: true,
+      }),
+    ]);
+  });
 });

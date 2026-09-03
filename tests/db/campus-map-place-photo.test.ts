@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
   CampusMapPlacePhotoError,
   cleanupCampusMapPlacePhotoAssets,
+  discardCampusMapPlacePhotoAssets,
   uploadCampusMapPlacePhoto,
 } from "@/lib/campus-map/place-photos";
 
@@ -103,11 +104,12 @@ describe.skipIf(!hasDb)(
       expect(limit.rows[0]?.attempt_count).toBe(2);
     });
 
-    it("expires a partial upload and removes both object keys on cleanup retry", async () => {
+    it("immediately compensates a partial object upload", async () => {
       const actorId = await createActor();
       const assetId = randomUUID();
       const source = await sourcePhoto();
       let putCount = 0;
+      const deletedKeys: string[] = [];
       await expect(
         uploadCampusMapPlacePhoto({
           actorId,
@@ -118,6 +120,39 @@ describe.skipIf(!hasDb)(
             putCount += 1;
             if (putCount === 2) throw new Error("simulated storage failure");
           },
+          deleteStoredObjects: async (keys) => {
+            deletedKeys.push(...keys);
+          },
+        }),
+      ).rejects.toEqual(new CampusMapPlacePhotoError("photo-upload-failed"));
+
+      expect(deletedKeys).toEqual([
+        `campus-map/place-photos/${assetId}/full.webp`,
+        `campus-map/place-photos/${assetId}/thumbnail.webp`,
+      ]);
+      const remaining = await pool.query(
+        "select id from campus_map_place_photo_assets where id = $1",
+        [assetId],
+      );
+      expect(remaining.rowCount).toBe(0);
+    });
+
+    it("leaves failed compensation for the daily cleanup safety net", async () => {
+      const actorId = await createActor();
+      const assetId = randomUUID();
+      const source = await sourcePhoto();
+      await expect(
+        uploadCampusMapPlacePhoto({
+          actorId,
+          assetId,
+          source,
+          now: new Date("2026-09-02T02:00:00.000Z"),
+          putStoredObject: async () => {
+            throw new Error("simulated upload failure");
+          },
+          deleteStoredObjects: async () => {
+            throw new Error("simulated compensation failure");
+          },
         }),
       ).rejects.toEqual(new CampusMapPlacePhotoError("photo-upload-failed"));
 
@@ -125,6 +160,40 @@ describe.skipIf(!hasDb)(
       await expect(
         cleanupCampusMapPlacePhotoAssets({
           now: new Date("2026-09-02T02:00:01.000Z"),
+          deleteStoredObjects: async (keys) => {
+            deletedKeys.push(...keys);
+          },
+        }),
+      ).resolves.toEqual({ deleted: 1 });
+      expect(deletedKeys).toHaveLength(2);
+    });
+
+    it("lets only the owner discard an unbound ready asset", async () => {
+      const actorId = await createActor();
+      const otherActorId = await createActor();
+      const assetId = randomUUID();
+      await uploadCampusMapPlacePhoto({
+        actorId,
+        assetId,
+        source: await sourcePhoto(),
+        now: new Date("2026-09-02T02:10:00.000Z"),
+        putStoredObject: async () => undefined,
+      });
+      const deletedKeys: string[] = [];
+
+      await expect(
+        discardCampusMapPlacePhotoAssets({
+          actorId: otherActorId,
+          assetIds: [assetId],
+          deleteStoredObjects: async (keys) => {
+            deletedKeys.push(...keys);
+          },
+        }),
+      ).resolves.toEqual({ deleted: 0 });
+      await expect(
+        discardCampusMapPlacePhotoAssets({
+          actorId,
+          assetIds: [assetId],
           deleteStoredObjects: async (keys) => {
             deletedKeys.push(...keys);
           },

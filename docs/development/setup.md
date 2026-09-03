@@ -80,9 +80,12 @@ The main local groups are:
 - **Storage**: `MINIO_*` points to the local S3-compatible MinIO service;
   `MINIO_BUCKET` is public Wiki media while `MINIO_PRIVATE_BUCKET` must not
   grant anonymous reads
-- **Scheduled cleanup**: production needs `CRON_SECRET`; Vercel calls the
-  bounded Campus Map Place-photo cleanup route hourly so expired, unbound
-  objects do not depend on a later user request for removal
+- **Place-photo cleanup**: removing a new photo, abandoning its edit draft, or
+  failing midway through upload immediately discards the unbound private
+  objects. Production also needs `CRON_SECRET`; Vercel calls the bounded
+  cleanup route once daily at `00:17 UTC` only to reconcile leftovers from
+  interruptions such as a closed tab, network loss, or process crash. The
+  daily expression is compatible with the Hobby plan
 - **Product flags**: optional canteen, danmaku, sensitive-content, and Campus Bus settings are documented beside their variables
 
 Seeded password login does not require Brevo.
