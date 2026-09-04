@@ -2,7 +2,8 @@
 
 状态：Accepted
 
-发布治理部分由 ADR 0035 取代；本文的 canonical identity、位置、来源与供应商边界继续有效。
+发布治理部分由 ADR 0035 取代；浏览交互翻译由 ADR 0038 补充。本文的
+canonical identity、位置、来源与供应商边界继续有效。
 
 ## 决议
 
@@ -29,6 +30,10 @@ Pin type 是受控的浏览目录，不是身份。首批 key 为 `toilet`、`wa
 Floor 和 Pin type 可以有多个 Place；这些字段与名称、距离只能生成 duplicate candidate，
 不能成为唯一键或触发自动合并。
 
+Building 的检索名称只负责把查询导航到一个 stable Building ID。名称相似、同属一个建筑群或
+缺少独立编号/代表坐标，都不足以证明两个名称是同一栋建筑。证据能确认独立物理建筑时，应建立
+独立 Building；未知代表锚点可以保持为空。Building hierarchy 只有在取得明确证据后才建模。
+
 访问限制分成 audience、credential requirement、schedule、reservation 与 temporary status。
 凭证要求使用 `none`、`campus-card`、`library-card`、`other` 或 `unknown`；CUHK member audience
 不自动意味着必须刷卡。性别和无障碍使用独立受控 facet，不从厕所或公共空间类别推断。
@@ -41,9 +46,10 @@ Verified at。`unknown` 不提升为 unrestricted、true 或 false；显示精�
 发布、Changeset、冲突与事后治理由 ADR 0035 决定。重复 Place 的人工合并保留 survivor，
 并把 loser 保留为永久 redirect/tombstone；普通停用是可恢复的 retired，ID 不删除、不复用。
 
-供应商 POI 通过显式 `(provider, providerPlaceId)` 映射到 canonical ID。名称或距离匹配只能
-产生待人工关联候选。scene kernel、URL/history state、列表聚合、cluster、provider card
-和 RPG ArtPoint 都是 presentation；它们引用 canonical ID，但不能成为事实来源或另建身份。
+供应商 POI 可以通过显式 `(provider, providerPlaceId)` 映射到 canonical ID；名称或距离匹配只能
+产生待人工关联候选。按 ADR 0038，浏览页可以预加载映射，并把高德热点精确翻译成 canonical
+Building / Place 选择；未映射热点只能显示瞬时参考卡。provider ID 和参考卡都不进入 scene、
+URL/history 或公开事实。列表聚合、canonical cluster 和 RPG ArtPoint 同样只是 presentation。
 
 ## 后果
 

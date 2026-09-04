@@ -1,6 +1,6 @@
 # Canonical scene kernel 与开源地图实现对照
 
-> 调研日期：2026-08-14。只检查官方仓库中与交互状态、地图事件和 URL 恢复直接相关的源码；链接固定到所检查的 commit。本文回答的是“设计原则是否相似”，不是声称这些项目具有相同 API。
+> 调研日期：2026-08-14。只检查官方仓库中与交互状态、地图事件和 URL 恢复直接相关的源码；链接固定到所检查的 commit。本文回答的是“设计原则是否相似”，不是声称这些项目具有相同 API。ADR 0038 后续删除了浏览态 provider scene，只保留 canonical Building / Place。
 
 ## 结论
 
@@ -35,7 +35,7 @@
 
 这些源码共同支持“**外部表示先验证，失败不产生产品动作**”；MapComplete 进一步支持“命中 canonical index 后才恢复 selection，瞬态 selection 不参与恢复”。它们也说明：当 URL 已完整表达 persistent scene 时，没有必要在 `history.state` 再保存第二份产品状态。
 
-Campus Map 因此只在 canonical URL 持久化 scene。Browser history state 仅保存 ownership marker、codec version 和 navigation depth；Back/Forward 将这份 metadata 与当前 URL 组合。Catalog lookup 仍要求 entity ID 是 own property，避免 `toString` 等不可信 deep-link ID 命中对象原型；catalog value 则按受信任的 JSON-shaped 应用数据处理，不扩展成 accessor/Proxy runtime schema。Provider POI 继续保持 transient，不参与恢复。
+Campus Map 因此只在 canonical URL 持久化 scene。Browser history state 仅保存 ownership marker、codec version 和 navigation depth；Back/Forward 将这份 metadata 与当前 URL 组合。Catalog lookup 仍要求 entity ID 是 own property，避免 `toString` 等不可信 deep-link ID 命中对象原型；catalog value 则按受信任的 JSON-shaped 应用数据处理，不扩展成 accessor/Proxy runtime schema。Provider POI 不进入浏览 scene，也不参与恢复。
 
 ## 对当前设计的直接约束
 
@@ -43,6 +43,6 @@ Campus Map 因此只在 canonical URL 持久化 scene。Browser history state �
 
 - **唯一产品权威**：accepted transition 的 next session 必须 canonical；rejected/noop 不改变 session，也不发 command。
 - **导航由转换语义推导**：`enter → push`、`refine → replace`、`restore/transient/noop → none`、`return → back-or-push`，而不是把 history 固定成 event 的属性。
-- **持久化只有一个 scene 权威**：URL 使用 strict versioned codec，`normalize` 幂等且 `decode(encode(session))` 等于 canonical session；history metadata 只独立 round-trip navigation depth，provider transient scene 归一为 map。
+- **持久化只有一个 scene 权威**：URL 使用 strict versioned codec，`normalize` 幂等且 `decode(encode(session))` 等于 canonical session；history metadata 只独立 round-trip navigation depth，Place scene 只有 `peek` 一种表示。
 
-所以答案不是“我们照搬了某个开源地图仓库”，而是：**互斥 mode、typed transition、provider adaptor 和转换测试都有直接先例；navigation class、严格 versioned codec、catalog-derived relation 以及完整 scene × event × command 契约，是 Campus Map 针对 Web 深链与多领域场景做出的组合式加强。**
+所以答案不是“我们照搬了某个开源地图仓库”，而是：**互斥 mode、typed transition、很薄的 SDK browse layer 和转换测试都有直接先例；navigation class、严格 versioned codec、catalog-derived relation 以及完整 scene × event × command 契约，是 Campus Map 针对 Web 深链与多领域场景做出的组合式加强。**

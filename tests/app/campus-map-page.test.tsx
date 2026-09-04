@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   requireAuth: vi.fn(),
   loadProjection: vi.fn(),
-  loadProviderPoiCard: vi.fn(),
+  loadHotspotMappings: vi.fn(),
   getFactSchema: vi.fn(),
   getFeedbackSummaries: vi.fn(),
   getPlacePhotos: vi.fn(),
@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/auth-guard", () => ({ requireAuth: mocks.requireAuth }));
 vi.mock("@/lib/campus-map/browse-actions", () => ({
   loadCampusMapBrowseProjection: mocks.loadProjection,
-  loadCampusMapAmapPoiCard: mocks.loadProviderPoiCard,
+  loadCampusMapAmapHotspotMappings: mocks.loadHotspotMappings,
 }));
 vi.mock("@/lib/campus-map/fact-store", () => ({
   getCampusMapFactSchema: mocks.getFactSchema,
@@ -37,6 +37,7 @@ describe("formal Campus Map route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.loadProjection.mockResolvedValue(EMPTY_CAMPUS_MAP_BROWSE_PROJECTION);
+    mocks.loadHotspotMappings.mockResolvedValue([]);
     mocks.getFactSchema.mockResolvedValue(null);
     mocks.getFeedbackSummaries.mockResolvedValue({});
     mocks.getPlacePhotos.mockResolvedValue({});

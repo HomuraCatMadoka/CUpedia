@@ -9,8 +9,7 @@ const mocks = vi.hoisted(() => ({
   getCurrentPlaceCoverViews: vi.fn(),
   getRevisionPhotoViews: vi.fn(),
   getOptionalUser: vi.fn(),
-  resolveMapping: vi.fn(),
-  projectAmapPoiCard: vi.fn(),
+  listProviderMappings: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-guard", () => ({
@@ -30,10 +29,7 @@ vi.mock("@/lib/campus-map/place-photos", () => ({
   getCampusMapRevisionPhotoViews: mocks.getRevisionPhotoViews,
 }));
 vi.mock("@/lib/campus-map/provider-mapping-registry", () => ({
-  resolveCampusMapProviderSelection: mocks.resolveMapping,
-}));
-vi.mock("@/lib/campus-map/amap-browse-projection", () => ({
-  projectCampusMapAmapPoiCard: mocks.projectAmapPoiCard,
+  listCampusMapProviderMappings: mocks.listProviderMappings,
 }));
 vi.mock("@/lib/campus-map/publish", () => ({
   publishCampusMapChangeset: vi.fn(),
@@ -44,11 +40,10 @@ vi.mock("next/headers", () => ({
 }));
 
 import {
-  loadCampusMapAmapPoiCard,
+  loadCampusMapAmapHotspotMappings,
   loadCampusMapBrowseProjection,
   loadCampusMapPlaceCover,
 } from "@/lib/campus-map/browse-actions";
-import { asAmapPosition } from "@/lib/campus-map/amap-position";
 import { loadCampusMapEditablePlace } from "@/lib/campus-map/edit-actions";
 
 describe("Campus Map beta server-action authentication", () => {
@@ -59,6 +54,7 @@ describe("Campus Map beta server-action authentication", () => {
     mocks.getCurrentPlace.mockResolvedValue(null);
     mocks.getCurrentPlaceCoverViews.mockResolvedValue({});
     mocks.getRevisionPhotoViews.mockResolvedValue({});
+    mocks.listProviderMappings.mockResolvedValue([]);
   });
 
   it("rejects anonymous browse requests before reading public projections", async () => {
@@ -70,19 +66,6 @@ describe("Campus Map beta server-action authentication", () => {
     expect(mocks.readBrowse).not.toHaveBeenCalled();
   });
 
-  it("rejects anonymous provider-card requests before mapping lookup", async () => {
-    mocks.requireAuth.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
-
-    await expect(
-      loadCampusMapAmapPoiCard({
-        providerObjectId: "amap-1",
-        name: "External POI",
-        position: asAmapPosition([114.2, 22.4]),
-      }),
-    ).rejects.toThrow("NEXT_REDIRECT");
-    expect(mocks.resolveMapping).not.toHaveBeenCalled();
-  });
-
   it("rejects anonymous cover refreshes before reading Place photos", async () => {
     mocks.requireAuth.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
 
@@ -90,6 +73,21 @@ describe("Campus Map beta server-action authentication", () => {
       "NEXT_REDIRECT",
     );
     expect(mocks.getCurrentPlaceCoverViews).not.toHaveBeenCalled();
+  });
+
+  it("rejects anonymous mapping reads before accessing the registry", async () => {
+    mocks.requireAuth.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+
+    await expect(loadCampusMapAmapHotspotMappings()).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+    expect(mocks.listProviderMappings).not.toHaveBeenCalled();
+  });
+
+  it("degrades an authenticated mapping read failure to no mappings", async () => {
+    mocks.listProviderMappings.mockRejectedValueOnce(new Error("offline"));
+
+    await expect(loadCampusMapAmapHotspotMappings()).resolves.toEqual([]);
   });
 
   it("rejects anonymous editable-place reads before accessing facts", async () => {

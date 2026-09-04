@@ -12,19 +12,19 @@ import {
   campusMapPinTypeLabel,
   CAMPUS_MAP_DISPLAY_REGISTRY,
 } from "@/lib/campus-map/display-registry";
-import type { CampusMapAmenity } from "@/lib/campus-map/facility-marker";
+import type { CampusMapPinType } from "@/lib/campus-map/canonical-marker";
 import type { CampusMapPlaceFeedbackSummary } from "@/lib/campus-map/place-feedback";
 import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
 import { cn } from "@/lib/utils";
 
-const CATEGORY_PRESENTATION = {
+const PIN_TYPE_PRESENTATION = {
   toilet: { icon: ToiletIcon, color: "#1b6f55" },
   water: { icon: DropletsIcon, color: "#227a9b" },
   printer: { icon: PrinterIcon, color: "#675aa7" },
   "common-space": { icon: UsersRoundIcon, color: "#9a5b32" },
   classroom: { icon: SchoolIcon, color: "#a33f52" },
 } satisfies Record<
-  CampusMapAmenity,
+  CampusMapPinType,
   {
     icon: typeof ToiletIcon;
     color: string;
@@ -35,17 +35,17 @@ export const CAMPUS_MAP_CATEGORIES =
   CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories.map((pinType) => ({
     id: pinType,
     label: campusMapPinTypeLabel(pinType),
-    ...CATEGORY_PRESENTATION[pinType],
+    ...PIN_TYPE_PRESENTATION[pinType],
   }));
 
-export function campusMapAmenityStyle(category: CampusMapAmenity) {
+export function campusMapPinTypeStyle(pinType: CampusMapPinType) {
   return (
-    CAMPUS_MAP_CATEGORIES.find((item) => item.id === category) ??
+    CAMPUS_MAP_CATEGORIES.find((item) => item.id === pinType) ??
     CAMPUS_MAP_CATEGORIES[0]
   );
 }
 
-export function knownCampusMapAmenity(value: string | null) {
+export function knownCampusMapPinType(value: string | null) {
   return CAMPUS_MAP_CATEGORIES.find((item) => item.id === value)?.id ?? null;
 }
 
@@ -93,7 +93,7 @@ export function CampusMapFacilityResultButton({
   variant: "category" | "building" | "preview";
   onSelect: () => void;
 }) {
-  const style = campusMapAmenityStyle(facility.pinType);
+  const style = campusMapPinTypeStyle(facility.pinType);
   const Icon = style.icon;
   const showsIcon = variant === "building";
   return (

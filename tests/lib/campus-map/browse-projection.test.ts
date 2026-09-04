@@ -295,6 +295,36 @@ describe("Campus Map browse projection (#647)", () => {
     });
   });
 
+  it("keeps an independently named Building out of its complex's aliases", () => {
+    const highKunBuildingId = "10000000-0000-4000-8000-000000000002";
+    const projection = projectCampusMapBrowse({
+      buildings: [
+        building,
+        {
+          buildingId: highKunBuildingId,
+          name: "高锟楼",
+          englishName: "Charles Kuen Kao Building",
+          code: null,
+          aliases: ["高錕樓", "科学馆北座高锟楼"],
+          anchor: null,
+          floors: [],
+        },
+      ],
+      places: [],
+    });
+
+    expect(
+      queryCampusMapBrowse(projection, { query: "高锟楼" }).buildings.map(
+        (item) => item.buildingId,
+      ),
+    ).toEqual([highKunBuildingId]);
+    expect(
+      queryCampusMapBrowse(projection, {
+        query: "Charles Kuen Kao",
+      }).buildings.map((item) => item.buildingId),
+    ).toEqual([highKunBuildingId]);
+  });
+
   it("can limit Place matches to their own names without rebuilding search rules in React", () => {
     const projection = projectCampusMapBrowse({
       buildings: [building],

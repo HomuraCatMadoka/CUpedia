@@ -6,7 +6,6 @@ import {
 import {
   isCanonicalCampusMapId,
   resolveCampusMapSessionSemantics,
-  type PersistableCampusMapSession,
 } from "@/lib/campus-map/scene-semantics";
 import { isCanonicalCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
 
@@ -64,14 +63,13 @@ function validSession(
   return resolveCampusMapSessionSemantics(session, catalog).status === "valid";
 }
 
-function normalizePersistentSession(
+function normalizeCanonicalSession(
   session: CampusMapSession,
   catalog: CampusMapSceneCatalog,
-): PersistableCampusMapSession {
+): CampusMapSession {
   const resolved = resolveCampusMapSessionSemantics(session, catalog);
-  return resolved.status === "valid" &&
-    resolved.persistence.kind === "persistent"
-    ? resolved.persistence.session
+  return resolved.status === "valid"
+    ? resolved.session
     : { mode: "browse", scene: { kind: "map" } };
 }
 
@@ -79,7 +77,7 @@ export function normalizeCampusMapUrlSession(
   session: CampusMapSession,
   catalog: CampusMapSceneCatalog,
 ): CampusMapSession {
-  return normalizePersistentSession(session, catalog);
+  return normalizeCanonicalSession(session, catalog);
 }
 
 export function encodeCampusMapHistoryMetadata(
@@ -131,9 +129,7 @@ export function decodeCampusMapHistoryMetadata(
   }
 }
 
-function encodePersistableCampusMapUrl(
-  normalized: PersistableCampusMapSession,
-) {
+function encodeNormalizedCampusMapUrl(normalized: CampusMapSession) {
   const params = new URLSearchParams({
     v: String(CAMPUS_MAP_SCENE_CODEC_VERSION),
   });
@@ -191,8 +187,8 @@ export function encodeCampusMapUrl(
   session: CampusMapSession,
   catalog: CampusMapSceneCatalog,
 ) {
-  return encodePersistableCampusMapUrl(
-    normalizePersistentSession(session, catalog),
+  return encodeNormalizedCampusMapUrl(
+    normalizeCanonicalSession(session, catalog),
   );
 }
 
@@ -203,7 +199,7 @@ export function encodeCampusMapPlaceHref(
     visibility: "public" | "redacted";
   } | null,
 ) {
-  const params = encodePersistableCampusMapUrl(
+  const params = encodeNormalizedCampusMapUrl(
     head?.status === "active" &&
       head.visibility === "public" &&
       isCanonicalCampusMapId(placeId)
@@ -348,7 +344,7 @@ export function decodeCampusMapUrl(
       sceneKind === "place"
         ? {
             mode: "browse",
-            scene: { kind: "place", placeId: id, snap: panelSnap },
+            scene: { kind: "place", placeId: id, snap: "peek" },
           }
         : {
             mode: "browse",
@@ -361,7 +357,7 @@ export function decodeCampusMapUrl(
   return validSession(session, catalog)
     ? {
         status: "decoded",
-        session: normalizePersistentSession(session, catalog),
+        session: normalizeCanonicalSession(session, catalog),
       }
     : fallback("unknown-entity");
 }

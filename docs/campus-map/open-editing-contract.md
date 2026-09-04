@@ -220,9 +220,9 @@ Browse
   candidate。candidate 本身不是 Current fact，也不单独产生 dirty；两条路径都经同一
   `CONFIRM_POSITION` transition 锁定 position、CRS 和诚实 precision。锁定后地图手势不能改写
   位置，除非用户明确选择重新定位。
-- 室外 `placing` 时轻点高德底图上可交互的地点名称，表示用户明确选择该 provider hotspot。现有 #645
-  driver 把 center pin 移到 hotspot，Sheet 可瞬时显示该高德名称；用户继续拖图或输入坐标时选择立即
-  失效。hotspot 的名称和 ID 不自动写进 draft、来源、`placeId` 或其他 canonical fact。
+- `placing` 只通过 center pin、拖图和键盘坐标确定位置。高德底图地点不作为可点击产品目标；
+  这样编辑与浏览共用同一个 canonical-only 交互边界，也不会把供应商名称或 ID 混入 draft、
+  来源、`placeId` 或其他 canonical fact。
 - 移动地图时 center pin 提起，`moveend` 后由小型 AMap Geocoder boundary 提供带归属
   的瞬时地址/附近 POI 参考。高德同时返回校园容器与多个具体 POI 时，只显示带可用距离、距图钉
   不超过 30 米且最近的具体 POI；更远的“附近”结果不能冒充图钉位置。没有可信具体 POI 或查询

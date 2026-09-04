@@ -10,6 +10,11 @@
 代码、代表锚点和供应商映射均可修订。
 _Avoid_: 用建筑名称、高德 POI ID 或代表坐标作为身份；设施 Place
 
+**建筑检索名称（Building search name）**: 有来源、用于把用户查询导航到一个 canonical
+Building 的名称。它通常是别名、缩写或异体字；只在证据表明名称指向同一个物理建筑时才能作为
+别名。独立编号和代表坐标可以暂缺，不能据此把已确认的独立建筑降成另一栋楼的检索别名。
+_Avoid_: 从名称相似创建重叠 Building；把独立建筑塞进建筑群别名；把检索命中当成已证实的 part-of 关系
+
 **楼层（Floor）**: 归属于一个 Building、以建筑内不可变 `floorId` 标识的容器；显示标签
 与排序可修订。
 _Avoid_: 把 `G`、`LG`、`1/F` 等显示标签作为跨建筑身份
@@ -200,9 +205,27 @@ _Avoid_: 把直接发布称为批准；把 Review request 当可见性状态；�
 ### 集成边界
 
 **外部身份映射（Provider mapping）**: `(provider, providerPlaceId)` 到 canonical Building
-或 Place 的显式映射；名称、别名和距离只能产生关联候选。
-_Avoid_: 供应商 ID 作主键；名称模糊命中后静默关联
+或 Place 的显式治理记录。浏览页一次性预加载所需映射，热点点击只按完整外部 ID 在本地精确查表；
+名称、别名和距离只能产生待人工核对的关联候选。
+_Avoid_: 供应商 ID 作主键；名称模糊命中后静默关联；每次点击再请求服务器；异步卡片升级
 
-**地图表现（Map presentation）**: marker、类别聚合、楼层目录、provider POI、scene 和 RPG
-ArtPoint 等引用 canonical ID 的 UI 投影。
-_Avoid_: 从 scene shape 反推领域实体；presentation ID 成为 canonical identity
+**供应商热点（Provider hotspot）**: 高德底图已绘制、可点击的瞬时对象；它只负责告诉产品用户
+点中了哪个高德对象。`providerPlaceId` 是映射输入，不是 CUpedia 身份；名称与坐标只用于显示。
+_Avoid_: 把高德卡片当公开事实；用名称或距离猜 canonical 实体；把热点写入 URL
+
+**Canonical 地图目标（Canonical map target）**: 浏览地图上可选择的 Building 或 Place 表现；
+它可以来自 CUpedia 自绘设施 marker，或来自精确映射成功的供应商热点；解析后只由稳定 canonical
+ID 打开正式卡片、URL 与添加设施等动作。
+_Avoid_: 让 provider ID 进入 scene；正式卡片继续依赖 provider 名称或坐标
+
+**瞬时供应商卡（Transient provider card）**: 热点没有映射，或映射预加载失败时显示的轻量参考卡；
+它不进入 scene/history，不提供 canonical 动作，关闭后即消失。
+_Avoid_: 将其保存为 Place；显示添加设施；后台查询后无提示地升级成另一张卡
+
+**供应商位置参考（Provider location reference）**: 编辑室外位置时，地图供应商对当前坐标返回的
+瞬时地址或附近 POI 文案；它帮助人辨认位置，但不是可选择实体，也不进入公开事实。
+_Avoid_: Provider POI identity；Browse scene；从参考名称推断 Building 或 Place
+
+**地图表现（Map presentation）**: canonical marker、类别聚合、楼层目录、scene 和 RPG ArtPoint
+等引用 canonical ID 的 UI 投影。
+_Avoid_: 从 scene shape 反推领域实体；presentation ID 成为 canonical identity；供应商 POI 充当产品 marker

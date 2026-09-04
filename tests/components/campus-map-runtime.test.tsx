@@ -16,12 +16,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   mockLoadBrowseProjection,
   mockLoadPlaceCover,
-  mockLoadProviderPoiCard,
   mockRequestContributorSetup,
 } = vi.hoisted(() => ({
   mockLoadBrowseProjection: vi.fn(),
   mockLoadPlaceCover: vi.fn(),
-  mockLoadProviderPoiCard: vi.fn(),
   mockRequestContributorSetup: vi.fn(),
 }));
 
@@ -74,7 +72,6 @@ vi.mock("@/lib/campus-map/edit-actions", () => ({
 vi.mock("@/lib/campus-map/browse-actions", () => ({
   loadCampusMapBrowseProjection: mockLoadBrowseProjection,
   loadCampusMapPlaceCover: mockLoadPlaceCover,
-  loadCampusMapAmapPoiCard: mockLoadProviderPoiCard,
 }));
 
 import { CampusMapRuntime as CampusMapRuntimeView } from "@/components/campus-map/campus-map-runtime";
@@ -147,7 +144,6 @@ beforeEach(() => {
   );
   mockLoadPlaceCover.mockReset();
   mockLoadPlaceCover.mockResolvedValue(null);
-  mockLoadProviderPoiCard.mockReset();
   window.sessionStorage.clear();
   Object.defineProperty(navigator, "locks", {
     configurable: true,

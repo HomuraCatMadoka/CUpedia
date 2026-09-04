@@ -3,14 +3,14 @@ import {
   type CampusMapBrowseProjection,
 } from "@/lib/campus-map/browse-projection";
 import type { CampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
-import type { CampusMapAmenity } from "@/lib/campus-map/facility-marker";
+import type { CampusMapPinType } from "@/lib/campus-map/canonical-marker";
 
 interface CampusMapTestBuilding {
   id: string;
   name: string;
   englishName: string;
-  code: string;
-  position: readonly [number, number];
+  code: string | null;
+  position: readonly [number, number] | null;
   aliases: readonly string[];
   floorIds: readonly string[];
 }
@@ -18,7 +18,7 @@ interface CampusMapTestBuilding {
 interface CampusMapTestFacility {
   id: string;
   buildingId: string;
-  category: CampusMapAmenity;
+  category: CampusMapPinType;
   name: string;
   floorId: string;
   access: string;
@@ -33,6 +33,24 @@ export const CAMPUS_MAP_TEST_BUILDINGS: readonly CampusMapTestBuilding[] = [
     position: [114.20801, 22.41966] as const,
     aliases: ["科学馆", "科學館", "Science Centre"],
     floorIds: ["LG", "G", "1", "2", "3", "4"],
+  },
+  {
+    id: "high-kun-building",
+    name: "高锟楼",
+    englishName: "Charles Kuen Kao Building",
+    code: null,
+    position: null,
+    aliases: ["高錕樓", "科学馆北座高锟楼", "科學館北座高錕樓"],
+    floorIds: [],
+  },
+  {
+    id: "ma-lin-building",
+    name: "马临楼",
+    englishName: "Ma Lin Building",
+    code: null,
+    position: null,
+    aliases: ["馬臨樓", "科学馆南座马临楼", "科學館南座馬臨樓"],
+    floorIds: [],
   },
   {
     id: "wmy",
@@ -162,11 +180,13 @@ export function createCampusMapBrowseFixture(): CampusMapBrowseProjection {
       englishName: building.englishName,
       code: building.code,
       aliases: building.aliases,
-      anchor: {
-        longitude: building.position[0],
-        latitude: building.position[1],
-        crs: "wgs84" as const,
-      },
+      anchor: building.position
+        ? {
+            longitude: building.position[0],
+            latitude: building.position[1],
+            crs: "wgs84" as const,
+          }
+        : null,
       floors: building.floorIds.map((floorId, sortOrder) => ({
         floorId,
         displayLabel: `${floorId}/F`,
