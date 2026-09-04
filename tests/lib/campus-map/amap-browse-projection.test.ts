@@ -144,6 +144,17 @@ describe("AMap browse projection adapter (#647)", () => {
     ]);
   });
 
+  it("projects every anchored canonical Building for location selection", () => {
+    const result = projectCampusMapBrowseToAmap(projection, {
+      visibleAmenity: null,
+      selectedBuildingId: null,
+      selectedPlaceId: null,
+      allBuildings: true,
+    });
+
+    expect(result.positions).toHaveProperty(`building:${BUILDING_ID}`);
+  });
+
   it("does not expose asynchronous coordinate projection state", () => {
     const result = projectCampusMapBrowseToAmap(projection);
 

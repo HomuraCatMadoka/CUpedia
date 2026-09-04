@@ -32,6 +32,7 @@ import {
   knownCampusMapPinType as knownPinType,
 } from "@/components/campus-map/browse-card-presentation";
 import { AmapCanonicalBrowseLayer } from "@/components/campus-map/amap-canonical-browse-layer";
+import { AmapBuildingPickerRuntime } from "@/components/campus-map/amap-building-picker-runtime";
 import { CampusMapEditSheet } from "@/components/campus-map/edit-sheet";
 import { useCampusMapEditSessionOwner } from "@/components/campus-map/use-campus-map-edit-session-owner";
 
@@ -649,6 +650,7 @@ export function CampusMapRuntime({
   const panelRef = useRef<HTMLElement | null>(null);
   const canonicalBrowseLayerRef =
     useRef<AmapCanonicalBrowseLayer<AMapMap> | null>(null);
+  const buildingPickerRuntimeRef = useRef(new AmapBuildingPickerRuntime());
   const cameraGateRef = useRef(new CameraRequestGate());
   const pendingDriverCameraRef = useRef<{
     command: CampusMapDriverCameraCommand;
@@ -695,6 +697,7 @@ export function CampusMapRuntime({
     mapGestureCleanupRef.current = null;
     canonicalBrowseLayerRef.current?.destroy();
     canonicalBrowseLayerRef.current = null;
+    buildingPickerRuntimeRef.current.destroy();
     mapRef.current?.destroy();
     mapRef.current = null;
     coordinateResolverRef.current = null;
@@ -1454,6 +1457,7 @@ export function CampusMapRuntime({
     return () => window.clearTimeout(timeout);
   }, [publishNotice]);
   const editSessionStatus = editSession?.status ?? null;
+  const locationSelectionActive = editSessionStatus === "selecting-location";
   const editSessionIdempotencyKey = editSession?.draft.idempotencyKey ?? null;
   const placementCandidate =
     editSession?.status === "placing"
@@ -1623,6 +1627,7 @@ export function CampusMapRuntime({
   );
 
   useEffect(() => {
+    if (locationSelectionActive) return;
     let cancelled = false;
     queueMicrotask(() => {
       if (!cancelled) {
@@ -1635,10 +1640,24 @@ export function CampusMapRuntime({
     return () => {
       cancelled = true;
     };
-  }, [state.mapFilter.query]);
+  }, [locationSelectionActive, state.mapFilter.query]);
 
   const selectBuilding = useCallback(
     (building: Building, source: "map" | "search" = "map") => {
+      if (editSession?.status === "selecting-location") {
+        dispatchEditEvent({
+          type: "SELECT_BUILDING_LOCATION",
+          locationDisplay: {
+            buildingId: building.buildingId,
+            buildingName:
+              campusMapBuildingDisplayFor(buildingDisplay, building.buildingId)
+                ?.label ?? building.name,
+            floorId: null,
+            floorLabel: null,
+          },
+        });
+        return;
+      }
       setSelectedTransientHotspot(null);
       dispatch({
         type: "OPEN_BUILDING",
@@ -1646,7 +1665,7 @@ export function CampusMapRuntime({
         source,
       });
     },
-    [dispatch],
+    [buildingDisplay, dispatch, dispatchEditEvent, editSession?.status],
   );
 
   const selectFacility = useCallback(
@@ -2020,9 +2039,11 @@ export function CampusMapRuntime({
         selectedBuildingId: selectedBuilding?.buildingId ?? null,
         visibleAmenity: visibleMarkerAmenity,
         selectedPlaceId: selectedMarkerPlaceId,
+        allBuildings: editSession?.status === "selecting-location",
       }),
     [
       browseProjection,
+      editSession?.status,
       selectedBuilding?.buildingId,
       selectedMarkerPlaceId,
       visibleMarkerAmenity,
@@ -2186,6 +2207,41 @@ export function CampusMapRuntime({
     selectedTransientHotspot,
   ]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    const provider = window.AMap;
+    if (
+      editSession?.status !== "selecting-location" ||
+      !mapReady ||
+      coordinateVersion === 0 ||
+      !provider ||
+      !map
+    ) {
+      buildingPickerRuntimeRef.current.destroy();
+      return;
+    }
+    buildingPickerRuntimeRef.current.sync({
+      map,
+      provider,
+      projection: browseProjection,
+      providerPositions: amapPositionsRef.current,
+      scope: editSession.draft.idempotencyKey,
+      claimProviderTarget: (action) => action(),
+      selectBuilding: (buildingId) => {
+        const building = buildingsRef.current.find(
+          (candidate) => candidate.buildingId === buildingId,
+        );
+        if (building) selectBuilding(building);
+      },
+    });
+  }, [
+    browseProjection,
+    coordinateVersion,
+    editSession,
+    mapReady,
+    selectBuilding,
+  ]);
+
   useEffect(
     () => () => {
       userLocationRequestRef.current += 1;
@@ -2193,23 +2249,29 @@ export function CampusMapRuntime({
       mapGestureCleanupRef.current = null;
       canonicalBrowseLayerRef.current?.destroy();
       canonicalBrowseLayerRef.current = null;
+      buildingPickerRuntimeRef.current.destroy();
       mapRef.current?.destroy();
       mapRef.current = null;
     },
     [],
   );
 
+  const activeSearchQuery = locationSelectionActive
+    ? queryDraft
+    : state.mapFilter.query;
   const searchResults = useMemo(() => {
-    if (!state.mapFilter.query.trim()) return [];
+    if (!activeSearchQuery.trim()) return [];
     const results = queryCampusMapBrowse(browseProjection, {
-      query: state.mapFilter.query,
+      query: activeSearchQuery,
       placeMatch: "name",
     });
+    const buildingResults = results.buildings.map((building) => ({
+      kind: "building" as const,
+      building,
+    }));
+    if (locationSelectionActive) return buildingResults;
     return [
-      ...results.buildings.map((building) => ({
-        kind: "building" as const,
-        building,
-      })),
+      ...buildingResults,
       ...results.places.map((facility) => ({
         kind: "place" as const,
         facility,
@@ -2219,7 +2281,7 @@ export function CampusMapRuntime({
           ) ?? null,
       })),
     ];
-  }, [browseProjection, buildings, state.mapFilter.query]);
+  }, [activeSearchQuery, browseProjection, buildings, locationSelectionActive]);
 
   const buildingOverviewDirectory = selectedBuilding
     ? projectCampusMapBuildingDirectory(
@@ -2303,8 +2365,11 @@ export function CampusMapRuntime({
     !selectedFacility &&
     (selectedBuildingHasFacilities || activeCategoryStyle),
   );
-  const chromeHidden =
+  const browseChromeHidden =
     Boolean(editSession) ||
+    (state.sheet.snap === "full" && canExpandBrowseCard);
+  const searchHidden =
+    Boolean(editSession && !locationSelectionActive) ||
     (state.sheet.snap === "full" && canExpandBrowseCard);
   const selectedBuildingIsEmpty = Boolean(
     selectedBuilding &&
@@ -2343,7 +2408,9 @@ export function CampusMapRuntime({
     !selectedFacility,
   );
   let mobilePanelLayout: CampusMapMobilePanelLayout = { kind: "default" };
-  if (editSession?.status === "placing") {
+  if (editSession?.status === "selecting-location") {
+    mobilePanelLayout = { kind: "location-selection" };
+  } else if (editSession?.status === "placing") {
     mobilePanelLayout = { kind: "placing" };
   } else if (editSession) {
     mobilePanelLayout = { kind: "edit" };
@@ -2439,7 +2506,9 @@ export function CampusMapRuntime({
       ) : null}
 
       {(config.status === "missing" || mapLoadError) &&
-      (!editSession || editSession.status === "placing") ? (
+      (!editSession ||
+        editSession.status === "selecting-location" ||
+        editSession.status === "placing") ? (
         <div className="pointer-events-none absolute inset-x-0 top-[124px] z-40 flex justify-center px-3 md:top-[132px]">
           <div
             role="status"
@@ -2463,12 +2532,12 @@ export function CampusMapRuntime({
       ) : null}
 
       <header
-        aria-hidden={editSession ? true : undefined}
-        inert={editSession ? true : undefined}
+        aria-hidden={editSession && !locationSelectionActive ? true : undefined}
+        inert={editSession && !locationSelectionActive ? true : undefined}
         className={cn(
           "pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start gap-2 p-3 transition-opacity motion-reduce:transition-none md:p-4",
           desktopSidePanelVisible && "md:right-[422px]",
-          chromeHidden && "invisible pointer-events-none opacity-0",
+          searchHidden && "invisible pointer-events-none opacity-0",
           !editSession &&
             state.selection.kind !== "none" &&
             state.sheet.snap === "full" &&
@@ -2479,7 +2548,9 @@ export function CampusMapRuntime({
           className="pointer-events-auto mx-auto w-full max-w-[560px]"
           onSubmit={(event) => {
             event.preventDefault();
-            dispatch({ type: "SEARCH", query: queryDraft });
+            if (!locationSelectionActive) {
+              dispatch({ type: "SEARCH", query: queryDraft });
+            }
           }}
         >
           <label className="flex h-12 items-center gap-3 rounded-xl bg-white px-4 shadow-[0_3px_14px_rgba(23,33,28,.18)] focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2">
@@ -2487,7 +2558,9 @@ export function CampusMapRuntime({
               aria-hidden="true"
               className="size-5 text-neutral-500"
             />
-            <span className="sr-only">搜索建筑或地点</span>
+            <span className="sr-only">
+              {locationSelectionActive ? "搜索建筑" : "搜索建筑或地点"}
+            </span>
             <input
               ref={searchInputRef}
               name="campus-map-search"
@@ -2496,10 +2569,14 @@ export function CampusMapRuntime({
               onChange={(event) => {
                 const query = event.currentTarget.value;
                 setQueryDraft(query);
-                dispatch({ type: "SEARCH", query });
+                if (!locationSelectionActive) {
+                  dispatch({ type: "SEARCH", query });
+                }
               }}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
-              placeholder="搜索建筑或地点…"
+              placeholder={
+                locationSelectionActive ? "搜索建筑…" : "搜索建筑或地点…"
+              }
             />
             {queryDraft ? (
               <button
@@ -2508,14 +2585,17 @@ export function CampusMapRuntime({
                 className="grid size-11 place-items-center rounded-full hover:bg-neutral-100"
                 onClick={() => {
                   setQueryDraft("");
-                  dispatch({ type: "SEARCH", query: "" });
+                  if (!locationSelectionActive) {
+                    dispatch({ type: "SEARCH", query: "" });
+                  }
                 }}
               >
                 <XIcon aria-hidden="true" className="size-4" />
               </button>
             ) : null}
           </label>
-          {state.mapFilter.query && state.selection.kind === "none" ? (
+          {activeSearchQuery &&
+          (state.selection.kind === "none" || locationSelectionActive) ? (
             <div className="mt-2 overflow-hidden rounded-xl bg-white py-1 shadow-[0_8px_28px_rgba(23,33,28,.22)]">
               {searchResults.length ? (
                 searchResults.map((result) => {
@@ -2609,7 +2689,9 @@ export function CampusMapRuntime({
                 })
               ) : (
                 <p className="px-4 py-4 text-sm text-neutral-600">
-                  没有找到建筑或地点
+                  {locationSelectionActive
+                    ? "没有找到建筑"
+                    : "没有找到建筑或地点"}
                 </p>
               )}
             </div>
@@ -2623,7 +2705,7 @@ export function CampusMapRuntime({
         className={cn(
           "pointer-events-none absolute inset-x-0 top-[68px] z-20 overflow-hidden px-3 transition-opacity motion-reduce:transition-none md:top-[76px] md:flex md:justify-center",
           desktopSidePanelVisible && "md:right-[422px]",
-          chromeHidden && "invisible pointer-events-none opacity-0",
+          browseChromeHidden && "invisible pointer-events-none opacity-0",
           !editSession &&
             state.selection.kind !== "none" &&
             state.sheet.snap === "full" &&
@@ -2766,12 +2848,14 @@ export function CampusMapRuntime({
         ref={panelRef}
         hidden={panelHidden}
         role={editSession ? "dialog" : undefined}
-        aria-modal={editSession ? true : undefined}
+        aria-modal={editSession && !locationSelectionActive ? true : undefined}
         aria-labelledby="campus-map-panel-title"
         className={cn(
           "absolute z-30 overflow-hidden overscroll-contain border-black/10 bg-white shadow-[0_12px_40px_rgba(23,33,28,.24)]",
           "h-[var(--campus-map-panel-height)]",
-          editSession && editSession.status !== "placing"
+          editSession &&
+            editSession.status !== "selecting-location" &&
+            editSession.status !== "placing"
             ? "inset-0 rounded-none border-0 md:inset-y-4 md:right-4 md:left-auto md:h-auto md:w-[390px] md:rounded-2xl md:border"
             : cn(
                 "inset-x-0 bottom-0 rounded-t-2xl border-t md:right-4 md:left-auto md:w-[390px] md:rounded-2xl md:border",
