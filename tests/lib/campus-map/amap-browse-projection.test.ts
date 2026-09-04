@@ -4,12 +4,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  CampusMapAmapPoiCardResolver,
+  campusMapAmapBuildingPositionKey,
   campusMapAmapCoordinateProjectionSignature,
-  projectCampusMapAmapPoiCard,
   projectCampusMapBrowseToAmap,
 } from "@/lib/campus-map/amap-browse-projection";
-import { asAmapPosition } from "@/lib/campus-map/amap-position";
 import { projectCampusMapBrowse } from "@/lib/campus-map/browse-projection";
 import type { CampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
 
@@ -85,32 +83,28 @@ const preciseOutdoorProjection = projectCampusMapBrowse({
   ],
 });
 
-const poi = {
-  providerObjectId: "amap-science-centre",
-  name: "高德科学馆",
-  position: asAmapPosition([114.21801, 22.42966]),
-};
-
 describe("AMap browse projection adapter (#647)", () => {
   it("projects WGS84 entities locally without mutating the canonical source", () => {
     const original = structuredClone(projection);
     const result = projectCampusMapBrowseToAmap(projection, {
-      visibleAmenity: null,
       selectedBuildingId: BUILDING_ID,
+      visibleAmenity: null,
       selectedPlaceId: null,
     });
 
     expect(result).toEqual({
       center: [114.212077, 22.416268],
       positions: {
-        [`building:${BUILDING_ID}`]: [114.212887, 22.416828],
+        [campusMapAmapBuildingPositionKey(BUILDING_ID)]: [
+          114.212887, 22.416828,
+        ],
       },
       providerRequests: [],
     });
     expect(projection).toEqual(original);
   });
 
-  it("projects only the requested building instead of the full directory", () => {
+  it("projects only the selected canonical Building without provider requests", () => {
     const buildings = Array.from({ length: 41 }, (_, index) => ({
       buildingId: `building-${index}`,
       name: `Building ${index}`,
@@ -137,13 +131,14 @@ describe("AMap browse projection adapter (#647)", () => {
         markers: [],
       },
       {
-        visibleAmenity: null,
         selectedBuildingId: "building-40",
+        visibleAmenity: null,
         selectedPlaceId: null,
       },
     );
 
-    expect(Object.keys(result.positions)).toEqual(["building:building-40"]);
+    expect(Object.keys(result.positions)).toHaveLength(1);
+    expect(result.providerRequests).toEqual([]);
     expect(result.positions["building:building-40"]).toEqual([
       114.205277, 22.416168,
     ]);
@@ -159,8 +154,8 @@ describe("AMap browse projection adapter (#647)", () => {
 
   it("does not project a precise Place until that overlay is requested", () => {
     const result = projectCampusMapBrowseToAmap(preciseOutdoorProjection, {
-      visibleAmenity: null,
       selectedBuildingId: null,
+      visibleAmenity: null,
       selectedPlaceId: null,
     });
 
@@ -172,8 +167,8 @@ describe("AMap browse projection adapter (#647)", () => {
 
   it("routes a visible precise Place to the provider fallback", () => {
     const result = projectCampusMapBrowseToAmap(preciseOutdoorProjection, {
-      visibleAmenity: "water",
       selectedBuildingId: null,
+      visibleAmenity: "water",
       selectedPlaceId: null,
     });
 
@@ -190,8 +185,8 @@ describe("AMap browse projection adapter (#647)", () => {
 
   it("keeps the coordinate signature stable across non-coordinate refreshes", () => {
     const demand = {
-      visibleAmenity: "water" as const,
       selectedBuildingId: null,
+      visibleAmenity: "water" as const,
       selectedPlaceId: null,
     };
     const original = projectCampusMapBrowseToAmap(
@@ -216,8 +211,8 @@ describe("AMap browse projection adapter (#647)", () => {
 
   it("changes the coordinate signature when provider demand moves", () => {
     const demand = {
-      visibleAmenity: "water" as const,
       selectedBuildingId: null,
+      visibleAmenity: "water" as const,
       selectedPlaceId: null,
     };
     const original = projectCampusMapBrowseToAmap(
@@ -245,54 +240,5 @@ describe("AMap browse projection adapter (#647)", () => {
     expect(campusMapAmapCoordinateProjectionSignature(moved)).not.toBe(
       campusMapAmapCoordinateProjectionSignature(original),
     );
-  });
-
-  it("projects only explicit public mappings to canonical cards", () => {
-    expect(
-      projectCampusMapAmapPoiCard(projection, poi, {
-        kind: "place",
-        placeId: PLACE_ID,
-        buildingId: BUILDING_ID,
-        floorId: FLOOR_ID,
-      }),
-    ).toEqual({
-      kind: "linked",
-      title: "东翼洗手间",
-      selectionTarget: projection.places[0]!.selectionTarget,
-    });
-
-    expect(projectCampusMapAmapPoiCard(projection, poi, null)).toEqual({
-      kind: "transient",
-      externalId: poi.providerObjectId,
-      title: "高德科学馆",
-      position: poi.position,
-    });
-  });
-
-  it("fails a stale or non-public mapping closed as a transient provider card", () => {
-    expect(
-      projectCampusMapAmapPoiCard(projection, poi, {
-        kind: "place",
-        placeId: "30000000-0000-4000-8000-000000000099",
-        buildingId: null,
-        floorId: null,
-      }),
-    ).toMatchObject({ kind: "transient", title: "高德科学馆" });
-  });
-
-  it("owns provider lookup races outside React", async () => {
-    const pending: Array<
-      (card: ReturnType<typeof projectCampusMapAmapPoiCard>) => void
-    > = [];
-    const resolver = new CampusMapAmapPoiCardResolver(
-      () => new Promise((resolve) => pending.push(resolve)),
-    );
-    const first = resolver.resolveLatest(poi);
-    const second = resolver.resolveLatest({ ...poi, providerObjectId: "new" });
-    pending[1]!(projectCampusMapAmapPoiCard(projection, poi, null));
-    pending[0]!(projectCampusMapAmapPoiCard(projection, poi, null));
-
-    await expect(second).resolves.toMatchObject({ status: "resolved" });
-    await expect(first).resolves.toEqual({ status: "superseded" });
   });
 });

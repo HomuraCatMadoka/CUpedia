@@ -41,6 +41,7 @@ Architectural decision records (ADRs) explain why CUpedia accepted a durable bou
 - [0035: Publish Campus Map facts with direct changesets](0035-campus-map-direct-changesets.md)
 - [0036: Model Campus Map ratings and reviews as one current Place feedback](0036-model-campus-map-place-feedback-as-one-current-submission.md)
 - [0037: Bind Campus Map Place photos to fact revisions](0037-bind-campus-map-place-photos-to-fact-revisions.md)
+- [0038: Resolve AMap hotspots to canonical Campus Map cards](0038-canonical-campus-map-browse-targets.md)
 
 ## Maintain the index
 

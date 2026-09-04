@@ -2,6 +2,9 @@
 
 > 调研日期：2026-08-14。只使用仓库源码与仓库内架构文档；链接固定到所检查的 commit。#649 已将早期 provider InfoWindow 方案替换为 scene 投影的共享轻量 React 卡片。
 
+> 历史调研说明：本文保留当时的方案推导。ADR 0038 删除了 provider-poi scene、点击时查询和
+> 异步卡片升级；当前热点只经预加载的精确映射进入 canonical scene，未映射热点留在瞬时 UI。
+
 ## 结论
 
 成熟地图项目**普遍采用类似的职责分离，但没有一个项目使用与我们完全相同的类名或四层模板**：
@@ -12,7 +15,7 @@
 - 面板通常根据 selection/view model 投影，而不是反过来充当产品状态；
 - 复杂项目会用显式 command/request/mode 约束可发生的转换。
 
-因此，前述 `Scene Kernel + AMap Interaction Adapter + Effect Runtime + UI Projection` 是这些实践针对 #593 的组合，不是过度工程。早期 #593 虽有 reducer 和 session transition，组件仍同时拥有 history、camera、provider 事件归并和 UI；后续实现已将这些职责收进正式 driver 与 adapter。
+因此，保留 `Scene Kernel + Driver + UI Projection`，但不再把 pointer 生命周期做成一个公开的产品层。消融实验表明，CUpedia 设施 marker 已经携带稳定 ID，高德热点也只需一次本地精确查表；把设施 marker 生命周期、hotspot 转发和同帧 map click 结算放进一个 AMap browse layer，就足以隔离供应商时序。独立 interaction adapter、pointer token、全局 pointer 监听和重复建筑 marker 都没有增加产品能力，已经删除。
 
 ## 一手源码对照
 
@@ -35,7 +38,7 @@ MapComplete 直接把 [`ThemeViewState` 称为 GUI 的 “brain/HQ”](https://g
 
 uMap 的 `App` 可选择 `LeafletProxy` 或 `OLProxy`，UI、数据层不直接依赖具体地图 SDK（[构造代码](https://github.com/umap-project/umap/blob/40b1c703fb1875ff644288970186d6994746c50f/umap/static/umap/js/modules/app.js#L75-L130)）。[`LeafletProxy`](https://github.com/umap-project/umap/blob/40b1c703fb1875ff644288970186d6994746c50f/umap/static/umap/js/modules/rendering/leaflet.js#L23-L109) 把 Leaflet feature event 翻译成产品行为，并集中执行 `map:view:set`、`fit-bounds`、popup、cluster reveal 等命令（[源码](https://github.com/umap-project/umap/blob/40b1c703fb1875ff644288970186d6994746c50f/umap/static/umap/js/modules/rendering/leaflet.js#L111-L217)）。实验性的 [`OLProxy`](https://github.com/umap-project/umap/blob/40b1c703fb1875ff644288970186d6994746c50f/umap/static/umap/js/modules/rendering/openlayers.js#L24-L105) 复用相同 app-level 命令，说明这个 seam 确实能隔离 provider。
 
-但 uMap 主要依靠字符串 event bus；打开 panel 后以 `map.once('click popupopen', …)` 关闭（[源码](https://github.com/umap-project/umap/blob/40b1c703fb1875ff644288970186d6994746c50f/umap/static/umap/js/modules/rendering/leaflet.js#L156-L180)）。这和我们当前 hotspot companion click 的问题同类。应借鉴 proxy 边界，不应复制无类型全局事件或“下一个 click 就关闭”的规则。
+但 uMap 主要依靠字符串 event bus；打开 panel 后以 `map.once('click popupopen', …)` 关闭（[源码](https://github.com/umap-project/umap/blob/40b1c703fb1875ff644288970186d6994746c50f/umap/static/umap/js/modules/rendering/leaflet.js#L156-L180)）。这和 marker click 后紧随 map click 的事件时序问题同类。应借鉴 proxy 边界，不应复制无类型全局事件或“下一个 click 就关闭”的规则。
 
 ### 3. Organic Maps：行为矩阵应该变成可执行转换测试
 
@@ -53,27 +56,27 @@ iD 的架构文档把 action 定义为“旧 graph → 新 graph”的函数（[
 
 react-map-gl 的 React `Map` 只创建、更新和销毁一个 wrapper，并把加载错误交给 callback（[源码](https://github.com/visgl/react-map-gl/blob/4b649aaf926adacb3ffba4b7c5d8edebaca90f8a/modules/react-maplibre/src/components/map.tsx#L37-L108)）。wrapper 将 provider pointer/camera events 分别归一（[事件表与绑定](https://github.com/visgl/react-map-gl/blob/4b649aaf926adacb3ffba4b7c5d8edebaca90f8a/modules/react-maplibre/src/maplibre/maplibre.ts#L125-L171)、[event adapter](https://github.com/visgl/react-map-gl/blob/4b649aaf926adacb3ffba4b7c5d8edebaca90f8a/modules/react-maplibre/src/maplibre/maplibre.ts#L574-L657)），并区分外部 controlled view state 与正在进行的用户交互，避免互相覆盖（[源码](https://github.com/visgl/react-map-gl/blob/4b649aaf926adacb3ffba4b7c5d8edebaca90f8a/modules/react-maplibre/src/maplibre/maplibre.ts#L425-L449)）。其公开 ref 还刻意屏蔽容易破坏绑定的 imperative 方法（[源码](https://github.com/visgl/react-map-gl/blob/4b649aaf926adacb3ffba4b7c5d8edebaca90f8a/modules/react-maplibre/src/maplibre/create-ref.ts#L4-L49)）。
 
-更底层的 MapLibre 把 DOM 事件统一注册到 [`HandlerManager`](https://github.com/maplibre/maplibre-gl-js/blob/06cac16ca843bbc9b029aff71d4120ef448f79b4/src/ui/handler_manager.ts#L230-L267)，handler 显式声明哪些交互可同时发生，并统一 reset/stop（[源码](https://github.com/maplibre/maplibre-gl-js/blob/06cac16ca843bbc9b029aff71d4120ef448f79b4/src/ui/handler_manager.ts#L269-L390)）；`Map` 另建 `Camera`，再把 handler manager 接上去（[源码](https://github.com/maplibre/maplibre-gl-js/blob/06cac16ca843bbc9b029aff71d4120ef448f79b4/src/ui/map.ts#L735-L845)）。高德内部没有给我们同等级的产品事件仲裁，因此应在 AMap adaptor 内补一个很小的 gesture arbiter，而不是让产品 reducer理解 `hotspotclick`、`originEvent` 或 RAF 时序。
+更底层的 MapLibre 把 DOM 事件统一注册到 [`HandlerManager`](https://github.com/maplibre/maplibre-gl-js/blob/06cac16ca843bbc9b029aff71d4120ef448f79b4/src/ui/handler_manager.ts#L230-L267)，handler 显式声明哪些交互可同时发生，并统一 reset/stop（[源码](https://github.com/maplibre/maplibre-gl-js/blob/06cac16ca843bbc9b029aff71d4120ef448f79b4/src/ui/handler_manager.ts#L269-L390)）；`Map` 另建 `Camera`，再把 handler manager 接上去（[源码](https://github.com/maplibre/maplibre-gl-js/blob/06cac16ca843bbc9b029aff71d4120ef448f79b4/src/ui/map.ts#L735-L845)）。高德内部没有给我们同等级的事件归一层，因此当前只在 canonical browse layer 内处理 marker 与 companion map click 的短暂时序，不让产品 reducer 理解 `originEvent` 或 RAF。
 
 ## #648 收口后的实现
 
 这份调研记录的中间态已经删除。正式
 [`campus-map-runtime.tsx`](../../src/components/campus-map/campus-map-runtime.tsx)
-只把用户和 provider intent 交给 `scene-driver.ts`；driver 统一拥有 URL/history、camera、focus
+只把用户和 canonical browse-layer intent 交给 `scene-driver.ts`；driver 统一拥有 URL/history、camera、focus
 与 Sheet effect。共享卡片直接由 scene 投影，不使用单独 overlay command。`map-state.ts`、`map-session.ts`、`browser-history.ts` 和静态 runtime
 catalog 已删除，`/prototype/campus-map` 只重定向到正式 `/campus-map`。
 
 ### #593 当前落地状态
 
-上述两个最高风险 seam 已接入正式 runtime：
+当前实现把高风险 seam 收成两个边界：
 
-1. `AmapInteractionAdapter` 以 pointer gesture 为边界仲裁 `hotspotclick` / marker / cluster 与 companion map `click`；provider 与 background handler 只能把产品动作交给 adapter，adapter 对同一 pointer cycle 最多执行一次；background click 经过可取消 settlement，两个事件顺序均有 trace test；
-2. `scene-kernel.ts` 暴露互斥的 map / search-results / category-results / building / facility / content / provider-poi scene，以及对应的 typed intent；facility 的 building、floor 与 category 只从 catalog 推导；
-3. `scene-driver.ts` 是唯一产品 session owner。React 的搜索、类别、热点、marker、目录、deep link、Back、X、Escape、popstate 与 sheet intent 都只 dispatch 一次；driver 独占 URL/history write/travel，并统一执行 camera、focus 与 sheet command；
+1. `amap-canonical-browse-layer.ts` 拥有 canonical 设施 marker / cluster、provider hotspot 转发和 companion map click 的短暂结算；两个 provider 回调顺序都只产生一个产品动作；
+2. `scene-kernel.ts` 暴露互斥的 map / search-results / category-results / building / place / content scene，以及对应的 typed intent；Place 的 building、floor 与 category 只从 catalog 推导；
+3. `scene-driver.ts` 是唯一产品 session owner。React 的搜索、类别、canonical marker、目录、deep link、Back、X、Escape、popstate 与 sheet intent 都只 dispatch 一次；driver 独占 URL/history write/travel，并统一执行 camera、focus 与 sheet command；
 4. MarkerCluster 生命周期显式区分 loading / ready / error；插件注册与 cluster 构造/更新任一失败都会进入同一 error projection，类别列表仍可独立使用；
-5. runtime contract 已覆盖 390 / 720 / desktop panel rect、两个 provider/map-click 顺序、marker/cluster、插件 pending/注册错误/构造错误、快速 A→B 以及 drag/wheel 取消。
+5. runtime contract 已覆盖 390 / 720 / desktop panel rect、精确映射/未映射热点、marker/cluster、插件 pending/注册错误/构造错误、快速 A→B 以及 drag/wheel 取消；browse layer 黑盒测试覆盖 hotspot、keyboard、两个 marker/map-click 顺序、空白点击和 destroy。
 
-可见 Content、贡献任务和最终建筑卡信息架构继续留在后续 issue；本次迁移不以临时 UI 扩张这些领域。真实高德 SDK 的瓦片、热点事件顺序和浏览器 Back/Forward 仍必须走人工三视口验收，不能由 runtime double 代替。
+可见 Content、贡献任务和最终建筑卡信息架构继续留在后续 issue；本次迁移不以瞬时供应商卡扩张这些领域。真实高德 SDK 的瓦片、热点 object ID、canonical 设施 marker 和浏览器 Back/Forward 仍必须走人工三视口验收，不能由 runtime double 代替。
 
 ## 建议采用的最小修复形态
 
@@ -90,29 +93,29 @@ transition(scene, command, catalog): {
 }
 ```
 
-所有 UI、URL restore 和 provider adapter 只能提交 typed command；不得再从组件分别调用 reducer、`pushState` 和 `requestCamera`。重复选择同一 entity 必须显式幂等。
+所有 UI、URL restore 和 canonical browse layer 只能提交 typed command；不得再从组件分别调用 reducer、`pushState` 和 `requestCamera`。重复选择同一 entity 必须显式幂等。
 
-### B. `amap-interaction-adapter.ts`：只翻译 provider 事件
+### B. `amap-canonical-browse-layer.ts`：拥有 canonical overlay
 
-- 在地图容器的 pointer 生命周期内生成 interaction token；hotspot/marker/background 只能认领一次；
-- 将真实高德事件序列归并为一个 `open-building`、`open-provider-poi` 或 `dismiss-entity`；
-- 若高德事件缺少可共享的原始事件，允许 adaptor 内部有短暂 settlement queue，但它必须封装、可取消，并以两种事件顺序测试；
-- 产品 kernel 不接触 `originEvent`、RAF 或高德对象。
+- 输入 projection、provider 坐标和显示 mode，内部创建、更新并销毁 marker / cluster；
+- 只输出 `OPEN_BUILDING`、`OPEN_PLACE`、`FIT_CLUSTER`、`DISMISS` 四种 intent；
+- companion map click 只在内部延后一帧结算，marker-first 与 map-first 都可取消，键盘点击不依赖 pointer 事件；
+- React 和产品 kernel 不接触 `originEvent`、RAF 或高德对象。
 
-### C. `amap-effect-runtime.ts`：唯一 SDK/history 副作用 owner
+### C. 现有 runtime：执行 SDK/history 副作用
 
 - `CameraController`：token、safe area、resize、用户手势取消；
 - `HistoryAdapter`：push/replace/pop restore，restore 不回写；
-- `MarkerRegistry`：facility marker、cluster 的 loading/ready/error 与销毁；
-- 一个 effect 执行器按 transition 输出运行这些 intent。
+- Marker / cluster 的 loading、ready、error 与销毁由 B 中的 browse layer 负责；
+- runtime 按 transition 输出运行 camera、history、focus 与 sheet intent，不再增加第二个总管类。
 
 ### D. UI 只做 projection
 
-Panel、category list、facility card 都只从 `CampusMapScene`/derived view model 渲染；provider target 读取失败等短暂 Panel 也由 driver snapshot 持有，不另建 React selection owner。按钮只 dispatch command。panel snap 或 viewport orientation 改变可产生 layout command/camera intent，但不暗中改变 selection 或 zoom。
+Panel、category list、facility card 都只从 `CampusMapScene`/derived view model 渲染，不另建 React selection owner。按钮只 dispatch command。panel snap 或 viewport orientation 改变可产生 layout command/camera intent，但不暗中改变 selection 或 zoom。
 
 ## 明确不要采用
 
-- 不用 MapComplete 的 `originalEvent.consumed` 或当前 RAF boolean 解决跨 provider-event 去重；
+- 不公开 pointer token、gesture arbiter 或 RAF 状态；供应商事件时序只留在 browse layer 内；
 - 不用 uMap 的无类型全局字符串 event bus，或 `once(next click)` 关闭面板；
 - 不复制 iD 的巨型 context、在 mode 内同时操作 sidebar 与 camera；
 - 不为了“像 Organic Maps”增加一套形式化 VIP 文件；这里三个深模块足够；
@@ -123,7 +126,7 @@ Panel、category list、facility card 都只从 `CampusMapScene`/derived view mo
 修复后的矩阵应分四层，而不是所有行都标成“组件测试”：
 
 1. **Kernel table test**：每个 command 精确断言 next scene、history、camera、focus；
-2. **Adapter trace test**：hotspot→click、click→hotspot、marker→map click、blank click、drag/zoom cancellation；每个 pointer cycle 最多一个产品 command；
+2. **Browse-layer trace test**：keyboard marker、marker→map click、map click→marker、blank click、destroy；每个动作最多一个产品 intent；
 3. **Runtime contract test**：390/720/desktop 的真实 panel rect、相机可见区、plugin failure、rapid A→B、destroy；
 4. **UI projection test**：同一 scene 在不同 viewport 的 panel/card/tag，以及 Back/Forward 恢复。
 

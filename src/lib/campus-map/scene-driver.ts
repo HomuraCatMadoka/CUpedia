@@ -27,12 +27,6 @@ export type CampusMapDriverIntent =
   | { type: "NAVIGATE_BACK" }
   | { type: "DISMISS" }
   | {
-      type: "REPORT_PROVIDER_TARGET_UNAVAILABLE";
-      title: string;
-      intentToken: number;
-    }
-  | { type: "DISMISS_TRANSIENT_PANEL" }
-  | {
       type: "FIT_CLUSTER";
       positions: ReadonlyArray<readonly [longitude: number, latitude: number]>;
     }
@@ -48,11 +42,7 @@ export type CampusMapDriverCameraCommand =
       kind: "edit-position";
       position: readonly [longitude: number, latitude: number];
       precision: CampusMapPointPrecision;
-      reason:
-        | "draft-restore"
-        | "keyboard-placement"
-        | "provider-placement"
-        | "reposition";
+      reason: "draft-restore" | "keyboard-placement" | "reposition";
     };
 
 export type CampusMapDriverFocusCommand =
@@ -63,17 +53,10 @@ export type CampusMapSheetCommand =
   | { kind: "hide" }
   | { kind: "show"; snap: "peek" | "full" };
 
-export type CampusMapTransientPanel = {
-  kind: "provider-target-unavailable";
-  title: string;
-  snap: "peek";
-};
-
 export interface CampusMapDriverSnapshot {
   session: CampusMapSession;
   returnTo: CampusMapSession | null;
   transitionToken: number;
-  transientPanel: CampusMapTransientPanel | null;
 }
 
 export interface CampusMapDriverRestoreResult {
@@ -153,9 +136,7 @@ function returnTargetFor(
     event.type === "OPEN_PLACE" ||
     event.type === "OPEN_CONTENT"
   ) {
-    if (session.mode === "browse" && session.scene.kind !== "provider-poi") {
-      return session;
-    }
+    if (session.mode === "browse") return session;
   }
   return null;
 }
@@ -187,7 +168,6 @@ export class CampusMapSceneDriver {
       session: decoded.session,
       returnTo: null,
       transitionToken: 0,
-      transientPanel: null,
     };
     this.returnTargetsByDepth.set(0, null);
   }
@@ -229,18 +209,6 @@ export class CampusMapSceneDriver {
   }
 
   dispatch(intent: CampusMapDriverIntent) {
-    if (intent.type === "REPORT_PROVIDER_TARGET_UNAVAILABLE") {
-      return this.reportProviderTargetUnavailable(
-        intent.title,
-        intent.intentToken,
-      );
-    }
-    if (intent.type === "DISMISS_TRANSIENT_PANEL") {
-      return this.dismissTransientPanel();
-    }
-    if (intent.type === "DISMISS" && this.snapshot.transientPanel) {
-      return this.dismissTransientPanel();
-    }
     if (intent.type === "FIT_CLUSTER") return this.fitCluster(intent.positions);
     if (intent.type === "REFRAME") return this.reframe(intent.reason);
     if (this.pendingHistoryReturn) {
@@ -325,11 +293,7 @@ export class CampusMapSceneDriver {
 
   recenterEditPosition(
     position: readonly [longitude: number, latitude: number],
-    reason:
-      | "draft-restore"
-      | "keyboard-placement"
-      | "provider-placement"
-      | "reposition",
+    reason: "draft-restore" | "keyboard-placement" | "reposition",
     precision: CampusMapPointPrecision = "approximate",
   ) {
     this.ports.camera(
@@ -519,7 +483,6 @@ export class CampusMapSceneDriver {
       session,
       returnTo,
       transitionToken: this.snapshot.transitionToken,
-      transientPanel: null,
     };
     this.returnTargetsByDepth.set(nextDepth, returnTo);
 
@@ -555,34 +518,6 @@ export class CampusMapSceneDriver {
     };
     this.ports.history.back();
     return { status: "travelled" as const };
-  }
-
-  private reportProviderTargetUnavailable(title: string, intentToken: number) {
-    if (this.snapshot.transitionToken !== intentToken) {
-      return { status: "superseded" as const };
-    }
-    this.bumpToken();
-    this.snapshot = {
-      ...this.snapshot,
-      transientPanel: {
-        kind: "provider-target-unavailable",
-        title,
-        snap: "peek",
-      },
-    };
-    for (const listener of this.listeners) listener();
-    this.ports.sheet({ kind: "show", snap: "peek" }, this.effectContext());
-    return { status: "committed" as const, snapshot: this.snapshot };
-  }
-
-  private dismissTransientPanel() {
-    if (!this.snapshot.transientPanel) return { status: "noop" as const };
-    this.intentVersion += 1;
-    this.bumpToken();
-    this.snapshot = { ...this.snapshot, transientPanel: null };
-    for (const listener of this.listeners) listener();
-    this.ports.sheet(sheetCommand(this.snapshot.session), this.effectContext());
-    return { status: "committed" as const, snapshot: this.snapshot };
   }
 
   private carryQueuedIntents(intents: CampusMapEvent[]) {

@@ -10,8 +10,7 @@ export type CampusMapMobilePanelLayout =
       groupCount: number;
     }
   | { kind: "expanded"; content: "category"; resultCount: number }
-  | { kind: "provider-error" }
-  | { kind: "provider-poi" }
+  | { kind: "transient-hotspot" }
   | { kind: "empty-building" }
   | { kind: "place" }
   | { kind: "building" }
@@ -33,7 +32,7 @@ export function campusMapMobilePanelHeight(
           : 140 + layout.resultCount * 56;
       return `min(${contentHeight}px, 62dvh)`;
     }
-    case "provider-poi":
+    case "transient-hotspot":
       return "120px";
     case "empty-building":
       return "208px";
@@ -48,7 +47,6 @@ export function campusMapMobilePanelHeight(
       const contentHeight = Math.max(208, 124 + layout.resultCount * 56);
       return `min(${contentHeight}px, 44dvh)`;
     }
-    case "provider-error":
     case "default":
       return "var(--campus-map-peek-height)";
   }

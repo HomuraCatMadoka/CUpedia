@@ -6,9 +6,9 @@ import {
 } from "@/lib/campus-map/scene-semantics";
 
 /**
- * Pure product kernel layered on the #593 ports. Provider gesture arbitration,
- * camera execution, browser history, and MarkerCluster
- * failure handling remain owned by their existing adapters and runtimes.
+ * Pure product kernel layered on the #593 ports. AMap browse events, camera
+ * execution, browser history, and MarkerCluster failure handling remain owned
+ * by their dedicated runtime boundaries.
  */
 
 export type CampusMapBrowseScene =
@@ -32,19 +32,12 @@ export type CampusMapBrowseScene =
   | {
       kind: "place";
       placeId: string;
-      snap: Exclude<CampusMapSheetSnap, "hidden">;
+      snap: "peek";
     }
   | {
       kind: "content";
       contentId: string;
       snap: Exclude<CampusMapSheetSnap, "hidden">;
-    }
-  | {
-      kind: "provider-poi";
-      provider: "amap";
-      providerPoiId: string;
-      name: string;
-      position: readonly [longitude: number, latitude: number];
     };
 
 export type CampusMapContributionTask =
@@ -117,12 +110,6 @@ export type CampusMapEvent =
       contentId: string;
       source: "map" | "building";
     }
-  | {
-      type: "OPEN_PROVIDER_POI";
-      providerPoiId: string;
-      name: string;
-      position: readonly [longitude: number, latitude: number];
-    }
   | { type: "SET_SNAP"; snap: Exclude<CampusMapSheetSnap, "hidden"> }
   | { type: "SET_BUILDING_FLOOR"; floorId: string | null }
   | { type: "START_CREATE" }
@@ -187,13 +174,7 @@ const NO_COMMANDS: CampusMapSceneCommands = {
   focus: null,
 };
 
-type NavigationClass =
-  | "enter"
-  | "refine"
-  | "transient"
-  | "restore"
-  | "return"
-  | "noop";
+type NavigationClass = "enter" | "refine" | "restore" | "return" | "noop";
 
 function historyCommandFor(
   navigation: NavigationClass,
@@ -205,7 +186,6 @@ function historyCommandFor(
       return "replace";
     case "return":
       return "back-or-push";
-    case "transient":
     case "restore":
     case "noop":
       return null;
@@ -245,7 +225,11 @@ export function resolveCampusMapScene(
 ): CampusMapResolvedScene {
   const resolved = resolveCampusMapSessionSemantics(session, catalog);
   return resolved.status === "valid"
-    ? { status: "valid", session, context: resolved.context }
+    ? {
+        status: "valid",
+        session: resolved.session,
+        context: resolved.context,
+      }
     : resolved;
 }
 
@@ -256,11 +240,7 @@ export function transitionCampusMapSession(
 ): CampusMapTransition {
   if (event.type === "RESTORE") {
     const requested = resolveCampusMapSessionSemantics(event.session, catalog);
-    const restored =
-      requested.status === "valid" &&
-      requested.persistence.kind === "persistent"
-        ? requested
-        : null;
+    const restored = requested.status === "valid" ? requested : null;
     const restoredSession = restored?.session ?? EMPTY_CAMPUS_MAP_SCENE_SESSION;
     return {
       status: "accepted",
@@ -373,11 +353,13 @@ export function transitionCampusMapSession(
   }
 
   if (event.type === "SET_SNAP") {
-    if (session.scene.kind === "map" || session.scene.kind === "provider-poi") {
+    if (session.scene.kind === "map") {
       return reject(session, "event-not-allowed");
     }
-    if (session.scene.kind === "place" && event.snap === "full") {
-      return reject(session, "event-not-allowed");
+    if (session.scene.kind === "place") {
+      return event.snap === "peek"
+        ? acceptNoop(session)
+        : reject(session, "event-not-allowed");
     }
     if (session.scene.snap === event.snap) return acceptNoop(session);
     return {
@@ -547,41 +529,6 @@ export function transitionCampusMapSession(
     };
   }
 
-  if (event.type === "OPEN_PROVIDER_POI") {
-    const providerPoiId = event.providerPoiId;
-    const name = event.name.trim();
-    const candidate: CampusMapSession = {
-      mode: "browse",
-      scene: {
-        kind: "provider-poi",
-        provider: "amap",
-        providerPoiId,
-        name,
-        position: event.position,
-      },
-    };
-    const resolved = resolveCampusMapSessionSemantics(candidate, catalog);
-    if (resolved.status === "invalid") return reject(session, resolved.reason);
-    if (
-      session.scene.kind === "provider-poi" &&
-      session.scene.providerPoiId === providerPoiId &&
-      session.scene.name === name &&
-      session.scene.position[0] === event.position[0] &&
-      session.scene.position[1] === event.position[1]
-    ) {
-      return acceptNoop(session);
-    }
-    return {
-      status: "accepted",
-      session: resolved.session,
-      commands: {
-        history: historyCommandFor("transient"),
-        camera: { kind: "cancel" },
-        focus: { kind: "heading" },
-      },
-    };
-  }
-
   const candidate: CampusMapSession = {
     mode: "browse",
     scene: {
@@ -600,7 +547,7 @@ export function transitionCampusMapSession(
   }
   return {
     status: "accepted",
-    session: resolved.session,
+    session: candidate,
     commands: {
       history: historyCommandFor(
         session.scene.kind === "building" ||

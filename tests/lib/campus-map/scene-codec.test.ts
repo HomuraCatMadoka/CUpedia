@@ -107,10 +107,10 @@ describe("Campus Map versioned scene codec", () => {
   });
 
   it("normalizes a legacy full facility URL to its compact card", () => {
-    const session: CampusMapSession = {
+    const session = {
       mode: "browse",
       scene: { kind: "place", placeId: "fountain", snap: "full" },
-    };
+    } as unknown as CampusMapSession;
 
     const encoded = encodeCampusMapUrl(session, catalog);
     expect(encoded.toString()).toBe("v=1&scene=place&id=fountain&snap=peek");
@@ -220,20 +220,6 @@ describe("Campus Map versioned scene codec", () => {
       },
       "v=1&task=edit&id=fountain",
       null,
-    ],
-    [
-      {
-        mode: "browse",
-        scene: {
-          kind: "provider-poi",
-          provider: "amap",
-          providerPoiId: "external",
-          name: "External",
-          position: [114.2, 22.4],
-        },
-      },
-      "v=1",
-      EMPTY_CAMPUS_MAP_SCENE_SESSION,
     ],
   ] satisfies readonly [CampusMapSession, string, CampusMapSession | null][])(
     "stabilizes encode/decode/normalize for a canonical session",

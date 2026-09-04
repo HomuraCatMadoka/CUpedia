@@ -1,5 +1,4 @@
 import type {
-  CampusMapBrowseScene,
   CampusMapCameraCommand,
   CampusMapContributionTask,
   CampusMapFocusCommand,
@@ -9,17 +8,6 @@ import type {
 } from "@/lib/campus-map/scene-kernel";
 import type { CameraReason } from "@/lib/campus-map/camera-policy";
 import { isCanonicalCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
-
-export type PersistableCampusMapSession =
-  | {
-      mode: "browse";
-      scene: Exclude<CampusMapBrowseScene, { kind: "provider-poi" }>;
-    }
-  | Extract<CampusMapSession, { mode: "task" }>;
-
-type CampusMapPersistenceProjection =
-  | { kind: "persistent"; session: PersistableCampusMapSession }
-  | { kind: "transient" };
 
 export type CampusMapSessionSemantics =
   | { status: "invalid"; reason: string }
@@ -38,7 +26,6 @@ export type CampusMapSessionSemantics =
         CampusMapContributionTask,
         { kind: "create" }
       >["anchor"];
-      persistence: CampusMapPersistenceProjection;
     };
 
 export type CampusMapSceneCameraTarget =
@@ -59,12 +46,6 @@ export function projectCampusMapSceneCameraCommand(
   return target.kind === "building"
     ? { kind: "focus", buildingId: target.buildingId, reason }
     : { kind: "focus-place", placeId: target.placeId, reason };
-}
-
-function persistentBrowse(
-  scene: Exclude<CampusMapBrowseScene, { kind: "provider-poi" }>,
-): CampusMapPersistenceProjection {
-  return { kind: "persistent", session: { mode: "browse", scene } };
 }
 
 type CatalogBuilding = NonNullable<CampusMapSceneCatalog["buildings"][string]>;
@@ -226,17 +207,6 @@ function findContent(catalog: CampusMapSceneCatalog, contentId: string) {
   return typeof kind === "string" ? { ...relation, kind } : undefined;
 }
 
-export function isValidCampusMapPosition(position: readonly [number, number]) {
-  return (
-    Number.isFinite(position[0]) &&
-    position[0] >= -180 &&
-    position[0] <= 180 &&
-    Number.isFinite(position[1]) &&
-    position[1] >= -90 &&
-    position[1] <= 90
-  );
-}
-
 export function resolveCampusMapSessionSemantics(
   session: CampusMapSession,
   catalog: CampusMapSceneCatalog,
@@ -283,7 +253,6 @@ export function resolveCampusMapSessionSemantics(
           : null,
       focus: { kind: "contribution-form" },
       contributionAnchor: anchor,
-      persistence: { kind: "persistent", session },
     };
   }
 
@@ -297,7 +266,6 @@ export function resolveCampusMapSessionSemantics(
       cameraTarget: null,
       focus: { kind: "map" },
       contributionAnchor: { kind: "map" },
-      persistence: persistentBrowse(scene),
     };
   }
   if (scene.kind === "search-results") {
@@ -312,7 +280,6 @@ export function resolveCampusMapSessionSemantics(
       cameraTarget: null,
       focus: { kind: "search-input" },
       contributionAnchor: { kind: "map" },
-      persistence: persistentBrowse(scene),
     };
   }
   if (scene.kind === "category-results") {
@@ -327,7 +294,6 @@ export function resolveCampusMapSessionSemantics(
       cameraTarget: null,
       focus: { kind: "results" },
       contributionAnchor: { kind: "map" },
-      persistence: persistentBrowse(scene),
     };
   }
   if (scene.kind === "building") {
@@ -346,30 +312,8 @@ export function resolveCampusMapSessionSemantics(
       cameraTarget: { kind: "building", buildingId: scene.buildingId },
       focus: { kind: "heading" },
       contributionAnchor: { kind: "building", buildingId: scene.buildingId },
-      persistence: persistentBrowse(scene),
     };
   }
-  if (scene.kind === "provider-poi") {
-    if (
-      !isCanonicalCampusMapId(scene.providerPoiId) ||
-      scene.name !== scene.name.trim() ||
-      scene.name.length === 0 ||
-      !isValidCampusMapPosition(scene.position)
-    ) {
-      return { status: "invalid", reason: "invalid-provider-poi" };
-    }
-    return {
-      status: "valid",
-      session,
-      context: null,
-      buildingId: null,
-      cameraTarget: null,
-      focus: { kind: "map" },
-      contributionAnchor: { kind: "map" },
-      persistence: { kind: "transient" },
-    };
-  }
-
   const entity =
     scene.kind === "place"
       ? findFacility(catalog, scene.placeId)
@@ -397,7 +341,13 @@ export function resolveCampusMapSessionSemantics(
   }
   return {
     status: "valid",
-    session,
+    session:
+      scene.kind === "place"
+        ? {
+            mode: "browse",
+            scene: { kind: "place", placeId: scene.placeId, snap: "peek" },
+          }
+        : session,
     context: {
       buildingId: entity.buildingId,
       floorId: entity.floorId,
@@ -418,8 +368,5 @@ export function resolveCampusMapSessionSemantics(
     contributionAnchor: entity.buildingId
       ? { kind: "building", buildingId: entity.buildingId }
       : { kind: "map" },
-    persistence: persistentBrowse(
-      scene.kind === "place" ? { ...scene, snap: "peek" } : scene,
-    ),
   };
 }

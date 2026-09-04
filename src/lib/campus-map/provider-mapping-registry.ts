@@ -23,6 +23,7 @@ import {
   sameCampusMapProviderMappingTarget as sameTarget,
   validateCampusMapProviderIdentity as validateProviderIdentity,
   type CampusMapProviderIdentity,
+  type CampusMapProviderMappingProjection,
   type CampusMapProviderMappingTarget,
 } from "@/lib/campus-map/provider-mapping-domain";
 
@@ -935,4 +936,32 @@ export async function resolveCampusMapProviderSelection(
     )
     .limit(1);
   return place ? { kind: "place", ...place } : null;
+}
+
+/** Public browse read model for one provider; canonical facts stay elsewhere. */
+export async function listCampusMapProviderMappings(
+  provider: string,
+): Promise<CampusMapProviderMappingProjection[]> {
+  if (
+    provider.length === 0 ||
+    provider !== provider.trim() ||
+    !/^[a-z0-9][a-z0-9._-]{0,63}$/.test(provider)
+  ) {
+    return [];
+  }
+  const rows = await db
+    .select({
+      providerObjectId: campusMapProviderMappings.providerObjectId,
+      targetKind: campusMapProviderMappings.targetKind,
+      buildingId: campusMapProviderMappings.buildingId,
+      placeId: campusMapProviderMappings.placeId,
+    })
+    .from(campusMapProviderMappings)
+    .where(eq(campusMapProviderMappings.provider, provider))
+    .orderBy(asc(campusMapProviderMappings.providerObjectId));
+
+  return rows.flatMap((row) => {
+    const target = mappingTarget(row);
+    return target ? [{ providerObjectId: row.providerObjectId, target }] : [];
+  });
 }

@@ -2,20 +2,24 @@
 
 调研日期：2026-08-13
 
+> 历史调研说明：本文记录早期方案，不再描述当前产品契约。ADR 0038
+> 已决定浏览态只显示和点击 CUpedia canonical Building/Place；高德热点、
+> provider POI 卡片和点击时映射查询已退出生产浏览路径。
+
 ## 结论先行
 
-当前原型最显著的问题不是配色，而是把三种语义不同的对象都当成了“可打开详情的地点”：
+早期原型最显著的问题不是配色，而是把三种语义不同的对象都当成了“可打开详情的地点”：
 
 1. 高德底图 POI（高德的数据）；
 2. CUpedia 建筑（本产品的主实体）；
 3. CUpedia 设施（厕所、饮水机、打印机等）。
 
-高德 JS API 本身允许底图 POI 点击，但这不代表每个 POI 都应该打开占据大半屏的 CUpedia 详情面板。推荐将交互分为两条明确路径：
+高德 JS API 本身允许底图 POI 点击，但这不代表每个 POI 都应该打开占据大半屏的 CUpedia 详情面板。这项早期调研当时建议将交互分为两条路径：
 
 - 点击 **CUpedia 建筑或设施**：选中实体、移动镜头、打开 CUpedia 的移动端详情面板。
-- 点击 **未关联的高德底图 POI**：显示与 Building、Place 共用外壳的轻量底卡，只保留名称和“高德地图地点”，不提供 CUpedia 编辑或历史操作。
+- 点击 **未关联的高德底图 POI**：显示轻量底卡。这个过渡方案后来被 ADR 0038 删除；当前浏览态不接收这类点击。
 
-同时，当前按屏幕像素距离手写聚合的做法应该替换为官方 `AMap.MarkerCluster`。手写逻辑只在 React effect 执行或 `zoomend` 后重建，一方面制造重复的圆形 UI，另一方面把建筑数量和设施数量混为一谈；官方聚合已经处理缩放后的重聚合、cluster click 事件和单点渲染。
+同时，当时按屏幕像素距离手写聚合的做法应该替换为官方 `AMap.MarkerCluster`。手写逻辑只在 React effect 执行或 `zoomend` 后重建，一方面制造重复的圆形 UI，另一方面把建筑数量和设施数量混为一谈；官方聚合已经处理缩放后的重聚合、cluster click 事件和单点渲染。
 
 ## 一手来源审阅
 
@@ -30,7 +34,7 @@
 
 #### InfoWindow 是可用的供应商能力，但不是当前产品卡片
 
-官方 `AMap.InfoWindow` 明确规定同一张地图一次只显示一个信息窗；它支持 `autoMove`、四边避让 `avoid`、`closeWhenClickMap`、自定义 DOM 内容和 `extData`。早期原型曾据此承载未映射 POI，但 #649 的截图对比发现它与 CUpedia 底卡形成两套视觉和焦点生命周期。当前实现因此统一使用 React 轻量底卡；InfoWindow 只作为调研过的供应商能力记录，不进入生产卡片路径。
+官方 `AMap.InfoWindow` 明确规定同一张地图一次只显示一个信息窗；它支持 `autoMove`、四边避让 `avoid`、`closeWhenClickMap`、自定义 DOM 内容和 `extData`。早期原型曾据此承载未映射 POI，但 #649 的截图对比发现它与 CUpedia 底卡形成两套视觉和焦点生命周期。随后一度改用 React 轻量底卡；ADR 0038 又把 provider POI 卡片完整移出生产浏览路径。InfoWindow 只作为调研过的供应商能力记录。
 
 - [AMap.InfoWindow 参考](https://developer.amap.com/api/maps-javascript-api/reference/amap-infowindow/infowindow)
 - [InfoWindow 教程](https://developer.amap.com/api/maps-javascript-api/guide/overlays/info-window)
@@ -73,7 +77,7 @@
 2. `useAmapInstance` 单独拥有实例的 create/destroy；
 3. `useFacilityCluster` 单独同步当前 category 数据；
 4. React 的 selection state 是唯一事实源，AMap overlay 只是投影；
-5. Building、Place 和未映射高德 POI 都由同一个 React 卡片投影渲染；高德热点只提供 provider intent，不拥有第二套卡片 DOM 或焦点状态。
+5. Building 和 Place 由同一个 React 卡片投影渲染；未映射高德 POI 不进入浏览交互，高德热点不提供产品 intent。
 
 这比在一个大型 component 中同时注入 script、建图、转换坐标、聚合、做历史记录和渲染面板更容易验证。
 
@@ -83,7 +87,7 @@
 
 - [ngx-amap README：ready、Marker 事件与插件加载](https://github.com/xieziyu/ngx-amap#使用)
 
-对当前原型的启发：不要自行复刻 `MarkerCluster` 的算法或把所有 AMap 方法抽象掉；只做生命周期与产品状态边界。
+对早期原型的启发：不要自行复刻 `MarkerCluster` 的算法或把所有 AMap 方法抽象掉；只做生命周期与产品状态边界。
 
 ### 4. `amap-demo/web-route-base-on-geolocation-and-placesearch`：移动端模式
 
@@ -96,14 +100,14 @@
 
 这个仓库较旧，不应复制其 SDK 版本或 DOM 写法；值得采用的是“一个状态只做一个主要任务”和“选择后回到地图并适配视野”。
 
-## 针对当前原型的优先级
+## 针对早期原型的优先级
 
-### P0：消除当前错误语义与重复 UI
+### P0：消除当时的错误语义与重复 UI
 
-1. **未关联高德 POI 不打开空白的 CUpedia 详情。** 使用共享轻量底卡，内容仅为 POI 名称和“高德地图地点”；点击空白地图关闭，不显示编辑、历史或关联操作。
+1. **未关联高德 POI 不打开 CUpedia 详情。** 早期建议的共享轻量底卡已被 ADR 0038 取代；当前实现直接关闭高德热点能力，不生成卡片。
 2. **设施单点不显示数字 `1`。** 单点显示类别图标；只有两个及以上设施合并时显示 count。
 3. **用 `AMap.MarkerCluster` 替换手写 56px 聚合。** cluster click 放大/fit 内部点，单点 click 选择具体 facility；不要将 cluster click 映射为第一栋建筑。
-4. **修正视觉层级。** 搜索框为最高层；category chips 是次级浮层；地图 controls 不与 bottom sheet/版权重叠。当前 screenshot 中“大面积空白详情面板 + 地图上的 1/1 圆点”正是前三项未满足的表现，不应作为验收终态。
+4. **修正视觉层级。** 搜索框为最高层；category chips 是次级浮层；地图 controls 不与 bottom sheet/版权重叠。当时 screenshot 中“大面积空白详情面板 + 地图上的 1/1 圆点”正是前三项未满足的表现，不应作为验收终态。
 
 ### P1：建立现代移动地图的信息架构
 
@@ -123,29 +127,29 @@
 
 ## 推荐的可验收状态转换
 
-| 用户操作                  | 地图表现                                     | UI 状态                     |
-| ------------------------- | -------------------------------------------- | --------------------------- |
-| 点击 category             | 维持用户当前镜头；更新 cluster data          | category active，无详情     |
-| 点击 cluster（count > 1） | 平滑放大或 fit cluster 内点                  | 不打开详情                  |
-| 点击设施单点              | marker 进入 selected 样式；镜头避开面板      | 打开设施 peek               |
-| 点击 CUpedia 建筑         | 建筑被定位到剩余可视区中心                   | 打开建筑 peek               |
-| 从建筑卡点击设施          | 同一 facility selection，地图突出同一 marker | 切到设施 peek               |
-| 点击未关联高德 POI        | 保持高德 POI 为锚点，必要时自动 pan          | 打开共享轻量底卡            |
-| 点击地图空白              | 保持镜头                                     | 关闭当前卡片；category 不变 |
-| 上拉 peek                 | marker 仍在可视区域                          | expanded，按楼层展示        |
-| 下拉/关闭 expanded        | 不重新缩放                                   | 回 peek 或关闭              |
+| 用户操作                  | 地图表现                                     | UI 状态                      |
+| ------------------------- | -------------------------------------------- | ---------------------------- |
+| 点击 category             | 维持用户当前镜头；更新 cluster data          | category active，无详情      |
+| 点击 cluster（count > 1） | 平滑放大或 fit cluster 内点                  | 不打开详情                   |
+| 点击设施单点              | marker 进入 selected 样式；镜头避开面板      | 打开设施 peek                |
+| 点击已映射的高德建筑热点  | 建筑被定位到剩余可视区中心                   | 打开 canonical 建筑 peek     |
+| 从建筑卡点击设施          | 同一 facility selection，地图突出同一 marker | 切到设施 peek                |
+| 点击未映射的高德底图热点  | 保持镜头                                     | 打开不带产品动作的瞬时参考卡 |
+| 点击地图空白              | 保持镜头                                     | 关闭当前卡片；category 不变  |
+| 上拉 peek                 | marker 仍在可视区域                          | expanded，按楼层展示         |
+| 下拉/关闭 expanded        | 不重新缩放                                   | 回 peek 或关闭               |
 
 ## Issue #593 UI 验收矩阵
 
-下表只覆盖高德只读原型；新增图钉、申请、审批、评论、室内图和导航不在本 PR 验收范围内。`Content` 已在 canonical state 与 session command 两层同建筑、设施共用 selection/history/camera transition；外部高德 POI 也经 session command 进入 transient `provider-poi` scene，而不是从 provider handler 绕过产品转换。可见的 Content、楼内 tag 与 inside-search projection 由状态内核 Issue #644 承接；#593 只固定这些 command 的 parent/history/no-camera 契约，不造一条与未来领域模型冲突的临时内容 UI。
+下表只覆盖高德只读原型；新增图钉、申请、审批、评论、室内图和导航不在本 PR 验收范围内。`Content` 已在 canonical state 与 session command 两层同建筑、设施共用 selection/history/camera transition。外部高德 POI 不进入 scene；可见的 Content、楼内 tag 与 inside-search projection 由状态内核 Issue #644 承接。
 
 | 场景 / 操作               | UI 断言                                                                                     | Camera 断言                                               | History / URL 断言                                                | 视口           | 自动化证据                                                                        |
 | ------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------- | -------------- | --------------------------------------------------------------------------------- |
-| 初始地图                  | 高德底图、搜索、类别、定位控件完整；没有自定义建筑 marker                                   | 校园初始视野稳定                                          | URL 无实体参数                                                    | 390、720、桌面 | `amap-campus-runtime`: preloaded SDK 初始化                                       |
-| 点击已关联高德建筑热点    | 只出现一个原生 POI；打开对应建筑 peek；两个事件顺序或 provider 竞争均只产生一次产品动作     | zoom 不变；只 relocate 一次；按实测 panel rect 计算安全区 | 建筑 selection 只 push 一次                                       | 390、720、桌面 | adapter permutation trace + runtime: linked hotspot / three viewport safe areas   |
-| 点击未关联高德 POI        | 只打开共享轻量卡，不出现 CUpedia 编辑或历史操作                                             | 必要时仅做最小 pan                                        | 不生成可分享 CUpedia entity URL                                   | 390、桌面      | runtime: one transient provider card                                              |
+| 初始地图                  | 高德底图热点、搜索、类别和定位控件完整                                                      | 校园初始视野稳定                                          | URL 无实体参数                                                    | 390、720、桌面 | runtime: `isHotspot: true` + preloaded mapping                                    |
+| 点击已映射建筑热点        | 直接打开对应 canonical Building；不经过临时卡或异步升级                                     | zoom 不变；只 relocate 一次；按实测 panel rect 计算安全区 | 建筑 selection 只 push 一次                                       | 390、720、桌面 | browse-layer hotspot + runtime: exact mapping / three viewport safe areas         |
+| 点击未映射底图热点        | 打开只有高德名称的瞬时参考卡；无“新增设施”                                                  | 保持当前镜头                                              | 不生成 CUpedia entity URL                                         | 390、桌面      | runtime: unmapped hotspot stays transient                                         |
 | 点击类别                  | 显示一致的类别 marker 和结果列表；单点是图标、cluster 才是数字                              | center / zoom 不变                                        | 从实体进入结果是可返回导航；结果间切换只 replace 筛选             | 390、桌面      | session/component: category transition；runtime: zero camera calls；marker helper |
-| 点击 cluster              | 不打开任一设施详情；companion map click 不关闭类别列表                                      | fit 全部成员且不超过最大 zoom                             | selection / URL 不变                                              | 390、桌面      | adapter trace + runtime: cluster bounds fit                                       |
+| 点击 cluster              | 不打开任一设施详情；companion map click 不关闭类别列表                                      | fit 全部成员且不超过最大 zoom                             | selection / URL 不变                                              | 390、桌面      | browse-layer trace + runtime: cluster bounds fit                                  |
 | 点击设施 marker 或列表项  | 两个入口得到相同设施标题、建筑、楼层、准入信息和选中 marker；companion map click 不关闭详情 | zoom 不变；设施位于面板外安全区                           | 设施 selection 只 push 一次                                       | 390、桌面      | component: facility identity；runtime: marker selection / companion click         |
 | 建筑卡内选择设施          | 打开同一设施详情                                                                            | 不主动移动 camera                                         | Back 回原建筑与楼层上下文                                         | 390、桌面      | runtime: building-card facility no camera                                         |
 | peek ↔ full               | 标题、列表和焦点不丢；控件不被卡片裁切                                                      | zoom 不变；反复三轮不累计漂移                             | 只 replace `panel`                                                | 390、720、桌面 | runtime: three snap cycles                                                        |
@@ -178,4 +182,4 @@
 - 不为高德 `InfoWindow` 保留第二套卡片生命周期；所有地点卡由 scene 驱动同一个 React panel。
 - 不直接使用高德 PlaceSearch 自动生成的结果面板作为 CUpedia 搜索结果：Campus Map 搜的是自有建筑/设施实体，搜索结果必须保留稳定 ID 和楼层关系。
 - 不在 React render 中反复 new Map/Marker；所有原生实例必须有单一 owner 和 cleanup。
-- 不把 `hotspotclick` 结果通过名称模糊匹配静默升级为 CUpedia 建筑。名称命中可以作为关联候选，但正式关系应来自明确的 AMap POI ID ↔ CUpedia building ID 映射。
+- 不把名称或距离模糊命中升级为 CUpedia 建筑；`hotspotclick` 只允许用预加载的完整 provider object ID 精确映射。

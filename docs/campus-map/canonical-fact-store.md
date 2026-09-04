@@ -43,10 +43,10 @@ bind/unlink/rebind command locks one provider identity, rechecks the actor's
 current admin status, validates previous targets by stable canonical identity
 and new targets by public eligibility, updates the active projection, and
 appends an actor/reason/time/provenance decision in one transaction.
-`provider-mapping-registry-actions.ts` supplies authenticated
-server context; React, provider adapters, and seed/import code cannot write
-mapping rows. Name, alias, distance, and coordinate evidence stays in the pure
-`provider-mapping-candidate.ts` module until an admin sends an explicit command.
+No React or server action exposes this command. Accepted mappings are written
+only by an explicit audited migration or trusted QA operator command. Names,
+aliases, distances, and coordinates may be reviewed as evidence outside the
+runtime, but they never create an active mapping or participate in a map click.
 
 For repeatable linked/unlinked browser acceptance, use the audited fixture
 runner from the fixed QA worktree. Keep its JSON manifest outside the

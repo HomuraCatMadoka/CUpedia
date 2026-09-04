@@ -9,8 +9,7 @@ describe("Campus Map card layout policy", () => {
   it.each([
     [{ kind: "placing" } as const, "min(336px, 48dvh)"],
     [{ kind: "edit" } as const, "100dvh"],
-    [{ kind: "provider-error" } as const, "var(--campus-map-peek-height)"],
-    [{ kind: "provider-poi" } as const, "120px"],
+    [{ kind: "transient-hotspot" } as const, "120px"],
     [{ kind: "empty-building" } as const, "208px"],
     [{ kind: "place" } as const, "min(264px, 35dvh)"],
     [{ kind: "building" } as const, "min(352px, 44dvh)"],

@@ -291,30 +291,6 @@ describe("Campus Map canonical scene transition", () => {
     });
   });
 
-  it("rejects rather than trims a non-canonical provider POI identity", () => {
-    expect(
-      transitionCampusMapSession(
-        EMPTY_CAMPUS_MAP_SCENE_SESSION,
-        {
-          type: "OPEN_PROVIDER_POI",
-          providerPoiId: " external ",
-          name: "External",
-          position: [114.2, 22.4],
-        },
-        catalog,
-      ),
-    ).toEqual({
-      status: "rejected",
-      reason: "invalid-provider-poi",
-      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
-      commands: {
-        history: null,
-        camera: null,
-        focus: null,
-      },
-    });
-  });
-
   it.each(buildNonCanonicalCampusMapIdentityCases(catalog))(
     "rejects a non-canonical $label at the semantics/catalog boundary",
     ({ catalog: invalidCatalog, session, reason }) => {
@@ -359,21 +335,6 @@ describe("Campus Map canonical scene transition", () => {
     [
       { type: "OPEN_CONTENT", contentId: "room401", source: "map" } as const,
       { kind: "content", contentId: "room401", snap: "full" },
-    ],
-    [
-      {
-        type: "OPEN_PROVIDER_POI",
-        providerPoiId: "amap-east-wing",
-        name: "科学馆东座",
-        position: [114.2084, 22.4198] as const,
-      } as const,
-      {
-        kind: "provider-poi",
-        provider: "amap",
-        providerPoiId: "amap-east-wing",
-        name: "科学馆东座",
-        position: [114.2084, 22.4198],
-      },
     ],
   ])("expresses the browse scene for $type", (event, scene) => {
     const result = transitionCampusMapSession(
@@ -613,35 +574,6 @@ describe("Campus Map canonical scene transition", () => {
     });
   });
 
-  it("normalizes a transient provider scene away during popstate restore", () => {
-    const provider: CampusMapSession = {
-      mode: "browse",
-      scene: {
-        kind: "provider-poi",
-        provider: "amap",
-        providerPoiId: "external",
-        name: "External",
-        position: [114.2, 22.4],
-      },
-    };
-
-    expect(
-      transitionCampusMapSession(
-        EMPTY_CAMPUS_MAP_SCENE_SESSION,
-        { type: "RESTORE", session: provider },
-        catalog,
-      ),
-    ).toEqual({
-      status: "accepted",
-      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
-      commands: {
-        history: null,
-        camera: { kind: "cancel" },
-        focus: { kind: "map" },
-      },
-    });
-  });
-
   it("covers each semantic RESTORE target with zero history write", () => {
     const cases = [
       [
@@ -780,16 +712,6 @@ describe("Campus Map canonical scene transition", () => {
       {
         mode: "browse",
         scene: {
-          kind: "provider-poi",
-          provider: "amap",
-          providerPoiId: "external",
-          name: "External",
-          position: [114.2, 22.4],
-        },
-      },
-      {
-        mode: "browse",
-        scene: {
           kind: "building",
           buildingId: "missing",
           floorId: null,
@@ -814,6 +736,24 @@ describe("Campus Map canonical scene transition", () => {
         },
       });
     }
+  });
+
+  it("restores a legacy full Place as the one canonical compact session", () => {
+    const legacyFullPlace = {
+      mode: "browse",
+      scene: { kind: "place", placeId: "fountain", snap: "full" },
+    } as unknown as CampusMapSession;
+
+    expect(
+      transitionCampusMapSession(
+        EMPTY_CAMPUS_MAP_SCENE_SESSION,
+        { type: "RESTORE", session: legacyFullPlace },
+        catalog,
+      ).session,
+    ).toEqual({
+      mode: "browse",
+      scene: { kind: "place", placeId: "fountain", snap: "peek" },
+    });
   });
 
   it.each([
@@ -940,16 +880,6 @@ describe("Campus Map canonical scene transition", () => {
         mode: "browse",
         scene: { kind: "content", contentId: "room401", snap: "full" },
       },
-      provider: {
-        mode: "browse",
-        scene: {
-          kind: "provider-poi",
-          provider: "amap",
-          providerPoiId: "external",
-          name: "External",
-          position: [114.2, 22.4],
-        },
-      },
       task: {
         mode: "task",
         task: { kind: "edit", placeId: "fountain" },
@@ -962,7 +892,6 @@ describe("Campus Map canonical scene transition", () => {
       "building",
       "place",
       "content",
-      "provider",
     ] as const;
     const noCommands = {
       history: null,
@@ -1037,7 +966,7 @@ describe("Campus Map canonical scene transition", () => {
         snap: "peek",
       },
     };
-    for (const source of ["map", "search", "category", "provider"] as const) {
+    for (const source of ["map", "search", "category"] as const) {
       verify(
         source,
         openCategory,
@@ -1148,37 +1077,8 @@ describe("Campus Map canonical scene transition", () => {
     }
     verify("task", openContent, rejected(sources.task));
 
-    const openProvider = {
-      type: "OPEN_PROVIDER_POI",
-      providerPoiId: "external-2",
-      name: "External 2",
-      position: [114.21, 22.41],
-    } as const;
-    const external: CampusMapSession = {
-      mode: "browse",
-      scene: {
-        kind: "provider-poi",
-        provider: "amap",
-        providerPoiId: "external-2",
-        name: "External 2",
-        position: [114.21, 22.41],
-      },
-    };
-    for (const source of browseSources) {
-      verify(
-        source,
-        openProvider,
-        accepted(external, {
-          history: null,
-          camera: { kind: "cancel" },
-          focus: { kind: "heading" },
-        }),
-      );
-    }
-    verify("task", openProvider, rejected(sources.task));
-
     const setSnap = { type: "SET_SNAP", snap: "full" } as const;
-    for (const source of ["map", "provider", "task"] as const) {
+    for (const source of ["map", "task"] as const) {
       verify(source, setSnap, rejected(sources[source]));
     }
     for (const source of ["search", "category", "building"] as const) {
@@ -1240,7 +1140,7 @@ describe("Campus Map canonical scene transition", () => {
       camera: { kind: "cancel" },
       focus: { kind: "contribution-form" },
     } as const;
-    for (const source of ["map", "search", "category", "provider"] as const) {
+    for (const source of ["map", "search", "category"] as const) {
       verify(source, startCreate, accepted(mapTask, createCommands));
     }
     for (const source of ["building", "place", "content"] as const) {
@@ -1298,7 +1198,7 @@ describe("Campus Map canonical scene transition", () => {
       );
     }
 
-    expect(cellCount).toBe(104);
+    expect(cellCount).toBe(84);
   });
 
   it.each([
@@ -1316,16 +1216,6 @@ describe("Campus Map canonical scene transition", () => {
       EMPTY_CAMPUS_MAP_SCENE_SESSION,
       { type: "OPEN_CONTENT", contentId: "missing", source: "map" } as const,
       "unknown-content",
-    ],
-    [
-      EMPTY_CAMPUS_MAP_SCENE_SESSION,
-      {
-        type: "OPEN_PROVIDER_POI",
-        providerPoiId: "bad",
-        name: "Bad",
-        position: [Infinity, 22.4] as const,
-      } as const,
-      "invalid-provider-poi",
     ],
     [
       EMPTY_CAMPUS_MAP_SCENE_SESSION,

@@ -23,11 +23,6 @@ export function installAmapRuntime(options?: {
   const rafQueue: FrameRequestCallback[] = [];
   const coordinateConversionQueue: Array<() => void> = [];
   const resizeObservers: Array<{ callback: ResizeObserverCallback }> = [];
-  const beginPointerGesture = (element: Element | null) => {
-    element?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
-    element?.dispatchEvent(new Event("pointerup", { bubbles: true }));
-  };
-
   class MockLngLat implements LngLat {
     constructor(
       public lng: number,
@@ -70,6 +65,8 @@ export function installAmapRuntime(options?: {
         center?: readonly [number, number];
         rotateEnable?: boolean;
         pitchEnable?: boolean;
+        isHotspot?: boolean;
+        features?: readonly string[];
       },
     ) {
       this.zoom = mapOptions.zoom ?? 17.2;
@@ -88,10 +85,15 @@ export function installAmapRuntime(options?: {
       this.handlers.set(event, handlers);
     }
 
+    off(event: string, handler: Handler) {
+      const handlers = this.handlers.get(event) ?? [];
+      this.handlers.set(
+        event,
+        handlers.filter((candidate) => candidate !== handler),
+      );
+    }
+
     emit(event: string, payload: Record<string, unknown>) {
-      if (event === "hotspotclick" && payload.programmatic !== true) {
-        beginPointerGesture(this.getContainer());
-      }
       for (const handler of this.handlers.get(event) ?? []) handler(payload);
     }
 
@@ -177,9 +179,6 @@ export function installAmapRuntime(options?: {
     }
 
     emit(event: string) {
-      if (event === "click") {
-        beginPointerGesture(document.getElementById("amap-campus-canvas"));
-      }
       for (const handler of this.handlers.get(event) ?? []) handler();
     }
 
@@ -244,9 +243,6 @@ export function installAmapRuntime(options?: {
     }
 
     emit(event: string, payload: Record<string, unknown>) {
-      if (event === "click") {
-        beginPointerGesture(this.map.getContainer());
-      }
       for (const handler of this.handlers.get(event) ?? []) handler(payload);
     }
 

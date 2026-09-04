@@ -10,6 +10,7 @@ import type {
 import {
   commandCampusMapProviderMapping,
   getCampusMapProviderMappingGovernance,
+  listCampusMapProviderMappings,
   resolveCampusMapProviderSelection,
 } from "@/lib/campus-map/provider-mapping-registry";
 import { appendCampusMapChangesetForStorageTest } from "../helpers/campus-map-fact-store";
@@ -238,6 +239,16 @@ describe.skipIf(!hasDb)("Campus Map provider mapping registry", () => {
     await expect(
       resolveCampusMapProviderSelection("test-provider-779", "building-poi"),
     ).resolves.toEqual({ kind: "building", buildingId });
+    await expect(
+      listCampusMapProviderMappings("test-provider-779"),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        {
+          providerObjectId: "building-poi",
+          target: { kind: "building", buildingId },
+        },
+      ]),
+    );
     await expect(
       getCampusMapProviderMappingGovernance(
         { provider: "test-provider-779", providerObjectId: "building-poi" },

@@ -4,17 +4,15 @@ import {
   type CampusMapBrowseProjection,
 } from "@/lib/campus-map/browse-projection";
 import {
-  asAmapPosition,
   asWgs84Position,
   projectCampusMapWgs84ToAmap,
   type CampusMapAmapPosition,
 } from "@/lib/campus-map/amap-position";
 import type { CampusMapAmapCoordinateRequest } from "@/lib/campus-map/amap-coordinate-resolver";
-import type { CampusMapSelectionTarget } from "@/lib/campus-map/fact-store";
 
 interface CampusMapAmapProjectionDemand {
-  visibleAmenity: CampusMapBrowseMarker["pinType"] | null;
   selectedBuildingId: string | null;
+  visibleAmenity: CampusMapBrowseMarker["pinType"] | null;
   selectedPlaceId: string | null;
 }
 
@@ -22,6 +20,14 @@ interface CampusMapAmapCoordinateProjection {
   center: CampusMapAmapPosition;
   positions: Readonly<Record<string, CampusMapAmapPosition>>;
   providerRequests: readonly CampusMapAmapCoordinateRequest[];
+}
+
+export function campusMapAmapBuildingPositionKey(buildingId: string) {
+  return `building:${buildingId}`;
+}
+
+export function campusMapAmapPlacePositionKey(placeId: string) {
+  return `place:${placeId}`;
 }
 
 export function campusMapAmapCoordinateProjectionSignature(
@@ -36,37 +42,6 @@ export function campusMapAmapCoordinateProjectionSignature(
   return JSON.stringify([projection.center, positions, providerRequests]);
 }
 
-export interface CampusMapAmapPoiInput {
-  providerObjectId: string | null;
-  name: string;
-  /** AMap emits GCJ-02 coordinates at this adapter boundary. */
-  position: CampusMapAmapPosition;
-}
-
-type CampusMapAmapPoiCard =
-  | {
-      kind: "linked";
-      title: string;
-      selectionTarget: CampusMapSelectionTarget;
-    }
-  | {
-      kind: "transient";
-      externalId: string;
-      title: string;
-      position: CampusMapAmapPosition;
-    };
-
-function isValidPosition(position: CampusMapAmapPosition) {
-  return (
-    Number.isFinite(position[0]) &&
-    position[0] >= -180 &&
-    position[0] <= 180 &&
-    Number.isFinite(position[1]) &&
-    position[1] >= -90 &&
-    position[1] <= 90
-  );
-}
-
 /**
  * Locally projects presentation coordinates. Canonical WGS84 assertions remain
  * inside the provider-neutral browse projection and no provider request is made.
@@ -74,8 +49,8 @@ function isValidPosition(position: CampusMapAmapPosition) {
 export function projectCampusMapBrowseToAmap(
   projection: CampusMapBrowseProjection,
   demand: CampusMapAmapProjectionDemand = {
-    visibleAmenity: null,
     selectedBuildingId: null,
+    visibleAmenity: null,
     selectedPlaceId: null,
   },
 ): CampusMapAmapCoordinateProjection {
@@ -95,16 +70,16 @@ export function projectCampusMapBrowseToAmap(
       marker.kind === "building-presence" ? [marker.buildingId] : [],
     ),
   );
+  if (demand.selectedBuildingId) {
+    visibleBuildingIds.add(demand.selectedBuildingId);
+  }
 
   for (const building of projection.buildings) {
     if (!building.anchor) continue;
-    if (
-      demand.selectedBuildingId !== building.buildingId &&
-      !visibleBuildingIds.has(building.buildingId)
-    ) {
+    if (!visibleBuildingIds.has(building.buildingId)) {
       continue;
     }
-    const key = `building:${building.buildingId}`;
+    const key = campusMapAmapBuildingPositionKey(building.buildingId);
     const position = asWgs84Position([
       building.anchor.longitude,
       building.anchor.latitude,
@@ -119,7 +94,7 @@ export function projectCampusMapBrowseToAmap(
 
   for (const marker of visibleMarkers) {
     if (marker.kind !== "place") continue;
-    const key = `place:${marker.placeId}`;
+    const key = campusMapAmapPlacePositionKey(marker.placeId);
     const position = asWgs84Position([
       marker.position.longitude,
       marker.position.latitude,
@@ -144,84 +119,4 @@ export function projectCampusMapBrowseToAmap(
     positions,
     providerRequests,
   };
-}
-
-function createTransientCampusMapAmapPoiCard(
-  input: CampusMapAmapPoiInput,
-): CampusMapAmapPoiCard | null {
-  if (!isValidPosition(input.position)) return null;
-  const providerObjectId = input.providerObjectId?.trim() || null;
-  return {
-    kind: "transient",
-    externalId: providerObjectId ?? `${input.position[0]},${input.position[1]}`,
-    title: input.name.trim() || "高德地图地点",
-    position: asAmapPosition([input.position[0], input.position[1]]),
-  };
-}
-
-/**
- * Builds the only AMap POI card model. A provider mapping is accepted only
- * when its canonical target is present in the same public Current projection.
- */
-export function projectCampusMapAmapPoiCard(
-  projection: CampusMapBrowseProjection,
-  input: CampusMapAmapPoiInput,
-  mapping: CampusMapSelectionTarget | null,
-): CampusMapAmapPoiCard | null {
-  if (mapping?.kind === "building") {
-    const building = projection.buildings.find(
-      (candidate) => candidate.buildingId === mapping.buildingId,
-    );
-    if (building) {
-      return {
-        kind: "linked",
-        title: building.name,
-        selectionTarget: building.selectionTarget,
-      };
-    }
-  } else if (mapping?.kind === "place") {
-    const place = projection.places.find(
-      (candidate) => candidate.placeId === mapping.placeId,
-    );
-    if (place) {
-      return {
-        kind: "linked",
-        title: place.name,
-        selectionTarget: place.selectionTarget,
-      };
-    }
-  }
-  return createTransientCampusMapAmapPoiCard(input);
-}
-
-export class CampusMapAmapPoiCardResolver {
-  private revision = 0;
-
-  constructor(
-    private readonly loadCard: (
-      input: CampusMapAmapPoiInput,
-    ) => Promise<CampusMapAmapPoiCard | null>,
-  ) {}
-
-  invalidate() {
-    this.revision += 1;
-  }
-
-  async resolveLatest(
-    input: CampusMapAmapPoiInput,
-  ): Promise<
-    | { status: "resolved"; card: CampusMapAmapPoiCard | null }
-    | { status: "superseded" }
-  > {
-    const revision = ++this.revision;
-    let card: CampusMapAmapPoiCard | null;
-    try {
-      card = await this.loadCard(input);
-    } catch {
-      card = createTransientCampusMapAmapPoiCard(input);
-    }
-    return revision === this.revision
-      ? { status: "resolved", card }
-      : { status: "superseded" };
-  }
 }

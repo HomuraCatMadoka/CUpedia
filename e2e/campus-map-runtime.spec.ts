@@ -1,14 +1,9 @@
 // refs #646, #649, #799, #838
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
-import {
-  commandCampusMapProviderMapping,
-  type CampusMapProviderMappingTarget,
-} from "@/lib/campus-map/provider-mapping-registry";
 import { loginWithPassword } from "./helpers/auth";
 import {
   emitAmapEvent,
-  emitAmapProviderClick,
   installFakeCampusMapAmap,
   readAmapProjectedPoint,
   readAmapSnapshot,
@@ -31,77 +26,6 @@ const unmappedProviderId = "qa-799-transient";
 
 function visibleMapCanvas(page: Page) {
   return page.locator("#amap-campus-canvas:visible");
-}
-
-const providerMappingFixtures = [
-  {
-    identity: {
-      provider: "amap",
-      providerObjectId: mappedBuildingProviderId,
-    },
-    target: {
-      kind: "building",
-      buildingId: browseIds.building,
-    } satisfies CampusMapProviderMappingTarget,
-    bindKey: "00000000-0000-4000-8000-000000006491",
-    unlinkKey: "00000000-0000-4000-8000-000000006493",
-  },
-  {
-    identity: {
-      provider: "amap",
-      providerObjectId: mappedPlaceProviderId,
-    },
-    target: {
-      kind: "place",
-      placeId: browseIds.place,
-    } satisfies CampusMapProviderMappingTarget,
-    bindKey: "00000000-0000-4000-8000-000000006492",
-    unlinkKey: "00000000-0000-4000-8000-000000006494",
-  },
-] as const;
-
-async function commandProviderMappingFixtures(
-  action: "bind" | "unlink",
-  client: Client,
-) {
-  const actor = await client.query<{ id: string }>(
-    "select id from users where email = 'admin@test.com' limit 1",
-  );
-  const actorId = actor.rows[0]?.id;
-  if (!actorId) throw new Error("E2E provider mapping admin is missing");
-
-  for (const fixture of providerMappingFixtures) {
-    const result = await commandCampusMapProviderMapping(
-      action === "bind"
-        ? {
-            kind: "bind",
-            idempotencyKey: fixture.bindKey,
-            identity: fixture.identity,
-            target: fixture.target,
-            reason: "Prepare the Campus Map runtime E2E fixture",
-            provenanceId: browseIds.provenance,
-          }
-        : {
-            kind: "unlink",
-            idempotencyKey: fixture.unlinkKey,
-            identity: fixture.identity,
-            previousTarget: fixture.target,
-            reason: "Clean up the Campus Map runtime E2E fixture",
-            provenanceId: browseIds.provenance,
-          },
-      { actorId },
-    );
-    const acceptedOutcomes =
-      action === "bind" ? ["bound", "unchanged"] : ["unlinked", "unchanged"];
-    if (
-      result.status !== "mapped" ||
-      !acceptedOutcomes.includes(result.outcome)
-    ) {
-      throw new Error(
-        `E2E provider mapping ${action} failed: ${JSON.stringify(result)}`,
-      );
-    }
-  }
 }
 
 const browseFactCleanup = [
@@ -146,21 +70,8 @@ const browseFactCleanup = [
 
 async function cleanupBrowseFixtureData(client: Client) {
   await client.query(
-    "delete from campus_map_provider_mapping_requests where idempotency_key = any($1::uuid[])",
-    [
-      providerMappingFixtures.flatMap((fixture) => [
-        fixture.bindKey,
-        fixture.unlinkKey,
-      ]),
-    ],
-  );
-  await client.query(
-    "delete from campus_map_provider_mapping_events where provider = 'amap' and provider_object_id = any($1::text[])",
-    [
-      providerMappingFixtures.map(
-        (fixture) => fixture.identity.providerObjectId,
-      ),
-    ],
+    "delete from campus_map_provider_mappings where provider = 'amap' and provider_object_id = any($1::text[])",
+    [[mappedBuildingProviderId, mappedPlaceProviderId]],
   );
   for (const cleanup of browseFactCleanup) {
     await client.query(cleanup.statement, [cleanup.id]);
@@ -257,6 +168,21 @@ async function applyBrowseFixtureData(client: Client) {
        '2026-08-28T00:00:00Z') on conflict do nothing`,
     [browseIds.place, browseIds.revision, browseIds.building, browseIds.floor],
   );
+  await client.query(
+    `insert into campus_map_provider_mappings
+       (provider, provider_object_id, target_kind, building_id, place_id, provenance_id)
+     values
+       ('amap', $1, 'building', $2, null, $4),
+       ('amap', $3, 'place', null, $5, $4)
+     on conflict (provider, provider_object_id) do nothing`,
+    [
+      mappedBuildingProviderId,
+      browseIds.building,
+      mappedPlaceProviderId,
+      browseIds.provenance,
+      browseIds.place,
+    ],
+  );
 }
 
 async function writeBrowseFixtureData(
@@ -282,13 +208,7 @@ async function withBrowseFixture(action: "apply" | "cleanup") {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
-    if (action === "cleanup") {
-      await commandProviderMappingFixtures("unlink", client);
-    }
     await writeBrowseFixtureData(client, action);
-    if (action === "apply") {
-      await commandProviderMappingFixtures("bind", client);
-    }
   } finally {
     await client.end();
   }
@@ -361,7 +281,7 @@ test("search and marker open one canonical Place card", async ({ page }) => {
     page.getByRole("heading", { name: "正式测试饮水点" }),
   ).toBeVisible();
   const currentPlaceMarker = page.locator(
-    `[data-facility-id="building:${browseIds.building}:water"]`,
+    `[data-canonical-marker-key="building:${browseIds.building}:water"]`,
   );
   await expect(currentPlaceMarker).toBeVisible();
   await expect(currentPlaceMarker).toHaveAttribute("aria-pressed", "true");
@@ -513,13 +433,13 @@ test("long-press and right-click leave contribution to the explicit Add action",
   }
 });
 
-test("one provider callback produces one canonical effect and a map gesture closes it", async ({
+test("one mapped AMap hotspot opens once and a map click closes it", async ({
   page,
 }) => {
   await page.goto("/campus-map");
   const historyBefore = await page.evaluate(() => window.history.length);
 
-  await emitAmapProviderClick(page, {
+  await emitAmapEvent(page, "hotspotclick", {
     id: mappedBuildingProviderId,
     name: "高德正式测试楼",
     lnglat: { lng: 114.2072, lat: 22.4191 },
@@ -534,10 +454,6 @@ test("one provider callback produces one canonical effect and a map gesture clos
   expect(await page.evaluate(() => window.history.length)).toBe(
     historyBefore + 1,
   );
-  await expect(page.getByText("高德地图地点")).toHaveCount(0);
-
-  await expect(visibleMapCanvas(page)).toHaveCount(1);
-  await visibleMapCanvas(page).dispatchEvent("pointerdown");
   await emitAmapEvent(page, "click", {
     lnglat: { lng: 114.2073, lat: 22.4192 },
   });
@@ -555,14 +471,13 @@ test("a mapped AMap Building starts Add with its canonical Building selected", a
 }) => {
   await page.goto("/campus-map");
 
-  await emitAmapProviderClick(page, {
+  await emitAmapEvent(page, "hotspotclick", {
     id: mappedBuildingProviderId,
     name: "高德正式测试楼",
     lnglat: { lng: 114.2072, lat: 22.4191 },
   });
 
   await expect(page.getByRole("heading", { name: "正式测试楼" })).toBeVisible();
-  await expect(page.getByText("高德地图地点")).toHaveCount(0);
   await page.getByRole("button", { name: "在正式测试楼新增设施" }).click();
 
   await expect(page.getByRole("heading", { name: "新增设施" })).toBeVisible();
@@ -572,13 +487,13 @@ test("a mapped AMap Building starts Add with its canonical Building selected", a
   await expect(page.getByRole("combobox", { name: "建筑" })).toHaveCount(0);
 });
 
-test("mapped and unmapped provider POIs never duplicate cards", async ({
+test("mapped and unmapped AMap hotspots keep canonical and transient cards separate", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/campus-map");
 
-  await emitAmapProviderClick(page, {
+  await emitAmapEvent(page, "hotspotclick", {
     id: mappedPlaceProviderId,
     name: "高德测试饮水点",
     lnglat: { lng: 114.2072, lat: 22.4191 },
@@ -594,14 +509,7 @@ test("mapped and unmapped provider POIs never duplicate cards", async ({
   ).toBeVisible();
   await expect(page.getByText("高德地图地点")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "返回地图" }).click();
-  await expect(page).toHaveURL(/\/campus-map\?v=1$/);
-  await expect(visibleMapCanvas(page)).toBeFocused();
-  const historyBeforeTransient = await page.evaluate(
-    () => window.history.length,
-  );
-
-  await emitAmapProviderClick(page, {
+  await emitAmapEvent(page, "hotspotclick", {
     id: unmappedProviderId,
     name: "未映射高德参考点",
     lnglat: { lng: 114.2074, lat: 22.4193 },
@@ -609,72 +517,13 @@ test("mapped and unmapped provider POIs never duplicate cards", async ({
 
   await expect(page).toHaveURL(/\/campus-map\?v=1$/);
   await expect(page.getByText("高德地图地点")).toBeVisible();
-  const providerCard = page.getByRole("region", {
-    name: "未映射高德参考点",
-  });
-  const providerHeading = providerCard.getByRole("heading", {
-    name: "未映射高德参考点",
-  });
-  await expect(providerCard).toBeVisible();
-  await expect(providerHeading).toBeFocused();
-  const providerCardBox = await providerCard.boundingBox();
-  expect(providerCardBox).not.toBeNull();
-  expect(providerCardBox!.height).toBeLessThanOrEqual(120);
   await expect(
-    providerCard.getByRole("button", { name: "新增设施" }),
+    page.getByRole("heading", { name: "高德测试饮水点" }),
   ).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "新增设施" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "建议修改" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "查看完整详情" })).toHaveCount(0);
-  expect(await page.evaluate(() => window.history.length)).toBe(
-    historyBeforeTransient,
-  );
-  await page.keyboard.press("Escape");
-  await expect(providerCard).toHaveCount(0);
-});
-
-test("a rapid newer Place intent wins over a delayed provider result", async ({
-  page,
-}) => {
-  let delayedProviderRequest = false;
-  await page.route("**/campus-map**", async (route) => {
-    if (route.request().method() === "POST" && !delayedProviderRequest) {
-      delayedProviderRequest = true;
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-    await route.continue();
-  });
-  await page.goto("/campus-map");
-
-  const providerResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      new URL(response.url()).pathname === "/campus-map",
-  );
-  await emitAmapProviderClick(page, {
-    id: mappedBuildingProviderId,
-    name: "高德正式测试楼",
-    lnglat: { lng: 114.2072, lat: 22.4191 },
-  });
-  await page.getByPlaceholder("搜索建筑或地点…").fill("正式测试饮水点");
-  await page
-    .getByRole("button", { name: /正式测试饮水点.*正式测试楼/ })
-    .click();
-
-  const placeUrl = new RegExp(
-    `/campus-map\\?v=1&scene=place&id=${browseIds.place}&snap=peek$`,
-  );
-  await expect(page).toHaveURL(placeUrl);
-  await providerResponse;
-  await expect(page).toHaveURL(placeUrl);
   await expect(
-    page.getByRole("heading", { name: "正式测试饮水点" }),
+    page.getByRole("heading", { name: "未映射高德参考点" }),
   ).toBeVisible();
-  const currentPlaceMarker = page.locator(
-    `[data-facility-id="building:${browseIds.building}:water"]`,
-  );
-  await expect(currentPlaceMarker).toBeVisible();
-  await expect(currentPlaceMarker).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "新增设施" })).toHaveCount(0);
 });
 
 test("three peek/full rounds and ResizeObserver callbacks do not accumulate camera drift", async ({

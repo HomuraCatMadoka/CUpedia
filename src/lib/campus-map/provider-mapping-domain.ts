@@ -9,6 +9,11 @@ export type CampusMapProviderMappingTarget =
   | { kind: "building"; buildingId: string }
   | { kind: "place"; placeId: string };
 
+export interface CampusMapProviderMappingProjection {
+  providerObjectId: string;
+  target: CampusMapProviderMappingTarget;
+}
+
 export interface CampusMapProviderMappingValidationError {
   code: string;
   field: string;

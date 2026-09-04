@@ -25,13 +25,13 @@ import {
 import {
   CAMPUS_MAP_CATEGORIES as CATEGORIES,
   CampusMapFacilityResultButton as FacilityResultButton,
-  campusMapAmenityStyle as amenityStyle,
+  campusMapPinTypeStyle as pinTypeStyle,
   campusMapFeedbackSummaryLabel as feedbackSummaryLabel,
   campusMapFloorLabel as floorLabel,
   campusMapPlaceLocationLabel as placeLocationLabel,
-  knownCampusMapAmenity as knownAmenity,
+  knownCampusMapPinType as knownPinType,
 } from "@/components/campus-map/browse-card-presentation";
-import { AmapFacilityMarkerRuntime } from "@/components/campus-map/amap-facility-marker-runtime";
+import { AmapCanonicalBrowseLayer } from "@/components/campus-map/amap-canonical-browse-layer";
 import { CampusMapEditSheet } from "@/components/campus-map/edit-sheet";
 import { useCampusMapEditSessionOwner } from "@/components/campus-map/use-campus-map-edit-session-owner";
 
@@ -45,7 +45,6 @@ import {
   type CameraReason,
   type ScreenRect,
 } from "@/lib/campus-map/camera-policy";
-import { AmapInteractionAdapter } from "@/lib/campus-map/amap-interaction-adapter";
 import {
   asAmapPosition,
   asWgs84Position,
@@ -64,18 +63,15 @@ import {
   type AmapGeocoderService,
   type AmapPlaceContextResolver,
   type AmapPlaceContextResult,
-  type AmapResolvedPlaceContext,
 } from "@/lib/campus-map/amap-place-context";
-import type { CampusMapAmenity } from "@/lib/campus-map/facility-marker";
+import type { CampusMapPinType } from "@/lib/campus-map/canonical-marker";
 import type { CampusMapPlaceFeedbackSummary } from "@/lib/campus-map/place-feedback";
 import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
 import {
-  loadCampusMapAmapPoiCard,
   loadCampusMapBrowseProjection,
   loadCampusMapPlaceCover,
 } from "@/lib/campus-map/browse-actions";
 import {
-  CampusMapAmapPoiCardResolver,
   campusMapAmapCoordinateProjectionSignature,
   projectCampusMapBrowseToAmap,
 } from "@/lib/campus-map/amap-browse-projection";
@@ -134,13 +130,15 @@ import {
   type CampusMapSceneCatalog,
   type CampusMapSession,
 } from "@/lib/campus-map/scene-kernel";
-import type {
-  CampusMapFactSchema,
-  CampusMapSelectionTarget,
-} from "@/lib/campus-map/fact-store";
+import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
+import {
+  resolveCampusMapProviderHotspot,
+  type CampusMapProviderHotspotResolution,
+} from "@/lib/campus-map/provider-hotspot";
+import type { CampusMapProviderMappingProjection } from "@/lib/campus-map/provider-mapping-domain";
 import { cn } from "@/lib/utils";
 
-type Amenity = CampusMapAmenity;
+type PinType = CampusMapPinType;
 type Building = CampusMapBrowseBuilding;
 type Place = CampusMapBrowsePlace;
 const EMPTY_PLACE_COVERS: Record<string, CampusMapPlacePhotoView> = {};
@@ -158,26 +156,6 @@ type UserLocationState =
       status: "error";
       reason: "denied" | "timeout" | "unavailable" | "unsupported";
     };
-type ResolvedMappedProviderTarget =
-  | { kind: "building"; building: Building }
-  | { kind: "place"; facility: Place };
-
-function findMappedProviderTarget(
-  projection: CampusMapBrowseProjection,
-  target: CampusMapSelectionTarget,
-): ResolvedMappedProviderTarget | null {
-  if (target.kind === "building") {
-    const building = projection.buildings.find(
-      (candidate) => candidate.buildingId === target.buildingId,
-    );
-    return building ? { kind: "building", building } : null;
-  }
-  const facility = projection.places.find(
-    (candidate) => candidate.placeId === target.placeId,
-  );
-  return facility ? { kind: "place", facility } : null;
-}
-
 interface AMapLngLat {
   lng: number;
   lat: number;
@@ -216,6 +194,7 @@ interface AMapMap {
   add(overlays: readonly AMapMarker[] | AMapMarker): void;
   remove(overlays: readonly AMapMarker[]): void;
   on(event: string, handler: (event: AMapEvent) => void): void;
+  off(event: string, handler: (event: AMapEvent) => void): void;
   plugin(plugins: readonly string[], callback: () => void): void;
   getZoom(): number;
   getContainer(): HTMLElement;
@@ -324,12 +303,7 @@ function userLocationStatusText(state: UserLocationState) {
 type ProjectedCampusMapSelection =
   | { kind: "none" }
   | { kind: "building"; buildingId: string }
-  | { kind: "place"; buildingId: string | null; placeId: string }
-  | {
-      kind: "external";
-      externalId: string;
-      position: readonly [longitude: number, latitude: number];
-    };
+  | { kind: "place"; buildingId: string | null; placeId: string };
 
 type ProjectedCampusMapState = {
   selection: ProjectedCampusMapSelection;
@@ -364,13 +338,7 @@ function projectedState(
             placeId: scene.placeId,
             buildingId: facility.buildingId,
           }
-        : scene.kind === "provider-poi"
-          ? {
-              kind: "external",
-              externalId: scene.providerPoiId,
-              position: scene.position,
-            }
-          : { kind: "none" };
+        : { kind: "none" };
   const category =
     scene.kind === "category-results"
       ? scene.category
@@ -476,9 +444,9 @@ function facilityBackLabel(returnTo: CampusMapSession | null) {
   const returnScene = returnTo?.mode === "browse" ? returnTo.scene : null;
   if (returnScene?.kind === "search-results") return "返回搜索结果";
   if (returnScene?.kind === "category-results") {
-    const category = knownAmenity(returnScene.category);
+    const category = knownPinType(returnScene.category);
     return category
-      ? `返回${amenityStyle(category).label}列表`
+      ? `返回${pinTypeStyle(category).label}列表`
       : "返回设施列表";
   }
   if (returnScene?.kind === "building") return "返回建筑";
@@ -555,7 +523,7 @@ function groupBuildingFacilities(building: Building, places: readonly Place[]) {
 }
 
 function summarizeFacilityTypes(places: readonly Place[]) {
-  const counts = new Map<Amenity, number>();
+  const counts = new Map<PinType, number>();
   for (const facility of places) {
     counts.set(facility.pinType, (counts.get(facility.pinType) ?? 0) + 1);
   }
@@ -569,6 +537,7 @@ export function CampusMapRuntime({
   initialSearch = "",
   factSchema = null,
   initialBrowseProjection = EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
+  initialAmapHotspotMappings = [],
   initialFeedbackSummaries = {},
   initialPlaceCovers = EMPTY_PLACE_COVERS,
   onPublishedProjectionRefreshed,
@@ -576,6 +545,7 @@ export function CampusMapRuntime({
   initialSearch?: string;
   factSchema?: CampusMapFactSchema | null;
   initialBrowseProjection?: CampusMapBrowseProjection;
+  initialAmapHotspotMappings?: readonly CampusMapProviderMappingProjection[];
   initialFeedbackSummaries?: Record<string, CampusMapPlaceFeedbackSummary>;
   initialPlaceCovers?: Record<string, CampusMapPlacePhotoView>;
   onPublishedProjectionRefreshed?(result: CampusMapBrowseRefreshResult): void;
@@ -595,6 +565,15 @@ export function CampusMapRuntime({
   );
   const browseProjection = browseSnapshot.projection;
   const [placeCovers, setPlaceCovers] = useState(initialPlaceCovers);
+  const [selectedTransientHotspot, setSelectedTransientHotspot] =
+    useState<Extract<
+      CampusMapProviderHotspotResolution,
+      { kind: "transient" }
+    > | null>(null);
+  const selectedTransientHotspotRef = useRef(selectedTransientHotspot);
+  useEffect(() => {
+    selectedTransientHotspotRef.current = selectedTransientHotspot;
+  }, [selectedTransientHotspot]);
   const sceneCatalog = projectionStore.getSceneCatalog();
   const [driverInitialSearch] = useState(() =>
     canonicalInitialSearch(initialSearch, sceneCatalog),
@@ -621,7 +600,6 @@ export function CampusMapRuntime({
   }, [buildings, places]);
   const editSessionActiveRef = useRef(false);
   const editSessionPlacingRef = useRef(false);
-  const exactProviderPlaceRef = useRef<AmapResolvedPlaceContext | null>(null);
   const [centerPosition, setCenterPosition] = useState<CampusMapWgs84Position>(
     () => asWgs84Position(CAMPUS_CENTER),
   );
@@ -669,7 +647,8 @@ export function CampusMapRuntime({
   const providerProjectionIntentRef = useRef(0);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
-  const facilityMarkerRuntimeRef = useRef(new AmapFacilityMarkerRuntime());
+  const canonicalBrowseLayerRef =
+    useRef<AmapCanonicalBrowseLayer<AMapMap> | null>(null);
   const cameraGateRef = useRef(new CameraRequestGate());
   const pendingDriverCameraRef = useRef<{
     command: CampusMapDriverCameraCommand;
@@ -695,8 +674,7 @@ export function CampusMapRuntime({
   >({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const panelTitleRef = useRef<HTMLHeadingElement | null>(null);
-  const interactionAdapterRef = useRef(new AmapInteractionAdapter());
-  const pointerGestureCleanupRef = useRef<(() => void) | null>(null);
+  const mapGestureCleanupRef = useRef<(() => void) | null>(null);
   const placeContextResolverRef = useRef<AmapPlaceContextResolver | null>(null);
   const placementTrackingRef = useRef<{
     idempotencyKey: string;
@@ -704,10 +682,6 @@ export function CampusMapRuntime({
   } | null>(null);
   const [placeContextResolverVersion, setPlaceContextResolverVersion] =
     useState(0);
-  const providerPoiCardResolverRef = useRef(
-    new CampusMapAmapPoiCardResolver(loadCampusMapAmapPoiCard),
-  );
-  const providerTargetIntentRef = useRef(0);
   const didSetInitialCenterRef = useRef(false);
 
   const positionFor = useCallback(
@@ -717,9 +691,10 @@ export function CampusMapRuntime({
   );
 
   const resetMapRuntime = useCallback(() => {
-    pointerGestureCleanupRef.current?.();
-    pointerGestureCleanupRef.current = null;
-    facilityMarkerRuntimeRef.current.destroy();
+    mapGestureCleanupRef.current?.();
+    mapGestureCleanupRef.current = null;
+    canonicalBrowseLayerRef.current?.destroy();
+    canonicalBrowseLayerRef.current = null;
     mapRef.current?.destroy();
     mapRef.current = null;
     coordinateResolverRef.current = null;
@@ -737,8 +712,6 @@ export function CampusMapRuntime({
     mapDraggingRef.current = false;
     userGestureAwaitingMoveEndRef.current = false;
     pendingSelectionTokenRef.current = null;
-    providerTargetIntentRef.current += 1;
-    providerPoiCardResolverRef.current.invalidate();
     didSetInitialCenterRef.current = false;
     setMapReady(false);
     setMapMoving(false);
@@ -1031,9 +1004,6 @@ export function CampusMapRuntime({
       if (!context.isCurrent()) return;
       if (camera.kind === "edit-position") {
         const projectionIntent = ++providerProjectionIntentRef.current;
-        if (camera.reason !== "provider-placement") {
-          exactProviderPlaceRef.current = null;
-        }
         const applyProviderPosition = (
           providerPosition: CampusMapAmapPosition,
         ) => {
@@ -1103,18 +1073,6 @@ export function CampusMapRuntime({
           alignPositionToPlacementAnchor(map, mapElement);
         };
 
-        const exactProviderPosition =
-          camera.reason === "provider-placement" &&
-          exactProviderPlaceRef.current
-            ? asAmapPosition([
-                exactProviderPlaceRef.current.providerPosition.longitude,
-                exactProviderPlaceRef.current.providerPosition.latitude,
-              ])
-            : null;
-        if (exactProviderPosition) {
-          applyProviderPosition(exactProviderPosition);
-          return;
-        }
         const wgs84Position = asWgs84Position(camera.position);
         const local = projectCampusMapWgs84ToAmap(
           wgs84Position,
@@ -1298,15 +1256,7 @@ export function CampusMapRuntime({
     driver.getSnapshot,
     driver.getSnapshot,
   );
-  const activeProviderTargetError =
-    driverSnapshot.transientPanel?.kind === "provider-target-unavailable"
-      ? driverSnapshot.transientPanel
-      : null;
   const session = driverSnapshot.session;
-  const selectedProviderPoi =
-    session.mode === "browse" && session.scene.kind === "provider-poi"
-      ? session.scene
-      : null;
   const visiblePublishNotice =
     publishNotice &&
     session.mode === "browse" &&
@@ -1315,9 +1265,7 @@ export function CampusMapRuntime({
       ? publishNotice
       : null;
   const state = projectedState(session, driverSnapshot.returnTo, sceneCatalog);
-  const panelSnap =
-    activeProviderTargetError?.snap ??
-    (selectedProviderPoi ? "peek" : state.sheet.snap);
+  const panelSnap = state.sheet.snap;
   const selectedFacility = facilityFor(state.selection, places);
   const selectedAccessLabel = selectedFacility
     ? summarizeCampusMapAccess(selectedFacility.access)
@@ -1327,18 +1275,13 @@ export function CampusMapRuntime({
         (building) => building.buildingId === selectedFacility.buildingId,
       ) ?? null)
     : buildingFor(state.selection, buildings);
-  const activeAmenity = knownAmenity(state.mapFilter.category);
+  const activeAmenity = knownPinType(state.mapFilter.category);
   const selectedMarkerPlaceId = activeAmenity
     ? null
     : (selectedFacility?.placeId ?? null);
   const visibleMarkerAmenity =
     activeAmenity ??
     (selectedMarkerPlaceId ? (selectedFacility?.pinType ?? null) : null);
-  const markerScope = activeAmenity
-    ? `category:${activeAmenity}`
-    : selectedMarkerPlaceId
-      ? `place:${selectedMarkerPlaceId}`
-      : null;
   const selectedFacilityBackLabel = selectedFacility
     ? facilityBackLabel(driverSnapshot.returnTo)
     : "返回地图";
@@ -1442,6 +1385,19 @@ export function CampusMapRuntime({
     dispatch,
     recoverPublish,
   });
+  const markerMode = useMemo(
+    () =>
+      editSession
+        ? ({ kind: "hidden" } as const)
+        : visibleMarkerAmenity
+          ? ({
+              kind: "amenity",
+              amenity: visibleMarkerAmenity,
+              selectedPlaceId: selectedMarkerPlaceId,
+            } as const)
+          : ({ kind: "hidden" } as const),
+    [editSession, selectedMarkerPlaceId, visibleMarkerAmenity],
+  );
   const readVisiblePlacementAnchor = useCallback(() => {
     const map = mapRef.current;
     const mapElement = mapElementRef.current;
@@ -1577,9 +1533,6 @@ export function CampusMapRuntime({
   useEffect(() => {
     editSessionActiveRef.current = Boolean(editSession);
     editSessionPlacingRef.current = editSession?.status === "placing";
-    if (!editSession) {
-      exactProviderPlaceRef.current = null;
-    }
   }, [editSession]);
 
   useEffect(() => {
@@ -1633,25 +1586,6 @@ export function CampusMapRuntime({
       latitude: contextProviderLatitude,
       crs: "gcj02" as const,
     };
-    const exactProviderPlace = exactProviderPlaceRef.current;
-    if (
-      exactProviderPlace &&
-      Math.abs(
-        exactProviderPlace.providerPosition.longitude -
-          contextProviderPosition.longitude,
-      ) <= 0.00001 &&
-      Math.abs(
-        exactProviderPlace.providerPosition.latitude -
-          contextProviderPosition.latitude,
-      ) <= 0.00001
-    ) {
-      placeContextResolverRef.current?.invalidate();
-      queueMicrotask(() =>
-        setPlaceContext({ status: "resolved", context: exactProviderPlace }),
-      );
-      return;
-    }
-    exactProviderPlaceRef.current = null;
     const resolver = placeContextResolverRef.current;
     if (!resolver) return;
     let current = true;
@@ -1705,6 +1639,7 @@ export function CampusMapRuntime({
 
   const selectBuilding = useCallback(
     (building: Building, source: "map" | "search" = "map") => {
+      setSelectedTransientHotspot(null);
       dispatch({
         type: "OPEN_BUILDING",
         buildingId: building.buildingId,
@@ -1716,6 +1651,7 @@ export function CampusMapRuntime({
 
   const selectFacility = useCallback(
     (facility: Place, source: "category" | "building" | "search") => {
+      setSelectedTransientHotspot(null);
       dispatch({
         type: "OPEN_PLACE",
         placeId: facility.placeId,
@@ -1785,6 +1721,11 @@ export function CampusMapRuntime({
 
   const closeSelection = useCallback(() => {
     cancelPendingUserLocation();
+    if (selectedTransientHotspotRef.current) {
+      selectedTransientHotspotRef.current = null;
+      setSelectedTransientHotspot(null);
+      return;
+    }
     dispatch({ type: "DISMISS" });
   }, [cancelPendingUserLocation, dispatch]);
 
@@ -1801,12 +1742,13 @@ export function CampusMapRuntime({
         dispatchEditEvent({ type: "REQUEST_CLOSE" });
         return;
       }
-      const currentSnapshot = driver.getSnapshot();
-      if (currentSnapshot.transientPanel) {
+      if (selectedTransientHotspot) {
         event.preventDefault();
-        closeSelection();
+        selectedTransientHotspotRef.current = null;
+        setSelectedTransientHotspot(null);
         return;
       }
+      const currentSnapshot = driver.getSnapshot();
       const current = currentSnapshot.session;
       if (current.mode === "browse" && current.scene.kind !== "map") {
         closeSelection();
@@ -1814,7 +1756,13 @@ export function CampusMapRuntime({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeSelection, dispatchEditEvent, driver, editSession]);
+  }, [
+    closeSelection,
+    dispatchEditEvent,
+    driver,
+    editSession,
+    selectedTransientHotspot,
+  ]);
 
   const initialiseMap = useCallback(() => {
     if (!window.AMap || mapRef.current) return;
@@ -1841,6 +1789,52 @@ export function CampusMapRuntime({
       resizeEnable: true,
     });
     mapRef.current = map;
+    canonicalBrowseLayerRef.current = new AmapCanonicalBrowseLayer({
+      map,
+      provider: AMap,
+      onHotspot: (hotspot) => {
+        if (editSessionActiveRef.current) return;
+        const target = resolveCampusMapProviderHotspot(
+          projectionStore.getSnapshot().projection,
+          initialAmapHotspotMappings,
+          hotspot,
+        );
+        if (target.kind === "building") {
+          selectBuilding(target.building);
+          return;
+        }
+        if (target.kind === "place") {
+          selectFacility(target.place, "category");
+          return;
+        }
+        cancelPendingUserLocation();
+        dispatch({ type: "DISMISS" });
+        selectedTransientHotspotRef.current = target;
+        setSelectedTransientHotspot(target);
+      },
+      onIntent: (intent) => {
+        if (intent.type === "OPEN_BUILDING") {
+          const building = buildingsRef.current.find(
+            (candidate) => candidate.buildingId === intent.buildingId,
+          );
+          if (building) selectBuilding(building);
+          return;
+        }
+        if (intent.type === "OPEN_PLACE") {
+          const place = facilitiesRef.current.find(
+            (candidate) => candidate.placeId === intent.placeId,
+          );
+          if (place) selectFacility(place, "category");
+          return;
+        }
+        if (intent.type === "FIT_CLUSTER") {
+          dispatch({ type: "FIT_CLUSTER", positions: intent.positions });
+          return;
+        }
+        if (editSessionActiveRef.current) return;
+        closeSelection();
+      },
+    });
     setMapReady(true);
     setClusterStatus("loading");
     try {
@@ -1865,118 +1859,9 @@ export function CampusMapRuntime({
       setPlaceContext({ status: "permanent-error" });
     }
 
-    map.on("hotspotclick", (event) => {
-      interactionAdapterRef.current.dispatchProviderTarget(() => {
-        if (editSessionPlacingRef.current) {
-          const wgs84Position = approximateWgs84Position(
-            asAmapPosition([event.lnglat.lng, event.lnglat.lat]),
-          );
-          if (!wgs84Position) {
-            exactProviderPlaceRef.current = null;
-            setProviderCenterPosition(null);
-            setPlaceContext({ status: "permanent-error" });
-            setMapMoving(true);
-            return;
-          }
-          const providerPoiId =
-            event.id ?? `${event.lnglat.lng},${event.lnglat.lat}`;
-          const context: AmapResolvedPlaceContext = {
-            providerPosition: {
-              longitude: event.lnglat.lng,
-              latitude: event.lnglat.lat,
-              crs: "gcj02",
-            },
-            label: event.name?.trim() || "高德地图地点",
-            address: null,
-            providerPoiId,
-            distanceMeters: 0,
-          };
-          exactProviderPlaceRef.current = context;
-          setPlaceContext({ status: "resolved", context });
-          driver.recenterEditPosition(
-            wgs84Position,
-            "provider-placement",
-            "approximate",
-          );
-          return;
-        }
-        const input = {
-          providerObjectId: event.id ?? null,
-          name: event.name?.trim() || "高德地图地点",
-          position: asAmapPosition([event.lnglat.lng, event.lnglat.lat]),
-        };
-        const providerIntent = ++providerTargetIntentRef.current;
-        dispatch({ type: "DISMISS_TRANSIENT_PANEL" });
-        const driverToken = driver.getSnapshot().transitionToken;
-        void providerPoiCardResolverRef.current
-          .resolveLatest(input)
-          .then(async (result) => {
-            const stillOwnsIntent = () =>
-              providerTargetIntentRef.current === providerIntent &&
-              driver.getSnapshot().transitionToken === driverToken;
-            if (
-              result.status === "superseded" ||
-              !result.card ||
-              !stillOwnsIntent()
-            )
-              return;
-            if (result.card.kind === "transient") {
-              dispatch({
-                type: "OPEN_PROVIDER_POI",
-                providerPoiId: result.card.externalId,
-                name: result.card.title,
-                position: result.card.position,
-              });
-              return;
-            }
-            const target = result.card.selectionTarget;
-            let canonicalTarget = findMappedProviderTarget(
-              projectionStore.getSnapshot().projection,
-              target,
-            );
-            if (!canonicalTarget) {
-              const refresh = await projectionStore.refresh(
-                target.kind === "place"
-                  ? { placeId: target.placeId }
-                  : undefined,
-              );
-              if (!stillOwnsIntent()) return;
-              if (refresh.status === "applied") {
-                canonicalTarget = findMappedProviderTarget(
-                  projectionStore.getSnapshot().projection,
-                  target,
-                );
-              }
-            }
-            if (!canonicalTarget) {
-              dispatch({
-                type: "REPORT_PROVIDER_TARGET_UNAVAILABLE",
-                title: result.card.title,
-                intentToken: driverToken,
-              });
-              return;
-            }
-            if (canonicalTarget.kind === "building") {
-              selectBuilding(canonicalTarget.building);
-            } else {
-              selectFacility(canonicalTarget.facility, "search");
-            }
-          });
-      });
-    });
-    map.on("click", (event) => {
-      interactionAdapterRef.current.dispatchMapClick(() => {
-        if (event.originEvent?.target?.closest?.("[data-cupedia-marker]"))
-          return;
-        if (editSessionActiveRef.current) return;
-        closeSelection();
-      });
-    });
     map.on("dragstart", () => {
-      interactionAdapterRef.current.reset();
       mapDraggingRef.current = true;
       userGestureAwaitingMoveEndRef.current = true;
-      exactProviderPlaceRef.current = null;
       driver.interruptCamera();
     });
     map.on("dragend", () => {
@@ -2071,48 +1956,20 @@ export function CampusMapRuntime({
       driver.interruptCamera();
     };
     const container = map.getContainer();
-    const beginPointerGesture = () => {
-      interactionAdapterRef.current.beginPointerGesture();
-    };
-    const endPointerGesture = () => {
-      interactionAdapterRef.current.endPointerGesture();
-    };
-    const cancelPointerGesture = () => {
-      interactionAdapterRef.current.reset();
-    };
-    container.addEventListener("pointerdown", beginPointerGesture, {
-      capture: true,
-    });
-    window.addEventListener("pointerup", endPointerGesture, {
-      capture: true,
-    });
-    window.addEventListener("pointercancel", cancelPointerGesture, {
-      capture: true,
-    });
-    window.addEventListener("blur", cancelPointerGesture);
     container.addEventListener("wheel", cancelForUserZoom, { passive: true });
     container.addEventListener("touchstart", cancelForUserZoom, {
       passive: true,
     });
-    pointerGestureCleanupRef.current = () => {
-      container.removeEventListener("pointerdown", beginPointerGesture, {
-        capture: true,
-      });
-      window.removeEventListener("pointerup", endPointerGesture, {
-        capture: true,
-      });
-      window.removeEventListener("pointercancel", cancelPointerGesture, {
-        capture: true,
-      });
-      window.removeEventListener("blur", cancelPointerGesture);
+    mapGestureCleanupRef.current = () => {
       container.removeEventListener("wheel", cancelForUserZoom);
       container.removeEventListener("touchstart", cancelForUserZoom);
-      interactionAdapterRef.current.reset();
     };
   }, [
+    cancelPendingUserLocation,
     closeSelection,
     dispatch,
     driver,
+    initialAmapHotspotMappings,
     projectionStore,
     selectBuilding,
     selectFacility,
@@ -2160,8 +2017,8 @@ export function CampusMapRuntime({
   const amapCoordinateProjection = useMemo(
     () =>
       projectCampusMapBrowseToAmap(browseProjection, {
-        visibleAmenity: visibleMarkerAmenity,
         selectedBuildingId: selectedBuilding?.buildingId ?? null,
+        visibleAmenity: visibleMarkerAmenity,
         selectedPlaceId: selectedMarkerPlaceId,
       }),
     [
@@ -2284,58 +2141,24 @@ export function CampusMapRuntime({
       clusterStatus !== "ready" ||
       coordinateVersion === 0 ||
       !window.AMap ||
-      !mapRef.current
+      !canonicalBrowseLayerRef.current
     )
       return;
-    const synced = facilityMarkerRuntimeRef.current.sync({
-      map: mapRef.current,
-      provider: window.AMap,
+    const synced = canonicalBrowseLayerRef.current.render({
       projection: browseProjection,
       providerPositions: amapPositionsRef.current,
-      markerScope,
-      visibleAmenity: visibleMarkerAmenity,
-      selectedPlaceId: selectedMarkerPlaceId,
-      claimProviderTarget: (action) => {
-        interactionAdapterRef.current.dispatchProviderTarget(action);
-      },
-      selectBuilding: (buildingId) => {
-        const building = buildingsRef.current.find(
-          (candidate) => candidate.buildingId === buildingId,
-        );
-        if (building) selectBuilding(building);
-      },
-      selectPlace: (placeId) => {
-        const place = facilitiesRef.current.find(
-          (candidate) => candidate.placeId === placeId,
-        );
-        if (place) selectFacility(place, "category");
-      },
-      fitCluster: (positions) => dispatch({ type: "FIT_CLUSTER", positions }),
+      mode: markerMode,
     });
     if (!synced) {
       queueMicrotask(() => setClusterStatus("error"));
     }
   }, [
     browseProjection,
-    buildings,
     clusterStatus,
     coordinateVersion,
-    dispatch,
     mapReady,
-    markerScope,
-    selectedMarkerPlaceId,
-    selectBuilding,
-    selectFacility,
-    visibleMarkerAmenity,
+    markerMode,
   ]);
-
-  useEffect(() => {
-    return facilityMarkerRuntimeRef.current.syncSelection(
-      mapElementRef.current,
-      browseProjection,
-      selectedFacility?.placeId ?? null,
-    );
-  }, [browseProjection, selectedFacility]);
 
   useEffect(() => {
     const mapElement = mapElementRef.current;
@@ -2345,7 +2168,7 @@ export function CampusMapRuntime({
       !panel ||
       (!selectedBuilding &&
         !selectedFacility &&
-        !selectedProviderPoi &&
+        !selectedTransientHotspot &&
         !editSession)
     )
       return;
@@ -2360,16 +2183,16 @@ export function CampusMapRuntime({
     editSession,
     selectedBuilding,
     selectedFacility,
-    selectedProviderPoi,
+    selectedTransientHotspot,
   ]);
 
   useEffect(
     () => () => {
       userLocationRequestRef.current += 1;
-      pointerGestureCleanupRef.current?.();
-      pointerGestureCleanupRef.current = null;
-      facilityMarkerRuntimeRef.current.destroy();
-      providerPoiCardResolverRef.current.invalidate();
+      mapGestureCleanupRef.current?.();
+      mapGestureCleanupRef.current = null;
+      canonicalBrowseLayerRef.current?.destroy();
+      canonicalBrowseLayerRef.current = null;
       mapRef.current?.destroy();
       mapRef.current = null;
     },
@@ -2467,7 +2290,7 @@ export function CampusMapRuntime({
   const hasMoreCategoryFacilities =
     categoryFacilities.length > CAMPUS_MAP_CATEGORY_PEEK_RESULT_LIMIT;
   const activeCategoryStyle = activeAmenity
-    ? amenityStyle(activeAmenity)
+    ? pinTypeStyle(activeAmenity)
     : null;
   const selectedBuildingHasFacilities = Boolean(
     selectedBuilding &&
@@ -2476,7 +2299,9 @@ export function CampusMapRuntime({
     buildingOverviewDirectory.places.length > 0,
   );
   const canExpandBrowseCard = Boolean(
-    !selectedFacility && (selectedBuildingHasFacilities || activeCategoryStyle),
+    !selectedTransientHotspot &&
+    !selectedFacility &&
+    (selectedBuildingHasFacilities || activeCategoryStyle),
   );
   const chromeHidden =
     Boolean(editSession) ||
@@ -2512,18 +2337,18 @@ export function CampusMapRuntime({
     : "新增设施";
   const panelHidden = Boolean(
     !editSession &&
-    !activeProviderTargetError &&
-    !selectedProviderPoi &&
-    (state.selection.kind === "external" ||
-      (state.selection.kind === "none" &&
-        !state.mapFilter.category &&
-        !selectedFacility)),
+    !selectedTransientHotspot &&
+    state.selection.kind === "none" &&
+    !state.mapFilter.category &&
+    !selectedFacility,
   );
   let mobilePanelLayout: CampusMapMobilePanelLayout = { kind: "default" };
   if (editSession?.status === "placing") {
     mobilePanelLayout = { kind: "placing" };
   } else if (editSession) {
     mobilePanelLayout = { kind: "edit" };
+  } else if (selectedTransientHotspot) {
+    mobilePanelLayout = { kind: "transient-hotspot" };
   } else if (panelSnap === "full" && canExpandBrowseCard) {
     mobilePanelLayout = activeCategoryStyle
       ? {
@@ -2537,10 +2362,6 @@ export function CampusMapRuntime({
           resultCount: buildingFacilities.length,
           groupCount: buildingFacilityGroups.length,
         };
-  } else if (activeProviderTargetError) {
-    mobilePanelLayout = { kind: "provider-error" };
-  } else if (selectedProviderPoi) {
-    mobilePanelLayout = { kind: "provider-poi" };
   } else if (selectedFacility) {
     mobilePanelLayout = { kind: "place" };
   } else if (selectedBuildingIsEmpty) {
@@ -2559,8 +2380,7 @@ export function CampusMapRuntime({
     : "var(--campus-map-panel-height)";
   const desktopSidePanelVisible = Boolean(
     editSession ||
-    activeProviderTargetError ||
-    selectedProviderPoi ||
+    selectedTransientHotspot ||
     selectedBuilding ||
     selectedFacility ||
     activeAmenity,
@@ -2705,7 +2525,7 @@ export function CampusMapRuntime({
                       : result.facility.placeId;
                   const resultStyle =
                     result.kind === "place"
-                      ? amenityStyle(result.facility.pinType)
+                      ? pinTypeStyle(result.facility.pinType)
                       : null;
                   const ResultIcon = resultStyle?.icon ?? Building2Icon;
                   const resultBuilding = result.building;
@@ -2911,7 +2731,7 @@ export function CampusMapRuntime({
         >
           <LocateFixedIcon aria-hidden="true" className="size-5" />
         </button>
-        {!selectedBuilding && !activeAmenity && !selectedProviderPoi ? (
+        {!selectedTransientHotspot && !selectedBuilding && !activeAmenity ? (
           <button
             type="button"
             aria-label="新增设施"
@@ -2961,10 +2781,7 @@ export function CampusMapRuntime({
               ),
         )}
       >
-        {!editSession &&
-        !activeProviderTargetError &&
-        canExpandBrowseCard &&
-        !selectedBuildingIsEmpty ? (
+        {!editSession && canExpandBrowseCard && !selectedBuildingIsEmpty ? (
           <button
             type="button"
             aria-label={
@@ -2993,30 +2810,7 @@ export function CampusMapRuntime({
             <XIcon aria-hidden="true" className="size-5" />
           </button>
         ) : null}
-        {activeProviderTargetError ? (
-          <div
-            id="campus-map-panel-content"
-            role="alert"
-            className="flex h-full flex-col justify-center p-5"
-          >
-            <h2 id="campus-map-panel-title" className="text-xl font-semibold">
-              {activeProviderTargetError.title}
-            </h2>
-            <p className="mt-2 text-sm text-neutral-600">
-              暂时无法载入地点资料
-            </p>
-            <button
-              type="button"
-              className="mt-4 min-h-11 rounded-xl border border-black/15 px-4 text-sm font-semibold"
-              onClick={() => {
-                cancelPendingUserLocation();
-                dispatch({ type: "DISMISS_TRANSIENT_PANEL" });
-              }}
-            >
-              关闭
-            </button>
-          </div>
-        ) : editSession ? (
+        {editSession ? (
           <CampusMapEditSheet
             session={editSession}
             centerPosition={centerPosition}
@@ -3040,7 +2834,7 @@ export function CampusMapRuntime({
             }}
             onEvent={dispatchEditEvent}
           />
-        ) : selectedProviderPoi ? (
+        ) : selectedTransientHotspot ? (
           <div
             id="campus-map-panel-content"
             className="flex h-full items-start gap-3 p-4 pb-[max(1rem,var(--campus-map-safe-area-bottom))] md:h-auto md:p-5"
@@ -3055,7 +2849,7 @@ export function CampusMapRuntime({
                 tabIndex={-1}
                 className="-ml-2 line-clamp-2 break-words pl-2 text-xl font-semibold tracking-[-0.02em] focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346]"
               >
-                {selectedProviderPoi.name}
+                {selectedTransientHotspot.name}
               </h2>
               <p className="mt-1 text-sm text-neutral-500">高德地图地点</p>
             </div>
@@ -3237,7 +3031,7 @@ export function CampusMapRuntime({
                 {selectedFacility ? (
                   <p className="mt-1 truncate text-sm text-neutral-500">
                     {metadataLabel(
-                      amenityStyle(selectedFacility.pinType).label,
+                      pinTypeStyle(selectedFacility.pinType).label,
                       selectedBuilding
                         ? selectedBuildingDisplayName
                         : placeLocationLabel(selectedFacility),
@@ -3457,7 +3251,7 @@ export function CampusMapRuntime({
                               selectedBuildingDisplayName ?? undefined,
                             )}
                             summary={metadataLabel(
-                              amenityStyle(buildingPreviewFacility.pinType)
+                              pinTypeStyle(buildingPreviewFacility.pinType)
                                 .label,
                               feedbackSummaryLabel(
                                 initialFeedbackSummaries[
@@ -3537,7 +3331,7 @@ export function CampusMapRuntime({
                                       selectedBuildingDisplayName ?? undefined,
                                     )}
                                     summary={metadataLabel(
-                                      amenityStyle(facility.pinType).label,
+                                      pinTypeStyle(facility.pinType).label,
                                       feedbackSummaryLabel(
                                         initialFeedbackSummaries[
                                           facility.placeId
