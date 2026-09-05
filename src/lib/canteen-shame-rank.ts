@@ -10,14 +10,6 @@ export function getAnonShameDailyLimit(): number {
   return Number.isFinite(n) && limit >= 1 ? Math.min(50, limit) : 50;
 }
 
-/** End date is inclusive; both values are validated YYYY-MM-DD strings. */
-export function isShameVotingOpen(
-  voteDate: string,
-  votingEndDate: string,
-): boolean {
-  return voteDate <= votingEndDate;
-}
-
 export type ShameRankEntry = {
   canteen: Canteen;
   dislikes: number;
@@ -35,13 +27,6 @@ export function hktCalendarDate(now: Date = new Date()): string {
   const month = parts.find((p) => p.type === "month")?.value ?? "01";
   const day = parts.find((p) => p.type === "day")?.value ?? "01";
   return `${year}-${month}-${day}`;
-}
-
-export function previousCalendarDate(value: string): string {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day - 1))
-    .toISOString()
-    .slice(0, 10);
 }
 
 /** 💩堂榜：当日踩数降序；同分按食堂 id 升序；零票食堂仍展示。 */

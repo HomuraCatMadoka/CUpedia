@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { Canteen } from "@/lib/canteen-types";
 import {
   rankShameCanteens,
@@ -12,19 +12,15 @@ import {
   appendShameVote,
   type ShameVoteErrorCode,
 } from "@/lib/canteen-shame-actions";
-import {
-  usePinnedWindowScroll,
-  useRestorePinnedWindowScrollOnMount,
-  useScrollPin,
-} from "@/lib/pin-window-scroll";
 import { cn } from "@/lib/utils";
 
-function shameErrorMessage(code: ShameVoteErrorCode | "VOTE_FAILED"): string {
+type ShameVoteFailure = ShameVoteErrorCode | "VOTE_FAILED";
+
+function shameErrorMessage(code: ShameVoteFailure): string {
   if (code === "ANON_SESSION_REQUIRED") return "投票需允许 Cookie";
   if (code === "USER_BANNED") return "账号已封禁，无法投票";
   if (code === "RATE_LIMIT_EXCEEDED") return "匿名投票太频繁，请稍后再试";
   if (code === "DAILY_LIMIT_EXCEEDED") return "匿名投票已达上限，登录后可继续";
-  if (code === "SHAME_VOTING_CLOSED") return "投票已截止";
   if (code === "CANTEEN_NOT_FOUND") return "食堂不存在";
   return "投票失败，请重试";
 }
@@ -33,23 +29,6 @@ function formatCalendarDate(value: string): string {
   const [, month = "1", day = "1"] = value.split("-");
   return `${Number(month)} 月 ${Number(day)} 日`;
 }
-
-function rankMovement(
-  currentRank: number,
-  previousRank: number | undefined,
-  hasPreviousVotes: boolean,
-): string {
-  if (!hasPreviousVotes || previousRank === undefined) return "－";
-  const delta = previousRank - currentRank;
-  if (delta > 0) return `↑ ${delta}`;
-  if (delta < 0) return `↓ ${Math.abs(delta)}`;
-  return "－";
-}
-
-type ShameVoteFailure = {
-  count: number;
-  code: ShameVoteErrorCode | "VOTE_FAILED";
-};
 
 export function ShameRankEntryLink() {
   return (
@@ -65,24 +44,18 @@ export function ShameRankEntryLink() {
 function ShameRankRow({
   rank,
   entry,
-  context,
   onStomp,
-  pendingCount,
   failure,
-  disabled,
 }: {
   rank: number | null;
   entry: ShameRankEntry;
-  context: React.ReactNode;
   onStomp: (canteenId: string) => Promise<void>;
-  pendingCount: number;
   failure: ShameVoteFailure | null;
-  disabled: boolean;
 }) {
   return (
     <li
       className={cn(
-        "grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-[#e3e5e7] px-4 py-2.5 transition-colors last:border-b-0 hover:bg-[#faf6f3] sm:grid-cols-[3rem_minmax(0,1fr)_4.5rem_auto] sm:gap-x-4 sm:px-6 sm:py-3",
+        "grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-[#e3e5e7] px-4 py-2.5 transition-colors last:border-b-0 hover:bg-[#faf6f3] sm:grid-cols-[3rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:px-6 sm:py-3",
         rank === 1 && entry.dislikes > 0 && "bg-[#fff9f5]",
       )}
     >
@@ -105,29 +78,16 @@ function ShameRankRow({
           </p>
         ) : null}
       </div>
-      <div className="hidden text-center font-mono text-xs tabular-nums text-[#74777c] sm:block">
-        {context}
-      </div>
       <button
         type="button"
         aria-label={`投 💩 给 ${entry.canteen.name}`}
         onClick={() => {
-          if (!disabled) void onStomp(entry.canteen.id);
+          void onStomp(entry.canteen.id);
         }}
-        disabled={disabled}
-        className={cn(
-          "canteen-shame-vote relative inline-flex min-h-12 min-w-[4.75rem] touch-manipulation flex-col items-center justify-center overflow-visible rounded-xl border border-[#d8b7a3] bg-[#f7ece5] px-3 py-1 text-[#623d2a] transition-[background-color,border-color,color,transform] hover:border-[#b98261] hover:bg-[#efdacd] active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a452d] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d7d9dc] disabled:bg-[#eef0f2] disabled:text-[#8a8d91] disabled:opacity-100 sm:min-w-[5.5rem]",
-          pendingCount > 0 && "border-[#7a452d] bg-[#7a452d] text-white",
-        )}
+        className="canteen-shame-vote inline-flex min-h-12 min-w-[4.75rem] touch-manipulation flex-col items-center justify-center rounded-xl border border-[#d8b7a3] bg-[#f7ece5] px-3 py-1 text-[#623d2a] transition-[background-color,border-color,color,transform] hover:border-[#b98261] hover:bg-[#efdacd] active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a452d] focus-visible:ring-offset-2 sm:min-w-[5.5rem]"
       >
         <span className="flex items-center gap-1 text-[0.7rem] font-semibold leading-none">
-          投
-          <span
-            className={cn(pendingCount > 0 && "canteen-shame-poop-hit")}
-            aria-hidden
-          >
-            💩
-          </span>
+          投 <span aria-hidden>💩</span>
         </span>
         <span
           className="mt-1 font-mono text-sm font-semibold tabular-nums"
@@ -135,31 +95,15 @@ function ShameRankRow({
         >
           {entry.dislikes}
         </span>
-        {pendingCount > 0 ? (
-          <span
-            className="canteen-shame-feedback pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 font-sans text-xs font-semibold text-[#7a452d]"
-            aria-hidden
-          >
-            +{pendingCount}
-          </span>
-        ) : null}
       </button>
-      <div
-        className={cn(
-          "col-span-2 col-start-2 flex flex-wrap gap-x-3 gap-y-1 text-xs sm:col-span-3",
-          pendingCount === 0 && !failure && "hidden",
-        )}
-      >
-        <p className="text-[#74777c]" role="status">
-          {pendingCount > 0 ? `${pendingCount} 票提交中` : ""}
+      {failure ? (
+        <p
+          className="col-span-2 col-start-2 text-xs text-destructive"
+          role="alert"
+        >
+          投票失败：{shameErrorMessage(failure)}
         </p>
-        {failure ? (
-          <p className="text-destructive" role="alert">
-            {failure.count} 票未计入；最近原因：
-            {shameErrorMessage(failure.code)}
-          </p>
-        ) : null}
-      </div>
+      ) : null}
     </li>
   );
 }
@@ -168,164 +112,72 @@ export function ShameRankList({
   canteens,
   initialTodayCounts,
   initialAllTimeCounts,
-  previousCounts,
   voteDate,
-  votingEndDate,
-  votingOpen,
 }: {
   canteens: Canteen[];
   initialTodayCounts: Record<string, number>;
   initialAllTimeCounts: Record<string, number>;
-  previousCounts: Record<string, number>;
   voteDate: string;
-  votingEndDate: string;
-  votingOpen: boolean;
 }) {
   const router = useRouter();
-  const [view, setView] = useState<"today" | "history">("today");
-  const [showAll, setShowAll] = useState(true);
+  const [view, setView] = useState<"today" | "allTime">("today");
   const [todayCounts, setTodayCounts] = useState(initialTodayCounts);
   const [allTimeCounts, setAllTimeCounts] = useState(initialAllTimeCounts);
-  const [rankingTodayCounts, setRankingTodayCounts] =
-    useState(initialTodayCounts);
-  const [rankingAllTimeCounts, setRankingAllTimeCounts] =
-    useState(initialAllTimeCounts);
-  const [pendingCounts, setPendingCounts] = useState<Record<string, number>>(
-    {},
-  );
-  const pendingCountsRef = useRef<Record<string, number>>({});
   const [failures, setFailures] = useState<
     Record<string, ShameVoteFailure | undefined>
   >({});
-  const todayCountsRef = useRef(todayCounts);
-  const allTimeCountsRef = useRef(allTimeCounts);
-  const rankingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { pinnedScroll, pin, release } = useScrollPin();
-  const activeCounts = view === "today" ? todayCounts : allTimeCounts;
-  const rankingCounts =
-    view === "today" ? rankingTodayCounts : rankingAllTimeCounts;
-  const ranked = rankShameCanteens(canteens, rankingCounts).map((entry) => ({
-    ...entry,
-    dislikes: activeCounts[entry.canteen.id] ?? 0,
-  }));
-  const rankedEntries = ranked.filter(
-    (entry) => (rankingCounts[entry.canteen.id] ?? 0) > 0,
+  const ranked = rankShameCanteens(
+    canteens,
+    view === "today" ? todayCounts : allTimeCounts,
   );
-  const unrankedEntries = ranked.filter(
-    (entry) => (rankingCounts[entry.canteen.id] ?? 0) === 0,
-  );
-  const visibleRankedEntries = showAll
-    ? rankedEntries
-    : rankedEntries.slice(0, 10);
-  const hasCollapsibleContent =
-    rankedEntries.length > 10 || unrankedEntries.length > 0;
-  const hasPreviousVotes = Object.values(previousCounts).some(
-    (count) => count > 0,
-  );
-  const previousPositions = new Map(
-    rankShameCanteens(canteens, previousCounts).map((entry, index) => [
-      entry.canteen.id,
-      index + 1,
-    ]),
-  );
-
-  useEffect(() => {
-    todayCountsRef.current = todayCounts;
-    allTimeCountsRef.current = allTimeCounts;
-  }, [todayCounts, allTimeCounts]);
-
-  useEffect(
-    () => () => {
-      if (rankingTimer.current) clearTimeout(rankingTimer.current);
-    },
-    [],
-  );
-
-  useRestorePinnedWindowScrollOnMount();
-  usePinnedWindowScroll(pinnedScroll, [
-    rankingTodayCounts,
-    rankingAllTimeCounts,
-  ]);
-
-  function scheduleRankingUpdate() {
-    if (rankingTimer.current) clearTimeout(rankingTimer.current);
-    rankingTimer.current = setTimeout(() => {
-      const scrollPin = pin();
-      setRankingTodayCounts(todayCountsRef.current);
-      setRankingAllTimeCounts(allTimeCountsRef.current);
-      setTimeout(() => release(scrollPin), 0);
-    }, 650);
-  }
 
   async function onStomp(canteenId: string): Promise<void> {
-    const currentPending = pendingCountsRef.current[canteenId] ?? 0;
-    const nextPending = currentPending + 1;
-    pendingCountsRef.current = {
-      ...pendingCountsRef.current,
-      [canteenId]: nextPending,
-    };
-    setPendingCounts((previous) => ({
+    setFailures((previous) => ({ ...previous, [canteenId]: undefined }));
+    setTodayCounts((previous) => ({
       ...previous,
-      [canteenId]: nextPending,
+      [canteenId]: (previous[canteenId] ?? 0) + 1,
     }));
-    if (currentPending === 0) {
-      setFailures((previous) => ({
-        ...previous,
-        [canteenId]: undefined,
-      }));
-    }
+    setAllTimeCounts((previous) => ({
+      ...previous,
+      [canteenId]: (previous[canteenId] ?? 0) + 1,
+    }));
 
     try {
       const result = await appendShameVote(canteenId);
       if (!result.ok) {
+        setTodayCounts((previous) => ({
+          ...previous,
+          [canteenId]: Math.max(0, (previous[canteenId] ?? 1) - 1),
+        }));
+        setAllTimeCounts((previous) => ({
+          ...previous,
+          [canteenId]: Math.max(0, (previous[canteenId] ?? 1) - 1),
+        }));
         setFailures((previous) => ({
           ...previous,
-          [canteenId]: {
-            count: (previous[canteenId]?.count ?? 0) + 1,
-            code: result.code,
-          },
+          [canteenId]: result.code,
         }));
         return;
       }
-
-      const scrollPin = pin();
-      setAllTimeCounts((previous) => ({
-        ...previous,
-        [canteenId]: (previous[canteenId] ?? 0) + 1,
-      }));
-      try {
-        if (result.voteDate === voteDate) {
-          setTodayCounts((previous) => ({
-            ...previous,
-            [canteenId]: (previous[canteenId] ?? 0) + 1,
-          }));
-        } else {
-          router.refresh();
-        }
-        scheduleRankingUpdate();
-      } finally {
-        release(scrollPin);
+      if (result.voteDate !== voteDate) {
+        setTodayCounts((previous) => ({
+          ...previous,
+          [canteenId]: Math.max(0, (previous[canteenId] ?? 1) - 1),
+        }));
+        router.refresh();
       }
     } catch {
+      setTodayCounts((previous) => ({
+        ...previous,
+        [canteenId]: Math.max(0, (previous[canteenId] ?? 1) - 1),
+      }));
+      setAllTimeCounts((previous) => ({
+        ...previous,
+        [canteenId]: Math.max(0, (previous[canteenId] ?? 1) - 1),
+      }));
       setFailures((previous) => ({
         ...previous,
-        [canteenId]: {
-          count: (previous[canteenId]?.count ?? 0) + 1,
-          code: "VOTE_FAILED",
-        },
-      }));
-    } finally {
-      const remaining = Math.max(
-        0,
-        (pendingCountsRef.current[canteenId] ?? 1) - 1,
-      );
-      pendingCountsRef.current = {
-        ...pendingCountsRef.current,
-        [canteenId]: remaining,
-      };
-      setPendingCounts((previous) => ({
-        ...previous,
-        [canteenId]: remaining,
+        [canteenId]: "VOTE_FAILED",
       }));
     }
   }
@@ -338,12 +190,10 @@ export function ShameRankList({
             💩堂榜
           </h1>
           <p className="mt-1.5 text-xs text-[#74777c] sm:text-sm">
-            {view === "today" ? "" : "累计至 "}
+            {view === "today" ? "今日 " : "累计至 "}
             {formatCalendarDate(voteDate)}
             <span aria-hidden> · </span>
-            {votingOpen
-              ? `投票至 ${formatCalendarDate(votingEndDate)}`
-              : "投票已截止"}
+            投票长期开放
           </p>
         </div>
         <div
@@ -368,101 +218,33 @@ export function ShameRankList({
           <button
             type="button"
             role="tab"
-            aria-selected={view === "history"}
-            onClick={() => setView("history")}
+            aria-selected={view === "allTime"}
+            onClick={() => setView("allTime")}
             className={cn(
               "min-h-9 rounded-full px-4 text-sm font-medium transition-colors",
-              view === "history"
+              view === "allTime"
                 ? "bg-[#7a452d] text-white"
                 : "text-[#74777c] hover:text-[#202124]",
             )}
           >
-            历史
+            累计
           </button>
         </div>
       </header>
       {ranked.length === 0 ? (
         <div className="px-4 py-16 text-center text-[#74777c]">暂无食堂</div>
       ) : (
-        <>
-          {visibleRankedEntries.length > 0 ? (
-            <ol aria-label={`${view === "today" ? "今日" : "历史"}💩堂榜`}>
-              {visibleRankedEntries.map((entry, index) => {
-                const rank = index + 1;
-                const context =
-                  view === "history"
-                    ? `今日 +${todayCounts[entry.canteen.id] ?? 0}`
-                    : rankMovement(
-                        rank,
-                        previousPositions.get(entry.canteen.id),
-                        hasPreviousVotes,
-                      );
-                return (
-                  <ShameRankRow
-                    key={entry.canteen.id}
-                    rank={rank}
-                    entry={entry}
-                    context={context}
-                    onStomp={onStomp}
-                    pendingCount={pendingCounts[entry.canteen.id] ?? 0}
-                    failure={failures[entry.canteen.id] ?? null}
-                    disabled={!votingOpen}
-                  />
-                );
-              })}
-            </ol>
-          ) : (
-            <p className="px-4 py-10 text-center text-sm text-[#74777c]">
-              还没有食堂上榜
-            </p>
-          )}
-
-          {showAll && unrankedEntries.length > 0 ? (
-            <div>
-              <p className="border-y border-[#e3e5e7] bg-[#f6f7f8] px-4 py-2.5 text-xs font-medium text-[#74777c] sm:px-6">
-                尚未上榜 · {unrankedEntries.length} 家食堂
-              </p>
-              <ul aria-label="尚未上榜的食堂">
-                {unrankedEntries.map((entry) => (
-                  <ShameRankRow
-                    key={entry.canteen.id}
-                    rank={null}
-                    entry={entry}
-                    context="—"
-                    onStomp={onStomp}
-                    pendingCount={pendingCounts[entry.canteen.id] ?? 0}
-                    failure={failures[entry.canteen.id] ?? null}
-                    disabled={!votingOpen}
-                  />
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {hasCollapsibleContent ? (
-            <button
-              type="button"
-              aria-expanded={showAll}
-              onClick={() => setShowAll((value) => !value)}
-              className="flex min-h-14 w-full items-center justify-between border-t border-[#e3e5e7] px-4 text-sm font-medium text-[#74777c] transition-colors hover:bg-[#faf6f3] hover:text-[#202124] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#7a452d] sm:px-6"
-            >
-              {showAll ? (
-                <span className="mx-auto">收起榜单 ↑</span>
-              ) : (
-                <>
-                  <span>
-                    {unrankedEntries.length > 0
-                      ? `尚未上榜 · ${unrankedEntries.length} 家食堂`
-                      : `其余 ${rankedEntries.length - visibleRankedEntries.length} 名`}
-                  </span>
-                  <span className="font-semibold text-[#7a452d]">
-                    查看完整榜单（{ranked.length}）↓
-                  </span>
-                </>
-              )}
-            </button>
-          ) : null}
-        </>
+        <ol aria-label={view === "today" ? "今日💩堂榜" : "累计💩堂榜"}>
+          {ranked.map((entry, index) => (
+            <ShameRankRow
+              key={entry.canteen.id}
+              rank={entry.dislikes > 0 ? index + 1 : null}
+              entry={entry}
+              onStomp={onStomp}
+              failure={failures[entry.canteen.id] ?? null}
+            />
+          ))}
+        </ol>
       )}
     </section>
   );
