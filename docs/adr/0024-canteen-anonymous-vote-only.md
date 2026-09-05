@@ -18,14 +18,14 @@ Accepted; decision 8 is superseded by [ADR 0039](./0039-canteen-shame-voting-alw
 3. 登录用户以 `userId` 标识票；匿名与登录票**不合并**（MVP 已知双票）。
 4. 菜品投票 upsert：同 `(userId|anonymousSessionId, menuItemId)` 覆盖更新；取消为 `vote = NULL` 留行。💩堂榜为 **append-only**（`canteen_shame_votes`）：每次点踩插入一行，不可取消；榜单按港时 `voteDate` 过滤当日。
 5. 限流按 **cookie / userId**，不按 IP：`CANTEEN_VOTE_RATE_LIMIT_PER_MIN` 为礼貌限流（菜品与💩堂榜共用）；💩堂榜另对**匿名**会话按港时自然日硬限制最多 **50** 次踩（`CANTEEN_SHAME_ANON_DAILY_LIMIT`）。额度检查与插入在同一事务中按匿名会话和日期串行化，跨实例并发也不能突破。登录用户不受该日限额约束。
-6. 菜单赞踩计数经 `unstable_cache`（`revalidate: 60`，tag `canteen-vote-counts`）缓存；**投票写入时** `revalidateTag` 该 tag，避免硬刷新后「我的投票」高亮与计数不一致。他人投票的聚合计数在未写入时仍最多约 60s 延迟。「我的投票」走不缓存查询 + 乐观 UI。💩堂榜按访问时实时聚合当日票数。
+6. 菜单赞踩计数经 `unstable_cache`（`revalidate: 60`，tag `canteen-vote-counts`）缓存；**投票写入时** `revalidateTag` 该 tag，避免硬刷新后「我的投票」高亮与计数不一致。他人投票的聚合计数在未写入时仍最多约 60s 延迟。「我的投票」走不缓存查询 + 乐观 UI。💩堂榜按访问时实时聚合当日及累计票数。
 7. Cookie 禁用者：投票 UI 显示「投票需允许 Cookie」，不开无 cookie 后门。
 8. 💩堂榜投票截止日期存于 `site_settings.canteen_shame_vote_end_date`，由管理员在站点设置修改；日期按港时计算且包含截止当天，缺省为 `2026-09-01`。
 
 ## Consequences
 
 - 与 ADR 0001 的关系须在代码审查中显式核对：新增匿名写能力不得扩散到其他子系统。
-- 匿名 cookie 过期后可再投；截止前每日可重复参与。
+- 匿名 cookie 过期后可再投；投票永久开放，每日可重复参与。
 - 实现见 `src/lib/canteen-anon-session.ts`、`src/lib/canteen-vote-actions.ts`、`src/lib/canteen-shame-actions.ts`。
 
 ## Related
