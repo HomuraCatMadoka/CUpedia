@@ -11,6 +11,7 @@ export function SidebarToggle({ canEdit = false }: { canEdit?: boolean } = {}) {
 
   return (
     <div
+      data-wiki-sidebar-collapsed-rail=""
       className={cn(
         "hidden h-full w-[var(--sidebar-collapsed-width)] shrink-0 flex-col items-center gap-2 border-r bg-[var(--sidebar-bg)] pt-3 md:flex",
         state === "expanded" && "md:hidden",

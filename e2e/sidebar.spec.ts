@@ -11,13 +11,13 @@ import {
 /**
  * Sidebar behaviour across viewports.
  *
- * ref #89 — SSR/client hydration mismatch & first-paint flash: the initial
- *   desktop open/collapsed state renders from a cookie on the server. Mobile
- *   CSS must keep both desktop tree variants out of layout with no hydration
- *   error or expand→collapse flash.
+ * ref #89/#870 — SSR/client hydration mismatch & first-paint flash: the
+ *   desktop preference is restored before hydration without making the public
+ *   layout request-dependent. Mobile CSS keeps both desktop tree variants out
+ *   of layout with no hydration error or expand→collapse flash.
  * ref #316 — mobile has one Header-owned entry into an accessible page-tree
  *   Drawer. The old collapsed rail never occupies content width, while desktop
- *   collapse-cookie behaviour remains unchanged.
+ *   collapse-preference behaviour remains unchanged.
  * ref #317 — touch intent prefetches once and slow navigation identifies its
  *   pending target without closing the Drawer before the route commits.
  */
@@ -229,27 +229,38 @@ test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
   });
 });
 
-test.describe("#89 desktop respects collapse cookie on first paint", () => {
-  test("collapsed cookie yields collapsed rail with no flash, no hydration error", async ({
+test.describe("#870 desktop restores the cached preference on first paint", () => {
+  test("applies the collapsed shell before React hydrates", async ({
     page,
-    context,
-    baseURL,
   }) => {
-    await context.addCookies([
-      {
-        name: "wiki-sidebar-collapsed",
-        value: "collapsed",
-        url: baseURL!,
-      },
-    ]);
+    await page.addInitScript(() => {
+      window.localStorage.setItem("cupedia:wiki-sidebar-shell:v1", "collapsed");
+    });
+    await page.route(
+      /\/_next\/static\/chunks\/.*\.js(?:\?.*)?$/,
+      async (route) => route.abort(),
+    );
+
+    const response = await page.goto("/wiki", {
+      waitUntil: "domcontentloaded",
+    });
+    expect(response?.status()).toBe(200);
+
+    await expect(page.locator("nav").filter({ hasText: "Pages" })).toBeHidden();
+    await expect(page.getByRole("button", EXPAND)).toBeVisible();
+  });
+
+  test("collapsed preference yields collapsed rail with no flash or hydration error", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("cupedia:wiki-sidebar-shell:v1", "collapsed");
+    });
 
     const errors = collectConsoleErrors(page);
     await page.goto("/wiki");
 
-    // Desktop + collapsed cookie => expanded nav must not render at all.
-    await expect(page.locator("nav").filter({ hasText: "Pages" })).toHaveCount(
-      0,
-    );
+    await expect(page.locator("nav").filter({ hasText: "Pages" })).toBeHidden();
     await expect(page.getByRole("button", EXPAND)).toBeVisible();
 
     const hydrationErrors = errors.filter((e) => HYDRATION_RE.test(e));
