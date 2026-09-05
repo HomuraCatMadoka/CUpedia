@@ -39,6 +39,7 @@ export function CourseDetailTabs({
           const active = activeTab === tab.id;
           return (
             <Link
+              prefetch={false}
               key={tab.id}
               href={tab.href}
               scroll={false}

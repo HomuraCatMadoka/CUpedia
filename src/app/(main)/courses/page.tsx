@@ -218,6 +218,7 @@ function PageLink({
   ) : (
     <Link
       href={href}
+      prefetch={false}
       className="inline-flex min-h-11 touch-manipulation items-center rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {children}

@@ -74,6 +74,7 @@ export function MobileProductMenu({
             const active = item.id === activeProductId;
             return (
               <Link
+                prefetch={false}
                 key={item.id}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
@@ -104,6 +105,7 @@ export function MobileProductMenu({
 
         <div className="grid gap-1 border-t px-4 pt-3 pb-3">
           <Link
+            prefetch={false}
             href="/updates"
             onNavigate={() => onOpenChange(false)}
             className="flex min-h-11 touch-manipulation items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:bg-accent hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none"
