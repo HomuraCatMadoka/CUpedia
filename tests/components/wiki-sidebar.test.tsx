@@ -28,7 +28,7 @@ const PAGES = [
 
 function ssr(props: Parameters<typeof WikiSidebar>[0]) {
   return renderToString(
-    <SidebarProvider initialCollapsed={false}>
+    <SidebarProvider>
       <WikiSidebar {...props} />
     </SidebarProvider>,
   );

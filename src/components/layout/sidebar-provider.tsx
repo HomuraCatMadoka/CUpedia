@@ -2,13 +2,16 @@
 
 import {
   createContext,
-  useContext,
-  useState,
-  useEffect,
   useCallback,
+  useContext,
+  useEffect,
   useRef,
+  useState,
 } from "react";
-import { serializeSidebarCookie } from "@/lib/sidebar-cookie";
+import {
+  SIDEBAR_COLLAPSED_ATTRIBUTE,
+  SIDEBAR_PREFERENCE_STORAGE_KEY,
+} from "@/lib/sidebar-preference";
 
 type SidebarState = "expanded" | "collapsed" | "mobile-open";
 
@@ -26,54 +29,82 @@ interface SidebarContextValue {
 const SidebarContext = createContext<SidebarContextValue | null>(null);
 
 function persist(collapsed: boolean) {
-  document.cookie = serializeSidebarCookie(collapsed);
+  document.documentElement.toggleAttribute(
+    SIDEBAR_COLLAPSED_ATTRIBUTE,
+    collapsed,
+  );
+
+  try {
+    if (collapsed) {
+      window.localStorage.setItem(SIDEBAR_PREFERENCE_STORAGE_KEY, "collapsed");
+    } else {
+      window.localStorage.removeItem(SIDEBAR_PREFERENCE_STORAGE_KEY);
+    }
+  } catch {
+    // The React state still keeps this tab usable when storage is unavailable.
+  }
 }
 
-export function SidebarProvider({
-  children,
-  initialCollapsed = false,
-}: {
-  children: React.ReactNode;
-  initialCollapsed?: boolean;
-}) {
+export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [isMobile, setIsMobile] = useState(false);
-  const [state, setState] = useState<SidebarState>(
-    initialCollapsed ? "collapsed" : "expanded",
-  );
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
+  const state: SidebarState = isMobile
+    ? mobileOpen
+      ? "mobile-open"
+      : "collapsed"
+    : desktopCollapsed
+      ? "collapsed"
+      : "expanded";
 
   useEffect(() => {
+    const preferenceTimer = window.setTimeout(() => {
+      try {
+        setDesktopCollapsed(
+          window.localStorage.getItem(SIDEBAR_PREFERENCE_STORAGE_KEY) ===
+            "collapsed",
+        );
+      } catch {
+        // Expanded is the safe default when storage is unavailable.
+      }
+    }, 0);
+
     const mq = window.matchMedia("(max-width: 767px)");
     const update = () => {
-      const mobile = mq.matches;
-      setIsMobile(mobile);
-      setState(mobile || initialCollapsed ? "collapsed" : "expanded");
+      setIsMobile(mq.matches);
+      if (!mq.matches) setMobileOpen(false);
     };
     update();
     mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, [initialCollapsed]);
+    return () => {
+      window.clearTimeout(preferenceTimer);
+      mq.removeEventListener("change", update);
+    };
+  }, []);
 
   const expand = useCallback(() => {
-    setState("expanded");
-    if (!isMobile) persist(false);
+    if (isMobile) return;
+    setDesktopCollapsed(false);
+    persist(false);
   }, [isMobile]);
 
   const collapse = useCallback(() => {
-    setState("collapsed");
-    if (!isMobile) persist(true);
+    if (isMobile) return;
+    setDesktopCollapsed(true);
+    persist(true);
   }, [isMobile]);
 
   const toggle = useCallback(() => {
-    setState((s) => {
-      const next = s === "expanded" ? "collapsed" : "expanded";
-      if (!isMobile) persist(next === "collapsed");
-      return next;
+    if (isMobile) return;
+    setDesktopCollapsed((collapsed) => {
+      persist(!collapsed);
+      return !collapsed;
     });
   }, [isMobile]);
 
-  const openMobile = useCallback(() => setState("mobile-open"), []);
-  const closeMobile = useCallback(() => setState("collapsed"), []);
+  const openMobile = useCallback(() => setMobileOpen(true), []);
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   return (
     <SidebarContext.Provider

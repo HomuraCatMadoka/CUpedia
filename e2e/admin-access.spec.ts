@@ -2,10 +2,6 @@ import { test, expect } from "@playwright/test";
 
 /**
  * Guards that the admin shell renders for an authenticated admin (ref #198).
- * The admin layout mounts <Navbar/>, which calls useSidebar(); before the fix
- * no <SidebarProvider> wrapped it, so that hook threw and every /admin/* route
- * returned 500 — a latent bug that only surfaced once production gained its
- * first admin.
  */
 
 const ADMIN_EMAIL = "admin@test.com";

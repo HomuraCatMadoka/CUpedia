@@ -9,11 +9,10 @@ import {
 } from "@/lib/campus-transport/routes-data";
 import { getChampionCampusBusRoute } from "@/lib/campus-transport/prediction-model-cache";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 type RoutePageProps = {
   params: Promise<{ routeId: string }>;
-  searchParams: Promise<{ stop?: string | string[] }>;
 };
 
 export function generateStaticParams() {
@@ -35,12 +34,8 @@ export async function generateMetadata({
   };
 }
 
-export default async function CampusRoutePage({
-  params,
-  searchParams,
-}: RoutePageProps) {
+export default async function CampusRoutePage({ params }: RoutePageProps) {
   const { routeId } = await params;
-  const { stop } = await searchParams;
   if (routeId.toLowerCase() === "1a") {
     redirect("/campus-bus/1");
   }
@@ -50,14 +45,13 @@ export default async function CampusRoutePage({
   const route = await getChampionCampusBusRoute(routeId);
   if (!route || route.slug === "2") notFound();
 
-  // This route is force-dynamic and the timestamp seeds a client-side clock.
+  // The client immediately replaces this cached timestamp with the live clock.
   // eslint-disable-next-line react-hooks/purity
   const initialNow = Date.now();
   return (
     <CampusRouteView
       route={toCampusBusPassengerRoute(route)}
       initialNow={initialNow}
-      initialStopId={typeof stop === "string" ? stop : undefined}
     />
   );
 }

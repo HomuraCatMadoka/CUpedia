@@ -1227,6 +1227,7 @@ export function WikiSidebar({
       </p>
       {state === "expanded" && (
         <nav
+          data-wiki-sidebar-expanded=""
           aria-label="Wiki 页面树"
           className={cn(
             "sticky hidden w-[var(--sidebar-width)] shrink-0 flex-col overflow-y-auto border-r bg-[#f9f8f7] md:flex",

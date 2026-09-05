@@ -39,10 +39,10 @@ test.describe("campus bus Route 2 mobile journey", () => {
     const response = await page.goto("/campus-bus/2");
     expect(response?.status()).toBe(200);
 
-    // The server supplies its own initial clock. Advance the client interval once
-    // so arrival assertions use the fixed Hong Kong service time above.
+    // Cached HTML carries its generation timestamp. Flush the immediate client
+    // clock sync so arrival assertions use the fixed Hong Kong service time.
     await expect(page.getByRole("button", { name: "我的位置" })).toBeVisible();
-    await page.clock.fastForward("00:00:31");
+    await page.clock.fastForward(1);
   });
 
   test("renders the default stop, route map, and timetable", async ({
@@ -394,6 +394,21 @@ test.describe("campus bus reviewed route catalog", () => {
     await expect(
       page.getByRole("region", { name: /顯示 3 號線/ }),
     ).toBeVisible();
+  });
+
+  test("opens the exact operational stop from a cached route deep link", async ({
+    page,
+  }) => {
+    await page.clock.install({ time: IN_SERVICE_HONG_KONG_TIME });
+    const response = await page.goto(
+      "/campus-bus/2s?stop=cuhk-wp-stop-3172%232",
+    );
+    expect(response?.status()).toBe(200);
+
+    const requestedStop = page.getByRole("button", {
+      name: /11\. 研究生宿舍一座/,
+    });
+    await expect(requestedStop).toHaveAttribute("aria-expanded", "true");
   });
 
   test("retires the old 1B link without remapping it to 2S", async ({

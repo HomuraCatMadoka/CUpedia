@@ -253,6 +253,16 @@
   }
 }
 
+@media (min-width: 48rem) {
+  html[data-wiki-sidebar-collapsed] [data-wiki-sidebar-expanded] {
+    display: none;
+  }
+
+  html[data-wiki-sidebar-collapsed] [data-wiki-sidebar-collapsed-rail] {
+    display: flex;
+  }
+}
+
 @layer components {
   .wiki-emoji-picker {
     --wiki-emoji-picker-height: min(380px, 52dvh);

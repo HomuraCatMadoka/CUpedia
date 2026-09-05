@@ -358,22 +358,18 @@ function FeedbackDialog({
 }
 
 export function CampusRouteView({
-  initialStopId: requestedInitialStopId,
   initialNow,
   route,
 }: {
-  initialStopId?: string;
   initialNow: number;
   route: CampusBusPassengerRoute;
 }) {
-  const initialStopId = route.stops.some(
-    (stop) => stop.id === requestedInitialStopId,
+  const defaultStopId = route.stops.some(
+    (stop) => stop.id === route.defaultStopId,
   )
-    ? requestedInitialStopId
-    : route.stops.some((stop) => stop.id === route.defaultStopId)
-      ? route.defaultStopId
-      : route.stops[0]?.id;
-  const [selectedStopId, setSelectedStopId] = useState(initialStopId);
+    ? route.defaultStopId
+    : route.stops[0]?.id;
+  const [selectedStopId, setSelectedStopId] = useState(defaultStopId);
   const [nearbyStopId, setNearbyStopId] = useState<string | null>(null);
   const [nearbyCandidateIds, setNearbyCandidateIds] = useState<string[]>([]);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -381,6 +377,7 @@ export function CampusRouteView({
   const journeyScrollRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    const syncTimer = window.setTimeout(() => setNow(Date.now()), 0);
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
@@ -388,7 +385,10 @@ export function CampusRouteView({
       () => setNow(Date.now()),
       prefersReducedMotion ? 30_000 : 1_000,
     );
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearTimeout(syncTimer);
+      window.clearInterval(interval);
+    };
   }, []);
 
   const busPositions: BusPosition[] = useMemo(
@@ -455,14 +455,28 @@ export function CampusRouteView({
   );
 
   useEffect(() => {
-    if (!initialStopId) return;
-    revealStopInJourney(initialStopId, "auto");
-  }, [initialStopId, revealStopInJourney]);
+    if (defaultStopId) revealStopInJourney(defaultStopId, "auto");
+  }, [defaultStopId, revealStopInJourney]);
 
   const selectStopFromMap = useCallback(
     (stopId: string) => selectStop(stopId),
     [selectStop],
   );
+
+  useEffect(() => {
+    const queryTimer = window.setTimeout(() => {
+      const requestedStopId = new URLSearchParams(window.location.search).get(
+        "stop",
+      );
+      if (
+        requestedStopId &&
+        route.stops.some((stop) => stop.id === requestedStopId)
+      ) {
+        selectStop(requestedStopId, "auto");
+      }
+    }, 0);
+    return () => window.clearTimeout(queryTimer);
+  }, [route.stops, selectStop]);
 
   const confirmNearbyStop = useCallback(
     (stopId: string) => {

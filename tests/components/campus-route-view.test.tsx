@@ -29,20 +29,16 @@ afterEach(() => {
 });
 
 beforeEach(() => {
+  window.history.replaceState({}, "", "/");
   window.matchMedia = vi.fn().mockReturnValue({ matches: true });
   window.scrollTo = vi.fn();
   Element.prototype.scrollIntoView = vi.fn();
 });
 
-function renderRoute(
-  routeId: string,
-  initialNow: number,
-  initialStopId?: string,
-) {
+function renderRoute(routeId: string, initialNow: number) {
   render(
     <CampusRouteView
       initialNow={initialNow}
-      initialStopId={initialStopId}
       route={toCampusBusPassengerRoute(getCampusBusRoute(routeId)!)}
     />,
   );
@@ -103,18 +99,21 @@ describe("CampusRouteView", () => {
     ).toBeTruthy();
   });
 
-  it("selects an exact operational stop occurrence from the boarding flow", () => {
-    renderRoute(
-      "2s",
-      Date.parse("2026-08-10T23:38:00.000Z"),
-      "cuhk-wp-stop-3172#2",
+  it("selects an exact operational stop occurrence from the boarding flow", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      `/?stop=${encodeURIComponent("cuhk-wp-stop-3172#2")}`,
     );
+    renderRoute("2s", Date.parse("2026-08-10T23:38:00.000Z"));
 
-    expect(
-      screen
-        .getByRole("button", { name: /11\. 研究生宿舍一座/ })
-        .getAttribute("aria-expanded"),
-    ).toBe("true");
+    await waitFor(() => {
+      expect(
+        screen
+          .getByRole("button", { name: /11\. 研究生宿舍一座/ })
+          .getAttribute("aria-expanded"),
+      ).toBe("true");
+    });
   });
 
   it("submits the anonymous timetable context already shown on the page", async () => {
