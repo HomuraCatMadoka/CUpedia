@@ -1,7 +1,8 @@
 # Campus Map canonical fact store
 
-Issue #717 implements the persistence boundary described by ADR 0034 and ADR 0035. Provider objects are evidence about canonical entities; they are not the
-identity of a Building, Floor, or Place.
+Issues #717 and #865 implement the persistence boundary described by ADR 0034,
+ADR 0035, ADR 0038, and ADR 0039. Provider objects are evidence about canonical
+entities; they are not the identity of a Building, Floor, or Place.
 
 ## Ownership and interfaces
 
@@ -9,8 +10,10 @@ identity of a Building, Floor, or Place.
 domain read models for:
 
 - one active Current Place;
-- active Places filtered by canonical building, floor, pin type, or viewport;
+- active Places filtered by canonical building, floor, Place type, or viewport;
 - immutable Place history with revision-local field metadata;
+- a source identity resolved through complete revision history to one still
+  public, active Place;
 - one public Changeset and the cursor-paged Changeset feed.
 
 The read boundary never returns Drizzle rows, provider IDs, moderation
@@ -18,16 +21,36 @@ references, user-account foreign keys, idempotency keys, or request
 fingerprints. Current reads join revision visibility and return only public
 facts; missing visibility metadata fails closed as redacted.
 
-The canonical V1 schema and display metadata are available from the read
-boundary on a fresh database. The first V1 append idempotently persists that
-active schema inside the same storage transaction before its revision FK is
-written; later schema lifecycle remains explicit and version-addressable.
+Database migrations are the only owner of canonical schema and display
+metadata. The read and publish boundaries require exactly one active V2 schema;
+missing, draft, or otherwise inconsistent metadata fails closed instead of
+being invented by application code. Historical V1 revisions keep their
+original schema version and decode through the V1 codec; they are never
+rewritten into V2. Schema lifecycle remains explicit and version-addressable.
+The V2 activation migration first asserts the production-audited condition that
+no V1 row remains in Current and aborts if that condition is false. After
+activation, Current accepts V2 only while the immutable revision ledger accepts
+both versions.
 
 `src/lib/campus-map/publish.ts` owns the sole application publishing seam,
 `publishCampusMapChangeset`. Routes, server actions, importers, and admin tools
 must submit intent through that function rather than calling the storage writer
 or updating fact tables. Its private implementation modules own command
 validation and the persistent actor/IP rate policy.
+
+`representative-facility-manifest.ts` is a small, manually reviewed V2 example
+payload. Its [source ledger](representative-facility-import.md) records the
+included facts and official sources. `representative-facility-import.ts`
+reconciles each stable source identity against all immutable revisions, requires
+the uniquely matched Place to remain public and active, sends a new set through
+the administrator bulk publisher. A retry by the same or another admin therefore
+reuses canonical Places even when the source is no longer attached to the
+current revision; retired or ambiguous matches fail closed. A database advisory
+lock allows only one first-import attempt for that manifest version; a
+concurrent attempt returns a retryable result. The sample import neither creates
+provider mappings nor consumes AMap data; the existing mapping registry remains
+the separate owner of AMap-to-canonical bindings. The importer is not a second
+fact writer, crawler, scheduler, or direct-database shortcut.
 
 `src/lib/campus-map/fact-store-transaction.ts` is an internal storage mechanism
 behind that seam. One Changeset command locks stable Place rows in canonical ID
@@ -43,8 +66,8 @@ bind/unlink/rebind command locks one provider identity, rechecks the actor's
 current admin status, validates previous targets by stable canonical identity
 and new targets by public eligibility, updates the active projection, and
 appends an actor/reason/time/provenance decision in one transaction.
-No React or server action exposes this command. Accepted mappings are written
-only by an explicit audited migration or trusted QA operator command. Names,
+No React or public server action exposes mapping commands. Accepted mappings
+are written only by a trusted QA or future admin command. Names,
 aliases, distances, and coordinates may be reviewed as evidence outside the
 runtime, but they never create an active mapping or participate in a map click.
 
@@ -178,10 +201,10 @@ idempotency remain owned by the sole publish seam. They are intentionally not
 duplicated as a second set of cross-table trigger rules.
 
 The publisher acquires locks in a stable order: actor-scoped idempotency
-advisory lock, fresh User and credential eligibility rows, actor/IP rate rows in
+advisory lock, fresh User and account-eligibility rows, actor/IP rate rows in
 fixed policy order, a non-blocking rate-cleanup advisory lock, existing Place
 and Current visibility rows in canonical Place UUID order, normalized warning
-domains in name/pin order, then provenance advisory locks in numeric key order.
+domains in name/Place-type order, then provenance advisory locks in numeric key order.
 Exact completed replay returns before eligibility and quota because it does not
 create a new publication. No network request or slow external adapter runs
 inside the transaction.
@@ -216,8 +239,8 @@ publishing, so the bounded rollout cost is intentional.
 | Query                    | Shape                                            | Supporting index or key                             |
 | ------------------------ | ------------------------------------------------ | --------------------------------------------------- |
 | Place detail             | Current fact by `place_id`                       | Current fact primary key                            |
-| Building directory       | `building_id`, optional `pin_type`               | `campus_map_current_facts_building_type_idx`        |
-| Floor directory          | `building_id`, `floor_id`, optional `pin_type`   | `campus_map_current_facts_floor_type_idx`           |
+| Building directory       | `building_id`, optional Place type (`pin_type`)  | `campus_map_current_facts_building_type_idx`        |
+| Floor directory          | Building/Floor, optional Place type (`pin_type`) | `campus_map_current_facts_floor_type_idx`           |
 | Outdoor viewport         | longitude/latitude range                         | partial `campus_map_current_facts_geo_idx`          |
 | Building-anchor viewport | anchor longitude/latitude range                  | partial `campus_map_buildings_anchor_geo_idx`       |
 | Place history            | `place_id`, descending `created_at`, `id` cursor | `campus_map_fact_revisions_place_created_idx`       |

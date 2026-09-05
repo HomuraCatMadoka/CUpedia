@@ -40,6 +40,7 @@ const revision: CampusMapPlaceHistoryItem = {
   content: {
     visibility: "public",
     fact: {
+      factSchemaVersion: 1,
       name: "科学馆打印点",
       pinType: "printer",
       capabilities: ["print", "scan"],

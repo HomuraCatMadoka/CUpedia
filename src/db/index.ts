@@ -30,3 +30,42 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export const db = drizzle(pool, { schema });
+
+export type DatabaseAdvisoryLockAttempt<T> =
+  | { acquired: false }
+  | { acquired: true; value: T };
+
+/**
+ * Holds a short-lived, process-safe PostgreSQL lock while `work` uses the
+ * normal Drizzle pool. A competing caller returns immediately, leaving the
+ * remaining pool connection available to the lock owner.
+ */
+export async function tryWithDatabaseAdvisoryLock<T>(
+  lockName: string,
+  work: () => Promise<T>,
+): Promise<DatabaseAdvisoryLockAttempt<T>> {
+  const client = await pool.connect();
+  let acquired = false;
+  let destroyClient = false;
+  try {
+    const lock = await client.query<{ acquired: boolean }>(
+      "select pg_try_advisory_lock(hashtextextended($1, 0)) as acquired",
+      [lockName],
+    );
+    acquired = lock.rows[0]?.acquired === true;
+    if (!acquired) return { acquired: false };
+    return { acquired: true, value: await work() };
+  } finally {
+    if (acquired) {
+      try {
+        await client.query(
+          "select pg_advisory_unlock(hashtextextended($1, 0))",
+          [lockName],
+        );
+      } catch {
+        destroyClient = true;
+      }
+    }
+    client.release(destroyClient);
+  }
+}

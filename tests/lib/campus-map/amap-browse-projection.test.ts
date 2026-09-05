@@ -18,18 +18,15 @@ const PLACE_ID = "30000000-0000-4000-8000-000000000001";
 const place: CampusMapCurrentPlace = {
   id: PLACE_ID,
   revisionId: "40000000-0000-4000-8000-000000000001",
-  factSchemaVersion: 1,
+  factSchemaVersion: 2,
   name: "东翼洗手间",
-  pinType: "toilet",
+  placeType: "toilet",
+  regularHours: null,
+  officialActions: [],
+  visitNote: null,
   capabilities: [],
-  access: {
-    audience: "public",
-    credentialRequirement: "none",
-    schedule: { kind: "unknown" },
-    reservationRequirement: "none",
-    temporaryStatus: "normal",
-  },
-  facets: { gender: "unknown", wheelchairAccess: "unknown" },
+  gender: null,
+  wheelchairAccess: null,
   location: {
     kind: "floor",
     building: {
@@ -69,7 +66,7 @@ const preciseOutdoorProjection = projectCampusMapBrowse({
       id: "30000000-0000-4000-8000-000000000002",
       revisionId: "40000000-0000-4000-8000-000000000002",
       name: "林荫饮水点",
-      pinType: "water",
+      placeType: "water",
       location: {
         kind: "outdoor-point",
         point: {

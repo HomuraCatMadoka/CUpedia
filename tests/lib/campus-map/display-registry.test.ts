@@ -3,20 +3,18 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  CAMPUS_MAP_AUDIENCES,
   CAMPUS_MAP_CAPABILITIES,
-  CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
-  CAMPUS_MAP_GENDERS,
-  CAMPUS_MAP_PIN_TYPES,
+  CAMPUS_MAP_PIN_TYPES_V1,
+  CAMPUS_MAP_PLACE_TYPES,
   CAMPUS_MAP_PROVENANCE_KINDS,
-  CAMPUS_MAP_RESERVATION_REQUIREMENTS,
   CAMPUS_MAP_TEMPORARY_STATUSES,
-  CAMPUS_MAP_WHEELCHAIR_ACCESS,
+  CAMPUS_MAP_V2_GENDERS,
+  CAMPUS_MAP_V2_WHEELCHAIR_ACCESS,
 } from "@/lib/campus-map/controlled-values";
 import {
   campusMapDisplayOptionLabel,
   campusMapFactFieldLabel,
-  campusMapPinTypeLabel,
+  campusMapPlaceTypeLabel,
   CAMPUS_MAP_DISPLAY_REGISTRY,
   displayCampusMapFactValue,
 } from "@/lib/campus-map/display-registry";
@@ -24,19 +22,16 @@ import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
 
 const optionContracts = {
   capabilities: CAMPUS_MAP_CAPABILITIES,
-  gender: CAMPUS_MAP_GENDERS,
-  wheelchairAccess: CAMPUS_MAP_WHEELCHAIR_ACCESS,
-  audience: CAMPUS_MAP_AUDIENCES,
-  credentialRequirement: CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
-  reservationRequirement: CAMPUS_MAP_RESERVATION_REQUIREMENTS,
+  gender: CAMPUS_MAP_V2_GENDERS,
+  wheelchairAccess: CAMPUS_MAP_V2_WHEELCHAIR_ACCESS,
   temporaryStatus: CAMPUS_MAP_TEMPORARY_STATUSES,
   provenanceKind: CAMPUS_MAP_PROVENANCE_KINDS,
 } as const;
 
 describe("Campus Map display registry", () => {
   it("covers every controlled public value once", () => {
-    expect(Object.keys(CAMPUS_MAP_DISPLAY_REGISTRY.pinTypes).sort()).toEqual(
-      [...CAMPUS_MAP_PIN_TYPES].sort(),
+    expect(Object.keys(CAMPUS_MAP_DISPLAY_REGISTRY.placeTypes).sort()).toEqual(
+      [...CAMPUS_MAP_PLACE_TYPES].sort(),
     );
     for (const [group, controlledValues] of Object.entries(optionContracts)) {
       const displayedValues = CAMPUS_MAP_DISPLAY_REGISTRY.options[
@@ -47,11 +42,18 @@ describe("Campus Map display registry", () => {
     }
   });
 
-  it("provides one vocabulary for fields, pin types, and controlled values", () => {
-    expect(campusMapFactFieldLabel("pinType")).toBe("地点类型");
-    expect(campusMapPinTypeLabel("printer")).toBe("打印服务");
+  it("provides one vocabulary for fields, place types, and controlled values", () => {
+    expect(campusMapFactFieldLabel("placeType")).toBe("地点类型");
+    expect(campusMapPlaceTypeLabel("printer")).toBe("打印服务");
     expect(campusMapDisplayOptionLabel("audience", "cuhk-member")).toBe(
       "中大成员",
+    );
+    expect(campusMapDisplayOptionLabel("gender", "unknown")).toBe("未知");
+    expect(campusMapDisplayOptionLabel("wheelchairAccess", "unknown")).toBe(
+      "未知",
+    );
+    expect(campusMapDisplayOptionLabel("temporaryStatus", "unknown")).toBe(
+      "未知",
     );
     expect(displayCampusMapFactValue("capabilities", ["print", "scan"])).toBe(
       "打印、扫描",
@@ -61,7 +63,7 @@ describe("Campus Map display registry", () => {
     );
   });
 
-  it("keeps public browse categories independent from editor presets", () => {
+  it("keeps the unchanged public browse UI on its legacy categories", () => {
     expect(CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories).toEqual([
       "water",
       "toilet",
@@ -70,7 +72,7 @@ describe("Campus Map display registry", () => {
       "classroom",
     ]);
     expect(new Set(CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories)).toEqual(
-      new Set(CAMPUS_MAP_PIN_TYPES),
+      new Set(CAMPUS_MAP_PIN_TYPES_V1),
     );
 
     for (const file of [

@@ -1,11 +1,19 @@
-import type { CampusMapFactFieldKey } from "@/db/schema";
-
+import {
+  campusMapOfficialActionError,
+  CAMPUS_MAP_OFFICIAL_ACTION_MAX_COUNT,
+} from "@/lib/campus-map/official-action";
+import {
+  CAMPUS_MAP_APPLICABLE_FACT_FIELDS_V2,
+  CAMPUS_MAP_REQUIRED_FACT_FIELDS_V2,
+  type CampusMapFactFieldKeyV2,
+} from "@/lib/campus-map/place-type-contract";
+import { isCampusMapRegularHours } from "@/lib/campus-map/regular-hours";
 import type {
   CampusMapPublishFactInput,
   CampusMapPublishSourceInput,
 } from "@/lib/campus-map/publish-contract";
 
-export type CampusMapEditFieldKey = CampusMapFactFieldKey | "sources";
+export type CampusMapEditFieldKey = CampusMapFactFieldKeyV2 | "sources";
 
 export interface CampusMapEditValidationDraft {
   fact: Omit<CampusMapPublishFactInput, "location"> & {
@@ -19,7 +27,7 @@ export interface CampusMapEditFieldDefinition {
 }
 
 export interface CampusMapEditPreset {
-  pinType: CampusMapPublishFactInput["pinType"];
+  placeType: CampusMapPublishFactInput["placeType"];
   defaultName: string;
   fields: CampusMapEditFieldKey[];
   requiredFields: CampusMapEditFieldKey[];
@@ -31,6 +39,7 @@ export type CampusMapFactNameErrorCode =
   | "fact-name-too-long";
 
 export const CAMPUS_MAP_FACT_NAME_MAX_BYTES = 240;
+export const CAMPUS_MAP_VISIT_NOTE_MAX_BYTES = 500;
 
 function containsUnpairedSurrogate(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
@@ -64,45 +73,100 @@ export function campusMapFactNameError(
   return null;
 }
 
-const REQUIRED_EDIT_FIELDS = [
-  "name",
-  "pinType",
-  "location",
-  "sources",
-] as const satisfies readonly CampusMapEditFieldKey[];
-
-/** The canonical access facts exposed together by the focused Place editor. */
-export const CAMPUS_MAP_EDIT_ACCESS_FIELDS = [
-  "audience",
-  "credentialRequirement",
-  "accessSchedule",
-  "reservationRequirement",
-  "temporaryStatus",
-] as const satisfies readonly CampusMapEditFieldKey[];
-
-function validWeeklySchedule(draft: CampusMapEditValidationDraft) {
-  const schedule = draft.fact.accessSchedule;
+export function campusMapOptionalShortTextIsValid(
+  value: unknown,
+  maxBytes: number,
+): boolean {
   return (
-    schedule.kind !== "weekly" ||
-    schedule.intervals.every(
-      (interval) =>
-        interval.days.length > 0 &&
-        Boolean(interval.opensAt) &&
-        Boolean(interval.closesAt) &&
-        interval.opensAt !== interval.closesAt,
-    )
+    value === null ||
+    (typeof value === "string" &&
+      value.trim() !== "" &&
+      !value.includes("\u0000") &&
+      !containsUnpairedSurrogate(value) &&
+      new TextEncoder().encode(value).byteLength <= maxBytes)
   );
 }
 
+const REQUIRED_EDIT_FIELDS = [
+  ...CAMPUS_MAP_REQUIRED_FACT_FIELDS_V2,
+  "sources",
+] as const satisfies readonly CampusMapEditFieldKey[];
+
+/** Optional operating facts kept behind the detail disclosure, never in Add. */
+export const CAMPUS_MAP_EDIT_OPERATING_FIELDS = [
+  "regularHours",
+  "officialActions",
+  "visitNote",
+] as const satisfies readonly CampusMapEditFieldKey[];
+
+const EDIT_FIELD_ORDER = [
+  "name",
+  "placeType",
+  "capabilities",
+  "gender",
+  "wheelchairAccess",
+  ...CAMPUS_MAP_EDIT_OPERATING_FIELDS,
+  "location",
+] as const satisfies readonly CampusMapFactFieldKeyV2[];
+
+function editFieldsFor(
+  placeType: CampusMapPublishFactInput["placeType"],
+): CampusMapEditFieldKey[] {
+  const applicableFields: readonly CampusMapFactFieldKeyV2[] =
+    CAMPUS_MAP_APPLICABLE_FACT_FIELDS_V2[placeType];
+  return [
+    ...EDIT_FIELD_ORDER.filter((field) => applicableFields.includes(field)),
+    "sources",
+  ];
+}
+
+const EDIT_PRESET_NAMES = [
+  { placeType: "water", defaultName: "饮水机" },
+  { placeType: "toilet", defaultName: "洗手间" },
+  { placeType: "printer", defaultName: "打印站" },
+  { placeType: "common-space", defaultName: "公共空间" },
+  { placeType: "classroom", defaultName: "课室" },
+  { placeType: "sports-facility", defaultName: "体育设施" },
+  { placeType: "health-service", defaultName: "医疗服务" },
+  { placeType: "vending-machine", defaultName: "自动售卖机" },
+] as const satisfies ReadonlyArray<
+  Pick<CampusMapEditPreset, "placeType" | "defaultName">
+>;
+
+const EDIT_PRESETS = EDIT_PRESET_NAMES.map((preset) => ({
+  ...preset,
+  fields: editFieldsFor(preset.placeType),
+}));
+
 export const CAMPUS_MAP_EDIT_SCHEMA = {
-  version: 1,
+  version: 2,
   fieldDefinitions: {
     name: {
       isValid: (draft, required) =>
         !required || campusMapFactNameError(draft.fact.name) === null,
     },
-    pinType: {
-      isValid: (draft, required) => !required || Boolean(draft.fact.pinType),
+    placeType: {
+      isValid: (draft, required) => !required || Boolean(draft.fact.placeType),
+    },
+    regularHours: {
+      isValid: (draft) =>
+        draft.fact.regularHours === null ||
+        isCampusMapRegularHours(draft.fact.regularHours),
+    },
+    officialActions: {
+      isValid: (draft) =>
+        draft.fact.officialActions.length <=
+          CAMPUS_MAP_OFFICIAL_ACTION_MAX_COUNT &&
+        draft.fact.officialActions.every(
+          (action) => campusMapOfficialActionError(action) === null,
+        ),
+    },
+    visitNote: {
+      isValid: (draft) =>
+        campusMapOptionalShortTextIsValid(
+          draft.fact.visitNote,
+          CAMPUS_MAP_VISIT_NOTE_MAX_BYTES,
+        ),
     },
     capabilities: {
       isValid: (draft, required) =>
@@ -110,13 +174,6 @@ export const CAMPUS_MAP_EDIT_SCHEMA = {
     },
     gender: { isValid: () => true },
     wheelchairAccess: { isValid: () => true },
-    audience: { isValid: () => true },
-    credentialRequirement: { isValid: () => true },
-    accessSchedule: {
-      isValid: (draft) => validWeeklySchedule(draft),
-    },
-    reservationRequirement: { isValid: () => true },
-    temporaryStatus: { isValid: () => true },
     location: {
       isValid: (draft, required) => !required || draft.fact.location !== null,
     },
@@ -124,75 +181,12 @@ export const CAMPUS_MAP_EDIT_SCHEMA = {
       isValid: (draft, required) => !required || draft.sources.length > 0,
     },
   } satisfies Record<CampusMapEditFieldKey, CampusMapEditFieldDefinition>,
-  presets: [
-    {
-      pinType: "water",
-      defaultName: "饮水机",
-      fields: [
-        "name",
-        "pinType",
-        "wheelchairAccess",
-        ...CAMPUS_MAP_EDIT_ACCESS_FIELDS,
-        "location",
-        "sources",
-      ],
+  presets: EDIT_PRESETS.map(
+    (preset): CampusMapEditPreset => ({
+      ...preset,
       requiredFields: [...REQUIRED_EDIT_FIELDS],
-    },
-    {
-      pinType: "toilet",
-      defaultName: "洗手间",
-      fields: [
-        "name",
-        "pinType",
-        "gender",
-        "wheelchairAccess",
-        ...CAMPUS_MAP_EDIT_ACCESS_FIELDS,
-        "location",
-        "sources",
-      ],
-      requiredFields: [...REQUIRED_EDIT_FIELDS],
-    },
-    {
-      pinType: "printer",
-      defaultName: "打印站",
-      fields: [
-        "name",
-        "pinType",
-        "capabilities",
-        "wheelchairAccess",
-        ...CAMPUS_MAP_EDIT_ACCESS_FIELDS,
-        "location",
-        "sources",
-      ],
-      requiredFields: [...REQUIRED_EDIT_FIELDS],
-    },
-    {
-      pinType: "common-space",
-      defaultName: "公共空间",
-      fields: [
-        "name",
-        "pinType",
-        "wheelchairAccess",
-        ...CAMPUS_MAP_EDIT_ACCESS_FIELDS,
-        "location",
-        "sources",
-      ],
-      requiredFields: [...REQUIRED_EDIT_FIELDS],
-    },
-    {
-      pinType: "classroom",
-      defaultName: "课室",
-      fields: [
-        "name",
-        "pinType",
-        "wheelchairAccess",
-        ...CAMPUS_MAP_EDIT_ACCESS_FIELDS,
-        "location",
-        "sources",
-      ],
-      requiredFields: [...REQUIRED_EDIT_FIELDS],
-    },
-  ] satisfies CampusMapEditPreset[],
+    }),
+  ),
 } as const;
 
 export function firstInvalidCampusMapEditField(
@@ -201,7 +195,7 @@ export function firstInvalidCampusMapEditField(
 ): CampusMapEditFieldKey | null {
   const preset =
     CAMPUS_MAP_EDIT_SCHEMA.presets.find(
-      (item) => item.pinType === draft.fact.pinType,
+      (item) => item.placeType === draft.fact.placeType,
     ) ?? CAMPUS_MAP_EDIT_SCHEMA.presets[0];
   const requiredFields = new Set<CampusMapEditFieldKey>([
     ...preset.requiredFields,

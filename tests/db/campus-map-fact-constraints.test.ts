@@ -2,6 +2,16 @@ import type { PoolClient } from "pg";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import {
+  CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
+  CAMPUS_MAP_FACT_SCHEMA_V1,
+} from "@/db/schema";
+import { CAMPUS_MAP_PLACE_TYPES } from "@/lib/campus-map/controlled-values";
+import {
+  campusMapFactFieldAppliesV2,
+  type CampusMapFactFieldKeyV2,
+} from "@/lib/campus-map/place-type-contract";
+
 const hasDb = Boolean(process.env.DATABASE_URL);
 
 const ids = {
@@ -37,7 +47,7 @@ describe.skipIf(!hasDb)(
   () => {
     let pool: Pool;
 
-    beforeAll(() => {
+    beforeAll(async () => {
       pool = new Pool({ connectionString: process.env.DATABASE_URL });
     });
 
@@ -51,17 +61,22 @@ describe.skipIf(!hasDb)(
       const client = await pool.connect();
       await client.query("begin");
       try {
+        // V2 is the only active schema on a clean install. Install V1 inside
+        // this rolled-back fixture so legacy revisions can be tested without
+        // leaking V1 metadata into the shared integration database.
+        await client.query(
+          `insert into campus_map_fact_schemas
+             (version, status, definition, display_metadata)
+           values (1, 'superseded', $1::jsonb, $2::jsonb)
+           on conflict (version) do nothing`,
+          [
+            JSON.stringify(CAMPUS_MAP_FACT_SCHEMA_V1),
+            JSON.stringify(CAMPUS_MAP_FACT_DISPLAY_METADATA_V1),
+          ],
+        );
         await client.query(
           `insert into users (id, email, nickname)
          values ($1, 'campus-map-717@test.invalid', '事实贡献者')`,
-          [ids.user],
-        );
-        await client.query(
-          `insert into campus_map_fact_schemas
-           (version, status, definition, display_metadata, created_by)
-         values (717, 'draft',
-           '{"pinTypes":{"toilet":{"applicableFields":[],"requiredFields":[]},"water":{"applicableFields":[],"requiredFields":[]},"printer":{"applicableFields":[],"requiredFields":[]},"common-space":{"applicableFields":[],"requiredFields":[]},"classroom":{"applicableFields":[],"requiredFields":[]}}}',
-           '{"name":{"label":"名称"}}', $1)`,
           [ids.user],
         );
         await client.query(
@@ -103,9 +118,207 @@ describe.skipIf(!hasDb)(
       (id, place_id, changeset_id, place_change_id, fact_schema_version,
        field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
        name, pin_type, location_kind${extraColumns})
-     values ($1, $2, $3, $4, 717, '{"name":{"label":"名称"}}',
+     values ($1, $2, $3, $4, 1, '{"name":{"label":"名称"}}',
        'active', $5, '事实贡献者', '测试地点', 'water', 'floor'${extraValues})`;
     }
+
+    it("accepts a V2 classroom with supported optional facts", async () => {
+      await inFixture(async (client) => {
+        await expect(
+          client.query(
+            `insert into campus_map_fact_revisions
+             (id, place_id, changeset_id, place_change_id, fact_schema_version,
+              field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
+              name, building_id, floor_id, pin_type, regular_hours,
+              temporary_status, official_actions, visit_note, gender,
+              wheelchair_access, location_kind)
+           values ($1, $2, $3, $4, 2, '{}', 'active', $5, '事实贡献者',
+             '科学馆 L1', $6, $7, 'classroom',
+             '{"timezone":"Asia/Hong_Kong","intervals":[{"days":["mon","tue"],"opensAt":"08:30","closesAt":"18:00"}]}',
+             null, '[{"label":"课室资料","url":"HTTPS://example.edu/classroom"}]',
+             '由正门进入', null, 'yes', 'floor')`,
+            [
+              ids.revision,
+              ids.place,
+              ids.changeset,
+              ids.placeChange,
+              ids.actor,
+              ids.building,
+              ids.floor,
+            ],
+          ),
+        ).resolves.toMatchObject({ rowCount: 1 });
+      });
+    });
+
+    it.each([
+      {
+        label: "blank action label",
+        column: "official_actions",
+        value: [{ label: "   ", url: "https://www.cuhk.edu.hk/" }],
+      },
+      {
+        label: "malformed telephone action",
+        column: "official_actions",
+        value: [{ label: "致电", url: "tel:javascript" }],
+      },
+      {
+        label: "credential-bearing HTTPS action",
+        column: "official_actions",
+        value: [{ label: "预约", url: "https://user:pass@example.com/" }],
+      },
+      {
+        label: "duplicate action",
+        column: "official_actions",
+        value: [
+          { label: "预约", url: "https://booking.example.edu/" },
+          { label: "预约", url: "https://booking.example.edu/" },
+        ],
+      },
+      {
+        label: "duplicate weekday",
+        column: "regular_hours",
+        value: {
+          timezone: "Asia/Hong_Kong",
+          intervals: [
+            {
+              days: ["mon", "mon"],
+              opensAt: "08:30",
+              closesAt: "18:00",
+            },
+          ],
+        },
+      },
+    ])("rejects $label at the database boundary", async ({ column, value }) => {
+      await inFixture(async (client) => {
+        await expect(
+          client.query(
+            `insert into campus_map_fact_revisions
+               (id, place_id, changeset_id, place_change_id,
+                fact_schema_version, field_metadata, status,
+                actor_id_snapshot, actor_nickname_snapshot, name,
+                building_id, pin_type, location_kind, ${column})
+             values ($1, $2, $3, $4, 2, '{}', 'active', $5,
+               '事实贡献者', '数据库边界测试', $6, 'water', 'building', $7::jsonb)`,
+            [
+              ids.revision,
+              ids.place,
+              ids.changeset,
+              ids.placeChange,
+              ids.actor,
+              ids.building,
+              JSON.stringify(value),
+            ],
+          ),
+        ).rejects.toMatchObject({ code: "23514" });
+      });
+    });
+
+    it("rejects retired V1 access rules in a V2 fact", async () => {
+      await inFixture(async (client) => {
+        await expect(
+          client.query(
+            `insert into campus_map_fact_revisions
+             (id, place_id, changeset_id, place_change_id, fact_schema_version,
+              field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
+              name, building_id, pin_type, audience, gender,
+              wheelchair_access, temporary_status, location_kind)
+           values ($1, $2, $3, $4, 2, '{}', 'active', $5, '事实贡献者',
+             '游泳池', $6, 'sports-facility', 'cuhk-member', null, null, null,
+             'building')`,
+            [
+              ids.revision,
+              ids.place,
+              ids.changeset,
+              ids.placeChange,
+              ids.actor,
+              ids.building,
+            ],
+          ),
+        ).rejects.toMatchObject({ code: "23514" });
+      });
+    });
+
+    it("matches every type-specific V2 database constraint to the shared contract", async () => {
+      const fields = [
+        {
+          field: "capabilities",
+          values: {
+            capabilities: ["print"],
+            gender: null,
+          },
+        },
+        {
+          field: "gender",
+          values: {
+            capabilities: [],
+            gender: "female",
+          },
+        },
+        {
+          field: "wheelchairAccess",
+          values: {
+            capabilities: [],
+            gender: null,
+            wheelchairAccess: "yes",
+          },
+        },
+      ] as const satisfies ReadonlyArray<{
+        field: CampusMapFactFieldKeyV2;
+        values: {
+          capabilities: readonly string[];
+          gender: string | null;
+          wheelchairAccess?: string;
+        };
+      }>;
+
+      for (const placeType of CAMPUS_MAP_PLACE_TYPES) {
+        for (const fixture of fields) {
+          await inFixture(async (client) => {
+            const query = client.query(
+              `insert into campus_map_fact_revisions
+                 (id, place_id, changeset_id, place_change_id,
+                  fact_schema_version, field_metadata, status,
+                  actor_id_snapshot, actor_nickname_snapshot, name,
+                  building_id, pin_type, capabilities, gender,
+                  wheelchair_access, temporary_status, location_kind)
+               values ($1, $2, $3, $4, 2, '{}', 'active', $5,
+                 '事实贡献者', '适用性测试', $6, $7, $8::text[], $9,
+                 $10, null, 'building')`,
+              [
+                ids.revision,
+                ids.place,
+                ids.changeset,
+                ids.placeChange,
+                ids.actor,
+                ids.building,
+                placeType,
+                [...fixture.values.capabilities],
+                fixture.values.gender,
+                "wheelchairAccess" in fixture.values
+                  ? fixture.values.wheelchairAccess
+                  : null,
+              ],
+            );
+            if (campusMapFactFieldAppliesV2(placeType, fixture.field)) {
+              await expect(
+                query,
+                `${placeType}:${fixture.field}`,
+              ).resolves.toMatchObject({
+                rowCount: 1,
+              });
+            } else {
+              await expect(
+                query,
+                `${placeType}:${fixture.field}`,
+              ).rejects.toMatchObject({
+                code: "23514",
+              });
+            }
+          });
+        }
+      }
+    });
 
     it("rejects a Floor that belongs to a different Building", async () => {
       await inFixture(async (client) => {
@@ -135,7 +348,7 @@ describe.skipIf(!hasDb)(
              field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
              name, pin_type, location_kind, point_precision, longitude, latitude,
              coordinate_crs)
-           values ($1, $2, $3, $4, 717, '{}', 'active', $5, '事实贡献者',
+           values ($1, $2, $3, $4, 1, '{}', 'active', $5, '事实贡献者',
              '测试地点', 'water', 'outdoor-point', 'precise', 114.2, 22.4,
              'gcj02')`,
             [
@@ -159,7 +372,7 @@ describe.skipIf(!hasDb)(
              field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
              name, pin_type, location_kind, building_id, point_precision,
              longitude, latitude, coordinate_crs)
-           values ($1, $2, $3, $4, 717, '{}', 'active', $5, '事实贡献者',
+           values ($1, $2, $3, $4, 1, '{}', 'active', $5, '事实贡献者',
              '范围外室外点', 'water', 'outdoor-point', $6, 'precise', 0, 0,
              'wgs84')`,
             [
@@ -183,7 +396,7 @@ describe.skipIf(!hasDb)(
             (id, place_id, changeset_id, place_change_id, fact_schema_version,
              field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
              name, pin_type, location_kind, building_id, access_schedule)
-           values ($1, $2, $3, $4, 717, '{}', 'active', $5, '事实贡献者',
+           values ($1, $2, $3, $4, 1, '{}', 'active', $5, '事实贡献者',
              '测试地点', 'water', 'building', $6,
              '{"kind":"structured","summary":"","guess":true}')`,
             [
@@ -207,7 +420,7 @@ describe.skipIf(!hasDb)(
             (id, place_id, changeset_id, place_change_id, fact_schema_version,
              field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
              name, pin_type, location_kind, building_id, access_schedule)
-           values ($1, $2, $3, $4, 717, '{}', 'active', $5, '事实贡献者',
+           values ($1, $2, $3, $4, 1, '{}', 'active', $5, '事实贡献者',
              '测试地点', 'water', 'building', $6,
              '{"kind":"weekly","timezone":"Asia/Hong_Kong","intervals":[{"days":["mon","tue"],"opensAt":"08:30","closesAt":"22:00"}]}')`,
             [
@@ -231,7 +444,7 @@ describe.skipIf(!hasDb)(
             (id, place_id, changeset_id, place_change_id, fact_schema_version,
              field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
              name, pin_type, location_kind, building_id, access_schedule)
-           values ($1, $2, $3, $4, 717, '{}', 'active', $5, '事实贡献者',
+           values ($1, $2, $3, $4, 1, '{}', 'active', $5, '事实贡献者',
              '测试地点', 'water', 'building', $6,
              '{"kind":"weekly","timezone":"Asia/Hong_Kong","intervals":[{"days":["weekday"],"opensAt":"8:30","closesAt":"late"}]}')`,
             [
@@ -338,7 +551,13 @@ describe.skipIf(!hasDb)(
           [ids.secondRevision],
         );
         await client.query(
-          insertRevisionSql(", building_id, floor_id", ", $6, $7"),
+          `insert into campus_map_fact_revisions
+           (id, place_id, changeset_id, place_change_id, fact_schema_version,
+            field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
+            name, building_id, floor_id, pin_type, capabilities, gender,
+            wheelchair_access, temporary_status, location_kind)
+         values ($1, $2, $3, $4, 2, '{}', 'active', $5, '事实贡献者',
+           '测试地点', $6, $7, 'water', '{}', null, null, null, 'floor')`,
           [
             ids.revision,
             ids.place,
@@ -436,7 +655,13 @@ describe.skipIf(!hasDb)(
     it("advances Current revision and Current fact atomically", async () => {
       await inFixture(async (client) => {
         await client.query(
-          insertRevisionSql(", building_id, floor_id", ", $6, $7"),
+          `insert into campus_map_fact_revisions
+           (id, place_id, changeset_id, place_change_id, fact_schema_version,
+            field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
+            name, building_id, floor_id, pin_type, capabilities, gender,
+            wheelchair_access, temporary_status, location_kind)
+         values ($1, $2, $3, $4, 2, '{}', 'active', $5, '事实贡献者',
+           '测试地点', $6, $7, 'water', '{}', null, null, null, 'floor')`,
           [
             ids.revision,
             ids.place,
@@ -455,8 +680,10 @@ describe.skipIf(!hasDb)(
         await client.query(
           `insert into campus_map_current_facts
            (place_id, revision_id, fact_schema_version, name, building_id,
-            floor_id, pin_type, location_kind, published_at)
-         values ($1, $2, 717, '测试地点', $3, $4, 'water', 'floor', now())`,
+            floor_id, pin_type, capabilities, gender, wheelchair_access,
+            temporary_status, location_kind, published_at)
+         values ($1, $2, 2, '测试地点', $3, $4, 'water', '{}', null, null,
+           null, 'floor', now())`,
           [ids.place, ids.revision, ids.building, ids.floor],
         );
         await client.query(
@@ -478,9 +705,11 @@ describe.skipIf(!hasDb)(
            (id, place_id, changeset_id, place_change_id, previous_revision_id,
             fact_schema_version, field_metadata, status, actor_id_snapshot,
             actor_nickname_snapshot, name, building_id, floor_id, pin_type,
+            capabilities, gender, wheelchair_access, temporary_status,
             location_kind)
-         values ($1, $2, $3, $4, $5, 717, '{}', 'active', $6,
-           '事实贡献者', '更新地点', $7, $8, 'water', 'floor')`,
+         values ($1, $2, $3, $4, $5, 2, '{}', 'active', $6,
+           '事实贡献者', '更新地点', $7, $8, 'water', '{}', null, null, null,
+           'floor')`,
           [
             ids.secondRevision,
             ids.place,
@@ -505,8 +734,10 @@ describe.skipIf(!hasDb)(
         await client.query(
           `insert into campus_map_current_facts
            (place_id, revision_id, fact_schema_version, name, building_id,
-            floor_id, pin_type, location_kind, published_at)
-         values ($1, $2, 717, '更新地点', $3, $4, 'water', 'floor', now())`,
+            floor_id, pin_type, capabilities, gender, wheelchair_access,
+            temporary_status, location_kind, published_at)
+         values ($1, $2, 2, '更新地点', $3, $4, 'water', '{}', null, null,
+           null, 'floor', now())`,
           [ids.place, ids.secondRevision, ids.building, ids.floor],
         );
 
@@ -527,7 +758,7 @@ describe.skipIf(!hasDb)(
       });
     });
 
-    it("rejects a Current fact that differs from its active revision", async () => {
+    it("keeps V1 revisions as history but rejects them from Current", async () => {
       await inFixture(async (client) => {
         await client.query(
           insertRevisionSql(", building_id, floor_id", ", $6, $7"),
@@ -552,7 +783,50 @@ describe.skipIf(!hasDb)(
             `insert into campus_map_current_facts
              (place_id, revision_id, fact_schema_version, name, building_id,
               floor_id, pin_type, location_kind, published_at)
-           values ($1, $2, 717, '伪造投影', $3, $4, 'water', 'floor', now())`,
+           values ($1, $2, 1, '测试地点', $3, $4, 'water', 'floor', now())`,
+            [ids.place, ids.revision, ids.building, ids.floor],
+          ),
+        ).rejects.toMatchObject({
+          code: "23514",
+          constraint: "campus_map_current_facts_schema_payload_check",
+        });
+      });
+    });
+
+    it("rejects a Current fact that differs from its active revision", async () => {
+      await inFixture(async (client) => {
+        await client.query(
+          `insert into campus_map_fact_revisions
+           (id, place_id, changeset_id, place_change_id, fact_schema_version,
+            field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
+            name, building_id, floor_id, pin_type, capabilities, gender,
+            wheelchair_access, temporary_status, location_kind)
+         values ($1, $2, $3, $4, 2, '{}', 'active', $5, '事实贡献者',
+           '测试地点', $6, $7, 'water', '{}', null, null, null, 'floor')`,
+          [
+            ids.revision,
+            ids.place,
+            ids.changeset,
+            ids.placeChange,
+            ids.actor,
+            ids.building,
+            ids.floor,
+          ],
+        );
+        await client.query(
+          `insert into campus_map_current_revisions
+           (place_id, revision_id, status) values ($1, $2, 'active')`,
+          [ids.place, ids.revision],
+        );
+
+        await expect(
+          client.query(
+            `insert into campus_map_current_facts
+             (place_id, revision_id, fact_schema_version, name, building_id,
+              floor_id, pin_type, capabilities, gender, wheelchair_access,
+              temporary_status, location_kind, published_at)
+           values ($1, $2, 2, '伪造投影', $3, $4, 'water', '{}', null,
+             null, null, 'floor', now())`,
             [ids.place, ids.revision, ids.building, ids.floor],
           ),
         ).rejects.toMatchObject({
@@ -654,16 +928,11 @@ describe.skipIf(!hasDb)(
           },
           {
             name: "Building-anchor viewport",
-            sql: `select fact.place_id
-            from campus_map_buildings building
-            inner join campus_map_current_facts fact
-              on building.id = fact.building_id
-            where fact.status = 'active'
-              and fact.location_kind in ('building', 'floor')
-              and building.anchor_crs = 'wgs84'
-              and building.anchor_longitude between 114.1 and 114.3
-              and building.anchor_latitude between 22.3 and 22.5
-            order by fact.place_id limit 51`,
+            sql: `select id from campus_map_buildings
+            where anchor_crs = 'wgs84'
+              and anchor_longitude between 114.1 and 114.3
+              and anchor_latitude between 22.3 and 22.5
+            limit 51`,
             params: [],
             indexes: ["campus_map_buildings_anchor_geo_idx"],
           },
@@ -672,7 +941,15 @@ describe.skipIf(!hasDb)(
             sql: `select id from campus_map_fact_revisions
             where place_id = $1 order by created_at desc, id desc limit 51`,
             params: [ids.place],
-            indexes: ["campus_map_fact_revisions_place_created_idx"],
+            // This fixture deliberately has no committed history rows. On an
+            // empty relation PostgreSQL may choose any index whose leading
+            // key is place_id; the dedicated ordered index is asserted above.
+            indexes: [
+              "campus_map_fact_revisions_place_created_idx",
+              "campus_map_fact_revisions_place_id_id_uq",
+              "campus_map_fact_revisions_place_id_status_id_uq",
+              "campus_map_fact_revisions_previous_idx",
+            ],
           },
           {
             name: "Changeset feed",

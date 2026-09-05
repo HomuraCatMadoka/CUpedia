@@ -36,11 +36,11 @@ vi.mock("@/lib/campus-map/place-feedback-actions", () => ({
 }));
 
 import { CampusMapPlaceDetail } from "@/components/campus-map/place-detail";
-import type { CampusMapHistoricalFact } from "@/lib/campus-map/fact-store";
+import type { CampusMapLegacyPlaceFact } from "@/lib/campus-map/legacy-place-ui-adapter";
 
 const placeId = "00000000-0000-4000-8000-000000008160";
 const revisionId = "00000000-0000-4000-8000-000000008161";
-const fact: CampusMapHistoricalFact = {
+const fact: CampusMapLegacyPlaceFact = {
   name: "联合书院图书馆饮水机",
   pinType: "water",
   capabilities: [],

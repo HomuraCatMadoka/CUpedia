@@ -1,7 +1,7 @@
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { CAMPUS_MAP_FACT_SCHEMA_V1 } from "@/db/schema";
+import { CAMPUS_MAP_FACT_SCHEMA_V2 } from "@/db/schema";
 import {
   getCampusMapChangeset,
   getCampusMapCurrentPlace,
@@ -52,14 +52,17 @@ const baseFact: CampusMapAppendFact = {
   buildingId: ids.building,
   floorId: null,
   pinType: "water",
+  regularHours: null,
+  officialActions: [],
+  visitNote: null,
   capabilities: [],
-  gender: "unknown",
-  wheelchairAccess: "unknown",
-  audience: "cuhk-member",
-  credentialRequirement: "library-card",
+  gender: null,
+  wheelchairAccess: null,
+  audience: "unknown",
+  credentialRequirement: "unknown",
   accessSchedule: { kind: "unknown" },
-  reservationRequirement: "none",
-  temporaryStatus: "normal",
+  reservationRequirement: "unknown",
+  temporaryStatus: null,
   locationKind: "building",
   pointPrecision: null,
   longitude: null,
@@ -100,7 +103,7 @@ function onePlaceCommand(input: {
         revisionId: input.revisionId,
         baseRevisionId: input.baseRevisionId,
         operation: input.operation,
-        factSchemaVersion: input.factSchemaVersion ?? 719,
+        factSchemaVersion: input.factSchemaVersion ?? 2,
         fieldMetadata: { name: { label: "名称" } },
         fieldDiff: {
           name: { before: baseFact.name, after: name, label: "名称" },
@@ -184,19 +187,12 @@ describe.skipIf(!hasDb)("Campus Map fact-store append seam (#717)", () => {
   beforeAll(async () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     await cleanupFacts();
-    await pool.query(`delete from campus_map_fact_schemas where version = 719`);
     await pool.query(`delete from campus_map_buildings where id = $1`, [
       ids.building,
     ]);
     await pool.query(
       `delete from campus_map_provenance_sources where id = $1`,
       [ids.provenance],
-    );
-    await pool.query(
-      `insert into campus_map_fact_schemas
-         (version, status, definition, display_metadata)
-       values (719, 'draft', $1::jsonb, '{"name":{"label":"名称"}}')`,
-      [JSON.stringify(CAMPUS_MAP_FACT_SCHEMA_V1)],
     );
     await pool.query(
       `insert into campus_map_buildings
@@ -225,9 +221,23 @@ describe.skipIf(!hasDb)("Campus Map fact-store append seam (#717)", () => {
       `delete from campus_map_provenance_sources where id = $1`,
       [ids.provenance],
     );
-    await pool.query(`delete from campus_map_fact_schemas where version = 719`);
-    await pool.query(`delete from campus_map_fact_schemas where version = 1`);
     await pool.end();
+  });
+
+  it("fails closed when migration-owned V2 schema metadata is not active", async () => {
+    await pool.query(
+      `update campus_map_fact_schemas set status = 'draft' where version = 2`,
+    );
+    try {
+      await expect(getCampusMapFactSchema()).resolves.toBeNull();
+      await expect(appendCampusMapChangeset(initialCommand())).rejects.toThrow(
+        "canonical fact schema v2 is not active",
+      );
+    } finally {
+      await pool.query(
+        `update campus_map_fact_schemas set status = 'active' where version = 2`,
+      );
+    }
   });
 
   it("atomically appends a create Changeset and exposes its active projection", async () => {
@@ -276,37 +286,16 @@ describe.skipIf(!hasDb)("Campus Map fact-store append seam (#717)", () => {
     expect(second.items.map((item) => item.id)).toEqual([ids.revision]);
   });
 
-  it("persists the canonical schema on first publication", async () => {
-    await appendCampusMapChangeset(
-      onePlaceCommand({
-        changesetId: ids.changeset,
-        changeId: ids.change,
-        revisionId: ids.revision,
-        baseRevisionId: null,
-        operation: "create",
-        status: "active",
-        factSchemaVersion: 1,
-      }),
-    );
+  it("uses the active canonical V2 schema for new publications", async () => {
+    await appendCampusMapChangeset(initialCommand());
 
     await expect(getCampusMapFactSchema()).resolves.toMatchObject({
-      version: 1,
-      definition: CAMPUS_MAP_FACT_SCHEMA_V1,
+      version: 2,
+      definition: CAMPUS_MAP_FACT_SCHEMA_V2,
     });
     await expect(getCampusMapCurrentPlace(ids.place)).resolves.toMatchObject({
-      factSchemaVersion: 1,
+      factSchemaVersion: 2,
     });
-
-    await pool.query(
-      `update campus_map_fact_schemas set status = 'superseded' where version = 1`,
-    );
-    try {
-      await expect(getCampusMapFactSchema()).resolves.toBeNull();
-    } finally {
-      await pool.query(
-        `update campus_map_fact_schemas set status = 'active' where version = 1`,
-      );
-    }
   });
 
   it("allows only one concurrent append from the same base revision", async () => {

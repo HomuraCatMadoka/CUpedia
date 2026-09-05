@@ -16,8 +16,6 @@ import {
   campusMapProvenanceSources,
   campusMapRevisionProvenance,
   campusMapRevisionVisibility,
-  CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
-  CAMPUS_MAP_FACT_SCHEMA_V1,
   type CampusMapAccessSchedule,
   type CampusMapAudience,
   type CampusMapCapability,
@@ -26,7 +24,8 @@ import {
   type CampusMapFieldDiff,
   type CampusMapGender,
   type CampusMapLocationKind,
-  type CampusMapPinType,
+  type CampusMapOfficialAction,
+  type CampusMapPlaceType,
   type CampusMapPlaceOperation,
   type CampusMapPlacePhotoRole,
   type CampusMapPointPrecision,
@@ -37,6 +36,7 @@ import {
   type CampusMapSourceCoordinateCrs,
   type CampusMapCoordinateConversionMethod,
   type CampusMapTemporaryStatus,
+  type CampusMapRegularHours,
   type CampusMapWheelchairAccess,
 } from "@/db/schema";
 
@@ -63,15 +63,19 @@ export interface CampusMapAppendFact {
   name: string;
   buildingId: string | null;
   floorId: string | null;
-  pinType: CampusMapPinType;
+  /** Physical legacy column name; interpreted as placeType for V2. */
+  pinType: CampusMapPlaceType;
   capabilities: CampusMapCapability[];
-  gender: CampusMapGender;
-  wheelchairAccess: CampusMapWheelchairAccess;
+  gender: CampusMapGender | null;
+  wheelchairAccess: CampusMapWheelchairAccess | null;
   audience: CampusMapAudience;
   credentialRequirement: CampusMapCredentialRequirement;
   accessSchedule: CampusMapAccessSchedule;
   reservationRequirement: CampusMapReservationRequirement;
-  temporaryStatus: CampusMapTemporaryStatus;
+  temporaryStatus: CampusMapTemporaryStatus | null;
+  regularHours: CampusMapRegularHours | null;
+  officialActions: CampusMapOfficialAction[];
+  visitNote: string | null;
   locationKind: CampusMapLocationKind;
   pointPrecision: CampusMapPointPrecision | null;
   longitude: number | null;
@@ -254,6 +258,9 @@ export class CampusMapFactStoreTransaction {
         accessSchedule: campusMapFactRevisions.accessSchedule,
         reservationRequirement: campusMapFactRevisions.reservationRequirement,
         temporaryStatus: campusMapFactRevisions.temporaryStatus,
+        regularHours: campusMapFactRevisions.regularHours,
+        officialActions: campusMapFactRevisions.officialActions,
+        visitNote: campusMapFactRevisions.visitNote,
         locationKind: campusMapFactRevisions.locationKind,
         pointPrecision: campusMapFactRevisions.pointPrecision,
         longitude: campusMapFactRevisions.longitude,
@@ -309,6 +316,9 @@ export class CampusMapFactStoreTransaction {
         accessSchedule: revision.accessSchedule,
         reservationRequirement: revision.reservationRequirement,
         temporaryStatus: revision.temporaryStatus,
+        regularHours: revision.regularHours,
+        officialActions: revision.officialActions,
+        visitNote: revision.visitNote,
         locationKind: revision.locationKind,
         pointPrecision: revision.pointPrecision,
         longitude: revision.longitude,
@@ -503,30 +513,33 @@ export class CampusMapFactStoreTransaction {
     if (command.changes.length === 0) {
       throw new Error("Campus Map Changeset must contain at least one change");
     }
-    if (command.changes.some((change) => change.factSchemaVersion === 1)) {
-      const [existingV1] = await this.transaction
-        .select({ status: campusMapFactSchemas.status })
-        .from(campusMapFactSchemas)
-        .where(eq(campusMapFactSchemas.version, 1))
-        .limit(1);
-      if (!existingV1) {
-        await this.transaction
-          .insert(campusMapFactSchemas)
-          .values({
-            version: 1,
-            status: "active",
-            definition: CAMPUS_MAP_FACT_SCHEMA_V1,
-            displayMetadata: CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
-          })
-          .onConflictDoNothing();
-      }
+    const schemaVersions = new Set(
+      command.changes.map((change) => change.factSchemaVersion),
+    );
+    if ([...schemaVersions].some((version) => version !== 1 && version !== 2)) {
+      throw new Error("Campus Map Fact schema version is unsupported");
+    }
+    if (schemaVersions.has(1)) {
       const [canonicalV1] = await this.transaction
         .select({ status: campusMapFactSchemas.status })
         .from(campusMapFactSchemas)
         .where(eq(campusMapFactSchemas.version, 1))
         .limit(1);
-      if (canonicalV1?.status !== "active") {
-        throw new Error("Campus Map canonical fact schema v1 is not active");
+      if (
+        canonicalV1?.status !== "active" &&
+        canonicalV1?.status !== "superseded"
+      ) {
+        throw new Error("Campus Map canonical fact schema v1 is unavailable");
+      }
+    }
+    if (schemaVersions.has(2)) {
+      const [canonicalV2] = await this.transaction
+        .select({ status: campusMapFactSchemas.status })
+        .from(campusMapFactSchemas)
+        .where(eq(campusMapFactSchemas.version, 2))
+        .limit(1);
+      if (canonicalV2?.status !== "active") {
+        throw new Error("Campus Map canonical fact schema v2 is not active");
       }
     }
     const orderedChanges = [...command.changes].sort((left, right) =>

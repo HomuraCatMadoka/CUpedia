@@ -49,15 +49,13 @@ vi.mock("@/lib/campus-map/edit-actions", () => ({
       name: "饮水机",
       buildingId: null,
       floorId: null,
-      pinType: "water",
+      placeType: "water",
+      regularHours: null,
+      officialActions: [],
+      visitNote: null,
       capabilities: [],
-      gender: "unknown",
-      wheelchairAccess: "unknown",
-      audience: "cuhk-member",
-      credentialRequirement: "unknown",
-      accessSchedule: { kind: "unknown" },
-      reservationRequirement: "unknown",
-      temporaryStatus: "unknown",
+      gender: null,
+      wheelchairAccess: null,
       location: {
         kind: "outdoor-point",
         longitude: 114.2049,
@@ -90,6 +88,10 @@ import {
   encodeCampusMapEditSnapshot,
   transitionCampusMapEdit,
 } from "@/lib/campus-map/edit-session";
+import {
+  CAMPUS_MAP_FACT_DISPLAY_METADATA_V2,
+  CAMPUS_MAP_FACT_SCHEMA_V2,
+} from "@/db/schema";
 import { projectCampusMapBrowse } from "@/lib/campus-map/browse-projection";
 import type { CampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
 import type {
@@ -102,6 +104,11 @@ import { createCampusMapBrowseFixture } from "../helpers/campus-map-browse-proje
 function CampusMapRuntime(props: ComponentProps<typeof CampusMapRuntimeView>) {
   return (
     <CampusMapRuntimeView
+      factSchema={{
+        version: 2,
+        definition: CAMPUS_MAP_FACT_SCHEMA_V2,
+        displayMetadata: CAMPUS_MAP_FACT_DISPLAY_METADATA_V2,
+      }}
       initialBrowseProjection={createCampusMapBrowseFixture()}
       {...props}
     />
@@ -224,18 +231,15 @@ function formalCurrentFactsProjection() {
   ): CampusMapCurrentPlace => ({
     id: placeId,
     revisionId: placeId.replace("30000000", "40000000"),
-    factSchemaVersion: 1,
+    factSchemaVersion: 2,
     name,
-    pinType: "toilet",
+    placeType: "toilet",
+    regularHours: null,
+    officialActions: [],
+    visitNote: null,
     capabilities: [],
-    access: {
-      audience: "public",
-      credentialRequirement: "none",
-      schedule: { kind: "unknown" },
-      reservationRequirement: "none",
-      temporaryStatus: "normal",
-    },
-    facets: { gender: "unknown", wheelchairAccess: "unknown" },
+    gender: null,
+    wheelchairAccess: null,
     location: {
       kind: "floor",
       building: {
@@ -298,18 +302,15 @@ function duplicateBuildingNameProjection() {
   const facility: CampusMapCurrentPlace = {
     id: "30000000-0000-4000-8000-000000000040",
     revisionId: "40000000-0000-4000-8000-000000000040",
-    factSchemaVersion: 1,
+    factSchemaVersion: 2,
     name: "西区饮水机",
-    pinType: "water",
+    placeType: "water",
+    regularHours: null,
+    officialActions: [],
+    visitNote: null,
     capabilities: [],
-    access: {
-      audience: "public",
-      credentialRequirement: "none",
-      schedule: { kind: "always" },
-      reservationRequirement: "none",
-      temporaryStatus: "normal",
-    },
-    facets: { gender: "unknown", wheelchairAccess: "unknown" },
+    gender: null,
+    wheelchairAccess: null,
     location: {
       kind: "floor",
       building: {
@@ -382,18 +383,15 @@ function publishedOutdoorProjectionFor(
         ({
           id,
           revisionId: "40000000-0000-4000-8000-000000000020",
-          factSchemaVersion: 1,
+          factSchemaVersion: 2,
           name,
-          pinType: "water",
+          placeType: "water",
+          regularHours: null,
+          officialActions: [],
+          visitNote: null,
           capabilities: [],
-          access: {
-            audience: "public",
-            credentialRequirement: "none",
-            schedule: { kind: "unknown" },
-            reservationRequirement: "none",
-            temporaryStatus: "normal",
-          },
-          facets: { gender: "unknown", wheelchairAccess: "unknown" },
+          gender: null,
+          wheelchairAccess: null,
           location: {
             kind: "outdoor-point",
             point: {
@@ -2224,15 +2222,13 @@ describe("CampusMapRuntime", () => {
       name: "饮水机",
       buildingId: null,
       floorId: null,
-      pinType: "water",
+      placeType: "water",
+      regularHours: null,
+      officialActions: [],
+      visitNote: null,
       capabilities: [],
-      gender: "unknown",
-      wheelchairAccess: "unknown",
-      audience: "cuhk-member",
-      credentialRequirement: "unknown",
-      accessSchedule: { kind: "unknown" },
-      reservationRequirement: "unknown",
-      temporaryStatus: "unknown",
+      gender: null,
+      wheelchairAccess: null,
       location: {
         kind: "outdoor-point",
         longitude: 114.2049,
@@ -2302,7 +2298,7 @@ describe("CampusMapRuntime", () => {
           expectedRevisionId: baseRevisionId,
           currentRevisionId,
           currentStatus: "active",
-          currentSnapshot: { ...currentFact, factSchemaVersion: 1 },
+          currentSnapshot: { ...currentFact, factSchemaVersion: 2 },
         },
       ],
     });
@@ -2355,7 +2351,7 @@ describe("CampusMapRuntime", () => {
           currentSnapshot: {
             ...current.fact,
             name: "最新名称",
-            factSchemaVersion: 1,
+            factSchemaVersion: 2,
           },
         },
       ],
@@ -2613,7 +2609,7 @@ describe("CampusMapRuntime", () => {
     ).toBe("false");
     expect(floor.getAttribute("aria-pressed")).toBe("true");
 
-    fireEvent.click(screen.getByRole("button", { name: /洗手间.*公众可达/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^洗手间科学馆/ }));
     await screen.findByRole("heading", { name: "洗手间" });
     expect(push).toHaveBeenCalledTimes(2);
     expect(window.location.search).toContain(
@@ -2625,7 +2621,7 @@ describe("CampusMapRuntime", () => {
   it("uses browser history for facility back and hydrates the building", async () => {
     render(<CampusMapRuntime initialSearch={window.location.search} />);
     await selectScienceCentre();
-    fireEvent.click(screen.getByRole("button", { name: /洗手间.*公众可达/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^洗手间科学馆/ }));
     await screen.findByRole("heading", { name: "洗手间" });
 
     fireEvent.click(screen.getByRole("button", { name: "返回建筑" }));

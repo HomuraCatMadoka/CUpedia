@@ -1,18 +1,18 @@
-import type { CampusMapAccessSchedule } from "@/db/schema";
-import type {
-  CampusMapCurrentPlace,
-  CampusMapHistoricalFact,
-} from "@/lib/campus-map/fact-store";
+import {
+  CAMPUS_MAP_PLACE_TYPES,
+  isCampusMapPinTypeV1,
+} from "@/lib/campus-map/controlled-values";
+import type { CampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
+import type { CampusMapAppendFact } from "@/lib/campus-map/fact-store-transaction";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
-
-type CampusMapStoredPlaceFact = Omit<
-  CampusMapHistoricalFact,
-  "verifiedAt" | "provenance"
->;
 
 export type CampusMapPlaceFactSnapshot =
   | { kind: "current"; fact: CampusMapCurrentPlace }
-  | { kind: "stored"; fact: CampusMapStoredPlaceFact };
+  | {
+      kind: "stored";
+      factSchemaVersion: number;
+      fact: CampusMapAppendFact;
+    };
 
 export type CampusMapPlaceFactConversionResult =
   | { ok: true; fact: CampusMapPublishFactInput }
@@ -21,65 +21,57 @@ export type CampusMapPlaceFactConversionResult =
       reason:
         | "invalid-building-location"
         | "invalid-floor-location"
-        | "invalid-outdoor-location";
+        | "invalid-outdoor-location"
+        | "unsupported-schema-version"
+        | "invalid-schema-payload";
     };
 
 /**
- * Restores a read-side Place fact to the fact portion of a publish command.
- * Operation-specific sources and idempotency data belong to the caller.
+ * Converts a read-side snapshot into the active V2 publish contract. V1 is
+ * upgraded field-by-field; it is never re-labelled as a V2 payload in place.
  */
 export function toCampusMapRepublishableFact(
   snapshot: CampusMapPlaceFactSnapshot,
 ): CampusMapPlaceFactConversionResult {
-  const location =
-    snapshot.kind === "current"
-      ? currentLocation(snapshot.fact)
-      : storedLocation(snapshot.fact);
+  if (snapshot.kind === "current") {
+    return { ok: true, fact: copyCurrentFact(snapshot.fact) };
+  }
+  const location = storedLocation(snapshot.fact);
   if (!location.ok) return location;
-  const values = factValues(snapshot);
-  return {
-    ok: true,
-    fact: {
-      name: values.name,
-      buildingId: location.buildingId,
-      floorId: location.floorId,
-      pinType: values.pinType,
-      capabilities: [...values.capabilities],
-      gender: values.gender,
-      wheelchairAccess: values.wheelchairAccess,
-      audience: values.audience,
-      credentialRequirement: values.credentialRequirement,
-      accessSchedule: copyAccessSchedule(values.accessSchedule),
-      reservationRequirement: values.reservationRequirement,
-      temporaryStatus: values.temporaryStatus,
-      location: location.location,
-      observedAt: values.observedAt?.toISOString() ?? null,
-    },
-  };
+  if (snapshot.factSchemaVersion === 1) {
+    return upgradeV1Fact(snapshot.fact, location);
+  }
+  if (snapshot.factSchemaVersion !== 2) {
+    return { ok: false, reason: "unsupported-schema-version" };
+  }
+  return restoreV2Fact(snapshot.fact, location);
 }
 
-type CampusMapPlaceFactValues = Omit<
-  CampusMapPublishFactInput,
-  "buildingId" | "floorId" | "location" | "observedAt"
-> & { observedAt: Date | null };
-
-function factValues(
-  snapshot: CampusMapPlaceFactSnapshot,
-): CampusMapPlaceFactValues {
-  if (snapshot.kind === "stored") return snapshot.fact;
-  const { fact } = snapshot;
+function copyCurrentFact(
+  fact: CampusMapCurrentPlace,
+): CampusMapPublishFactInput {
+  const location =
+    fact.location.kind === "building"
+      ? ({ kind: "building" } as const)
+      : fact.location.kind === "floor"
+        ? ({ kind: "floor" } as const)
+        : ({ kind: "outdoor-point", ...fact.location.point } as const);
   return {
     name: fact.name,
-    pinType: fact.pinType,
-    capabilities: fact.capabilities,
-    gender: fact.facets.gender,
-    wheelchairAccess: fact.facets.wheelchairAccess,
-    audience: fact.access.audience,
-    credentialRequirement: fact.access.credentialRequirement,
-    accessSchedule: fact.access.schedule,
-    reservationRequirement: fact.access.reservationRequirement,
-    temporaryStatus: fact.access.temporaryStatus,
-    observedAt: fact.observedAt,
+    buildingId:
+      fact.location.kind === "building" || fact.location.kind === "floor"
+        ? fact.location.building.id
+        : null,
+    floorId: fact.location.kind === "floor" ? fact.location.floor.id : null,
+    placeType: fact.placeType,
+    regularHours: copyRegularHours(fact.regularHours),
+    officialActions: fact.officialActions.map((action) => ({ ...action })),
+    visitNote: fact.visitNote,
+    capabilities: [...fact.capabilities],
+    gender: fact.gender,
+    wheelchairAccess: fact.wheelchairAccess,
+    location,
+    observedAt: fact.observedAt?.toISOString() ?? null,
   };
 }
 
@@ -92,32 +84,7 @@ type ConvertedLocation =
     }
   | Extract<CampusMapPlaceFactConversionResult, { ok: false }>;
 
-function currentLocation(fact: CampusMapCurrentPlace): ConvertedLocation {
-  if (fact.location.kind === "building") {
-    return {
-      ok: true,
-      buildingId: fact.location.building.id,
-      floorId: null,
-      location: { kind: "building" },
-    };
-  }
-  if (fact.location.kind === "floor") {
-    return {
-      ok: true,
-      buildingId: fact.location.building.id,
-      floorId: fact.location.floor.id,
-      location: { kind: "floor" },
-    };
-  }
-  return {
-    ok: true,
-    buildingId: null,
-    floorId: null,
-    location: { kind: "outdoor-point", ...fact.location.point },
-  };
-}
-
-function storedLocation(fact: CampusMapStoredPlaceFact): ConvertedLocation {
+function storedLocation(fact: CampusMapAppendFact): ConvertedLocation {
   if (fact.locationKind === "building") {
     return fact.buildingId !== null && fact.floorId === null
       ? {
@@ -162,17 +129,100 @@ function storedLocation(fact: CampusMapStoredPlaceFact): ConvertedLocation {
   };
 }
 
-function copyAccessSchedule(
-  schedule: CampusMapAccessSchedule,
-): CampusMapAccessSchedule {
-  if (schedule.kind !== "weekly") return { kind: schedule.kind };
+function upgradeV1Fact(
+  fact: CampusMapAppendFact,
+  location: Extract<ConvertedLocation, { ok: true }>,
+): CampusMapPlaceFactConversionResult {
+  if (
+    !isCampusMapPinTypeV1(fact.pinType) ||
+    fact.gender === null ||
+    fact.wheelchairAccess === null ||
+    fact.temporaryStatus === null ||
+    fact.regularHours !== null ||
+    fact.officialActions.length !== 0 ||
+    fact.visitNote !== null
+  ) {
+    return { ok: false, reason: "invalid-schema-payload" };
+  }
   return {
-    kind: "weekly",
-    timezone: schedule.timezone,
-    intervals: schedule.intervals.map((interval) => ({
-      days: [...interval.days],
-      opensAt: interval.opensAt,
-      closesAt: interval.closesAt,
-    })),
+    ok: true,
+    fact: {
+      name: fact.name,
+      buildingId: location.buildingId,
+      floorId: location.floorId,
+      placeType: fact.pinType,
+      regularHours:
+        fact.accessSchedule.kind === "weekly"
+          ? {
+              timezone: fact.accessSchedule.timezone,
+              intervals: fact.accessSchedule.intervals.map((interval) => ({
+                days: [...interval.days],
+                opensAt: interval.opensAt,
+                closesAt: interval.closesAt,
+              })),
+            }
+          : null,
+      officialActions: [],
+      visitNote: null,
+      capabilities: fact.pinType === "printer" ? [...fact.capabilities] : [],
+      gender:
+        fact.pinType === "toilet" && fact.gender !== "unknown"
+          ? fact.gender
+          : null,
+      wheelchairAccess:
+        fact.wheelchairAccess === "unknown" ? null : fact.wheelchairAccess,
+      location: location.location,
+      observedAt: fact.observedAt?.toISOString() ?? null,
+    },
   };
+}
+
+function restoreV2Fact(
+  fact: CampusMapAppendFact,
+  location: Extract<ConvertedLocation, { ok: true }>,
+): CampusMapPlaceFactConversionResult {
+  if (
+    !CAMPUS_MAP_PLACE_TYPES.some((value) => value === fact.pinType) ||
+    fact.audience !== "unknown" ||
+    fact.credentialRequirement !== "unknown" ||
+    fact.accessSchedule.kind !== "unknown" ||
+    fact.reservationRequirement !== "unknown" ||
+    fact.gender === "unknown" ||
+    fact.wheelchairAccess === "unknown" ||
+    fact.temporaryStatus !== null
+  ) {
+    return { ok: false, reason: "invalid-schema-payload" };
+  }
+  return {
+    ok: true,
+    fact: {
+      name: fact.name,
+      buildingId: location.buildingId,
+      floorId: location.floorId,
+      placeType: fact.pinType,
+      regularHours: copyRegularHours(fact.regularHours),
+      officialActions: fact.officialActions.map((action) => ({ ...action })),
+      visitNote: fact.visitNote,
+      capabilities: [...fact.capabilities],
+      gender: fact.gender,
+      wheelchairAccess: fact.wheelchairAccess,
+      location: location.location,
+      observedAt: fact.observedAt?.toISOString() ?? null,
+    },
+  };
+}
+
+function copyRegularHours(
+  hours: CampusMapPublishFactInput["regularHours"],
+): CampusMapPublishFactInput["regularHours"] {
+  return hours
+    ? {
+        timezone: hours.timezone,
+        intervals: hours.intervals.map((interval) => ({
+          days: [...interval.days],
+          opensAt: interval.opensAt,
+          closesAt: interval.closesAt,
+        })),
+      }
+    : null;
 }

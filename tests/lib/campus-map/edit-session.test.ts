@@ -11,6 +11,7 @@ import {
   type CampusMapEditEvent,
   type CampusMapEditSession,
 } from "@/lib/campus-map/edit-session";
+import { validateFact } from "@/lib/campus-map/publish-command";
 import type {
   CampusMapPublishFactInput,
   CampusMapPublishSourceInput,
@@ -41,15 +42,13 @@ const fact: CampusMapPublishFactInput = {
   name: "大学图书馆饮水机",
   buildingId: null,
   floorId: null,
-  pinType: "water",
+  placeType: "water",
+  regularHours: null,
+  officialActions: [],
+  visitNote: null,
   capabilities: [],
-  gender: "unknown",
-  wheelchairAccess: "unknown",
-  audience: "unknown",
-  credentialRequirement: "unknown",
-  accessSchedule: { kind: "unknown" },
-  reservationRequirement: "unknown",
-  temporaryStatus: "unknown",
+  gender: null,
+  wheelchairAccess: null,
   location: {
     kind: "outdoor-point",
     longitude: 114.2049,
@@ -69,6 +68,55 @@ function editSession(): CampusMapEditSession {
     sources: [source],
     idempotencyKey: firstKey,
   }).session!;
+}
+
+function legacyV6Snapshot(session: CampusMapEditSession) {
+  const snapshot = JSON.parse(encodeCampusMapEditSnapshot(session)) as {
+    version: number;
+    session: Record<string, unknown> & {
+      draft: Record<string, unknown> & {
+        fact: Record<string, unknown>;
+        baselineFact: Record<string, unknown> | null;
+        sources: unknown[];
+        baselineSources: unknown[];
+        photos: unknown[];
+        baselinePhotos: unknown[];
+      };
+    };
+  };
+  const downgradeFact = (current: Record<string, unknown> | null) => {
+    if (current === null) return null;
+    const legacy = { ...current };
+    const placeType = legacy.placeType;
+    const regularHours = legacy.regularHours;
+    delete legacy.placeType;
+    delete legacy.regularHours;
+    delete legacy.officialActions;
+    delete legacy.visitNote;
+    delete legacy.capacity;
+    delete legacy.seatType;
+    return {
+      ...legacy,
+      pinType: placeType,
+      audience: "unknown",
+      credentialRequirement: "unknown",
+      accessSchedule:
+        regularHours && typeof regularHours === "object"
+          ? { kind: "weekly", ...regularHours }
+          : { kind: "unknown" },
+      reservationRequirement: "unknown",
+      temporaryStatus: current.temporaryStatus ?? "unknown",
+      gender: current.gender ?? "unknown",
+      wheelchairAccess: current.wheelchairAccess ?? "unknown",
+    };
+  };
+
+  snapshot.version = 6;
+  snapshot.session.draft.fact = downgradeFact(snapshot.session.draft.fact)!;
+  snapshot.session.draft.baselineFact = downgradeFact(
+    snapshot.session.draft.baselineFact,
+  );
+  return snapshot;
 }
 
 describe("Campus Map edit session transition", () => {
@@ -206,13 +254,13 @@ describe("Campus Map edit session transition", () => {
     const started = transitionCampusMapEdit(null, {
       type: "START_FACILITY_ADD",
       idempotencyKey: firstKey,
-      entry: { kind: "global", pinType: "classroom" },
+      entry: { kind: "global", placeType: "classroom" },
     });
 
     expect(
       transitionCampusMapEdit(started.session, {
-        type: "CHANGE_PIN_TYPE",
-        pinType: "water",
+        type: "CHANGE_PLACE_TYPE",
+        placeType: "water",
       }),
     ).toMatchObject({ accepted: false, session: started.session });
   });
@@ -221,14 +269,14 @@ describe("Campus Map edit session transition", () => {
     const started = transitionCampusMapEdit(null, {
       type: "START_FACILITY_ADD",
       idempotencyKey: firstKey,
-      entry: { kind: "global", pinType: "classroom" },
+      entry: { kind: "global", placeType: "classroom" },
     });
 
     expect(started.session).toMatchObject({
       status: "selecting-location",
       draft: {
         entrySource: "global",
-        fact: { pinType: "classroom", name: "课室" },
+        fact: { placeType: "classroom", name: "课室" },
       },
     });
     expect(isCampusMapEditDirty(started.session)).toBe(false);
@@ -404,7 +452,7 @@ describe("Campus Map edit session transition", () => {
       fact: {
         ...positioned.session!.draft.fact,
         name: "大学站广场饮水点",
-        pinType: "water",
+        placeType: "water",
       },
     });
 
@@ -414,7 +462,7 @@ describe("Campus Map edit session transition", () => {
         placementCandidate: position,
         fact: {
           name: "大学站广场饮水点",
-          pinType: "water",
+          placeType: "water",
           location: null,
         },
       },
@@ -429,7 +477,7 @@ describe("Campus Map edit session transition", () => {
     }).session!;
     const changed = transitionCampusMapEdit(started, {
       type: "CHANGE_FACT",
-      fact: { ...started.draft.fact, pinType: "toilet" },
+      fact: { ...started.draft.fact, placeType: "toilet" },
     }).session;
 
     expect(isCampusMapEditDirty(changed)).toBe(true);
@@ -483,8 +531,8 @@ describe("Campus Map edit session transition", () => {
       idempotencyKey: firstKey,
     }).session!;
     const changed = transitionCampusMapEdit(started, {
-      type: "CHANGE_PIN_TYPE",
-      pinType: "toilet",
+      type: "CHANGE_PLACE_TYPE",
+      placeType: "toilet",
     });
 
     expect(changed).toMatchObject({
@@ -493,9 +541,9 @@ describe("Campus Map edit session transition", () => {
         draft: {
           fact: {
             name: "洗手间",
-            pinType: "toilet",
+            placeType: "toilet",
             capabilities: [],
-            gender: "unknown",
+            gender: null,
           },
         },
       },
@@ -512,25 +560,25 @@ describe("Campus Map edit session transition", () => {
       fact: { ...started.draft.fact, name: "科学馆 G/F 饮水机" },
     }).session!;
     const changed = transitionCampusMapEdit(named, {
-      type: "CHANGE_PIN_TYPE",
-      pinType: "toilet",
+      type: "CHANGE_PLACE_TYPE",
+      placeType: "toilet",
     });
 
     expect(changed.session?.draft.fact).toMatchObject({
       name: "科学馆 G/F 饮水机",
-      pinType: "toilet",
+      placeType: "toilet",
     });
   });
 
   it("preserves a canonical Edit name when its preset changes", () => {
     const changed = transitionCampusMapEdit(editSession(), {
-      type: "CHANGE_PIN_TYPE",
-      pinType: "toilet",
+      type: "CHANGE_PLACE_TYPE",
+      placeType: "toilet",
     });
 
     expect(changed.session?.draft.fact).toMatchObject({
       name: fact.name,
-      pinType: "toilet",
+      placeType: "toilet",
     });
   });
 
@@ -599,16 +647,13 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
-  it("maps every editable access condition into the canonical publish fact", () => {
+  it("maps every editable V2 operating fact into the canonical publish fact", () => {
     const edited = transitionCampusMapEdit(editSession(), {
       type: "CHANGE_FACT",
       fact: {
         ...fact,
         name: "大学图书馆 1/F 饮水机 A",
-        audience: "cuhk-member",
-        credentialRequirement: "campus-card",
-        accessSchedule: {
-          kind: "weekly",
+        regularHours: {
           timezone: "Asia/Hong_Kong",
           intervals: [
             {
@@ -618,8 +663,10 @@ describe("Campus Map edit session transition", () => {
             },
           ],
         },
-        reservationRequirement: "none",
-        temporaryStatus: "normal",
+        officialActions: [
+          { label: "官网", url: "https://www.cuhk.edu.hk/example" },
+        ],
+        visitNote: "由正门进入",
       },
     }).session!;
 
@@ -629,10 +676,7 @@ describe("Campus Map edit session transition", () => {
       operation: "update",
       fact: {
         name: "大学图书馆 1/F 饮水机 A",
-        audience: "cuhk-member",
-        credentialRequirement: "campus-card",
-        accessSchedule: {
-          kind: "weekly",
+        regularHours: {
           timezone: "Asia/Hong_Kong",
           intervals: [
             {
@@ -642,20 +686,21 @@ describe("Campus Map edit session transition", () => {
             },
           ],
         },
-        reservationRequirement: "none",
-        temporaryStatus: "normal",
+        officialActions: [
+          { label: "官网", url: "https://www.cuhk.edu.hk/example" },
+        ],
+        visitNote: "由正门进入",
       },
     });
   });
 
-  it("restores an incomplete weekly schedule draft but blocks it from publishing", () => {
+  it("restores incomplete regular hours but blocks them from publishing", () => {
     const edited = transitionCampusMapEdit(editSession(), {
       type: "CHANGE_FACT",
       fact: {
         ...fact,
         name: "大学图书馆平日饮水机",
-        accessSchedule: {
-          kind: "weekly",
+        regularHours: {
           timezone: "Asia/Hong_Kong",
           intervals: [{ days: [], opensAt: "", closesAt: "" }],
         },
@@ -669,8 +714,7 @@ describe("Campus Map edit session transition", () => {
       session: {
         draft: {
           fact: {
-            accessSchedule: {
-              kind: "weekly",
+            regularHours: {
               intervals: [{ days: [], opensAt: "", closesAt: "" }],
             },
           },
@@ -681,19 +725,18 @@ describe("Campus Map edit session transition", () => {
       transitionCampusMapEdit(edited, { type: "REQUEST_PUBLISH" }),
     ).toMatchObject({
       accepted: true,
-      session: { status: "editing", localError: "accessSchedule" },
+      session: { status: "editing", localError: "regularHours" },
       commands: expect.arrayContaining([
-        { kind: "focus", target: "accessSchedule" },
+        { kind: "focus", target: "regularHours" },
       ]),
     });
   });
 
-  it("preserves hidden Edit facts across a facility-type round trip", () => {
+  it("clears type-specific facts when their fields become inapplicable", () => {
     const printerFact: CampusMapPublishFactInput = {
       ...fact,
-      pinType: "printer",
+      placeType: "printer",
       capabilities: ["print", "scan"],
-      gender: "female",
     };
     const started: CampusMapEditSession = {
       status: "editing",
@@ -706,20 +749,29 @@ describe("Campus Map edit session transition", () => {
         sources: [source],
       }),
     };
-    const toilet = transitionCampusMapEdit(started, {
-      type: "CHANGE_PIN_TYPE",
-      pinType: "toilet",
-    }).session;
-    const printer = transitionCampusMapEdit(toilet, {
-      type: "CHANGE_PIN_TYPE",
-      pinType: "printer",
-    }).session;
+    const healthService = transitionCampusMapEdit(started, {
+      type: "CHANGE_PLACE_TYPE",
+      placeType: "health-service",
+    }).session!;
 
-    expect(printer?.draft.fact).toMatchObject({
-      pinType: "printer",
-      capabilities: ["print", "scan"],
-      gender: "female",
+    expect(healthService.draft.fact).toMatchObject({
+      placeType: "health-service",
+      capabilities: [],
+      gender: null,
     });
+    const requested = transitionCampusMapEdit(healthService, {
+      type: "REQUEST_PUBLISH",
+    });
+    const publish = requested.commands.find(
+      (command) => command.kind === "publish",
+    );
+    expect(publish).toBeDefined();
+    if (publish?.kind !== "publish") throw new Error("publish command missing");
+    const change = publish.command.changes[0];
+    if (change.operation === "retire" || change.operation === "merge") {
+      throw new Error("unexpected publish operation");
+    }
+    expect(validateFact(change.fact, 0)).toEqual([]);
   });
 
   it("starts Edit with stable identity and a clean baseline", () => {
@@ -961,7 +1013,7 @@ describe("Campus Map edit session transition", () => {
     }).session;
     const encoded = encodeCampusMapEditSnapshot(changed!);
 
-    expect(CAMPUS_MAP_EDIT_SNAPSHOT_VERSION).toBe(7);
+    expect(CAMPUS_MAP_EDIT_SNAPSHOT_VERSION).toBe(9);
     expect(JSON.parse(encoded)).toMatchObject({
       version: CAMPUS_MAP_EDIT_SNAPSHOT_VERSION,
       session: { draft: { placeId, baseRevisionId } },
@@ -1267,7 +1319,7 @@ describe("Campus Map edit session transition", () => {
       transitionCampusMapEdit(null, {
         type: "START_FACILITY_ADD",
         idempotencyKey: firstKey,
-        entry: { kind: "global", pinType: "printer" },
+        entry: { kind: "global", placeType: "printer" },
       }).session,
       {
         type: "SELECT_BUILDING_LOCATION",
@@ -1279,20 +1331,7 @@ describe("Campus Map edit session transition", () => {
         },
       },
     ).session!;
-    const legacy = JSON.parse(encodeCampusMapEditSnapshot(selected)) as {
-      version: number;
-      session: {
-        draft: {
-          fact: Record<string, unknown>;
-          baselineFact: Record<string, unknown> | null;
-          sources: unknown[];
-          baselineSources: unknown[];
-          photos: unknown[];
-          baselinePhotos: unknown[];
-        };
-      };
-    };
-    legacy.version = 6;
+    const legacy = legacyV6Snapshot(selected);
     Object.assign(legacy.session.draft.fact, {
       name: "旧自定义名称",
       gender: "female",
@@ -1319,14 +1358,10 @@ describe("Campus Map edit session transition", () => {
         draft: {
           fact: {
             name: "打印站",
-            pinType: "printer",
-            gender: "unknown",
-            wheelchairAccess: "unknown",
-            audience: "unknown",
-            credentialRequirement: "unknown",
-            accessSchedule: { kind: "unknown" },
-            reservationRequirement: "unknown",
-            temporaryStatus: "unknown",
+            placeType: "printer",
+            gender: null,
+            wheelchairAccess: null,
+            regularHours: null,
             observedAt: null,
           },
           sources: [],
@@ -1346,10 +1381,8 @@ describe("Campus Map edit session transition", () => {
       operation: "create",
       fact: {
         name: "打印站",
-        audience: "unknown",
-        credentialRequirement: "unknown",
-        reservationRequirement: "unknown",
-        temporaryStatus: "unknown",
+        placeType: "printer",
+        regularHours: null,
       },
       sources: [],
       photos: [],
@@ -1398,7 +1431,7 @@ describe("Campus Map edit session transition", () => {
       transitionCampusMapEdit(null, {
         type: "START_FACILITY_ADD",
         idempotencyKey: firstKey,
-        entry: { kind: "global", pinType: "printer" },
+        entry: { kind: "global", placeType: "printer" },
       }).session,
       {
         type: "SELECT_BUILDING_LOCATION",
@@ -1410,11 +1443,7 @@ describe("Campus Map edit session transition", () => {
         },
       },
     ).session!;
-    const legacy = JSON.parse(encodeCampusMapEditSnapshot(selected)) as {
-      version: number;
-      session: CampusMapEditSession;
-    };
-    legacy.version = 6;
+    const legacy = legacyV6Snapshot(selected);
     legacy.session = { ...legacy.session, ...state };
     legacy.session.draft.fact.name = "旧自定义名称";
     legacy.session.draft.fact.audience = "cuhk-member";
@@ -1431,7 +1460,7 @@ describe("Campus Map edit session transition", () => {
       session: {
         status: "editing",
         draft: {
-          fact: { name: "打印站", audience: "unknown" },
+          fact: { name: "打印站", placeType: "printer" },
           photos: [],
         },
       },
@@ -1461,7 +1490,7 @@ describe("Campus Map edit session transition", () => {
       transitionCampusMapEdit(null, {
         type: "START_FACILITY_ADD",
         idempotencyKey: firstKey,
-        entry: { kind: "global", pinType: "printer" },
+        entry: { kind: "global", placeType: "printer" },
       }).session,
       {
         type: "SELECT_BUILDING_LOCATION",
@@ -1473,11 +1502,7 @@ describe("Campus Map edit session transition", () => {
         },
       },
     ).session!;
-    const legacy = JSON.parse(encodeCampusMapEditSnapshot(selected)) as {
-      version: number;
-      session: CampusMapEditSession;
-    };
-    legacy.version = 6;
+    const legacy = legacyV6Snapshot(selected);
     legacy.session = { ...legacy.session, ...state };
     legacy.session.draft.fact.name = "已尝试发布的旧名称";
 
@@ -1552,7 +1577,7 @@ describe("Campus Map edit session transition", () => {
                 observedAt: null,
                 rightsStatus: "unknown",
                 limitations:
-                  "用户通过 Campus Map 提交名称、位置、设施类型与结构化访问条件；未提供独立资料来源。",
+                  "用户通过 Campus Map 提交名称、位置、地点类型与可选运营资料；未提供独立资料来源。",
               }),
             ],
           }),
@@ -1669,7 +1694,7 @@ describe("Campus Map edit session transition", () => {
       idempotencyKey: firstKey,
       fact: {
         ...fact,
-        pinType: "printer",
+        placeType: "printer",
         capabilities: [],
       },
       sources: [source],
@@ -1679,7 +1704,7 @@ describe("Campus Map edit session transition", () => {
       { status: "editing", draft: invalidDraft },
       {
         type: "REQUEST_PUBLISH",
-        requiredFields: ["name", "pinType", "capabilities", "location"],
+        requiredFields: ["name", "placeType", "capabilities", "location"],
       },
     );
 
@@ -1689,7 +1714,7 @@ describe("Campus Map edit session transition", () => {
     });
     expect(invalid.commands).toContainEqual({
       kind: "focus",
-      target: "form-heading",
+      target: "capabilities",
     });
   });
 
@@ -1698,8 +1723,12 @@ describe("Campus Map edit session transition", () => {
     ["changes.0.fact.floorId", "location"],
     ["sources.0.url", "form-heading"],
     ["sources.0.observedAt", "form-heading"],
-    ["changes.0.fact.accessSchedule.intervals.0.opensAt", "accessSchedule"],
-    ["changes.0.fact.pinType", "pinType"],
+    ["changes.0.fact.regularHours.intervals.0.opensAt", "regularHours"],
+    ["changes.0.fact.placeType", "placeType"],
+    ["changes.0.fact.visitNote", "visitNote"],
+    ["changes.0.fact.capabilities", "capabilities"],
+    ["changes.0.fact.gender", "gender"],
+    ["changes.0.fact.wheelchairAccess", "wheelchairAccess"],
     ["comment", "form-heading"],
   ])(
     "normalizes server error path %s to the real focus target %s",
@@ -1734,6 +1763,26 @@ describe("Campus Map edit session transition", () => {
       expect(failed.commands).toContainEqual({ kind: "focus", target });
     },
   );
+
+  it("rejects an overlong visit note before sending it to the server", () => {
+    const target = "visitNote";
+    const dirty = transitionCampusMapEdit(editSession(), {
+      type: "CHANGE_FACT",
+      fact: { ...fact, visitNote: "界".repeat(167) },
+    }).session!;
+    const invalid = transitionCampusMapEdit(dirty, {
+      type: "REQUEST_PUBLISH",
+    });
+
+    expect(invalid.session).toMatchObject({
+      status: "editing",
+      localError: target,
+    });
+    expect(invalid.commands).toContainEqual({ kind: "focus", target });
+    expect(invalid.commands).not.toContainEqual(
+      expect.objectContaining({ kind: "publish" }),
+    );
+  });
 
   it("uses a new attempt for acknowledged server warnings and invalidates it after edits", () => {
     const dirty = transitionCampusMapEdit(editSession(), {
@@ -2720,14 +2769,15 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
-  it("restores every canonical controlled value including library access", () => {
+  it("restores V2 controlled values, hours, and official actions", () => {
     const session = transitionCampusMapEdit(editSession(), {
       type: "CHANGE_FACT",
       fact: {
         ...fact,
-        audience: "library-member",
-        accessSchedule: {
-          kind: "weekly",
+        gender: "all-gender",
+        wheelchairAccess: "limited",
+        officialActions: [{ label: "致电", url: "tel:+85239436421" }],
+        regularHours: {
           timezone: "Asia/Hong_Kong",
           intervals: [
             { days: ["mon", "wed"], opensAt: "09:00", closesAt: "18:00" },
@@ -2744,8 +2794,7 @@ describe("Campus Map edit session transition", () => {
     const snapshot = JSON.parse(encodeCampusMapEditSnapshot(editSession())) as {
       session: CampusMapEditSession;
     };
-    snapshot.session.draft.fact.accessSchedule = {
-      kind: "weekly",
+    snapshot.session.draft.fact.regularHours = {
       timezone: "Asia/Hong_Kong",
       intervals: [{ days: [] as never[], opensAt: "25:00", closesAt: "25:00" }],
     };
@@ -2834,13 +2883,12 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
-  it("allows an overnight weekly schedule to reach server validation", () => {
+  it("allows overnight regular hours to reach server validation", () => {
     const overnight = transitionCampusMapEdit(editSession(), {
       type: "CHANGE_FACT",
       fact: {
         ...fact,
-        accessSchedule: {
-          kind: "weekly",
+        regularHours: {
           timezone: "Asia/Hong_Kong",
           intervals: [{ days: ["fri"], opensAt: "22:00", closesAt: "02:00" }],
         },
@@ -2849,7 +2897,7 @@ describe("Campus Map edit session transition", () => {
     expect(
       transitionCampusMapEdit(overnight, { type: "REQUEST_PUBLISH" }).session
         ?.localError,
-    ).not.toBe("accessSchedule");
+    ).not.toBe("regularHours");
   });
 
   it.each([

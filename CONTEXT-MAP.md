@@ -11,7 +11,7 @@ CUpedia 现有十个限界上下文。本文件是上下文清单和关系的唯
 - [食堂](./docs/canteen/CONTEXT.md)：食堂、菜单、菜品评价、榜单与外部菜单同步
 - [通知](./docs/notifications/CONTEXT.md)：各业务上下文面向 User 的站内消息
 - [校园交通](./docs/campus-transport/CONTEXT.md)：CUHK 官方校巴服务和今日出行信息
-- [校园地图](./docs/campus-map/CONTEXT.md)：经核对的建筑、楼层、地点与访问事实
+- [校园地图](./docs/campus-map/CONTEXT.md)：经核对的建筑、楼层、地点、通常时间与官方入口
 - [产品更新](./docs/product-updates/CONTEXT.md)：已经上线的 CUpedia 产品变化
 - [公告](./docs/announcements/CONTEXT.md)：需要全站读者及时知道或采取行动的消息
 
@@ -44,6 +44,8 @@ CUpedia 现有十个限界上下文。本文件是上下文清单和关系的唯
   [ADR 0034](./docs/adr/0034-campus-map-provider-neutral-place-facts.md)、
   [ADR 0035](./docs/adr/0035-campus-map-direct-changesets.md) 和
   [ADR 0036](./docs/adr/0036-model-campus-map-place-feedback-as-one-current-submission.md)；
-  高德热点与 canonical 卡片的交互边界见 [ADR 0038](./docs/adr/0038-canonical-campus-map-browse-targets.md)
+  高德热点与 canonical 卡片的交互边界见
+  [ADR 0038](./docs/adr/0038-canonical-campus-map-browse-targets.md)，精简后的 V2 运营事实见
+  [ADR 0039](./docs/adr/0039-campus-map-minimal-place-facts-v2.md)
 
 完整决策清单见 [ADR 索引](./docs/adr/README.md)。

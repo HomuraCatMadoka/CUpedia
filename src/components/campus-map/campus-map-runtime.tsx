@@ -1449,7 +1449,7 @@ export function CampusMapRuntime({
   const startFacilityForActiveCategory = useCallback(() => {
     if (!activeAmenity) return;
     cancelPendingUserLocation();
-    startFacilityAdd({ kind: "global", pinType: activeAmenity });
+    startFacilityAdd({ kind: "global", placeType: activeAmenity });
   }, [activeAmenity, cancelPendingUserLocation, startFacilityAdd]);
   useEffect(() => {
     if (!publishNotice) return;

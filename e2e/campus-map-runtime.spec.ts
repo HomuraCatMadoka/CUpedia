@@ -76,7 +76,6 @@ async function cleanupBrowseFixtureData(client: Client) {
   for (const cleanup of browseFactCleanup) {
     await client.query(cleanup.statement, [cleanup.id]);
   }
-  await client.query("delete from campus_map_fact_schemas where version = 648");
   await client.query(
     "delete from campus_map_provenance_sources where id = $1",
     [browseIds.provenance],
@@ -91,11 +90,6 @@ async function applyBrowseFixtureData(client: Client) {
   await client.query(
     "update users set email = $1 where email = 'user@test.com'",
     [eligibleEmail],
-  );
-  await client.query(
-    `insert into campus_map_fact_schemas (version, status, definition, display_metadata)
-     values (648, 'draft', '{"fields":{},"pinTypes":{}}', '{}')
-     on conflict (version) do nothing`,
   );
   await client.query(
     `insert into campus_map_buildings
@@ -137,9 +131,11 @@ async function applyBrowseFixtureData(client: Client) {
     `insert into campus_map_fact_revisions
        (id, place_id, changeset_id, place_change_id, fact_schema_version,
         field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
-        name, building_id, floor_id, pin_type, location_kind, created_at)
-     values ($1, $2, $3, $4, 648, '{}', 'active', $5, 'E2E 地图贡献者',
-       '正式测试饮水点', $6, $7, 'water', 'floor', '2026-08-28T00:00:00Z')
+        name, building_id, floor_id, pin_type, gender, wheelchair_access,
+        temporary_status, location_kind, created_at)
+     values ($1, $2, $3, $4, 2, '{}', 'active', $5, 'E2E 地图贡献者',
+       '正式测试饮水点', $6, $7, 'water', null, null, null, 'floor',
+       '2026-08-28T00:00:00Z')
      on conflict do nothing`,
     [
       browseIds.revision,
@@ -163,8 +159,9 @@ async function applyBrowseFixtureData(client: Client) {
   await client.query(
     `insert into campus_map_current_facts
        (place_id, revision_id, fact_schema_version, name, building_id, floor_id,
-        pin_type, location_kind, published_at)
-     values ($1, $2, 648, '正式测试饮水点', $3, $4, 'water', 'floor',
+        pin_type, gender, wheelchair_access, temporary_status, location_kind,
+        published_at)
+     values ($1, $2, 2, '正式测试饮水点', $3, $4, 'water', null, null, null, 'floor',
        '2026-08-28T00:00:00Z') on conflict do nothing`,
     [browseIds.place, browseIds.revision, browseIds.building, browseIds.floor],
   );

@@ -9,17 +9,15 @@ import {
   campusMapPinTypeLabel,
   CAMPUS_MAP_DISPLAY_REGISTRY,
 } from "@/lib/campus-map/display-registry";
-import type {
-  CampusMapHistoricalFact,
-  CampusMapPlaceHistoryHead,
-} from "@/lib/campus-map/fact-store";
+import type { CampusMapPlaceHistoryHead } from "@/lib/campus-map/fact-store";
+import type { CampusMapLegacyPlaceFact } from "@/lib/campus-map/legacy-place-ui-adapter";
 import type {
   CampusMapPlaceFeedbackPage,
   CampusMapPlaceFeedbackView,
 } from "@/lib/campus-map/place-feedback";
 import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
 
-function scheduleLabel(schedule: CampusMapHistoricalFact["accessSchedule"]) {
+function scheduleLabel(schedule: CampusMapLegacyPlaceFact["accessSchedule"]) {
   if (schedule.kind !== "weekly") {
     return campusMapDisplayOptionLabel("accessSchedule", schedule.kind);
   }
@@ -34,7 +32,7 @@ function scheduleLabel(schedule: CampusMapHistoricalFact["accessSchedule"]) {
 }
 
 function locationLabel(
-  fact: CampusMapHistoricalFact,
+  fact: CampusMapLegacyPlaceFact,
   building: {
     name: string;
     floorLabel: string | null;
@@ -80,7 +78,7 @@ export function CampusMapPlaceDetail({
 }: {
   placeId: string;
   head: CampusMapPlaceHistoryHead;
-  fact: CampusMapHistoricalFact | null;
+  fact: CampusMapLegacyPlaceFact | null;
   retirementReason: string | null;
   mapHref: string;
   building: { name: string; floorLabel: string | null } | null;

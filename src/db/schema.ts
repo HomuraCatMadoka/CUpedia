@@ -18,7 +18,7 @@ import {
   foreignKey,
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import { relations, sql } from "drizzle-orm";
+import { relations, sql, type SQL } from "drizzle-orm";
 import {
   PRODUCT_UPDATE_AREAS,
   PRODUCT_UPDATE_TYPES,
@@ -33,12 +33,15 @@ import {
   CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
   CAMPUS_MAP_GENDERS,
   CAMPUS_MAP_PIN_TYPES,
+  CAMPUS_MAP_PLACE_TYPES,
   CAMPUS_MAP_PLACE_PHOTO_ROLES,
   CAMPUS_MAP_PROVENANCE_KINDS,
   CAMPUS_MAP_RESERVATION_REQUIREMENTS,
   CAMPUS_MAP_RIGHTS_STATUSES,
   CAMPUS_MAP_SOURCE_COORDINATE_CRS,
   CAMPUS_MAP_TEMPORARY_STATUSES,
+  CAMPUS_MAP_V2_GENDERS,
+  CAMPUS_MAP_V2_WHEELCHAIR_ACCESS,
   CAMPUS_MAP_WHEELCHAIR_ACCESS,
 } from "@/lib/campus-map/controlled-values";
 import type {
@@ -53,6 +56,16 @@ import type {
   CampusMapModerationTargetKind,
   CampusMapReportSignal,
 } from "@/lib/campus-map/moderation-governance-contract";
+import {
+  CAMPUS_MAP_APPLICABLE_FACT_FIELDS_V2,
+  CAMPUS_MAP_FACT_FIELD_KEYS_V2,
+  CAMPUS_MAP_REQUIRED_FACT_FIELDS_V2,
+  campusMapPlaceTypesForFactFieldV2,
+  type CampusMapFactFieldKeyV2,
+} from "@/lib/campus-map/place-type-contract";
+
+export { CAMPUS_MAP_FACT_FIELD_KEYS_V2 };
+export type { CampusMapFactFieldKeyV2 };
 
 export {
   CAMPUS_MAP_AUDIENCES,
@@ -61,12 +74,16 @@ export {
   CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
   CAMPUS_MAP_GENDERS,
   CAMPUS_MAP_PIN_TYPES,
+  CAMPUS_MAP_PIN_TYPES_V1,
+  CAMPUS_MAP_PLACE_TYPES,
   CAMPUS_MAP_PLACE_PHOTO_ROLES,
   CAMPUS_MAP_PROVENANCE_KINDS,
   CAMPUS_MAP_RESERVATION_REQUIREMENTS,
   CAMPUS_MAP_RIGHTS_STATUSES,
   CAMPUS_MAP_SOURCE_COORDINATE_CRS,
   CAMPUS_MAP_TEMPORARY_STATUSES,
+  CAMPUS_MAP_V2_GENDERS,
+  CAMPUS_MAP_V2_WHEELCHAIR_ACCESS,
   CAMPUS_MAP_WHEELCHAIR_ACCESS,
 } from "@/lib/campus-map/controlled-values";
 
@@ -1757,6 +1774,8 @@ export const notifications = pgTable(
 
 export type CampusMapPinType = (typeof CAMPUS_MAP_PIN_TYPES)[number];
 
+export type CampusMapPlaceType = (typeof CAMPUS_MAP_PLACE_TYPES)[number];
+
 export type CampusMapCapability = (typeof CAMPUS_MAP_CAPABILITIES)[number];
 
 export type CampusMapGender = (typeof CAMPUS_MAP_GENDERS)[number];
@@ -1790,6 +1809,8 @@ export type CampusMapSourceCoordinateCrs =
 export type CampusMapCoordinateConversionMethod =
   (typeof CAMPUS_MAP_COORDINATE_CONVERSION_METHODS)[number];
 
+export const CAMPUS_MAP_ACTIVE_FACT_SCHEMA_VERSION = 2 as const;
+
 export const CAMPUS_MAP_WEEKDAYS = [
   "mon",
   "tue",
@@ -1814,7 +1835,27 @@ export type CampusMapAccessSchedule =
       }>;
     };
 
-export const CAMPUS_MAP_FACT_FIELD_KEYS = [
+export type CampusMapRegularHours = {
+  timezone: "Asia/Hong_Kong";
+  intervals: Array<{
+    days: CampusMapWeekday[];
+    opensAt: string;
+    closesAt: string;
+  }>;
+};
+
+export interface CampusMapOfficialAction {
+  label: string;
+  /** HTTPS, tel: or mailto: destination. */
+  url: string;
+}
+
+export type CampusMapV2Gender = Exclude<CampusMapGender, "unknown">;
+export type CampusMapV2WheelchairAccess = Exclude<
+  CampusMapWheelchairAccess,
+  "unknown"
+>;
+export const CAMPUS_MAP_FACT_FIELD_KEYS_V1 = [
   "name",
   "pinType",
   "capabilities",
@@ -1827,15 +1868,26 @@ export const CAMPUS_MAP_FACT_FIELD_KEYS = [
   "temporaryStatus",
   "location",
 ] as const;
-export type CampusMapFactFieldKey = (typeof CAMPUS_MAP_FACT_FIELD_KEYS)[number];
+export type CampusMapFactFieldKeyV1 =
+  (typeof CAMPUS_MAP_FACT_FIELD_KEYS_V1)[number];
+
+export type CampusMapFactFieldKey =
+  | CampusMapFactFieldKeyV1
+  | CampusMapFactFieldKeyV2;
 
 export type CampusMapFactFieldDefinition =
   | { kind: "text" }
   | { kind: "single-select"; values: string[] }
   | { kind: "multi-select"; values: string[] }
+  | { kind: "official-actions"; maximum: number; schemes: string[] }
   | {
       kind: "access-schedule";
       variants: Array<CampusMapAccessSchedule["kind"]>;
+      timezone: "Asia/Hong_Kong";
+      localTimePattern: string;
+    }
+  | {
+      kind: "regular-hours";
       timezone: "Asia/Hong_Kong";
       localTimePattern: string;
     }
@@ -1846,18 +1898,33 @@ export type CampusMapFactFieldDefinition =
       canonicalCrs: "wgs84";
     };
 
-export type CampusMapFactSchemaDefinition = {
-  fields: Record<CampusMapFactFieldKey, CampusMapFactFieldDefinition>;
+export type CampusMapFactSchemaDefinitionV1 = {
+  fields: Record<CampusMapFactFieldKeyV1, CampusMapFactFieldDefinition>;
   pinTypes: Record<
     CampusMapPinType,
     {
-      applicableFields: CampusMapFactFieldKey[];
-      requiredFields: CampusMapFactFieldKey[];
+      applicableFields: CampusMapFactFieldKeyV1[];
+      requiredFields: CampusMapFactFieldKeyV1[];
     }
   >;
 };
 
-const COMMON_CAMPUS_MAP_FIELDS: CampusMapFactFieldKey[] = [
+export type CampusMapFactSchemaDefinitionV2 = {
+  fields: Record<CampusMapFactFieldKeyV2, CampusMapFactFieldDefinition>;
+  placeTypes: Record<
+    CampusMapPlaceType,
+    {
+      applicableFields: CampusMapFactFieldKeyV2[];
+      requiredFields: CampusMapFactFieldKeyV2[];
+    }
+  >;
+};
+
+export type CampusMapFactSchemaDefinition =
+  | CampusMapFactSchemaDefinitionV1
+  | CampusMapFactSchemaDefinitionV2;
+
+const COMMON_CAMPUS_MAP_FIELDS_V1: CampusMapFactFieldKeyV1[] = [
   "name",
   "pinType",
   "wheelchairAccess",
@@ -1869,7 +1936,7 @@ const COMMON_CAMPUS_MAP_FIELDS: CampusMapFactFieldKey[] = [
   "location",
 ];
 
-export const CAMPUS_MAP_FACT_SCHEMA_V1: CampusMapFactSchemaDefinition = {
+export const CAMPUS_MAP_FACT_SCHEMA_V1: CampusMapFactSchemaDefinitionV1 = {
   fields: {
     name: { kind: "text" },
     pinType: { kind: "single-select", values: [...CAMPUS_MAP_PIN_TYPES] },
@@ -1916,26 +1983,73 @@ export const CAMPUS_MAP_FACT_SCHEMA_V1: CampusMapFactSchemaDefinition = {
   },
   pinTypes: {
     toilet: {
-      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS, "gender"],
+      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS_V1, "gender"],
       requiredFields: ["name", "pinType", "location"],
     },
     water: {
-      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS],
+      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS_V1],
       requiredFields: ["name", "pinType", "location"],
     },
     printer: {
-      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS, "capabilities"],
+      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS_V1, "capabilities"],
       requiredFields: ["name", "pinType", "location"],
     },
     "common-space": {
-      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS],
+      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS_V1],
       requiredFields: ["name", "pinType", "location"],
     },
     classroom: {
-      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS],
+      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS_V1],
       requiredFields: ["name", "pinType", "location"],
     },
   },
+};
+
+const CAMPUS_MAP_FACT_PLACE_TYPES_V2 = Object.fromEntries(
+  CAMPUS_MAP_PLACE_TYPES.map((placeType) => [
+    placeType,
+    {
+      applicableFields: [...CAMPUS_MAP_APPLICABLE_FACT_FIELDS_V2[placeType]],
+      requiredFields: [...CAMPUS_MAP_REQUIRED_FACT_FIELDS_V2],
+    },
+  ]),
+) as CampusMapFactSchemaDefinitionV2["placeTypes"];
+
+export const CAMPUS_MAP_FACT_SCHEMA_V2: CampusMapFactSchemaDefinitionV2 = {
+  fields: {
+    name: { kind: "text" },
+    placeType: { kind: "single-select", values: [...CAMPUS_MAP_PLACE_TYPES] },
+    regularHours: {
+      kind: "regular-hours",
+      timezone: "Asia/Hong_Kong",
+      localTimePattern: "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+    },
+    officialActions: {
+      kind: "official-actions",
+      maximum: 8,
+      schemes: ["https", "tel", "mailto"],
+    },
+    visitNote: { kind: "text" },
+    capabilities: {
+      kind: "multi-select",
+      values: [...CAMPUS_MAP_CAPABILITIES],
+    },
+    gender: {
+      kind: "single-select",
+      values: [...CAMPUS_MAP_V2_GENDERS],
+    },
+    wheelchairAccess: {
+      kind: "single-select",
+      values: [...CAMPUS_MAP_V2_WHEELCHAIR_ACCESS],
+    },
+    location: {
+      kind: "location",
+      variants: ["building", "floor", "outdoor-point"],
+      pointPrecisions: ["approximate", "precise"],
+      canonicalCrs: "wgs84",
+    },
+  },
+  placeTypes: CAMPUS_MAP_FACT_PLACE_TYPES_V2,
 };
 
 export type CampusMapFactDisplayMetadata = Record<
@@ -1958,6 +2072,19 @@ export const CAMPUS_MAP_FACT_DISPLAY_METADATA_V1: CampusMapFactDisplayMetadata =
     location: { label: "位置" },
   };
 
+export const CAMPUS_MAP_FACT_DISPLAY_METADATA_V2: CampusMapFactDisplayMetadata =
+  {
+    name: { label: "名称" },
+    placeType: { label: "地点类型" },
+    regularHours: { label: "通常开放时间" },
+    officialActions: { label: "官方入口" },
+    visitNote: { label: "到访提示" },
+    capabilities: { label: "服务能力" },
+    gender: { label: "性别属性" },
+    wheelchairAccess: { label: "无障碍通行" },
+    location: { label: "位置" },
+  };
+
 export type CampusMapFieldDiff = Record<
   string,
   { before: unknown; after: unknown; label: string }
@@ -1970,19 +2097,15 @@ function campusMapPlaceFactColumns() {
       onDelete: "restrict",
     }),
     floorId: uuid("floor_id"),
-    pinType: text("pin_type").$type<CampusMapPinType>().notNull(),
+    pinType: text("pin_type").$type<CampusMapPlaceType>().notNull(),
     capabilities: text("capabilities")
       .array()
       .$type<CampusMapCapability[]>()
       .notNull()
       .default(sql`'{}'::text[]`),
-    gender: text("gender")
-      .$type<CampusMapGender>()
-      .notNull()
-      .default("unknown"),
+    gender: text("gender").$type<CampusMapGender>().default("unknown"),
     wheelchairAccess: text("wheelchair_access")
       .$type<CampusMapWheelchairAccess>()
-      .notNull()
       .default("unknown"),
     audience: text("audience")
       .$type<CampusMapAudience>()
@@ -2002,8 +2125,13 @@ function campusMapPlaceFactColumns() {
       .default("unknown"),
     temporaryStatus: text("temporary_status")
       .$type<CampusMapTemporaryStatus>()
-      .notNull()
       .default("unknown"),
+    regularHours: jsonb("regular_hours").$type<CampusMapRegularHours>(),
+    officialActions: jsonb("official_actions")
+      .$type<CampusMapOfficialAction[]>()
+      .notNull()
+      .default([]),
+    visitNote: text("visit_note"),
     locationKind: text("location_kind")
       .$type<CampusMapLocationKind>()
       .notNull(),
@@ -2017,16 +2145,80 @@ function campusMapPlaceFactColumns() {
   };
 }
 
+function campusMapV2TypeSpecificApplicabilityCheck(table: {
+  [Key in keyof ReturnType<typeof campusMapPlaceFactColumns>]: AnyPgColumn;
+}): SQL {
+  const rules = [
+    {
+      field: "capabilities",
+      empty: sql`${table.capabilities} = '{}'::text[]`,
+    },
+    { field: "gender", empty: sql`${table.gender} is null` },
+  ] as const satisfies ReadonlyArray<{
+    field: CampusMapFactFieldKeyV2;
+    empty: SQL;
+  }>;
+  const groups = new Map<
+    string,
+    { placeTypes: string[]; emptyChecks: SQL[] }
+  >();
+
+  for (const rule of rules) {
+    const placeTypes = campusMapPlaceTypesForFactFieldV2(rule.field);
+    if (placeTypes.length === CAMPUS_MAP_PLACE_TYPES.length) continue;
+    const key = placeTypes.join("\u0000");
+    const group = groups.get(key) ?? { placeTypes, emptyChecks: [] };
+    group.emptyChecks.push(rule.empty);
+    groups.set(key, group);
+  }
+
+  const checks = [...groups.values()].map((group) => {
+    const typeCheck =
+      group.placeTypes.length === 1
+        ? sql`${table.pinType} = ${sql.raw(`'${group.placeTypes[0]}'`)}`
+        : sql`${table.pinType} in (${sql.join(
+            group.placeTypes.map((placeType) => sql.raw(`'${placeType}'`)),
+            sql`, `,
+          )})`;
+    const emptyCheck =
+      group.emptyChecks.length === 1
+        ? group.emptyChecks[0]!
+        : sql`(${sql.join(group.emptyChecks, sql` and `)})`;
+    return sql`(${typeCheck} or ${emptyCheck})`;
+  });
+
+  return checks.length === 0 ? sql`true` : sql.join(checks, sql` and `);
+}
+
 function campusMapFactChecks(
   table: {
     [Key in keyof ReturnType<typeof campusMapPlaceFactColumns>]: AnyPgColumn;
-  },
+  } & { factSchemaVersion: AnyPgColumn },
   prefix: string,
+  allowHistoricalV1: boolean,
 ) {
+  const v1SchemaPayload = sql`${table.factSchemaVersion} = 1
+    and ${table.pinType} in ('toilet', 'water', 'printer', 'common-space', 'classroom')
+    and ${table.gender} is not null
+    and ${table.wheelchairAccess} is not null
+    and ${table.temporaryStatus} is not null
+    and ${table.regularHours} is null
+    and ${table.officialActions} = '[]'::jsonb
+    and ${table.visitNote} is null`;
+  const v2SchemaPayload = sql`${table.factSchemaVersion} = 2
+    and ${table.audience} = 'unknown'
+    and ${table.credentialRequirement} = 'unknown'
+    and ${table.accessSchedule} = '{"kind":"unknown"}'::jsonb
+    and ${table.reservationRequirement} = 'unknown'
+    and (${table.gender} is null or ${table.gender} <> 'unknown')
+    and (${table.wheelchairAccess} is null or ${table.wheelchairAccess} <> 'unknown')
+    and ${table.temporaryStatus} is null
+    and ${campusMapV2TypeSpecificApplicabilityCheck(table)}`;
+
   return [
     check(
       `${prefix}_pin_type_check`,
-      sql`${table.pinType} in ('toilet', 'water', 'printer', 'common-space', 'classroom')`,
+      sql`${table.pinType} in ('toilet', 'water', 'printer', 'common-space', 'classroom', 'sports-facility', 'health-service', 'vending-machine')`,
     ),
     check(
       `${prefix}_capabilities_check`,
@@ -2034,11 +2226,11 @@ function campusMapFactChecks(
     ),
     check(
       `${prefix}_gender_check`,
-      sql`${table.gender} in ('male', 'female', 'all-gender', 'unknown')`,
+      sql`${table.gender} is null or ${table.gender} in ('male', 'female', 'all-gender', 'unknown')`,
     ),
     check(
       `${prefix}_wheelchair_access_check`,
-      sql`${table.wheelchairAccess} in ('yes', 'limited', 'no', 'unknown')`,
+      sql`${table.wheelchairAccess} is null or ${table.wheelchairAccess} in ('yes', 'limited', 'no', 'unknown')`,
     ),
     check(
       `${prefix}_audience_check`,
@@ -2088,7 +2280,27 @@ function campusMapFactChecks(
     ),
     check(
       `${prefix}_temporary_status_check`,
-      sql`${table.temporaryStatus} in ('normal', 'temporarily-closed', 'unknown')`,
+      sql`${table.temporaryStatus} is null or ${table.temporaryStatus} in ('normal', 'temporarily-closed', 'unknown')`,
+    ),
+    check(
+      `${prefix}_regular_hours_check`,
+      sql`${table.regularHours} is null or public.campus_map_regular_hours_are_valid(${table.regularHours})`,
+    ),
+    check(
+      `${prefix}_official_actions_check`,
+      sql`public.campus_map_official_actions_are_valid(${table.officialActions})`,
+    ),
+    check(
+      `${prefix}_visit_note_check`,
+      sql`${table.visitNote} is null or (
+        btrim(${table.visitNote}) <> '' and octet_length(${table.visitNote}) <= 500
+      )`,
+    ),
+    check(
+      `${prefix}_schema_payload_check`,
+      allowHistoricalV1
+        ? sql`(${v1SchemaPayload}) or (${v2SchemaPayload})`
+        : v2SchemaPayload,
     ),
     check(
       `${prefix}_verification_check`,
@@ -2584,7 +2796,7 @@ export const campusMapFactRevisions = pgTable(
         and ${table.mergedIntoPlaceId} is null
       )`,
     ),
-    ...campusMapFactChecks(table, "campus_map_fact_revisions"),
+    ...campusMapFactChecks(table, "campus_map_fact_revisions", true),
   ],
 ).enableRLS();
 
@@ -2724,7 +2936,7 @@ export const campusMapCurrentFacts = pgTable(
       "campus_map_current_facts_active_check",
       sql`${table.status} = 'active'`,
     ),
-    ...campusMapFactChecks(table, "campus_map_current_facts"),
+    ...campusMapFactChecks(table, "campus_map_current_facts", false),
   ],
 ).enableRLS();
 

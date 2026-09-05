@@ -4,13 +4,12 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
-  CAMPUS_MAP_FACT_SCHEMA_V1,
+  CAMPUS_MAP_FACT_SCHEMA_V2,
   campusMapBuildings,
   campusMapChangesets,
   campusMapCurrentFacts,
   campusMapCurrentRevisions,
   campusMapFactRevisions,
-  campusMapFactSchemas,
   campusMapFloors,
   campusMapPlaceChanges,
   campusMapPlaces,
@@ -148,9 +147,6 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
         `delete from campus_map_provenance_sources where id = $1`,
         [ids.provenance],
       );
-      await client.query(
-        `delete from campus_map_fact_schemas where version = 701`,
-      );
       await client.query("commit");
     } catch (error) {
       await client.query("rollback");
@@ -165,12 +161,6 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
     database = drizzle(pool);
     await cleanupFixture();
 
-    await database.insert(campusMapFactSchemas).values({
-      version: 701,
-      status: "draft",
-      definition: CAMPUS_MAP_FACT_SCHEMA_V1,
-      displayMetadata: { name: { label: "名称" } },
-    });
     await database.insert(campusMapProvenanceSources).values({
       id: ids.provenance,
       sourceKind: "field-observation",
@@ -238,7 +228,7 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       placeId: ids.place,
       changesetId: ids.changeset,
       placeChangeId: ids.placeChange,
-      factSchemaVersion: 701,
+      factSchemaVersion: 2,
       fieldMetadata: { name: { label: "名称" } },
       status: "active",
       actorIdSnapshot: ids.actor,
@@ -247,10 +237,12 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       buildingId: ids.building,
       floorId: ids.floor,
       pinType: "water",
-      audience: "cuhk-member",
-      credentialRequirement: "library-card",
-      reservationRequirement: "none",
-      temporaryStatus: "normal",
+      audience: "unknown",
+      credentialRequirement: "unknown",
+      reservationRequirement: "unknown",
+      temporaryStatus: null,
+      gender: null,
+      wheelchairAccess: null,
       locationKind: "floor",
       observedAt: new Date("2026-08-21T03:00:00Z"),
     });
@@ -269,15 +261,17 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
     await database.insert(campusMapCurrentFacts).values({
       placeId: ids.place,
       revisionId: ids.revision,
-      factSchemaVersion: 701,
+      factSchemaVersion: 2,
       name: "大学图书馆饮水点",
       buildingId: ids.building,
       floorId: ids.floor,
       pinType: "water",
-      audience: "cuhk-member",
-      credentialRequirement: "library-card",
-      reservationRequirement: "none",
-      temporaryStatus: "normal",
+      audience: "unknown",
+      credentialRequirement: "unknown",
+      reservationRequirement: "unknown",
+      temporaryStatus: null,
+      gender: null,
+      wheelchairAccess: null,
       locationKind: "floor",
       observedAt: new Date("2026-08-21T03:00:00Z"),
       publishedAt: new Date("2026-08-22T01:00:00Z"),
@@ -387,7 +381,7 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
               : ids.feedPlaceC,
         changesetId,
         placeChangeId,
-        factSchemaVersion: 701,
+        factSchemaVersion: 2,
         fieldMetadata: { name: { label: "名称" } },
         status: "active" as const,
         actorIdSnapshot,
@@ -396,10 +390,12 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
         buildingId: ids.building,
         floorId: ids.floor,
         pinType: "water" as const,
-        audience: "cuhk-member" as const,
-        credentialRequirement: "library-card" as const,
-        reservationRequirement: "none" as const,
-        temporaryStatus: "normal" as const,
+        audience: "unknown" as const,
+        credentialRequirement: "unknown" as const,
+        reservationRequirement: "unknown" as const,
+        temporaryStatus: null,
+        gender: null,
+        wheelchairAccess: null,
         locationKind: "floor" as const,
       })),
     );
@@ -422,18 +418,15 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
     await expect(getCampusMapCurrentPlace(ids.place)).resolves.toEqual({
       id: ids.place,
       revisionId: ids.revision,
-      factSchemaVersion: 701,
+      factSchemaVersion: 2,
       name: "大学图书馆饮水点",
-      pinType: "water",
+      placeType: "water",
+      regularHours: null,
+      officialActions: [],
+      visitNote: null,
       capabilities: [],
-      access: {
-        audience: "cuhk-member",
-        credentialRequirement: "library-card",
-        schedule: { kind: "unknown" },
-        reservationRequirement: "none",
-        temporaryStatus: "normal",
-      },
-      facets: { gender: "unknown", wheelchairAccess: "unknown" },
+      gender: null,
+      wheelchairAccess: null,
       location: {
         kind: "floor",
         building: {
@@ -459,35 +452,34 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
     });
   });
 
-  it("returns revision-addressable preset metadata without Drizzle rows", async () => {
-    await expect(getCampusMapFactSchema(701)).resolves.toMatchObject({
-      version: 701,
-      definition: {
-        fields: {
-          accessSchedule: {
-            kind: "access-schedule",
-            variants: ["unknown", "always", "weekly"],
-            timezone: "Asia/Hong_Kong",
-          },
-        },
-        pinTypes: {
-          water: {
-            requiredFields: ["name", "pinType", "location"],
-          },
-        },
-      },
-      displayMetadata: { name: { label: "名称" } },
-    });
-  });
-
-  it("exposes the canonical schema by version before the first publication", async () => {
-    await expect(getCampusMapFactSchema(1)).resolves.toMatchObject({
-      version: 1,
-      definition: CAMPUS_MAP_FACT_SCHEMA_V1,
+  it("returns the active V2 schema and display metadata", async () => {
+    await expect(getCampusMapFactSchema()).resolves.toMatchObject({
+      version: 2,
+      definition: CAMPUS_MAP_FACT_SCHEMA_V2,
       displayMetadata: expect.objectContaining({
         name: expect.objectContaining({ label: "名称" }),
       }),
     });
+    await expect(getCampusMapFactSchema(2)).resolves.toMatchObject({
+      version: 2,
+      definition: {
+        fields: {
+          regularHours: {
+            kind: "regular-hours",
+            timezone: "Asia/Hong_Kong",
+          },
+        },
+        placeTypes: {
+          water: {
+            requiredFields: ["name", "placeType", "location"],
+          },
+        },
+      },
+    });
+  });
+
+  it("does not invent V1 schema metadata on a fresh V2 database", async () => {
+    await expect(getCampusMapFactSchema(1)).resolves.toBeNull();
   });
 
   it("returns null instead of exposing retired or unknown Places", async () => {
@@ -501,7 +493,7 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       listCampusMapCurrentPlaces({
         buildingId: ids.building,
         floorId: ids.floor,
-        pinType: "water",
+        placeType: "water",
         limit: 10,
       }),
     ).resolves.toMatchObject({
@@ -510,7 +502,7 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
     });
 
     await expect(
-      listCampusMapCurrentPlaces({ pinType: "printer", limit: 10 }),
+      listCampusMapCurrentPlaces({ placeType: "printer", limit: 10 }),
     ).resolves.toEqual({ items: [], nextCursor: null });
 
     await expect(
@@ -597,7 +589,7 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
           id: ids.revision,
           placeId: ids.place,
           status: "active",
-          factSchemaVersion: 701,
+          factSchemaVersion: 2,
           operation: "create",
           actor: { id: ids.actor, nickname: "测试贡献者" },
           changesetId: ids.changeset,
@@ -613,7 +605,7 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
           },
           content: {
             visibility: "public",
-            fact: { name: "大学图书馆饮水点", pinType: "water" },
+            fact: { name: "大学图书馆饮水点", placeType: "water" },
           },
         },
       ],
@@ -623,15 +615,14 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       visibility: "public",
       fact: {
         name: "大学图书馆饮水点",
-        pinType: "water",
+        factSchemaVersion: 2,
+        placeType: "water",
+        regularHours: null,
+        officialActions: [],
+        visitNote: null,
         capabilities: [],
-        gender: "unknown",
-        wheelchairAccess: "unknown",
-        audience: "cuhk-member",
-        credentialRequirement: "library-card",
-        accessSchedule: { kind: "unknown" },
-        reservationRequirement: "none",
-        temporaryStatus: "normal",
+        gender: null,
+        wheelchairAccess: null,
         buildingId: ids.building,
         floorId: ids.floor,
         locationKind: "floor",
@@ -660,7 +651,7 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
         `update campus_map_fact_schemas
          set definition = '{"fields":{},"pinTypes":{}}'::jsonb,
              display_metadata = '{"name":{"label":"后来改名"}}'::jsonb
-         where version = 701`,
+         where version = 2`,
       ),
     ).rejects.toMatchObject({
       code: "23514",
@@ -671,9 +662,11 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       getCampusMapPlaceRevision(ids.place, ids.revision),
     ).resolves.toMatchObject({
       schema: {
-        version: 701,
-        definition: CAMPUS_MAP_FACT_SCHEMA_V1,
-        displayMetadata: { name: { label: "名称" } },
+        version: 2,
+        definition: CAMPUS_MAP_FACT_SCHEMA_V2,
+        displayMetadata: expect.objectContaining({
+          name: expect.objectContaining({ label: "名称" }),
+        }),
       },
     });
   });
@@ -688,8 +681,10 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       comment: "添加已现场核对的饮水点",
       sourceSummary: "现场观察",
       schema: {
-        version: 701,
-        displayMetadata: { name: { label: "名称" } },
+        version: 2,
+        displayMetadata: expect.objectContaining({
+          name: expect.objectContaining({ label: "名称" }),
+        }),
       },
       content: {
         visibility: "public",
@@ -797,8 +792,10 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
           revisionId: ids.revision,
           operation: "create",
           schema: {
-            version: 701,
-            displayMetadata: { name: { label: "名称" } },
+            version: 2,
+            displayMetadata: expect.objectContaining({
+              name: expect.objectContaining({ label: "名称" }),
+            }),
           },
           diff: {
             fields: {

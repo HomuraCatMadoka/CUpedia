@@ -17,6 +17,7 @@ import {
 } from "@/lib/campus-map/place-feedback";
 import { getCampusMapRevisionPhotoViews } from "@/lib/campus-map/place-photos";
 import { encodeCampusMapPlaceHref } from "@/lib/campus-map/scene-codec";
+import { projectCampusMapLegacyPlaceFact } from "@/lib/campus-map/legacy-place-ui-adapter";
 
 export const dynamic = "force-dynamic";
 
@@ -48,8 +49,11 @@ export default async function CampusMapPlacePage({
   const viewerFeedback = viewer
     ? await getCampusMapViewerPlaceFeedback(placeId, viewer.id)
     : null;
-  const fact =
+  const canonicalFact =
     current?.content.visibility === "public" ? current.content.fact : null;
+  const fact = canonicalFact
+    ? projectCampusMapLegacyPlaceFact(canonicalFact)
+    : null;
   const buildingRecord = fact?.buildingId
     ? buildings.find((item) => item.buildingId === fact.buildingId)
     : null;
