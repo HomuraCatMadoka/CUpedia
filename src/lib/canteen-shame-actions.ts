@@ -24,11 +24,9 @@ import {
 import {
   getAnonShameDailyLimit,
   hktCalendarDate,
-  isShameVotingOpen,
 } from "@/lib/canteen-shame-rank";
 import { checkVoteRateLimit } from "@/lib/canteen-vote-rate-limit";
 import { appendAnonymousShameVote } from "@/lib/canteen-shame-vote-store";
-import { getCanteenShameVoteEndDate } from "@/lib/site-settings";
 
 type VoterIdentity = { userId: string } | { anonymousSessionId: string };
 
@@ -37,7 +35,6 @@ export type ShameVoteErrorCode =
   | "USER_BANNED"
   | "RATE_LIMIT_EXCEEDED"
   | "DAILY_LIMIT_EXCEEDED"
-  | "SHAME_VOTING_CLOSED"
   | "CANTEEN_NOT_FOUND";
 
 export type ShameVoteResult =
@@ -58,7 +55,6 @@ function expectedShameVoteError(error: unknown): ShameVoteErrorCode | null {
     case "USER_BANNED":
     case "RATE_LIMIT_EXCEEDED":
     case "DAILY_LIMIT_EXCEEDED":
-    case "SHAME_VOTING_CLOSED":
     case "CANTEEN_NOT_FOUND":
       return error.message;
     default:
@@ -158,13 +154,7 @@ async function appendShameVoteOrThrow(
   canteenId: string,
 ): Promise<ShameVoteResult> {
   const voteDate = hktCalendarDate();
-  const [, votingEndDate] = await Promise.all([
-    assertCanteenExists(canteenId),
-    getCanteenShameVoteEndDate(),
-  ]);
-  if (!isShameVotingOpen(voteDate, votingEndDate)) {
-    throw new Error("SHAME_VOTING_CLOSED");
-  }
+  await assertCanteenExists(canteenId);
 
   if (isCanteenMockMode()) {
     const sessionUser = await syncMockVoterFromSession();

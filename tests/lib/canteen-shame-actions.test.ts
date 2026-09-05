@@ -35,7 +35,6 @@ import {
 import { hktCalendarDate } from "@/lib/canteen-shame-rank";
 import {
   mockEnsureAnonSession,
-  mockAppendShameVote,
   mockSetVoterUserId,
   resetCanteenMockState,
 } from "@/lib/canteen-mock";
@@ -43,7 +42,7 @@ import { resetVoteRateLimitForTests } from "@/lib/canteen-vote-rate-limit";
 
 const DEMO_CANTEEN_ID = "mock-canteen-demo";
 const VOTING_OPEN_NOW = new Date("2026-09-01T15:59:00.000Z");
-const VOTING_CLOSED_NOW = new Date("2026-09-01T16:00:00.000Z");
+const VOTING_AFTER_FORMER_END_NOW = new Date("2026-09-01T16:00:00.000Z");
 
 describe("canteen-shame-actions (mock mode)", () => {
   const prevMock = process.env.CANTEEN_MOCK_DATA;
@@ -96,13 +95,15 @@ describe("canteen-shame-actions (mock mode)", () => {
     expect(counts[DEMO_CANTEEN_ID]).toBe(3);
   });
 
-  it("counts votes across dates for the historical ranking", async () => {
-    mockAppendShameVote(DEMO_CANTEEN_ID, "2026-07-26");
-    mockAppendShameVote(DEMO_CANTEEN_ID, "2026-07-27");
-    expect((await getShameVoteCounts())[DEMO_CANTEEN_ID]).toBe(2);
-    expect(
-      (await getShameVoteCountsForDate("2026-07-27"))[DEMO_CANTEEN_ID],
-    ).toBe(1);
+  it("keeps votes from every date in the cumulative count", async () => {
+    await appendShameVote(DEMO_CANTEEN_ID);
+    vi.setSystemTime(VOTING_AFTER_FORMER_END_NOW);
+    await appendShameVote(DEMO_CANTEEN_ID);
+
+    const cumulativeCounts = await getShameVoteCounts();
+    const currentDayCounts = await getShameVoteCountsForDate("2026-09-02");
+    expect(cumulativeCounts[DEMO_CANTEEN_ID]).toBe(2);
+    expect(currentDayCounts[DEMO_CANTEEN_ID]).toBe(1);
   });
 
   it("allows guests via anon session", async () => {
@@ -150,12 +151,13 @@ describe("canteen-shame-actions (mock mode)", () => {
     expect(counts[DEMO_CANTEEN_ID]).toBe(3);
   });
 
-  it("rejects stomps after the configured HKT end date", async () => {
-    vi.setSystemTime(VOTING_CLOSED_NOW);
+  it("keeps accepting stomps after the former configured HKT end date", async () => {
+    vi.setSystemTime(VOTING_AFTER_FORMER_END_NOW);
 
     await expect(appendShameVote(DEMO_CANTEEN_ID)).resolves.toEqual({
-      ok: false,
-      code: "SHAME_VOTING_CLOSED",
+      ok: true,
+      canteenId: DEMO_CANTEEN_ID,
+      voteDate: "2026-09-02",
     });
   });
 

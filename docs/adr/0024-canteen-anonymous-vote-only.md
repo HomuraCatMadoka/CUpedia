@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted; decision 8 is superseded by [ADR 0039](./0039-canteen-shame-voting-always-open.md). The remaining decisions remain accepted.
 
 ## Context
 
