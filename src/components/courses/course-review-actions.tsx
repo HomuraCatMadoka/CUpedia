@@ -18,6 +18,7 @@ export function CourseReviewActions({
   return (
     <div className="mt-5 flex flex-wrap gap-2" aria-label="课程测评操作">
       <Link
+        prefetch={false}
         href={writeReviewHref}
         className={buttonVariants({ size: "lg" })}
         onClick={(event) => {
@@ -38,6 +39,7 @@ export function CourseReviewActions({
         {hasPublishedReview ? "编辑测评" : "写测评"}
       </Link>
       <Link
+        prefetch={false}
         href={commentsHref}
         className={buttonVariants({ size: "lg", variant: "outline" })}
       >

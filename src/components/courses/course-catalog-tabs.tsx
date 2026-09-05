@@ -14,6 +14,7 @@ export function CourseCatalogTabs({
         { id: "professors" as const, href: "/professors", label: "教授" },
       ].map((item) => (
         <Link
+          prefetch={false}
           key={item.id}
           href={item.href}
           aria-current={active === item.id ? "page" : undefined}
