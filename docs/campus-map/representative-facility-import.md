@@ -1,6 +1,7 @@
 # Campus Map V2 代表设施资料
 
-Status: Research snapshot  
+Status: Research snapshot
+
 Last verified: 2026-09-04
 
 这份清单只用于验证 V2 数据结构能否容纳真实资料，不是生产全量种子，也不是爬虫规则。固定 payload
