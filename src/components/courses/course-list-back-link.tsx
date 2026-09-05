@@ -18,6 +18,7 @@ export function CourseListBackLink({
 
   return (
     <Link
+      prefetch={false}
       href={href}
       onClick={(event) => {
         if (

@@ -176,6 +176,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
           <div className="flex min-w-0 items-center md:shrink-0">
             {leading}
             <Link
+              prefetch={false}
               href="/"
               className="flex min-h-11 min-w-0 touch-manipulation items-center rounded-md px-1 text-lg font-bold tracking-[-0.035em] transition-[background-color,transform] active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:min-h-0 md:px-0"
             >
@@ -188,6 +189,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
           >
             {DESKTOP_PRODUCT_NAVIGATION.map((item) => (
               <Link
+                prefetch={false}
                 key={item.id}
                 href={item.href}
                 aria-label={
@@ -213,6 +215,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
             className="col-start-2 flex shrink-0 items-center gap-0 md:gap-1"
           >
             <Link
+              prefetch={false}
               href="/updates"
               aria-label="产品更新"
               className="hidden min-h-8 touch-manipulation items-center gap-1.5 rounded-md px-2 text-sm font-medium text-emerald-700 transition-[background-color,color,transform] hover:bg-emerald-950/5 hover:text-emerald-900 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:flex dark:text-emerald-300 dark:hover:bg-emerald-200/10 dark:hover:text-emerald-200"
@@ -300,6 +303,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
             ) : mounted ? (
               <>
                 <Link
+                  prefetch={false}
                   href="/login"
                   aria-label="登录后可读取通知"
                   className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-accent hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:size-8"
@@ -312,6 +316,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                   className={accountSlotClassName}
                 >
                   <Link
+                    prefetch={false}
                     href="/login"
                     aria-label="登录"
                     className={cn(
