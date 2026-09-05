@@ -46,6 +46,6 @@ CUpedia 现有十个限界上下文。本文件是上下文清单和关系的唯
   [ADR 0036](./docs/adr/0036-model-campus-map-place-feedback-as-one-current-submission.md)；
   高德热点与 canonical 卡片的交互边界见
   [ADR 0038](./docs/adr/0038-canonical-campus-map-browse-targets.md)，精简后的 V2 运营事实见
-  [ADR 0039](./docs/adr/0039-campus-map-minimal-place-facts-v2.md)
+  [ADR 0040](./docs/adr/0040-campus-map-minimal-place-facts-v2.md)
 
 完整决策清单见 [ADR 索引](./docs/adr/README.md)。

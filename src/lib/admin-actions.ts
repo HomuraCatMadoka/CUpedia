@@ -7,9 +7,7 @@ import { requireAdmin, requireOwner } from "@/lib/auth-guard";
 import { escapeLikePattern } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import {
-  getCanteenShameVoteEndDate,
   getWikiEditRoleFresh,
-  setCanteenShameVoteEndDate,
   setWikiEditRole as _setWikiEditRole,
   getOwnerUserId,
 } from "@/lib/site-settings";
@@ -167,16 +165,4 @@ export async function updateWikiEditRole(role: "admin" | "user") {
   await requireAdmin();
   await _setWikiEditRole(role);
   revalidatePath("/admin/settings");
-}
-
-export async function getCanteenShameVoteEndDateSetting() {
-  await requireAdmin();
-  return getCanteenShameVoteEndDate();
-}
-
-export async function updateCanteenShameVoteEndDate(value: string) {
-  await requireAdmin();
-  await setCanteenShameVoteEndDate(value);
-  revalidatePath("/admin/settings");
-  revalidatePath("/canteen/shit-rank");
 }

@@ -14,6 +14,8 @@ async function startOutdoorFacilityAdd(page: Page) {
     page.getByRole("heading", { name: "设施在哪里？" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "选择室外位置" }).click();
+  // No drag is required: reprojection to the mobile anchor must synchronize
+  // the draft candidate and enable confirmation on its own (ref #874).
   const usePosition = page.getByRole("button", { name: "使用此位置" });
   await expect(usePosition).toBeEnabled();
   await usePosition.click();
@@ -183,7 +185,7 @@ test("Campus Map editing keeps the minimal Add facts beside the desktop map", as
   expect(publishBox!.y + publishBox!.height).toBeLessThanOrEqual(800);
 });
 
-test("Campus Map Add honestly reports an empty Building directory", async ({
+test("Campus Map Add offers the preserved official Building directory", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -194,7 +196,12 @@ test("Campus Map Add honestly reports an empty Building directory", async ({
   await expect(
     page.getByRole("heading", { name: "设施在哪里？" }),
   ).toBeVisible();
-  await expect(page.getByText("当前没有已收录建筑。")).toBeVisible();
+  // Provisioning preserves migration-owned buildings. Empty-directory behavior
+  // is covered with an explicitly empty projection in the component tests.
+  await expect(page.getByText("当前没有已收录建筑。")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: /选择.+作为所属建筑/ }).first(),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "选择室外位置" }),
   ).toBeVisible();

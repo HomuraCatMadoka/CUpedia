@@ -1,7 +1,7 @@
 # Campus Map canonical fact store
 
 Issues #717 and #865 implement the persistence boundary described by ADR 0034,
-ADR 0035, ADR 0038, and ADR 0039. Provider objects are evidence about canonical
+ADR 0035, ADR 0038, and ADR 0040. Provider objects are evidence about canonical
 entities; they are not the identity of a Building, Floor, or Place.
 
 ## Ownership and interfaces

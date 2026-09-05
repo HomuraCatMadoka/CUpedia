@@ -2,7 +2,7 @@
 status: accepted
 ---
 
-# ADR 0039：Campus Map V2 只保存最小、可核对的地点事实
+# ADR 0040：Campus Map V2 只保存最小、可核对的地点事实
 
 ADR 0034 的稳定 Building、Floor、Place 身份、位置证据、来源和供应商隔离继续有效。本决议取代
 其中 Pin type 及 audience、进场凭证、预约条件组成的首版访问模型；历史 V1 revision 保持原样。
