@@ -47,7 +47,7 @@ test.describe("#875 navigation only requests pages on intent", () => {
     ).not.toBe("dev");
   });
 
-  test("desktop catalogue stays idle and explicit professor navigation works", async ({
+  test("desktop catalogue stays idle and explicit product navigation works", async ({
     page,
   }) => {
     const paths = trackPrefetch(page);
@@ -55,11 +55,13 @@ test.describe("#875 navigation only requests pages on intent", () => {
     await expect(page.getByRole("heading", { name: "查找课程" })).toBeVisible();
     await expectIdleWithoutPrefetch(page, paths);
 
+    // Use a destination backed by global fixtures. The professor suite seeds
+    // its own directory later; visiting it here would cache the unseeded data.
     await page
-      .getByRole("navigation", { name: "课程测评目录" })
-      .getByRole("link", { name: "教授", exact: true })
+      .getByTestId("global-header")
+      .getByRole("link", { name: /CU Bus/ })
       .click();
-    await expect(page).toHaveURL(/\/professors$/);
+    await expect(page).toHaveURL(/\/campus-bus$/);
   });
 
   test("opening the mobile menu does not load its destinations", async ({
