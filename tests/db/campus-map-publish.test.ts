@@ -1,6 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+
+vi.mock("server-only", () => ({}));
 
 import {
   publishCampusMapChangeset,
@@ -12,9 +22,11 @@ import {
   getCampusMapCurrentPlace,
   getCampusMapPlaceHistory,
   getCampusMapPlaceRevision,
+  listCampusMapBrowseBuildings,
   listCampusMapChangesets,
   listCampusMapCurrentPlaces,
 } from "@/lib/campus-map/fact-store";
+import { readCampusMapBrowse } from "@/lib/campus-map/browse-projection";
 import {
   discardCampusMapPlacePhotoAssets,
   getCampusMapPlacePhotoObject,
@@ -24,8 +36,17 @@ import {
   getCampusMapModerationTarget,
   listCampusMapModerationQueue,
 } from "@/lib/campus-map/moderation-governance";
+import { importCampusMapRepresentativeFacilities } from "@/lib/campus-map/representative-facility-import";
+import {
+  buildCampusMapRepresentativeFacilityCommand,
+  getCampusMapRepresentativeFacilityManifest,
+} from "@/lib/campus-map/representative-facility-manifest";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
+const representativeManifest = getCampusMapRepresentativeFacilityManifest();
+const representativeSourceRefs = representativeManifest.entries.flatMap(
+  (entry) => entry.change.sources.map((source) => source.ref),
+);
 
 function createCommand(): CampusMapPublishCommand {
   return {
@@ -43,15 +64,13 @@ function createCommand(): CampusMapPublishCommand {
           name: "大学图书馆饮水点",
           buildingId: "00000000-0000-4000-8000-000000000802",
           floorId: null,
-          pinType: "water",
+          placeType: "water",
+          regularHours: null,
+          officialActions: [],
+          visitNote: null,
           capabilities: [],
-          gender: "unknown",
-          wheelchairAccess: "unknown",
-          audience: "cuhk-member",
-          credentialRequirement: "library-card",
-          accessSchedule: { kind: "unknown" },
-          reservationRequirement: "none",
-          temporaryStatus: "normal",
+          gender: null,
+          wheelchairAccess: null,
           location: { kind: "building" },
           observedAt: "2026-08-24T00:00:00.000Z",
         },
@@ -122,6 +141,14 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       await client.query("delete from campus_map_moderation_cases");
       await client.query("delete from campus_map_moderation_rate_limits");
       await client.query("delete from campus_map_contributor_blocks");
+      await client.query(
+        "delete from campus_map_provider_mapping_requests where actor_id_snapshot = any($1::uuid[])",
+        [actorIds],
+      );
+      await client.query(
+        "delete from campus_map_provider_mapping_events where actor_id_snapshot = any($1::uuid[])",
+        [actorIds],
+      );
       if (placeIds.length > 0) {
         await client.query(
           "delete from campus_map_current_facts where place_id = any($1::uuid[])",
@@ -193,6 +220,10 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       }
       await client.query(
         "delete from campus_map_provenance_sources where source_ref like 'test:campus-map-publish:%'",
+      );
+      await client.query(
+        "delete from campus_map_provenance_sources where source_ref = any($1::text[])",
+        [representativeSourceRefs],
       );
       await client.query("commit");
     } catch (error) {
@@ -473,6 +504,146 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
         clientIp: "203.0.113.3",
       }),
     ).resolves.toEqual({ status: "forbidden", code: "admin-required" });
+  });
+
+  it("imports reviewed facilities once without creating provider mappings", async () => {
+    const firstActorId = await createActor({ role: "admin" });
+    const secondActorId = await createActor({ role: "admin" });
+
+    const imported = await importCampusMapRepresentativeFacilities({
+      actorId: firstActorId,
+      clientIp: "203.0.113.203",
+    });
+    expect(imported).toMatchObject({
+      status: "imported",
+      outcome: "published",
+      changesetId: expect.any(String),
+    });
+    if (imported.status !== "imported") throw new Error("import failed");
+    expect(imported.bindings).toHaveLength(4);
+
+    await expect(
+      importCampusMapRepresentativeFacilities({
+        actorId: firstActorId,
+        clientIp: "203.0.113.203",
+      }),
+    ).resolves.toEqual({
+      ...imported,
+      outcome: "already-present",
+      changesetId: null,
+    });
+    await expect(
+      importCampusMapRepresentativeFacilities({
+        actorId: secondActorId,
+        clientIp: "203.0.113.204",
+      }),
+    ).resolves.toEqual({
+      ...imported,
+      outcome: "already-present",
+      changesetId: null,
+    });
+
+    for (const [index, entry] of representativeManifest.entries.entries()) {
+      await expect(
+        getCampusMapCurrentPlace(imported.bindings[index]!.placeId),
+      ).resolves.toMatchObject({
+        name: entry.change.fact.name,
+        placeType: entry.change.fact.placeType,
+      });
+    }
+
+    const projection = await readCampusMapBrowse({
+      listBuildings: listCampusMapBrowseBuildings,
+      listCurrentPlaces: listCampusMapCurrentPlaces,
+    });
+    expect(projection.places.map((place) => place.name)).toContain("BMS LT");
+    expect(
+      projection.places.some((place) =>
+        ["sports-facility", "health-service"].includes(place.pinType),
+      ),
+    ).toBe(false);
+
+    const mappings = await pool.query<{ count: string }>(
+      `select count(*)::text as count
+         from campus_map_provider_mapping_events
+        where actor_id_snapshot = any($1::uuid[])`,
+      [[firstActorId, secondActorId]],
+    );
+    expect(Number(mappings.rows[0]?.count)).toBe(0);
+  });
+
+  it("serializes the first representative import across administrators", async () => {
+    const firstActorId = await createActor({ role: "admin" });
+    const secondActorId = await createActor({ role: "admin" });
+    const attempts = await Promise.all(
+      [firstActorId, secondActorId].map((actorId, index) =>
+        importCampusMapRepresentativeFacilities({
+          actorId,
+          clientIp: `203.0.113.${210 + index}`,
+        }),
+      ),
+    );
+
+    expect(
+      attempts.filter(
+        (attempt) =>
+          attempt.status === "imported" && attempt.outcome === "published",
+      ),
+    ).toHaveLength(1);
+    expect(
+      attempts.every(
+        (attempt) =>
+          attempt.status === "imported" ||
+          (attempt.status === "temporarily-unavailable" &&
+            attempt.code === "manifest-import-in-progress"),
+      ),
+    ).toBe(true);
+
+    const created = await pool.query<{ count: string }>(
+      `select count(*)::text as count
+         from campus_map_place_changes pc
+         join campus_map_changesets cs on cs.id = pc.changeset_id
+        where cs.actor_id_snapshot = any($1::uuid[])
+          and pc.operation = 'create'`,
+      [[firstActorId, secondActorId]],
+    );
+    expect(Number(created.rows[0]?.count)).toBe(4);
+  });
+
+  it("requires an admin and refuses a partially present representative set", async () => {
+    const contributorId = await createActor();
+    await expect(
+      importCampusMapRepresentativeFacilities({
+        actorId: contributorId,
+        clientIp: "203.0.113.205",
+      }),
+    ).resolves.toEqual({
+      status: "rejected",
+      result: { status: "forbidden", code: "admin-required" },
+    });
+
+    const adminId = await createActor({ role: "admin" });
+    const partial = buildCampusMapRepresentativeFacilityCommand();
+    partial.idempotencyKey = randomUUID();
+    partial.changes = partial.changes.slice(0, 2);
+    await expect(
+      publishCampusMapChangeset(partial, {
+        actorId: adminId,
+        clientIp: "203.0.113.206",
+      }),
+    ).resolves.toMatchObject({ status: "published" });
+
+    await expect(
+      importCampusMapRepresentativeFacilities({
+        actorId: adminId,
+        clientIp: "203.0.113.206",
+      }),
+    ).resolves.toEqual({
+      status: "conflict",
+      code: "manifest-partially-present",
+      key: representativeManifest.entries[2]!.key,
+      changesetId: null,
+    });
   });
 
   it("forbids a freshly banned contributor", async () => {
@@ -845,13 +1016,11 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     const malformedSchedule = createCommand();
     const scheduleChange = malformedSchedule.changes[0];
     if (scheduleChange.operation !== "create") throw new Error("bad fixture");
-    scheduleChange.fact.accessSchedule = {
-      kind: "weekly",
+    scheduleChange.fact.regularHours = {
       timezone: "Asia/Hong_Kong",
       intervals: [
-        null as unknown as Extract<
-          typeof scheduleChange.fact.accessSchedule,
-          { kind: "weekly" }
+        null as unknown as NonNullable<
+          typeof scheduleChange.fact.regularHours
         >["intervals"][number],
       ],
     };
@@ -864,8 +1033,8 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       status: "validation-failed",
       errors: [
         {
-          code: "invalid-access-schedule",
-          anchor: { changeIndex: 0, field: "accessSchedule" },
+          code: "invalid-regular-hours",
+          anchor: { changeIndex: 0, field: "regularHours" },
         },
       ],
     });
@@ -899,8 +1068,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     if (extendedScheduleChange.operation !== "create") {
       throw new Error("bad fixture");
     }
-    extendedScheduleChange.fact.accessSchedule = {
-      kind: "weekly",
+    extendedScheduleChange.fact.regularHours = {
       timezone: "Asia/Hong_Kong",
       intervals: [
         {
@@ -908,9 +1076,8 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
           opensAt: "09:00",
           closesAt: "17:00",
           untrusted: "extra",
-        } as unknown as Extract<
-          typeof extendedScheduleChange.fact.accessSchedule,
-          { kind: "weekly" }
+        } as unknown as NonNullable<
+          typeof extendedScheduleChange.fact.regularHours
         >["intervals"][number],
       ],
     };
@@ -923,8 +1090,8 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       status: "validation-failed",
       errors: [
         {
-          code: "invalid-access-schedule",
-          anchor: { changeIndex: 0, field: "accessSchedule" },
+          code: "invalid-regular-hours",
+          anchor: { changeIndex: 0, field: "regularHours" },
         },
       ],
     });
@@ -1927,10 +2094,9 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     const create = createCommand();
     const createChange = create.changes[0];
     if (createChange.operation !== "create") throw new Error("bad fixture");
-    createChange.fact.pinType = "printer";
+    createChange.fact.placeType = "printer";
     createChange.fact.capabilities = ["print", "scan"];
-    createChange.fact.accessSchedule = {
-      kind: "weekly",
+    createChange.fact.regularHours = {
       timezone: "Asia/Hong_Kong",
       intervals: [
         {
@@ -1964,7 +2130,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
         fact: {
           ...structuredClone(createChange.fact),
           capabilities: ["scan", "print"],
-          accessSchedule: {
+          regularHours: {
             intervals: [
               {
                 closesAt: "17:00",
@@ -1978,7 +2144,6 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
               },
             ],
             timezone: "Asia/Hong_Kong",
-            kind: "weekly",
           },
         },
         sources: updateFixture.sources,
@@ -3024,7 +3189,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
           currentStatus: "active",
           currentPhotos: [],
           currentSnapshot: expect.objectContaining({
-            factSchemaVersion: 1,
+            factSchemaVersion: 2,
             name: "先发布的名称",
             buildingId: "00000000-0000-4000-8000-000000000802",
             location: { kind: "building" },
@@ -3095,7 +3260,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     const change = command.changes[0];
     if (change.operation !== "create") throw new Error("bad fixture");
     change.fact.name = "   ";
-    change.fact.pinType = "atm" as typeof change.fact.pinType;
+    change.fact.placeType = "atm" as typeof change.fact.placeType;
     change.fact.location = {
       kind: "outdoor-point",
       longitude: 114.2,
@@ -3117,8 +3282,8 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
           anchor: { changeIndex: 0, field: "name" },
         },
         {
-          code: "invalid-pin-type",
-          anchor: { changeIndex: 0, field: "pinType" },
+          code: "invalid-place-type",
+          anchor: { changeIndex: 0, field: "placeType" },
         },
         {
           code: "invalid-location",
@@ -3447,7 +3612,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       const change = command.changes[0];
       if (change.operation !== "create") throw new Error("bad fixture");
       change.fact.name = "洗手间";
-      change.fact.pinType = "toilet";
+      change.fact.placeType = "toilet";
       change.fact.buildingId = null;
       change.fact.floorId = null;
       change.fact.location = {

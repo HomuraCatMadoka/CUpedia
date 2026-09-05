@@ -135,7 +135,6 @@ async function removePlaceFixture(client: Client) {
       [provenanceIds],
     );
   }
-  await client.query("delete from campus_map_fact_schemas where version = 816");
   return photoRows.rows.flatMap((row) => [
     row.full_object_key,
     row.thumbnail_object_key,
@@ -149,11 +148,6 @@ async function resetPlaceFixture() {
     try {
       await client.query("set local session_replication_role = replica");
       staleObjectKeys = await removePlaceFixture(client);
-      await client.query(
-        `insert into campus_map_fact_schemas
-           (version, status, definition, display_metadata)
-         values (816, 'draft', '{"fields":{},"pinTypes":{}}', '{}')`,
-      );
       await client.query("insert into campus_map_places (id) values ($1)", [
         ids.place,
       ]);
@@ -176,14 +170,12 @@ async function resetPlaceFixture() {
         `insert into campus_map_fact_revisions
            (id, place_id, changeset_id, place_change_id, fact_schema_version,
             field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
-            name, pin_type, capabilities, gender, wheelchair_access, audience,
-            credential_requirement, access_schedule, reservation_requirement,
-            temporary_status, location_kind, point_precision, longitude,
+            name, pin_type, capabilities, gender, wheelchair_access,
+            regular_hours, temporary_status, location_kind, point_precision, longitude,
             latitude, coordinate_crs, observed_at, verified_at,
             verified_by_actor_id_snapshot, created_at)
-         values ($1, $2, $3, $4, 816, '{}', 'active', $5, '地图贡献者',
-           $6, 'water', '{}', 'unknown', 'yes', 'cuhk-member', 'campus-card',
-           '{"kind":"always"}', 'none', 'normal', 'outdoor-point', 'precise',
+         values ($1, $2, $3, $4, 2, '{}', 'active', $5, '地图贡献者',
+           $6, 'water', '{}', null, 'yes', null, null, 'outdoor-point', 'precise',
            114.208321, 22.419876, 'wgs84', '2026-08-30T00:00:00Z',
            '2026-08-30T01:00:00Z', $5, '2026-08-30T01:00:00Z')`,
         [
@@ -220,13 +212,11 @@ async function resetPlaceFixture() {
       await client.query(
         `insert into campus_map_current_facts
            (place_id, revision_id, fact_schema_version, name, pin_type,
-            capabilities, gender, wheelchair_access, audience,
-            credential_requirement, access_schedule, reservation_requirement,
+            capabilities, gender, wheelchair_access, regular_hours,
             temporary_status, location_kind, point_precision, longitude,
             latitude, coordinate_crs, observed_at, verified_at,
             verified_by_actor_id_snapshot, published_at)
-         values ($1, $2, 816, $3, 'water', '{}', 'unknown', 'yes',
-           'cuhk-member', 'campus-card', '{"kind":"always"}', 'none', 'normal',
+         values ($1, $2, 2, $3, 'water', '{}', null, 'yes', null, null,
            'outdoor-point', 'precise', 114.208321, 22.419876, 'wgs84',
            '2026-08-30T00:00:00Z', '2026-08-30T01:00:00Z', $4,
            '2026-08-30T01:00:00Z')`,
@@ -305,8 +295,11 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
       ).toBeVisible();
       await expect(detail.getByText("饮水点", { exact: true })).toBeVisible();
       await expect(detail.getByText("室外 · 精确位置")).toBeVisible();
-      await expect(detail.getByText("中大成员", { exact: true })).toBeVisible();
-      await expect(detail.getByText("校园卡", { exact: true })).toBeVisible();
+      await expect(detail.getByText("可通行", { exact: true })).toBeVisible();
+      await expect(detail.getByText("中大成员", { exact: true })).toHaveCount(
+        0,
+      );
+      await expect(detail.getByText("校园卡", { exact: true })).toHaveCount(0);
       await expect(
         detail.getByRole("link", { name: "查看编辑记录 / History" }),
       ).toHaveAttribute("href", `/campus-map/places/${ids.place}/history`);

@@ -869,6 +869,20 @@
       "when": 1788419803630,
       "tag": "0123_campus_map_amap_hotspot_mappings",
       "breakpoints": true
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1788620203841,
+      "tag": "0124_campus_map_fact_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1788624346321,
+      "tag": "0125_campus_map_regular_hours_validation",
+      "breakpoints": true
     }
   ]
 }

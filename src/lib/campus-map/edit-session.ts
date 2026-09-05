@@ -14,9 +14,12 @@ import {
   firstInvalidCampusMapEditField,
   type CampusMapEditFieldKey,
 } from "@/lib/campus-map/edit-schema";
+import { isCampusMapOfficialAction } from "@/lib/campus-map/official-action";
+import { campusMapFactFieldAppliesV2 } from "@/lib/campus-map/place-type-contract";
+import { isCampusMapRegularHours } from "@/lib/campus-map/regular-hours";
 import {
   campusMapFactFieldLabel,
-  campusMapPinTypeLabel,
+  campusMapPlaceTypeLabel,
   campusMapProvenanceKindLabel,
 } from "@/lib/campus-map/display-registry";
 import {
@@ -25,7 +28,7 @@ import {
   type CampusMapPlacePhotoRole,
 } from "@/lib/campus-map/place-photos-contract";
 
-export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 7 as const;
+export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 9 as const;
 
 export type CampusMapPublishFeedbackReason = Extract<
   CampusMapPublishReceiptOutcome,
@@ -52,12 +55,12 @@ export interface CampusMapIndoorLocationDisplay {
 export type CampusMapFacilityAddEntry =
   | {
       kind: "global";
-      pinType?: CampusMapPublishFactInput["pinType"];
+      placeType?: CampusMapPublishFactInput["placeType"];
     }
   | {
       kind: "building";
       locationDisplay: CampusMapIndoorLocationDisplay;
-      pinType?: CampusMapPublishFactInput["pinType"];
+      placeType?: CampusMapPublishFactInput["placeType"];
     };
 
 type CampusMapEditFact = Omit<CampusMapPublishFactInput, "location"> & {
@@ -222,8 +225,8 @@ export type CampusMapEditEvent =
       locationDisplay?: CampusMapIndoorLocationDisplay | null;
     }
   | {
-      type: "CHANGE_PIN_TYPE";
-      pinType: CampusMapPublishFactInput["pinType"];
+      type: "CHANGE_PLACE_TYPE";
+      placeType: CampusMapPublishFactInput["placeType"];
       idempotencyKey?: string;
     }
   | {
@@ -284,15 +287,13 @@ const DEFAULT_FACT: CampusMapEditDraft["fact"] = {
   name: DEFAULT_PRESET.defaultName,
   buildingId: null,
   floorId: null,
-  pinType: DEFAULT_PRESET.pinType,
+  placeType: DEFAULT_PRESET.placeType,
+  regularHours: null,
+  officialActions: [],
+  visitNote: null,
   capabilities: [],
-  gender: "unknown",
-  wheelchairAccess: "unknown",
-  audience: "unknown",
-  credentialRequirement: "unknown",
-  accessSchedule: { kind: "unknown" },
-  reservationRequirement: "unknown",
-  temporaryStatus: "unknown",
+  gender: null,
+  wheelchairAccess: null,
   location: null,
   observedAt: null,
 };
@@ -305,12 +306,12 @@ function minimalAddFact(
   fact: CampusMapEditDraft["fact"],
 ): CampusMapEditDraft["fact"] {
   const preset = CAMPUS_MAP_EDIT_SCHEMA.presets.find(
-    (candidate) => candidate.pinType === fact.pinType,
+    (candidate) => candidate.placeType === fact.placeType,
   );
   return {
     ...clone(DEFAULT_FACT),
     name: preset?.defaultName ?? DEFAULT_FACT.name,
-    pinType: fact.pinType,
+    placeType: fact.placeType,
     buildingId: fact.buildingId,
     floorId: fact.floorId,
     location: clone(fact.location),
@@ -592,18 +593,15 @@ function normalizeServerErrorTarget(field: string | undefined): string {
   if (path.includes("location") || path.includes("floorId")) {
     return "location";
   }
-  if (path.includes("pinType")) return "pinType";
+  if (path.includes("placeType")) return "placeType";
   if (path.includes("photos")) return "photos";
   if (path.includes("name")) return "name";
-  if (path.includes("audience")) return "audience";
-  if (path.includes("credentialRequirement")) {
-    return "credentialRequirement";
-  }
-  if (path.includes("accessSchedule")) return "accessSchedule";
-  if (path.includes("reservationRequirement")) {
-    return "reservationRequirement";
-  }
-  if (path.includes("temporaryStatus")) return "temporaryStatus";
+  if (path.includes("regularHours")) return "regularHours";
+  if (path.includes("officialActions")) return "officialActions";
+  if (path.includes("visitNote")) return "visitNote";
+  if (path.includes("capabilities")) return "capabilities";
+  if (path.includes("gender")) return "gender";
+  if (path.includes("wheelchairAccess")) return "wheelchairAccess";
   return "form-heading";
 }
 
@@ -688,7 +686,7 @@ function mapSubmissionSource(accessedOn: string): CampusMapPublishSourceInput {
     observedAt: null,
     rightsStatus: "unknown",
     limitations:
-      "用户通过 Campus Map 提交名称、位置、设施类型与结构化访问条件；未提供独立资料来源。",
+      "用户通过 Campus Map 提交名称、位置、地点类型与可选运营资料；未提供独立资料来源。",
     note: null,
     sourceCoordinate: null,
   };
@@ -702,15 +700,15 @@ export function transitionCampusMapEdit(
     if (session) return rejected(session);
     const locationDisplay =
       event.entry.kind === "building" ? event.entry.locationDisplay : null;
-    const pinType = event.entry.pinType ?? DEFAULT_FACT.pinType;
+    const placeType = event.entry.placeType ?? DEFAULT_FACT.placeType;
     const preset = CAMPUS_MAP_EDIT_SCHEMA.presets.find(
-      (candidate) => candidate.pinType === pinType,
+      (candidate) => candidate.placeType === placeType,
     );
     const indoorFact: CampusMapPublishFactInput | null = locationDisplay
       ? {
           ...clone(DEFAULT_FACT),
           name: preset?.defaultName ?? DEFAULT_FACT.name,
-          pinType,
+          placeType,
           buildingId: locationDisplay.buildingId,
           floorId: locationDisplay.floorId,
           location: {
@@ -721,7 +719,7 @@ export function transitionCampusMapEdit(
     const initialFact: CampusMapEditDraft["fact"] = indoorFact ?? {
       ...clone(DEFAULT_FACT),
       name: preset?.defaultName ?? DEFAULT_FACT.name,
-      pinType,
+      placeType,
     };
     const seededDraft = createCampusMapEditDraft({
       mode: "add",
@@ -1088,12 +1086,12 @@ export function transitionCampusMapEdit(
       event.locationDisplay,
     );
   }
-  if (event.type === "CHANGE_PIN_TYPE") {
+  if (event.type === "CHANGE_PLACE_TYPE") {
     const currentPreset = CAMPUS_MAP_EDIT_SCHEMA.presets.find(
-      (preset) => preset.pinType === session.draft.fact.pinType,
+      (preset) => preset.placeType === session.draft.fact.placeType,
     );
     const nextPreset = CAMPUS_MAP_EDIT_SCHEMA.presets.find(
-      (preset) => preset.pinType === event.pinType,
+      (preset) => preset.placeType === event.placeType,
     );
     if (!nextPreset) return rejected(session);
 
@@ -1106,7 +1104,13 @@ export function transitionCampusMapEdit(
     const fact: CampusMapEditDraft["fact"] = {
       ...session.draft.fact,
       name: shouldApplyDefault ? nextPreset.defaultName : currentName,
-      pinType: event.pinType,
+      placeType: event.placeType,
+      capabilities: campusMapFactFieldAppliesV2(event.placeType, "capabilities")
+        ? session.draft.fact.capabilities
+        : [],
+      gender: campusMapFactFieldAppliesV2(event.placeType, "gender")
+        ? session.draft.fact.gender
+        : null,
     };
     return transitionFactChange(session, fact, event.idempotencyKey);
   }
@@ -1624,17 +1628,15 @@ export function transitionCampusMapEdit(
 
 const PUBLISH_FACT_FIELDS: Array<keyof CampusMapPublishFactInput> = [
   "name",
-  "pinType",
+  "placeType",
   "buildingId",
   "floorId",
+  "regularHours",
+  "officialActions",
+  "visitNote",
   "capabilities",
   "gender",
   "wheelchairAccess",
-  "audience",
-  "credentialRequirement",
-  "accessSchedule",
-  "reservationRequirement",
-  "temporaryStatus",
   "location",
   "observedAt",
 ];
@@ -1651,7 +1653,7 @@ export function deriveCampusMapPublishCommand(
   }).map(campusMapFactFieldLabel);
   const comment =
     draft.mode === "add"
-      ? `新增地点：${fact.name}（${campusMapPinTypeLabel(fact.pinType)}）`
+      ? `新增地点：${fact.name}（${campusMapPlaceTypeLabel(fact.placeType)}）`
       : `更新地点：${
           [
             ...changedFields,
@@ -1693,7 +1695,7 @@ export function deriveCampusMapPublishCommand(
     comment,
     sourceSummary,
     reviewRequested: false,
-    client: { name: "CUpedia Campus Map", version: "1" },
+    client: { name: "CUpedia Campus Map", version: "2" },
     warningAcknowledgements: draft.warningAcknowledgements,
     changes: [change],
   };
@@ -1707,6 +1709,125 @@ export function encodeCampusMapEditSnapshot(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function upgradeV1EditFact(value: unknown): unknown {
+  if (!isRecord(value) || "placeType" in value || !("pinType" in value)) {
+    if (!isRecord(value)) return value;
+    const { temporaryStatus, capacity, seatType, ...active } = value;
+    void temporaryStatus;
+    void capacity;
+    void seatType;
+    return active;
+  }
+
+  const { pinType, accessSchedule, ...rest } = value;
+  delete rest.audience;
+  delete rest.credentialRequirement;
+  delete rest.reservationRequirement;
+  delete rest.temporaryStatus;
+  delete rest.capacity;
+  delete rest.seatType;
+  const weeklySchedule =
+    isRecord(accessSchedule) && accessSchedule.kind === "weekly"
+      ? {
+          timezone: accessSchedule.timezone,
+          intervals: accessSchedule.intervals,
+        }
+      : null;
+
+  return {
+    ...rest,
+    placeType: pinType,
+    regularHours: weeklySchedule,
+    officialActions: [],
+    visitNote: null,
+    capabilities: pinType === "printer" ? value.capabilities : [],
+    gender:
+      pinType === "toilet" && value.gender !== "unknown" ? value.gender : null,
+    wheelchairAccess:
+      value.wheelchairAccess === "unknown" ? null : value.wheelchairAccess,
+  };
+}
+
+function upgradeLegacyEditSession(value: unknown, version: number): unknown {
+  if (!isRecord(value) || !isRecord(value.draft)) return value;
+
+  let sessionValue: Record<string, unknown> = value;
+  let draftValue: Record<string, unknown> = value.draft;
+
+  if ([1, 2, 3, 4, 5].includes(version)) {
+    const conflict = isRecord(sessionValue.conflict)
+      ? sessionValue.conflict
+      : null;
+    draftValue = {
+      ...draftValue,
+      ...(version === 1 ? { placementCandidate: null } : {}),
+      locationPolicy: "flexible",
+      entrySource: draftValue.mode === "add" ? "global" : null,
+      locationIntent: null,
+      photos: [],
+      baselinePhotos: [],
+      ...((version === 1 || version === 2) && { locationDisplay: null }),
+    };
+    sessionValue = {
+      ...sessionValue,
+      draft: draftValue,
+      ...((version === 1 || version === 2) && conflict?.kind === "current"
+        ? {
+            conflict: {
+              ...conflict,
+              currentPhotos: [],
+              currentLocationDisplay: null,
+            },
+          }
+        : {}),
+    };
+  } else if (version === 6) {
+    const isGlobalAddAwaitingBuilding =
+      draftValue.mode === "add" &&
+      draftValue.entrySource === "global" &&
+      isRecord(draftValue.fact) &&
+      draftValue.fact.location === null;
+    if (isGlobalAddAwaitingBuilding) {
+      sessionValue = {
+        ...sessionValue,
+        status:
+          sessionValue.status === "editing"
+            ? "selecting-location"
+            : sessionValue.status,
+        ...(sessionValue.status === "confirm-discard" &&
+        sessionValue.returnStatus === "editing"
+          ? { returnStatus: "selecting-location" }
+          : {}),
+        draft: { ...draftValue, locationPolicy: "flexible" },
+      };
+      draftValue = sessionValue.draft as Record<string, unknown>;
+    }
+  }
+
+  const conflict = isRecord(sessionValue.conflict)
+    ? sessionValue.conflict
+    : null;
+  return {
+    ...sessionValue,
+    draft: {
+      ...draftValue,
+      fact: upgradeV1EditFact(draftValue.fact),
+      baselineFact:
+        draftValue.baselineFact === null
+          ? null
+          : upgradeV1EditFact(draftValue.baselineFact),
+    },
+    ...(conflict?.kind === "current"
+      ? {
+          conflict: {
+            ...conflict,
+            currentFact: upgradeV1EditFact(conflict.currentFact),
+          },
+        }
+      : {}),
+  };
 }
 
 function controlled(values: readonly string[], value: unknown): boolean {
@@ -1762,69 +1883,57 @@ function looksLikeFact(
           location.crs === "wgs84" &&
           (location.precision === "approximate" ||
             location.precision === "precise"))));
-  const scheduleValid =
-    isRecord(fact.accessSchedule) &&
-    (fact.accessSchedule.kind === "unknown" ||
-      fact.accessSchedule.kind === "always" ||
-      (fact.accessSchedule.kind === "weekly" &&
-        fact.accessSchedule.timezone === "Asia/Hong_Kong" &&
-        Array.isArray(fact.accessSchedule.intervals) &&
-        (allowIncompleteDraftFields ||
-          fact.accessSchedule.intervals.length > 0) &&
-        fact.accessSchedule.intervals.every(
-          (interval) =>
-            isRecord(interval) &&
-            Array.isArray(interval.days) &&
-            (allowIncompleteDraftFields || interval.days.length > 0) &&
-            interval.days.every((day) =>
-              ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].includes(
-                String(day),
-              ),
-            ) &&
-            typeof interval.opensAt === "string" &&
-            typeof interval.closesAt === "string" &&
-            (allowIncompleteDraftFields
-              ? interval.opensAt === "" ||
-                /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(interval.opensAt)
-              : /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(interval.opensAt)) &&
-            (allowIncompleteDraftFields
-              ? interval.closesAt === "" ||
-                /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(interval.closesAt)
-              : /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(interval.closesAt)) &&
-            (allowIncompleteDraftFields
-              ? interval.opensAt === "" ||
-                interval.closesAt === "" ||
-                interval.opensAt !== interval.closesAt
-              : interval.opensAt !== interval.closesAt),
-        )));
+  const regularHoursValid =
+    fact.regularHours === null ||
+    isCampusMapRegularHours(fact.regularHours) ||
+    (allowIncompleteDraftFields &&
+      isRecord(fact.regularHours) &&
+      fact.regularHours.timezone === "Asia/Hong_Kong" &&
+      Array.isArray(fact.regularHours.intervals) &&
+      fact.regularHours.intervals.every(
+        (interval) =>
+          isRecord(interval) &&
+          Array.isArray(interval.days) &&
+          interval.days.every((day) =>
+            ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].includes(
+              String(day),
+            ),
+          ) &&
+          typeof interval.opensAt === "string" &&
+          typeof interval.closesAt === "string",
+      ));
+  const officialActionsValid =
+    Array.isArray(fact.officialActions) &&
+    fact.officialActions.length <= 8 &&
+    fact.officialActions.every((action) =>
+      allowIncompleteDraftFields
+        ? isRecord(action) &&
+          typeof action.label === "string" &&
+          typeof action.url === "string"
+        : isCampusMapOfficialAction(action),
+    );
   return (
     typeof fact.name === "string" &&
     (fact.buildingId === null || typeof fact.buildingId === "string") &&
     (fact.floorId === null || typeof fact.floorId === "string") &&
-    controlled(CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.pinType, fact.pinType) &&
+    controlled(
+      CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.placeType,
+      fact.placeType,
+    ) &&
     Array.isArray(fact.capabilities) &&
     fact.capabilities.every((item) =>
       controlled(CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.capability, item),
     ) &&
-    controlled(CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.gender, fact.gender) &&
-    controlled(
-      CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.wheelchairAccess,
-      fact.wheelchairAccess,
-    ) &&
-    controlled(CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.audience, fact.audience) &&
-    controlled(
-      CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.credentialRequirement,
-      fact.credentialRequirement,
-    ) &&
-    scheduleValid &&
-    controlled(
-      CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.reservationRequirement,
-      fact.reservationRequirement,
-    ) &&
-    controlled(
-      CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.temporaryStatus,
-      fact.temporaryStatus,
-    ) &&
+    (fact.gender === null ||
+      controlled(CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.gender, fact.gender)) &&
+    (fact.wheelchairAccess === null ||
+      controlled(
+        CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.wheelchairAccess,
+        fact.wheelchairAccess,
+      )) &&
+    regularHoursValid &&
+    officialActionsValid &&
+    (fact.visitNote === null || typeof fact.visitNote === "string") &&
     (fact.observedAt === null || validTimestamp(fact.observedAt)) &&
     validLocation
   );
@@ -2172,65 +2281,18 @@ export function decodeCampusMapEditSnapshot(
   }
   if (!isRecord(value))
     return { status: "discarded", reason: "invalid-snapshot" };
-  let sessionValue = value.session;
+  const version = Number(value.version);
   if (
-    [1, 2, 3, 4, 5].includes(Number(value.version)) &&
-    isRecord(sessionValue) &&
-    isRecord(sessionValue.draft)
+    !Number.isInteger(version) ||
+    version < 1 ||
+    version > CAMPUS_MAP_EDIT_SNAPSHOT_VERSION
   ) {
-    const conflict = isRecord(sessionValue.conflict)
-      ? sessionValue.conflict
-      : null;
-    sessionValue = {
-      ...sessionValue,
-      draft: {
-        ...sessionValue.draft,
-        ...(value.version === 1 ? { placementCandidate: null } : {}),
-        entrySource: sessionValue.draft.mode === "add" ? "global" : null,
-        locationIntent: null,
-        photos: [],
-        baselinePhotos: [],
-        ...((value.version === 1 || value.version === 2) && {
-          locationDisplay: null,
-        }),
-      },
-      ...((value.version === 1 || value.version === 2) &&
-      conflict?.kind === "current"
-        ? {
-            conflict: {
-              ...conflict,
-              currentPhotos: [],
-              currentLocationDisplay: null,
-            },
-          }
-        : {}),
-    };
-  } else if (
-    value.version === 6 &&
-    isRecord(sessionValue) &&
-    isRecord(sessionValue.draft)
-  ) {
-    const isGlobalAddAwaitingBuilding =
-      sessionValue.draft.mode === "add" &&
-      sessionValue.draft.entrySource === "global" &&
-      isRecord(sessionValue.draft.fact) &&
-      sessionValue.draft.fact.location === null;
-    sessionValue = isGlobalAddAwaitingBuilding
-      ? {
-          ...sessionValue,
-          status:
-            sessionValue.status === "editing"
-              ? "selecting-location"
-              : sessionValue.status,
-          ...(sessionValue.status === "confirm-discard" &&
-          sessionValue.returnStatus === "editing"
-            ? { returnStatus: "selecting-location" }
-            : {}),
-        }
-      : sessionValue;
-  } else if (value.version !== CAMPUS_MAP_EDIT_SNAPSHOT_VERSION) {
     return { status: "discarded", reason: "unsupported-version" };
   }
+  const sessionValue =
+    version === CAMPUS_MAP_EDIT_SNAPSHOT_VERSION
+      ? value.session
+      : upgradeLegacyEditSession(value.session, version);
   if (!looksLikeSession(sessionValue) || sessionValue.status === "published") {
     return { status: "discarded", reason: "invalid-snapshot" };
   }

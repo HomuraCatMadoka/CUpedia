@@ -28,18 +28,15 @@ function floorPlace(
   return {
     id: placeId,
     revisionId,
-    factSchemaVersion: 1,
+    factSchemaVersion: 2,
     name: "洗手间",
-    pinType: "toilet",
+    placeType: "toilet",
+    regularHours: null,
+    officialActions: [],
+    visitNote: null,
     capabilities: [],
-    access: {
-      audience: "unknown",
-      credentialRequirement: "unknown",
-      schedule: { kind: "unknown" },
-      reservationRequirement: "unknown",
-      temporaryStatus: "unknown",
-    },
-    facets: { gender: "unknown", wheelchairAccess: "unknown" },
+    gender: null,
+    wheelchairAccess: null,
     location: {
       kind: "floor",
       building: {
@@ -64,7 +61,7 @@ function outdoorPlace(
   return {
     ...floorPlace(placeId, revisionId),
     name: "饮水机",
-    pinType: "water",
+    placeType: "water",
     location: {
       kind: "outdoor-point",
       point: {
@@ -245,6 +242,26 @@ describe("Campus Map browse projection (#647)", () => {
 
     expect(projection.places).toEqual([]);
     expect(projection.buildings[0]?.placeIds).toEqual([]);
+    expect(projection.presences).toEqual([]);
+    expect(projection.markers).toEqual([]);
+  });
+
+  it("keeps new V2 Place types out of the unchanged public map UI", () => {
+    const sportsFacility = {
+      ...floorPlace(
+        "30000000-0000-4000-8000-000000000021",
+        "40000000-0000-4000-8000-000000000021",
+      ),
+      name: "大学游泳池",
+      placeType: "sports-facility" as const,
+    };
+
+    const projection = projectCampusMapBrowse({
+      buildings: [building],
+      places: [sportsFacility],
+    });
+
+    expect(projection.places).toEqual([]);
     expect(projection.presences).toEqual([]);
     expect(projection.markers).toEqual([]);
   });

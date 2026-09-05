@@ -14,13 +14,12 @@ import {
   type CampusMapEditSession,
 } from "@/lib/campus-map/edit-session";
 import {
-  CAMPUS_MAP_EDIT_ACCESS_FIELDS,
   CAMPUS_MAP_EDIT_SCHEMA,
   campusMapFactNameError,
 } from "@/lib/campus-map/edit-schema";
 import {
   campusMapFactFieldLabel,
-  campusMapPinTypeLabel,
+  campusMapPlaceTypeLabel,
   CAMPUS_MAP_DISPLAY_REGISTRY,
 } from "@/lib/campus-map/display-registry";
 import {
@@ -30,6 +29,7 @@ import {
 } from "@/lib/campus-map/building-display";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
+import { CAMPUS_MAP_PIN_TYPES_V1 } from "@/lib/campus-map/controlled-values";
 import { PlacePhotoEditor } from "@/components/campus-map/place-photo-editor";
 
 interface CampusMapEditSheetProps {
@@ -51,6 +51,13 @@ const primaryClass =
 const secondaryClass =
   "min-h-11 touch-manipulation rounded-xl border border-black/15 bg-white px-4 text-sm font-semibold hover:bg-neutral-50 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none";
 const displayOptions = CAMPUS_MAP_DISPLAY_REGISTRY.options;
+const visibleEditorPlaceTypes = new Set<string>(CAMPUS_MAP_PIN_TYPES_V1);
+const visibleEditorDetailFields = new Set([
+  "regularHours",
+  "capabilities",
+  "gender",
+  "wheelchairAccess",
+]);
 
 function today(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -291,7 +298,7 @@ function conflictFields(session: CampusMapEditSession): ConflictChoice[] {
   if (session.conflict?.kind !== "current") return [];
   const current = session.conflict.currentFact;
   const presetChoices: ConflictChoice[] =
-    session.draft.fact.pinType === current.pinType
+    session.draft.fact.placeType === current.placeType
       ? [
           {
             key: "capabilities",
@@ -308,7 +315,7 @@ function conflictFields(session: CampusMapEditSession): ConflictChoice[] {
           {
             key: "preset",
             label: "地点类型及相关资料",
-            fields: ["pinType", "capabilities", "gender"],
+            fields: ["placeType", "capabilities", "gender"],
           },
         ];
   const choices: ConflictChoice[] = [
@@ -324,29 +331,19 @@ function conflictFields(session: CampusMapEditSession): ConflictChoice[] {
       fields: ["wheelchairAccess"],
     },
     {
-      key: "audience",
-      label: campusMapFactFieldLabel("audience"),
-      fields: ["audience"],
+      key: "regularHours",
+      label: campusMapFactFieldLabel("regularHours"),
+      fields: ["regularHours"],
     },
     {
-      key: "credentialRequirement",
-      label: campusMapFactFieldLabel("credentialRequirement"),
-      fields: ["credentialRequirement"],
+      key: "officialActions",
+      label: campusMapFactFieldLabel("officialActions"),
+      fields: ["officialActions"],
     },
     {
-      key: "accessSchedule",
-      label: campusMapFactFieldLabel("accessSchedule"),
-      fields: ["accessSchedule"],
-    },
-    {
-      key: "reservationRequirement",
-      label: campusMapFactFieldLabel("reservationRequirement"),
-      fields: ["reservationRequirement"],
-    },
-    {
-      key: "temporaryStatus",
-      label: campusMapFactFieldLabel("temporaryStatus"),
-      fields: ["temporaryStatus"],
+      key: "visitNote",
+      label: campusMapFactFieldLabel("visitNote"),
+      fields: ["visitNote"],
     },
     {
       key: "placement",
@@ -370,22 +367,23 @@ function conflictFields(session: CampusMapEditSession): ConflictChoice[] {
 
 function optionLabel(
   options: readonly { value: string; label: string }[],
-  value: string,
+  value: string | null,
 ): string {
+  if (value === null) return "未填写";
   return options.find((option) => option.value === value)?.label ?? value;
 }
 
 function presetConflictValue(
   fact: CampusMapEditSession["draft"]["fact"],
 ): string {
-  const label = campusMapPinTypeLabel(fact.pinType);
-  if (fact.pinType === "printer") {
+  const label = campusMapPlaceTypeLabel(fact.placeType);
+  if (fact.placeType === "printer") {
     const capabilities = fact.capabilities.map((capability) =>
       optionLabel(displayOptions.capabilities, capability),
     );
     return `${label} · 服务：${capabilities.join("、") || "未填写"}`;
   }
-  if (fact.pinType === "toilet") {
+  if (fact.placeType === "toilet") {
     return `${label} · 性别：${optionLabel(
       displayOptions.gender,
       fact.gender,
@@ -394,14 +392,11 @@ function presetConflictValue(
   return label;
 }
 
-function scheduleConflictValue(
+function regularHoursConflictValue(
   fact: CampusMapEditSession["draft"]["fact"],
 ): string {
-  if (fact.accessSchedule.kind !== "weekly") {
-    return optionLabel(displayOptions.accessSchedule, fact.accessSchedule.kind);
-  }
-  if (!fact.accessSchedule.intervals.length) return "每周时段（未填写）";
-  return fact.accessSchedule.intervals
+  if (!fact.regularHours) return "未填写";
+  return fact.regularHours.intervals
     .map((interval) => {
       const days = interval.days
         .map((day) => CAMPUS_MAP_DISPLAY_REGISTRY.weekdays[day] ?? day)
@@ -420,7 +415,7 @@ function conflictValue(
   switch (choice.key) {
     case "name":
       return fact.name.trim() || "未填写";
-    case "pinType":
+    case "placeType":
     case "preset":
       return presetConflictValue(fact);
     case "capabilities":
@@ -438,22 +433,15 @@ function conflictValue(
         displayOptions.wheelchairAccess,
         fact.wheelchairAccess,
       );
-    case "audience":
-      return optionLabel(displayOptions.audience, fact.audience);
-    case "credentialRequirement":
-      return optionLabel(
-        displayOptions.credentialRequirement,
-        fact.credentialRequirement,
+    case "regularHours":
+      return regularHoursConflictValue(fact);
+    case "officialActions":
+      return (
+        (fact.officialActions ?? []).map((action) => action.label).join("、") ||
+        "未填写"
       );
-    case "accessSchedule":
-      return scheduleConflictValue(fact);
-    case "reservationRequirement":
-      return optionLabel(
-        displayOptions.reservationRequirement,
-        fact.reservationRequirement,
-      );
-    case "temporaryStatus":
-      return optionLabel(displayOptions.temporaryStatus, fact.temporaryStatus);
+    case "visitNote":
+      return fact.visitNote?.trim() || "未填写";
     case "placement":
       return describeLocation(fact, display, buildingDisplay);
     case "observedAt":
@@ -489,25 +477,28 @@ export function CampusMapEditSheet({
   }>({ key: "", fields: [] });
   const draft = session.draft;
   const fact = draft.fact;
-  const accessHasDetails =
-    fact.audience !== "unknown" ||
-    fact.credentialRequirement !== "unknown" ||
-    fact.accessSchedule.kind !== "unknown" ||
-    fact.reservationRequirement !== "unknown" ||
-    fact.temporaryStatus !== "unknown";
-  const accessDisclosureKey = draft.idempotencyKey;
-  const [accessDisclosure, setAccessDisclosure] = useState({
-    key: accessDisclosureKey,
-    expanded: accessHasDetails,
+  const detailsHaveContent =
+    fact.regularHours != null ||
+    fact.capabilities.length > 0 ||
+    fact.gender != null ||
+    fact.wheelchairAccess != null;
+  const detailsDisclosureKey = draft.idempotencyKey;
+  const [detailsDisclosure, setDetailsDisclosure] = useState({
+    key: detailsDisclosureKey,
+    expanded: detailsHaveContent,
   });
-  const accessExpanded =
-    accessDisclosure.key === accessDisclosureKey
-      ? accessDisclosure.expanded
-      : accessHasDetails;
-  const setAccessDisclosureExpanded = (expanded: boolean) =>
-    setAccessDisclosure({ key: accessDisclosureKey, expanded });
-  const serverRequiredFields =
-    factSchema?.definition.pinTypes[fact.pinType].requiredFields;
+  const detailsExpanded =
+    detailsDisclosure.key === detailsDisclosureKey
+      ? detailsDisclosure.expanded
+      : detailsHaveContent;
+  const setDetailsDisclosureExpanded = (expanded: boolean) =>
+    setDetailsDisclosure({ key: detailsDisclosureKey, expanded });
+  const schemaPlaceDefinition =
+    factSchema?.version === 2
+      ? factSchema.definition.placeTypes[fact.placeType]
+      : null;
+  const schemaUnavailable = schemaPlaceDefinition == null;
+  const serverRequiredFields = schemaPlaceDefinition?.requiredFields;
   const freshAttempt = () =>
     session.status === "temporarily-unavailable"
       ? { idempotencyKey: crypto.randomUUID() }
@@ -523,21 +514,21 @@ export function CampusMapEditSheet({
       ...(locationDisplay !== undefined ? { locationDisplay } : {}),
     });
   };
-  const activePreset =
-    CAMPUS_MAP_EDIT_SCHEMA.presets.find(
-      (preset) => preset.pinType === fact.pinType,
-    ) ?? CAMPUS_MAP_EDIT_SCHEMA.presets[0];
   const applicableFields = new Set(
-    factSchema?.definition.pinTypes[fact.pinType].applicableFields ??
-      activePreset.fields,
+    schemaPlaceDefinition?.applicableFields ?? [],
   );
-  const showsAccessFields =
+  const showsDetailFields =
     draft.mode === "edit" &&
-    CAMPUS_MAP_EDIT_ACCESS_FIELDS.some((field) => applicableFields.has(field));
-  const accessValidationTarget = CAMPUS_MAP_EDIT_ACCESS_FIELDS.includes(
-    session.localError as (typeof CAMPUS_MAP_EDIT_ACCESS_FIELDS)[number],
-  );
-  const accessPanelExpanded = accessExpanded || accessValidationTarget;
+    (schemaPlaceDefinition?.applicableFields ?? []).some((field) =>
+      visibleEditorDetailFields.has(field),
+    );
+  const detailValidationTarget =
+    typeof session.localError === "string" &&
+    visibleEditorDetailFields.has(session.localError) &&
+    schemaPlaceDefinition?.applicableFields.some(
+      (field) => field === session.localError,
+    );
+  const detailsPanelExpanded = detailsExpanded || detailValidationTarget;
   const buildingLocationRequired =
     draft.mode === "add" && draft.entrySource === "building";
   const indoorSelected =
@@ -570,8 +561,7 @@ export function CampusMapEditSheet({
     buildingLocationRequired && Boolean(fact.buildingId) && !selectedBuilding;
   const addIndoorLocation = draft.mode === "add" && indoorSelected;
   const formTitle = draft.mode === "add" ? "新增设施" : "修改设施";
-  const weeklySchedule =
-    fact.accessSchedule.kind === "weekly" ? fact.accessSchedule : null;
+  const weeklySchedule = fact.regularHours;
   const conflictKey =
     session.status === "conflict" && session.conflict?.kind === "current"
       ? `${session.draft.idempotencyKey}:${session.conflict.currentRevisionId}`
@@ -1303,44 +1293,63 @@ export function CampusMapEditSheet({
     return null;
   })();
 
+  if (schemaUnavailable) {
+    return (
+      <div
+        className="grid gap-3 p-5"
+        role="alert"
+        data-edit-field="schema-unavailable"
+      >
+        <h2 id="campus-map-panel-title" className="text-xl font-semibold">
+          暂时无法编辑设施
+        </h2>
+        <p className="text-sm leading-6 text-neutral-600">
+          地图资料格式尚未准备好。请稍后重试；现有地图仍可继续浏览。
+        </p>
+      </div>
+    );
+  }
+
   const facilityTypeField = (
     <fieldset
-      data-edit-field="pinType"
+      data-edit-field="placeType"
       tabIndex={-1}
       className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
     >
       <legend className="mb-1.5 text-sm font-medium">设施类型</legend>
       <div className="grid grid-cols-3 gap-1.5 md:gap-2">
-        {CAMPUS_MAP_EDIT_SCHEMA.presets.map((item) => (
-          <label
-            key={item.pinType}
-            className={cn(
-              "flex min-h-11 w-full cursor-pointer touch-manipulation items-center justify-center rounded-xl border px-1 text-center text-xs font-semibold transition-colors active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 motion-reduce:transform-none sm:text-sm md:px-2",
-              fact.pinType === item.pinType
-                ? "border-[#176346] bg-[#e4f1eb] text-[#174b38]"
-                : "border-black/15 bg-white text-neutral-700 hover:bg-neutral-50",
-            )}
-          >
-            <input
-              type="radio"
-              name={`${fieldPrefix}-pin-type`}
-              value={item.pinType}
-              checked={fact.pinType === item.pinType}
-              className="sr-only"
-              data-edit-field={
-                fact.pinType === item.pinType ? "pinType" : undefined
-              }
-              onChange={() =>
-                onEvent({
-                  type: "CHANGE_PIN_TYPE",
-                  pinType: item.pinType,
-                  ...freshAttempt(),
-                })
-              }
-            />
-            {campusMapPinTypeLabel(item.pinType)}
-          </label>
-        ))}
+        {CAMPUS_MAP_EDIT_SCHEMA.presets
+          .filter((item) => visibleEditorPlaceTypes.has(item.placeType))
+          .map((item) => (
+            <label
+              key={item.placeType}
+              className={cn(
+                "flex min-h-11 w-full cursor-pointer touch-manipulation items-center justify-center rounded-xl border px-1 text-center text-xs font-semibold transition-colors active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 motion-reduce:transform-none sm:text-sm md:px-2",
+                fact.placeType === item.placeType
+                  ? "border-[#176346] bg-[#e4f1eb] text-[#174b38]"
+                  : "border-black/15 bg-white text-neutral-700 hover:bg-neutral-50",
+              )}
+            >
+              <input
+                type="radio"
+                name={`${fieldPrefix}-pin-type`}
+                value={item.placeType}
+                checked={fact.placeType === item.placeType}
+                className="sr-only"
+                data-edit-field={
+                  fact.placeType === item.placeType ? "placeType" : undefined
+                }
+                onChange={() =>
+                  onEvent({
+                    type: "CHANGE_PLACE_TYPE",
+                    placeType: item.placeType,
+                    ...freshAttempt(),
+                  })
+                }
+              />
+              {campusMapPlaceTypeLabel(item.placeType)}
+            </label>
+          ))}
       </div>
     </fieldset>
   );
@@ -1509,7 +1518,7 @@ export function CampusMapEditSheet({
 
           {draft.mode === "edit" ? (
             <PlacePhotoEditor
-              pinType={fact.pinType}
+              placeType={fact.placeType}
               photos={draft.photos}
               disabled={
                 session.status !== "editing" &&
@@ -1686,65 +1695,66 @@ export function CampusMapEditSheet({
 
           {draft.mode === "add" ? facilityTypeField : null}
 
-          {showsAccessFields ? (
+          {showsDetailFields ? (
             <div>
               <button
                 type="button"
                 aria-label="更多信息"
-                aria-expanded={accessPanelExpanded}
-                aria-controls={`${fieldPrefix}-access-details`}
+                aria-expanded={detailsPanelExpanded}
+                aria-controls={`${fieldPrefix}-place-details`}
                 className="flex min-h-14 w-full touch-manipulation items-center justify-between gap-3 border-t border-black/10 py-3 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
                 onClick={() =>
-                  setAccessDisclosureExpanded(!accessPanelExpanded)
+                  setDetailsDisclosureExpanded(!detailsPanelExpanded)
                 }
               >
                 <span className="min-w-0">
                   <span className="block text-sm font-medium">更多信息</span>
                   <span className="mt-0.5 block text-xs text-neutral-500">
-                    开放时间、开放对象、凭证与预约
+                    开放时间及类型资料
                   </span>
                 </span>
                 <ChevronDownIcon
                   aria-hidden="true"
                   className={cn(
                     "size-4 shrink-0 transition-transform motion-reduce:transition-none",
-                    accessPanelExpanded && "rotate-180",
+                    detailsPanelExpanded && "rotate-180",
                   )}
                 />
               </button>
-              {accessPanelExpanded ? (
+              {detailsPanelExpanded ? (
                 <fieldset
-                  id={`${fieldPrefix}-access-details`}
+                  id={`${fieldPrefix}-place-details`}
                   className="mt-1 pt-2"
-                  onFocusCapture={() => setAccessDisclosureExpanded(true)}
+                  onFocusCapture={() => setDetailsDisclosureExpanded(true)}
                 >
-                  <legend className="text-sm font-medium">
-                    开放与使用条件
-                  </legend>
+                  <legend className="text-sm font-medium">补充资料</legend>
                   <p className="mb-3 text-xs leading-5 text-neutral-600">
-                    不确定时请选择“未知”；未知不会被当成无限制开放。
+                    只填写已经确认的资料。
                   </p>
                   <div className="grid gap-3">
-                    {applicableFields.has("audience") ? (
+                    {applicableFields.has("gender") ? (
                       <label
                         className="text-sm"
-                        htmlFor={`${fieldPrefix}-audience`}
+                        htmlFor={`${fieldPrefix}-gender`}
                       >
-                        {campusMapFactFieldLabel("audience")}
+                        {campusMapFactFieldLabel("gender")}
                         <select
-                          id={`${fieldPrefix}-audience`}
-                          name="campus-map-audience"
-                          data-edit-field="audience"
+                          id={`${fieldPrefix}-gender`}
+                          name="campus-map-gender"
+                          data-edit-field="gender"
                           className={fieldClass}
-                          value={fact.audience}
+                          value={fact.gender ?? ""}
                           onChange={(event) =>
                             changeFact({
-                              audience: event.target
-                                .value as CampusMapPublishFactInput["audience"],
+                              gender:
+                                (event.target
+                                  .value as CampusMapPublishFactInput["gender"]) ||
+                                null,
                             })
                           }
                         >
-                          {displayOptions.audience.map((option) => (
+                          <option value="">未填写</option>
+                          {displayOptions.gender.map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
                             </option>
@@ -1752,84 +1762,61 @@ export function CampusMapEditSheet({
                         </select>
                       </label>
                     ) : null}
-                    {applicableFields.has("credentialRequirement") ? (
-                      <label
-                        className="text-sm"
-                        htmlFor={`${fieldPrefix}-credential`}
-                      >
-                        {campusMapFactFieldLabel("credentialRequirement")}
-                        <select
-                          id={`${fieldPrefix}-credential`}
-                          name="campus-map-credential-requirement"
-                          data-edit-field="credentialRequirement"
-                          className={fieldClass}
-                          value={fact.credentialRequirement}
-                          onChange={(event) =>
-                            changeFact({
-                              credentialRequirement: event.target
-                                .value as CampusMapPublishFactInput["credentialRequirement"],
-                            })
-                          }
-                        >
-                          {displayOptions.credentialRequirement.map(
-                            (option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ),
-                          )}
-                        </select>
-                      </label>
+                    {applicableFields.has("capabilities") ? (
+                      <fieldset data-edit-field="capabilities">
+                        <legend className="text-sm">
+                          {campusMapFactFieldLabel("capabilities")}
+                        </legend>
+                        <div className="mt-1 grid grid-cols-3 gap-2">
+                          {displayOptions.capabilities.map((option) => (
+                            <label
+                              key={option.value}
+                              className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 px-3 text-sm"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={fact.capabilities.includes(
+                                  option.value,
+                                )}
+                                onChange={(event) =>
+                                  changeFact({
+                                    capabilities: event.target.checked
+                                      ? [...fact.capabilities, option.value]
+                                      : fact.capabilities.filter(
+                                          (value) => value !== option.value,
+                                        ),
+                                  })
+                                }
+                              />
+                              {option.label}
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
                     ) : null}
-                    {applicableFields.has("reservationRequirement") ? (
+                    {applicableFields.has("wheelchairAccess") ? (
                       <label
                         className="text-sm"
-                        htmlFor={`${fieldPrefix}-reservation`}
+                        htmlFor={`${fieldPrefix}-wheelchair-access`}
                       >
-                        {campusMapFactFieldLabel("reservationRequirement")}
+                        {campusMapFactFieldLabel("wheelchairAccess")}
                         <select
-                          id={`${fieldPrefix}-reservation`}
-                          name="campus-map-reservation-requirement"
-                          data-edit-field="reservationRequirement"
+                          id={`${fieldPrefix}-wheelchair-access`}
+                          name="campus-map-wheelchair-access"
+                          data-edit-field="wheelchairAccess"
                           className={fieldClass}
-                          value={fact.reservationRequirement}
+                          value={fact.wheelchairAccess ?? ""}
                           onChange={(event) =>
                             changeFact({
-                              reservationRequirement: event.target
-                                .value as CampusMapPublishFactInput["reservationRequirement"],
+                              wheelchairAccess:
+                                (event.target
+                                  .value as CampusMapPublishFactInput["wheelchairAccess"]) ||
+                                null,
                             })
                           }
                         >
-                          {displayOptions.reservationRequirement.map(
-                            (option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ),
-                          )}
-                        </select>
-                      </label>
-                    ) : null}
-                    {applicableFields.has("temporaryStatus") ? (
-                      <label
-                        className="text-sm"
-                        htmlFor={`${fieldPrefix}-temporary-status`}
-                      >
-                        {campusMapFactFieldLabel("temporaryStatus")}
-                        <select
-                          id={`${fieldPrefix}-temporary-status`}
-                          name="campus-map-temporary-status"
-                          data-edit-field="temporaryStatus"
-                          className={fieldClass}
-                          value={fact.temporaryStatus}
-                          onChange={(event) =>
-                            changeFact({
-                              temporaryStatus: event.target
-                                .value as CampusMapPublishFactInput["temporaryStatus"],
-                            })
-                          }
-                        >
-                          {displayOptions.temporaryStatus.map((option) => (
+                          <option value="">未填写</option>
+                          {displayOptions.wheelchairAccess.map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
                             </option>
@@ -1838,48 +1825,41 @@ export function CampusMapEditSheet({
                       </label>
                     ) : null}
                   </div>
-                  {applicableFields.has("accessSchedule") ? (
+                  {applicableFields.has("regularHours") ? (
                     <div
                       className="mt-3"
-                      data-edit-field="accessSchedule"
+                      data-edit-field="regularHours"
                       tabIndex={-1}
                     >
                       <label
                         className="text-sm"
-                        htmlFor={`${fieldPrefix}-access-schedule`}
+                        htmlFor={`${fieldPrefix}-regular-hours`}
                       >
-                        {campusMapFactFieldLabel("accessSchedule")}
+                        {campusMapFactFieldLabel("regularHours")}
                         <select
-                          id={`${fieldPrefix}-access-schedule`}
-                          name="campus-map-access-schedule"
+                          id={`${fieldPrefix}-regular-hours`}
+                          name="campus-map-regular-hours"
                           className={fieldClass}
                           aria-invalid={
-                            session.localError === "accessSchedule" || undefined
+                            session.localError === "regularHours" || undefined
                           }
-                          value={fact.accessSchedule.kind}
+                          value={weeklySchedule ? "weekly" : ""}
                           onChange={(event) => {
-                            const kind = event.target.value;
                             changeFact({
-                              accessSchedule:
-                                kind === "weekly"
+                              regularHours:
+                                event.target.value === "weekly"
                                   ? {
-                                      kind: "weekly",
                                       timezone: "Asia/Hong_Kong",
                                       intervals: [
                                         { days: [], opensAt: "", closesAt: "" },
                                       ],
                                     }
-                                  : kind === "always"
-                                    ? { kind: "always" }
-                                    : { kind: "unknown" },
+                                  : null,
                             });
                           }}
                         >
-                          {displayOptions.accessSchedule.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
+                          <option value="">未填写</option>
+                          <option value="weekly">每周时段</option>
                         </select>
                       </label>
                       {weeklySchedule ? (
@@ -1920,7 +1900,7 @@ export function CampusMapEditSheet({
                                                 : item,
                                           );
                                         changeFact({
-                                          accessSchedule: {
+                                          regularHours: {
                                             ...weeklySchedule,
                                             intervals,
                                           },
@@ -1942,7 +1922,7 @@ export function CampusMapEditSheet({
                                     value={interval.opensAt}
                                     onChange={(event) =>
                                       changeFact({
-                                        accessSchedule: {
+                                        regularHours: {
                                           ...weeklySchedule,
                                           intervals:
                                             weeklySchedule.intervals.map(
@@ -1970,7 +1950,7 @@ export function CampusMapEditSheet({
                                     value={interval.closesAt}
                                     onChange={(event) =>
                                       changeFact({
-                                        accessSchedule: {
+                                        regularHours: {
                                           ...weeklySchedule,
                                           intervals:
                                             weeklySchedule.intervals.map(
@@ -1996,7 +1976,7 @@ export function CampusMapEditSheet({
                                   aria-label={`移除时段 ${index + 1}`}
                                   onClick={() =>
                                     changeFact({
-                                      accessSchedule: {
+                                      regularHours: {
                                         ...weeklySchedule,
                                         intervals:
                                           weeklySchedule.intervals.filter(
@@ -2017,7 +1997,7 @@ export function CampusMapEditSheet({
                             className={secondaryClass}
                             onClick={() =>
                               changeFact({
-                                accessSchedule: {
+                                regularHours: {
                                   ...weeklySchedule,
                                   intervals: [
                                     ...weeklySchedule.intervals,
@@ -2031,7 +2011,7 @@ export function CampusMapEditSheet({
                           </button>
                         </div>
                       ) : null}
-                      {session.localError === "accessSchedule" ? (
+                      {session.localError === "regularHours" ? (
                         <p className="mt-1 text-xs text-red-700">
                           每个时段都要选择日期，并填写不同的开始和结束时间。
                         </p>
@@ -2054,6 +2034,7 @@ export function CampusMapEditSheet({
                 ? placementPending
                 : session.status !== "editing" ||
                   (draft.mode === "edit" && !isCampusMapEditDirty(session)) ||
+                  schemaUnavailable ||
                   buildingDirectoryBlocked ||
                   photoUploadPending
             }

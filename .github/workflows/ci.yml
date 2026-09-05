@@ -122,6 +122,15 @@ jobs:
           -c 'CREATE ROLE anon NOLOGIN'
           -c 'CREATE ROLE authenticated NOLOGIN'
 
+      - name: Test Campus Map V2 migration compatibility
+        if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
+          MIGRATION_COMPATIBILITY_TEST: "1"
+        run: >-
+          pnpm exec vitest run
+          tests/db/campus-map-fact-v2-migration.test.ts
+
       - name: Apply migrations
         if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
         env:
@@ -136,6 +145,7 @@ jobs:
         run: >-
           pnpm exec vitest run
           --no-file-parallelism
+          tests/db/campus-map-fact-store-append.test.ts
           tests/db/campus-map-place-feedback.test.ts
           tests/db/campus-map-place-photo.test.ts
           tests/db/campus-map-publish.test.ts

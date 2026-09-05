@@ -1,6 +1,6 @@
-import type { CampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
+import type { CampusMapBrowsePlace } from "@/lib/campus-map/browse-projection";
 
-type CampusMapAccess = CampusMapCurrentPlace["access"];
+type CampusMapAccess = CampusMapBrowsePlace["access"];
 
 export function summarizeCampusMapAccess(
   access: CampusMapAccess,

@@ -21,30 +21,35 @@ _Avoid_: 把 `G`、`LG`、`1/F` 等显示标签作为跨建筑身份
 
 **地点（Place）**: 用户可以独立选择、核对、纠错或评价，并由管理员停用或恢复的一个物理服务
 位置，使用不可变、供应商无关的 `placeId`；同楼、同层、同类型可以有多个 Place。
-_Avoid_: Facility identity；类别聚合；以名称、距离或 `(buildingId, floorId, pinType)` 作唯一键
+_Avoid_: Facility identity；类别聚合；以名称、距离或 `(buildingId, floorId, placeType)` 作唯一键
 
-**图钉类型（Pin type）**: Place 的主要浏览类别与图标所引用的受控 key；首批为 `toilet`、
-`water`、`printer`、`common-space`、`classroom`。
-_Avoid_: scene category；用显示文案作 key；把访问或无障碍属性做成类型
+**地点类型（Place type）**: Place 用于搜索与筛选的宽分类；当前 key 为 `toilet`、`water`、
+`printer`、`common-space`、`classroom`、`sports-facility`、`health-service`，并预留
+`vending-machine`。名称说明“具体是什么”，Place type 只回答“属于哪一大类”。
+_Avoid_: Pin type；图标身份；scene category；用显示文案作 key；为游泳池、牙科或单个地点各建一种类型
 
-**能力（Capability）**: 一个 Place 提供的可多选服务，如 `print`、`scan`、`copy`；一个
-多功能服务位置仍是一个 Place。
+**能力（Capability）**: 只有确实需要独立筛选的服务能力；当前仅供打印地点记录 `print`、
+`scan`、`copy`。一个多功能服务位置仍是一个 Place。
 _Avoid_: 每项能力复制一个 Place
 
-**地点属性（Place facet）**: 与 Pin type 正交的受控事实；首批为
-`gender: male | female | all-gender | unknown` 和
-`wheelchairAccess: yes | limited | no | unknown`。
+**地点属性（Place facet）**: 与 Place type 正交、只在适用时记录的受控事实；当前为厕所的
+`gender: male | female | all-gender` 和地点的 `wheelchairAccess: yes | limited | no`。
+字段缺失表示尚未掌握，不能自动当成任一受控值。
 _Avoid_: 用图钉类型或自由文本隐含性别与无障碍
 
-### 访问
+### 时间与到访信息
 
-**访问条件（Access condition）**: 分别记录 audience、Credential requirement、schedule、
-reservation 与 temporary status 的结构化事实；`unknown` 不等于 unrestricted。
-_Avoid_: 一个混合刷卡、开放时间、预约和临时关闭的 `access` 字符串
+**通常开放时间（Regular hours）**: 地点在香港时区的一般每周开放规律。它不声称地点此刻一定
+开放；节假日、活动安排和临时变更不能改写成通常规律。字段缺失表示尚未掌握。
+_Avoid_: 实时营业状态；把某天通告永久写进每周规律；用抓取时间冒充营业时间
 
-**凭证要求（Credential requirement）**: 进入 Place 所需凭证的受控值：`none`、
-`campus-card`、`library-card`、`other` 或 `unknown`；audience 为 CUHK member 不自动表示必须刷卡。
-_Avoid_: 从“公共空间”“厕所”或 audience 推断刷卡要求
+**官方操作（Official action）**: 用户离开地图后可采取的官方动作，例如查看详情、预约、致电或
+发邮件。它只是有清楚标签的官方入口，不保存预约名额或表单状态。
+_Avoid_: 通用链接列表；预约引擎；复制完整官网内容
+
+**到访提示（Visit note）**: 到达或使用地点前真正需要知道的一条简短说明，例如收费、付款方式、
+登记要求或应先查看最新安排。
+_Avoid_: 长篇设施介绍；结构化开放时间的重复文案；推测性的限制
 
 ### 位置
 
@@ -94,13 +99,13 @@ _Avoid_: 把发布者等同核对者；用已核对暗示易变状态仍然实�
 _Avoid_: Application；待审核地点；把草稿 marker 放进其他用户的地图
 
 **设施新增入口（Facility Add entry）**: 全局入口先让用户在地图上明确选择带锚点的 canonical
-Building；Building 卡片入口固定带入该 Building 与当前 Floor；类别入口额外带入 Pin type。只有用户
-明确点击“选择室外位置”时，才进入 center pin / WGS84 选点。Add 使用 Pin type 的 canonical 默认名，
-只要求确认位置、可选楼层、设施类型与发布；访问条件保持 unknown，名称与其他资料留给后续 Edit。
+Building；Building 卡片入口固定带入该 Building 与当前 Floor；类别入口额外带入 Place type。只有用户
+明确选择“这是室外设施”时，才进入 center pin / WGS84 选点。Add 使用 Place type 的 canonical 默认名，
+只要求确认位置、可选楼层、地点类型与发布；其他可选事实保持未填写，名称与详情留给后续 Edit。
 入口来源属于草稿交互上下文，不是可发布事实；入口自动带入的值是任务初始状态，用户未修改时关闭
 任务无需确认放弃。
 _Avoid_: 用长目录下拉框寻找建筑；根据地图中心、距离或 provider POI 推断 Building；在 Add 强迫填写
-名称、照片或访问条件；根据当前选中卡片悄悄改变全局“新增设施”的含义
+名称、照片或运营资料；根据当前选中卡片悄悄改变全局“新增设施”的含义
 
 **变更集（Changeset）**: 一次用户任务原子发布的一组 Place 变化及其作者、说明、来源摘要
 和复核请求；发布成功后不可改写，可以公开讨论并被后续变更集反向修订。
@@ -111,12 +116,12 @@ Changeset 可以包含多个 Place 的新增、修改、停用或恢复修订。
 _Avoid_: 原地覆盖 Current fact；可修改历史快照；把通用 audit log 当事实版本
 
 **地点照片（Place photo）**: 描述一个具体 Place 外观、入口、内部、设备或无障碍情况的有序
-图片，绑定到产生它的 Fact revision；当前版本每个 Place 最多三张，图钉类型只提供拍摄提示。
-_Avoid_: 评价附件；图钉类型图库；跨地点共享照片；以图片作为 Place 身份
+图片，绑定到产生它的 Fact revision；当前版本每个 Place 最多三张，地点类型只提供拍摄提示。
+_Avoid_: 评价附件；地点类型图库；跨地点共享照片；以图片作为 Place 身份
 
 **照片视角（Photo role）**: 描述 Place photo 所展示内容的受控值，如入口、概览、内部、设备
-或无障碍；同一组 role 可由不同 Pin type 显示成更贴近场景的拍摄提示。
-_Avoid_: 图片标题；自由标签系统；为每个图钉类型建立独立 schema
+或无障碍；同一组 role 可由不同 Place type 显示成更贴近场景的拍摄提示。
+_Avoid_: 图片标题；自由标签系统；为每个地点类型建立独立 schema
 
 **当前修订（Current revision）**: 一个 Place 最近成功发布的 Fact revision，包括 active、
 retired 或 merged redirect；CAS、restore 和 merge 都以它作为当前版本。
@@ -173,7 +178,7 @@ _Avoid_: 只隐藏评价文字但继续计算其星级；用户删除；Place re
 公开投影；不包含原文、证据或可识别作者，但让读者知道历史链没有被删除。
 _Avoid_: 404 假装记录从未存在；把原文藏在搜索索引、excerpt 或通知 metadata
 
-**重复候选（Duplicate candidate）**: 名称、Building、Floor、Pin type、来源或距离等信号
+**重复候选（Duplicate candidate）**: 名称、Building、Floor、Place type、来源或距离等信号
 产生的待人工判断关系，不是唯一约束。
 _Avoid_: 自动合并；认为同层只能有一个同类服务位置
 
@@ -204,13 +209,13 @@ _Avoid_: 把直接发布称为批准；把 Review request 当可见性状态；�
 
 ### 集成边界
 
-**外部身份映射（Provider mapping）**: `(provider, providerPlaceId)` 到 canonical Building
+**外部身份映射（Provider mapping）**: `(provider, providerObjectId)` 到 canonical Building
 或 Place 的显式治理记录。浏览页一次性预加载所需映射，热点点击只按完整外部 ID 在本地精确查表；
 名称、别名和距离只能产生待人工核对的关联候选。
 _Avoid_: 供应商 ID 作主键；名称模糊命中后静默关联；每次点击再请求服务器；异步卡片升级
 
 **供应商热点（Provider hotspot）**: 高德底图已绘制、可点击的瞬时对象；它只负责告诉产品用户
-点中了哪个高德对象。`providerPlaceId` 是映射输入，不是 CUpedia 身份；名称与坐标只用于显示。
+点中了哪个高德对象。`providerObjectId` 是映射输入，不是 CUpedia 身份；名称与坐标只用于显示。
 _Avoid_: 把高德卡片当公开事实；用名称或距离猜 canonical 实体；把热点写入 URL
 
 **Canonical 地图目标（Canonical map target）**: 浏览地图上可选择的 Building 或 Place 表现；

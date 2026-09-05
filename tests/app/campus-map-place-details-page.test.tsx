@@ -58,6 +58,7 @@ describe("Campus Map stable Place page (#816)", () => {
       content: {
         visibility: "public",
         fact: {
+          factSchemaVersion: 1,
           name: "停用的饮水点",
           pinType: "water",
           capabilities: [],

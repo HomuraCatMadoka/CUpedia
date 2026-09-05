@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { CampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
-import {
-  toCampusMapRepublishableFact,
-  type CampusMapPlaceFactSnapshot,
-} from "@/lib/campus-map/place-fact-conversion";
+import type { CampusMapAppendFact } from "@/lib/campus-map/fact-store-transaction";
+import { toCampusMapRepublishableFact } from "@/lib/campus-map/place-fact-conversion";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 
 const buildingId = "50000000-0000-4000-8000-000000000001";
@@ -16,24 +14,20 @@ function currentPlace(
   return {
     id: "20000000-0000-4000-8000-000000000001",
     revisionId: "30000000-0000-4000-8000-000000000001",
-    factSchemaVersion: 1,
+    factSchemaVersion: 2,
     name: "科学馆打印点",
-    pinType: "printer",
-    capabilities: ["copy"],
-    access: {
-      audience: "cuhk-member",
-      credentialRequirement: "campus-card",
-      schedule: {
-        kind: "weekly",
-        timezone: "Asia/Hong_Kong",
-        intervals: [
-          { days: ["mon", "wed"], opensAt: "08:00", closesAt: "18:00" },
-        ],
-      },
-      reservationRequirement: "none",
-      temporaryStatus: "normal",
+    placeType: "printer",
+    regularHours: {
+      timezone: "Asia/Hong_Kong",
+      intervals: [
+        { days: ["mon", "wed"], opensAt: "08:00", closesAt: "18:00" },
+      ],
     },
-    facets: { gender: "unknown", wheelchairAccess: "yes" },
+    officialActions: [{ label: "官网", url: "https://www.cuhk.edu.hk" }],
+    visitNote: "入口旁",
+    capabilities: ["copy"],
+    gender: null,
+    wheelchairAccess: "yes",
     location: {
       kind: "building",
       building: {
@@ -52,21 +46,28 @@ function currentPlace(
 }
 
 function storedFact(
-  overrides: Partial<
-    Extract<CampusMapPlaceFactSnapshot, { kind: "stored" }>["fact"]
-  > = {},
-): Extract<CampusMapPlaceFactSnapshot, { kind: "stored" }>["fact"] {
+  overrides: Partial<CampusMapAppendFact> = {},
+): CampusMapAppendFact {
   return {
     name: "科学馆打印点",
     buildingId,
     floorId,
     pinType: "printer",
+    regularHours: null,
+    officialActions: [],
+    visitNote: null,
     capabilities: ["copy"],
     gender: "unknown",
     wheelchairAccess: "yes",
     audience: "cuhk-member",
     credentialRequirement: "campus-card",
-    accessSchedule: { kind: "always" },
+    accessSchedule: {
+      kind: "weekly",
+      timezone: "Asia/Hong_Kong",
+      intervals: [
+        { days: ["mon", "wed"], opensAt: "08:00", closesAt: "18:00" },
+      ],
+    },
     reservationRequirement: "none",
     temporaryStatus: "normal",
     locationKind: "floor",
@@ -75,136 +76,131 @@ function storedFact(
     latitude: null,
     coordinateCrs: null,
     observedAt: new Date("2026-08-25T04:00:00.000Z"),
+    verifiedAt: null,
+    verifiedByActorIdSnapshot: null,
     ...overrides,
   };
 }
 
 describe("Campus Map Place fact conversion", () => {
-  it("uses the same public entry for current building and stored floor facts", () => {
-    expect(
-      toCampusMapRepublishableFact({ kind: "current", fact: currentPlace() }),
-    ).toMatchObject({
-      ok: true,
-      fact: {
-        buildingId,
-        floorId: null,
-        location: { kind: "building" },
-      },
-    });
-
-    expect(
-      toCampusMapRepublishableFact({ kind: "stored", fact: storedFact() }),
-    ).toMatchObject({
-      ok: true,
-      fact: {
-        buildingId,
-        floorId,
-        location: { kind: "floor" },
-      },
-    });
-  });
-
-  it("preserves outdoor coordinates and their evidence metadata", () => {
-    expect(
-      toCampusMapRepublishableFact({
-        kind: "stored",
-        fact: storedFact({
-          buildingId: null,
-          floorId: null,
-          locationKind: "outdoor-point",
-          longitude: 114.2068,
-          latitude: 22.4196,
-          coordinateCrs: "wgs84",
-          pointPrecision: "approximate",
-        }),
-      }),
-    ).toMatchObject({
-      ok: true,
-      fact: {
-        buildingId: null,
-        floorId: null,
-        location: {
-          kind: "outdoor-point",
-          longitude: 114.2068,
-          latitude: 22.4196,
-          crs: "wgs84",
-          precision: "approximate",
-        },
-      },
-    });
-  });
-
-  it.each([
-    ["longitude", { longitude: null }],
-    ["latitude", { latitude: null }],
-    ["coordinate CRS", { coordinateCrs: null }],
-    ["point precision", { pointPrecision: null }],
-  ])(
-    "fails explicitly when an outdoor snapshot lacks %s",
-    (_label, missing) => {
-      expect(
-        toCampusMapRepublishableFact({
-          kind: "stored",
-          fact: storedFact({
-            buildingId: null,
-            floorId: null,
-            locationKind: "outdoor-point",
-            longitude: 114.2068,
-            latitude: 22.4196,
-            coordinateCrs: "wgs84",
-            pointPrecision: "precise",
-            ...missing,
-          }),
-        }),
-      ).toEqual({ ok: false, reason: "invalid-outdoor-location" });
-    },
-  );
-
-  it("copies array facts and serializes observation time", () => {
+  it("copies a V2 Current fact without sharing arrays", () => {
     const source = currentPlace();
     const result = toCampusMapRepublishableFact({
       kind: "current",
       fact: source,
     });
+
     expect(result).toMatchObject({
       ok: true,
-      fact: { observedAt: "2026-08-25T04:00:00.000Z" },
+      fact: {
+        placeType: "printer",
+        buildingId,
+        floorId: null,
+        location: { kind: "building" },
+        observedAt: "2026-08-25T04:00:00.000Z",
+      },
     });
-    if (!result.ok || result.fact.accessSchedule.kind !== "weekly") return;
-
+    if (!result.ok || !result.fact.regularHours) return;
     expect(result.fact.capabilities).not.toBe(source.capabilities);
-    expect(result.fact.accessSchedule).not.toBe(source.access.schedule);
-    expect(result.fact.accessSchedule.intervals).not.toBe(
-      source.access.schedule.kind === "weekly"
-        ? source.access.schedule.intervals
-        : null,
-    );
-    expect(result.fact.accessSchedule.intervals[0].days).not.toBe(
-      source.access.schedule.kind === "weekly"
-        ? source.access.schedule.intervals[0].days
-        : null,
+    expect(result.fact.officialActions).not.toBe(source.officialActions);
+    expect(result.fact.regularHours.intervals).not.toBe(
+      source.regularHours?.intervals,
     );
   });
 
-  it("keeps the complete publish-fact field contract at the interface", () => {
+  it("upgrades a V1 stored revision explicitly into the V2 contract", () => {
+    const result = toCampusMapRepublishableFact({
+      kind: "stored",
+      factSchemaVersion: 1,
+      fact: storedFact(),
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      fact: {
+        placeType: "printer",
+        regularHours: {
+          intervals: [
+            { days: ["mon", "wed"], opensAt: "08:00", closesAt: "18:00" },
+          ],
+        },
+        officialActions: [],
+        capabilities: ["copy"],
+        gender: null,
+        wheelchairAccess: "yes",
+      },
+    });
+  });
+
+  it("restores a V2 stored revision and preserves its new facts", () => {
+    const result = toCampusMapRepublishableFact({
+      kind: "stored",
+      factSchemaVersion: 2,
+      fact: storedFact({
+        pinType: "classroom",
+        regularHours: {
+          timezone: "Asia/Hong_Kong",
+          intervals: [{ days: ["fri"], opensAt: "09:00", closesAt: "21:00" }],
+        },
+        officialActions: [
+          { label: "课室资料", url: "https://www.cuhk.edu.hk/rooms" },
+        ],
+        visitNote: "经平台层进入",
+        capabilities: [],
+        gender: null,
+        wheelchairAccess: null,
+        audience: "unknown",
+        credentialRequirement: "unknown",
+        accessSchedule: { kind: "unknown" },
+        reservationRequirement: "unknown",
+        temporaryStatus: null,
+      }),
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      fact: {
+        placeType: "classroom",
+        visitNote: "经平台层进入",
+      },
+    });
+  });
+
+  it("fails closed for schema/payload mismatches and unsupported versions", () => {
+    expect(
+      toCampusMapRepublishableFact({
+        kind: "stored",
+        factSchemaVersion: 2,
+        fact: storedFact(),
+      }),
+    ).toEqual({ ok: false, reason: "invalid-schema-payload" });
+    expect(
+      toCampusMapRepublishableFact({
+        kind: "stored",
+        factSchemaVersion: 99,
+        fact: storedFact(),
+      }),
+    ).toEqual({ ok: false, reason: "unsupported-schema-version" });
+  });
+
+  it("keeps every active publish-fact field at the conversion boundary", () => {
     const expectedFields: Record<keyof CampusMapPublishFactInput, true> = {
       name: true,
       buildingId: true,
       floorId: true,
-      pinType: true,
+      placeType: true,
+      regularHours: true,
+      officialActions: true,
+      visitNote: true,
       capabilities: true,
       gender: true,
       wheelchairAccess: true,
-      audience: true,
-      credentialRequirement: true,
-      accessSchedule: true,
-      reservationRequirement: true,
-      temporaryStatus: true,
       location: true,
       observedAt: true,
     };
     const result = toCampusMapRepublishableFact({
       kind: "stored",
+      factSchemaVersion: 1,
       fact: storedFact(),
     });
     expect(result.ok).toBe(true);

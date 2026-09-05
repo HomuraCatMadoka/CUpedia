@@ -134,18 +134,15 @@ describe("Campus Map edit action adapter", () => {
     mocks.getCampusMapCurrentPlace.mockResolvedValueOnce({
       id: placeId,
       revisionId,
-      factSchemaVersion: 1,
+      factSchemaVersion: 2,
       name: "科学馆饮水机",
-      pinType: "water",
+      placeType: "water",
+      regularHours: null,
+      officialActions: [],
+      visitNote: null,
       capabilities: [],
-      access: {
-        audience: "cuhk-member",
-        credentialRequirement: "unknown",
-        schedule: { kind: "unknown" },
-        reservationRequirement: "unknown",
-        temporaryStatus: "unknown",
-      },
-      facets: { gender: "unknown", wheelchairAccess: "unknown" },
+      gender: null,
+      wheelchairAccess: null,
       location: {
         kind: "floor",
         building: {

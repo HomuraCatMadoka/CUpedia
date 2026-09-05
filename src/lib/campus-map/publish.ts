@@ -14,10 +14,10 @@ import {
   campusMapRevisionProvenance,
   campusMapRevisionVisibility,
   CAMPUS_MAP_CAPABILITIES,
-  CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
+  CAMPUS_MAP_ACTIVE_FACT_SCHEMA_VERSION,
+  CAMPUS_MAP_FACT_DISPLAY_METADATA_V2,
   CAMPUS_MAP_WEEKDAYS,
   type CampusMapFactDisplayMetadata,
-  type CampusMapFactFieldKey,
   type CampusMapFieldDiff,
   type CampusMapPlacePhotoRole,
 } from "@/db/schema";
@@ -82,15 +82,19 @@ export type {
 } from "@/lib/campus-map/publish-contract";
 
 type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 type StoredPublishRequest = {
   requestFingerprint: string;
   status: string;
   result: Extract<CampusMapPublishResult, { status: "published" }> | null;
 };
-type CampusMapPublishDiffField = CampusMapFactFieldKey | "observedAt";
+type CampusMapPublishDiffField = Exclude<
+  keyof CampusMapPublishFactInput,
+  "buildingId" | "floorId"
+>;
 
-const CAMPUS_MAP_PUBLISH_FIELD_METADATA_V1: CampusMapFactDisplayMetadata = {
-  ...CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
+const CAMPUS_MAP_PUBLISH_FIELD_METADATA_V2: CampusMapFactDisplayMetadata = {
+  ...CAMPUS_MAP_FACT_DISPLAY_METADATA_V2,
   observedAt: { label: "观察时间" },
 } satisfies CampusMapFactDisplayMetadata;
 
@@ -300,15 +304,13 @@ const CAMPUS_MAP_MERGE_FACT_FIELDS = [
   "name",
   "buildingId",
   "floorId",
-  "pinType",
+  "placeType",
+  "regularHours",
+  "officialActions",
+  "visitNote",
   "capabilities",
   "gender",
   "wheelchairAccess",
-  "audience",
-  "credentialRequirement",
-  "accessSchedule",
-  "reservationRequirement",
-  "temporaryStatus",
   "location",
   "observedAt",
 ] as const satisfies readonly (keyof CampusMapPublishFactInput)[];
@@ -376,7 +378,11 @@ async function prepareCampusMapLifecycle(
     ]);
     const converted =
       base?.visibility === "public"
-        ? toCampusMapRepublishableFact({ kind: "stored", fact: base.fact })
+        ? toCampusMapRepublishableFact({
+            kind: "stored",
+            factSchemaVersion: base.factSchemaVersion,
+            fact: base.fact,
+          })
         : null;
     if (!converted?.ok) return lifecycleSnapshotUnavailable(command.placeId);
     change = {
@@ -439,6 +445,7 @@ async function prepareCampusMapRevert(
   }
   const convertedTarget = toCampusMapRepublishableFact({
     kind: "stored",
+    factSchemaVersion: target.factSchemaVersion,
     fact: target.fact,
   });
   if (!convertedTarget.ok) {
@@ -504,10 +511,12 @@ async function prepareCampusMapMerge(
   }
   const convertedSurvivor = toCampusMapRepublishableFact({
     kind: "stored",
+    factSchemaVersion: survivorBase.factSchemaVersion,
     fact: survivorBase.fact,
   });
   const convertedLoser = toCampusMapRepublishableFact({
     kind: "stored",
+    factSchemaVersion: loserBase.factSchemaVersion,
     fact: loserBase.fact,
   });
   if (!convertedSurvivor.ok || !convertedLoser.ok) {
@@ -1514,6 +1523,19 @@ async function publishCampusMapChangesetInternal(
           change.operation === "create"
             ? null
             : (lockedByPlace.get(change.placeId) ?? null);
+        const currentV2Fact = current
+          ? toCampusMapRepublishableFact({
+              kind: "stored",
+              factSchemaVersion: current.factSchemaVersion,
+              fact: current.fact,
+            })
+          : null;
+        if (currentV2Fact && !currentV2Fact.ok) {
+          return governanceValidationFailure("revision-fact-unavailable");
+        }
+        const currentAppendFact = currentV2Fact
+          ? toAppendFact(currentV2Fact.fact)
+          : null;
         const submittedProvenanceIds = change.sources.map((source) => {
           const provenanceId = provenanceIdByIdentity.get(
             sourceIdentity(source),
@@ -1523,12 +1545,19 @@ async function publishCampusMapChangesetInternal(
           return provenanceId;
         });
 
-        const fact =
+        let fact: CampusMapAppendFact;
+        if (
           change.operation === "merge" ||
           (change.operation === "retire" &&
             !retireFactPlaceIds.has(change.placeId))
-            ? current!.fact
-            : toAppendFact(change.fact!);
+        ) {
+          if (!currentAppendFact) {
+            return governanceValidationFailure("revision-fact-unavailable");
+          }
+          fact = currentAppendFact;
+        } else {
+          fact = toAppendFact(change.fact!);
+        }
         const placeId =
           change.operation === "create" ? randomUUID() : change.placeId;
         const revisionId = randomUUID();
@@ -1550,10 +1579,10 @@ async function publishCampusMapChangesetInternal(
           baseRevisionId:
             change.operation === "create" ? null : change.baseRevisionId,
           operation: change.operation,
-          factSchemaVersion: current?.factSchemaVersion ?? 1,
-          fieldMetadata: CAMPUS_MAP_PUBLISH_FIELD_METADATA_V1,
+          factSchemaVersion: CAMPUS_MAP_ACTIVE_FACT_SCHEMA_VERSION,
+          fieldMetadata: CAMPUS_MAP_PUBLISH_FIELD_METADATA_V2,
           fieldDiff: {
-            ...createFieldDiff(current?.fact ?? null, fact),
+            ...createFieldDiff(currentAppendFact, fact),
             ...campusMapPlacePhotoDiff(
               preparedPhotos.basePhotosByChange.get(change) ?? [],
               preparedPhotos.photosByChange.get(change) ?? [],
@@ -1819,7 +1848,7 @@ async function normalizeAndLockPublishWarningDomains(
           {
             changeIndex,
             name: change.fact.name.trim(),
-            pinType: change.fact.pinType,
+            placeType: change.fact.placeType,
           },
         ],
   );
@@ -1827,24 +1856,24 @@ async function normalizeAndLockPublishWarningDomains(
   const normalized = await transaction.execute<{
     changeIndex: number;
     normalizedName: string;
-    pinType: string;
+    placeType: string;
   }>(sql`
     select
       (domain.value->>'changeIndex')::integer as "changeIndex",
       lower(btrim(domain.value->>'name')) as "normalizedName",
-      domain.value->>'pinType' as "pinType"
+      domain.value->>'placeType' as "placeType"
     from jsonb_array_elements(${JSON.stringify(proposedDomains)}::jsonb)
       as domain(value)
     order by
       lower(btrim(domain.value->>'name')) collate "C",
-      (domain.value->>'pinType') collate "C",
+      (domain.value->>'placeType') collate "C",
       (domain.value->>'changeIndex')::integer
   `);
   const normalizedByChange = new Map<number, string>();
   const lockedDomains = new Set<string>();
   for (const domain of normalized.rows) {
     normalizedByChange.set(domain.changeIndex, domain.normalizedName);
-    const identity = `${domain.normalizedName}\u0000${domain.pinType}`;
+    const identity = `${domain.normalizedName}\u0000${domain.placeType}`;
     if (lockedDomains.has(identity)) continue;
     lockedDomains.add(identity);
     await acquireTransactionAdvisoryLock(
@@ -1899,7 +1928,7 @@ async function evaluatePublishWarnings(
       )
       .where(
         and(
-          eq(campusMapCurrentFacts.pinType, change.fact.pinType),
+          eq(campusMapCurrentFacts.pinType, change.fact.placeType),
           eq(campusMapRevisionVisibility.visibility, "public"),
           sql`btrim(${campusMapCurrentFacts.name}) <> ''`,
           sql`lower(btrim(${campusMapCurrentFacts.name})) = ${normalizedName}`,
@@ -1928,7 +1957,7 @@ async function evaluatePublishWarnings(
           candidate.operation === "merge" ||
           candidateNormalizedName === undefined ||
           candidateNormalizedName !== normalizedName ||
-          candidate.fact.pinType !== change.fact.pinType ||
+          candidate.fact.placeType !== change.fact.placeType ||
           !isPreciseOutdoorDuplicateCandidate(
             toDuplicateLocation(candidate.fact),
             change.fact,
@@ -2046,7 +2075,7 @@ function factWarningInputs(
 ) {
   return {
     name: normalizedName,
-    pinType: fact.pinType,
+    placeType: fact.placeType,
     location:
       fact.location.kind === "building"
         ? { kind: "building", buildingId: fact.buildingId }
@@ -2081,7 +2110,7 @@ function currentFactWarningInputs(
 ) {
   return {
     name: normalizedName,
-    pinType: candidate.pinType,
+    placeType: candidate.pinType,
     location:
       candidate.locationKind === "building"
         ? { kind: "building", buildingId: candidate.buildingId }
@@ -2217,7 +2246,7 @@ function createFieldDiff(
         {
           before: beforeValues?.[field] ?? null,
           after: value,
-          label: CAMPUS_MAP_PUBLISH_FIELD_METADATA_V1[field]?.label ?? field,
+          label: CAMPUS_MAP_PUBLISH_FIELD_METADATA_V2[field]?.label ?? field,
         },
       ]),
   );
@@ -2228,7 +2257,10 @@ function factDiffValues(
 ): Record<CampusMapPublishDiffField, unknown> {
   return {
     name: fact.name,
-    pinType: fact.pinType,
+    placeType: fact.pinType,
+    regularHours: regularHoursDiffValue(fact),
+    officialActions: fact.officialActions.map((action) => ({ ...action })),
+    visitNote: fact.visitNote,
     capabilities: [...fact.capabilities].sort(
       (left, right) =>
         CAMPUS_MAP_CAPABILITIES.indexOf(left) -
@@ -2236,20 +2268,15 @@ function factDiffValues(
     ),
     gender: fact.gender,
     wheelchairAccess: fact.wheelchairAccess,
-    audience: fact.audience,
-    credentialRequirement: fact.credentialRequirement,
-    accessSchedule: accessScheduleDiffValue(fact),
-    reservationRequirement: fact.reservationRequirement,
-    temporaryStatus: fact.temporaryStatus,
     location: locationDiffValue(fact),
     observedAt: fact.observedAt?.toISOString() ?? null,
   };
 }
 
-function accessScheduleDiffValue(fact: CampusMapAppendFact): unknown {
-  const schedule = fact.accessSchedule;
-  if (schedule.kind !== "weekly") return schedule;
-  const intervals = schedule.intervals.map((interval) => ({
+function regularHoursDiffValue(fact: CampusMapAppendFact): unknown {
+  const hours = fact.regularHours;
+  if (!hours) return null;
+  const intervals = hours.intervals.map((interval) => ({
     days: [...interval.days].sort(
       (left, right) =>
         CAMPUS_MAP_WEEKDAYS.indexOf(left) - CAMPUS_MAP_WEEKDAYS.indexOf(right),
@@ -2261,8 +2288,7 @@ function accessScheduleDiffValue(fact: CampusMapAppendFact): unknown {
     JSON.stringify(left).localeCompare(JSON.stringify(right)),
   );
   return {
-    kind: schedule.kind,
-    timezone: schedule.timezone,
+    timezone: hours.timezone,
     intervals,
   };
 }
@@ -2306,6 +2332,7 @@ function toSafeSnapshot(
 ): CampusMapPublishSafeSnapshot | null {
   const converted = toCampusMapRepublishableFact({
     kind: "stored",
+    factSchemaVersion: current.factSchemaVersion,
     fact: current.fact,
   });
   return converted.ok

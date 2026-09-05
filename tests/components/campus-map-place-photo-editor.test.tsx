@@ -46,7 +46,11 @@ describe("PlacePhotoEditor (#818)", () => {
   it("uploads a Place photo and uses a pin-type-aware default role", async () => {
     const onChange = vi.fn();
     render(
-      <PlacePhotoEditor pinType="classroom" photos={[]} onChange={onChange} />,
+      <PlacePhotoEditor
+        placeType="classroom"
+        photos={[]}
+        onChange={onChange}
+      />,
     );
 
     fireEvent.change(screen.getByLabelText("添加照片（0/3）"), {
@@ -75,7 +79,11 @@ describe("PlacePhotoEditor (#818)", () => {
       thumbnailHeight: 320,
     }));
     render(
-      <PlacePhotoEditor pinType="toilet" photos={photos} onChange={vi.fn()} />,
+      <PlacePhotoEditor
+        placeType="toilet"
+        photos={photos}
+        onChange={vi.fn()}
+      />,
     );
     expect(screen.getByText(/避开可识别的人脸/u)).toBeTruthy();
     expect(screen.getByText("已达到 3 张上限")).toBeTruthy();
@@ -95,7 +103,7 @@ describe("PlacePhotoEditor (#818)", () => {
     const onChange = vi.fn();
     render(
       <PlacePhotoEditor
-        pinType="classroom"
+        placeType="classroom"
         photos={photos}
         onChange={onChange}
       />,
@@ -116,7 +124,7 @@ describe("PlacePhotoEditor (#818)", () => {
       ),
     );
     render(
-      <PlacePhotoEditor pinType="classroom" photos={[]} onChange={vi.fn()} />,
+      <PlacePhotoEditor placeType="classroom" photos={[]} onChange={vi.fn()} />,
     );
 
     fireEvent.change(screen.getByLabelText("添加照片（0/3）"), {
@@ -135,7 +143,7 @@ describe("PlacePhotoEditor (#818)", () => {
       .mockRejectedValueOnce(new Error("network disconnected"))
       .mockResolvedValueOnce(new Response(null, { status: 200 }));
     render(
-      <PlacePhotoEditor pinType="classroom" photos={[]} onChange={vi.fn()} />,
+      <PlacePhotoEditor placeType="classroom" photos={[]} onChange={vi.fn()} />,
     );
 
     fireEvent.change(screen.getByLabelText("添加照片（0/3）"), {

@@ -10,7 +10,7 @@ import {
   XIcon,
 } from "lucide-react";
 
-import type { CampusMapPinType } from "@/db/schema";
+import type { CampusMapPlaceType } from "@/db/schema";
 import { cn } from "@/lib/utils";
 import { campusMapPlacePhotoRoleLabel } from "@/lib/campus-map/display-registry";
 import type { CampusMapEditPhoto } from "@/lib/campus-map/edit-session";
@@ -25,12 +25,15 @@ import {
   type CampusMapPlacePhotoUploadErrorCode,
 } from "@/lib/campus-map/place-photos-contract";
 
-const ROLE_PROMPTS: Record<CampusMapPinType, CampusMapPlacePhotoRole[]> = {
+const ROLE_PROMPTS: Record<CampusMapPlaceType, CampusMapPlacePhotoRole[]> = {
   classroom: ["entrance", "interior", "equipment"],
   toilet: ["entrance", "accessibility", "overview"],
   "common-space": ["entrance", "overview", "equipment"],
   printer: ["entrance", "equipment", "overview"],
   water: ["entrance", "equipment", "accessibility"],
+  "sports-facility": ["entrance", "overview", "interior"],
+  "health-service": ["entrance", "interior", "accessibility"],
+  "vending-machine": ["overview", "equipment", "accessibility"],
 };
 
 const PLACE_PHOTO_UPLOAD_ERROR_MESSAGES = {
@@ -58,10 +61,10 @@ function messageForUploadError(code: unknown) {
 }
 
 function nextRole(
-  pinType: CampusMapPinType,
+  placeType: CampusMapPlaceType,
   photos: readonly CampusMapEditPhoto[],
 ) {
-  const roles = ROLE_PROMPTS[pinType];
+  const roles = ROLE_PROMPTS[placeType];
   return (
     roles.find((role) => !photos.some((photo) => photo.role === role)) ??
     roles[photos.length % roles.length]
@@ -69,13 +72,13 @@ function nextRole(
 }
 
 export function PlacePhotoEditor({
-  pinType,
+  placeType,
   photos,
   disabled,
   onChange,
   onPendingChange,
 }: {
-  pinType: CampusMapPinType;
+  placeType: CampusMapPlaceType;
   photos: CampusMapEditPhoto[];
   disabled?: boolean;
   onChange(photos: CampusMapEditPhoto[]): void;
@@ -85,7 +88,7 @@ export function PlacePhotoEditor({
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const recommendedRoles = ROLE_PROMPTS[pinType];
+  const recommendedRoles = ROLE_PROMPTS[placeType];
 
   async function upload(files: File[]) {
     const remaining = CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT - photos.length;
@@ -127,7 +130,7 @@ export function PlacePhotoEditor({
           ...nextPhotos,
           {
             assetId: result.asset.id,
-            role: nextRole(pinType, nextPhotos),
+            role: nextRole(placeType, nextPhotos),
           },
         ];
         onChange(nextPhotos);

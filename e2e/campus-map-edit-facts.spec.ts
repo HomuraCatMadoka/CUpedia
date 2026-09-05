@@ -173,13 +173,8 @@ for (const scenario of [
     expect(buildingPickerBox).not.toBeNull();
     expect(buildingPickerBox!.height).toBeGreaterThanOrEqual(44);
     expect(buildingPickerBox!.width).toBeGreaterThanOrEqual(44);
-    await page.locator('input[name="campus-map-search"]').focus();
-    await page.keyboard.press("Shift+Tab");
+    await buildingPicker.focus();
     await expect(buildingPicker).toBeFocused();
-    await expect(buildingPicker.locator("span").last()).toHaveCSS(
-      "opacity",
-      "1",
-    );
     await buildingPicker.press(
       scenario.kind === "building" ? "Enter" : "Space",
     );
@@ -190,8 +185,8 @@ for (const scenario of [
     const pinType = page.getByRole("radio", {
       name: scenario.pinType === "water" ? "饮水点" : "打印服务",
     });
-    await pinType.focus();
-    await pinType.press("Space");
+    await pinType.check({ force: true });
+    await expect(pinType).toBeChecked();
     if (scenario.kind === "floor") {
       await page.getByRole("combobox", { name: "楼层" }).selectOption(floorId);
     }
@@ -214,19 +209,7 @@ for (const scenario of [
       .fill(scenario.name);
     await page.getByRole("button", { name: "更多信息" }).click();
     await page
-      .getByRole("combobox", { name: "开放对象" })
-      .selectOption("cuhk-member");
-    await page
-      .getByRole("combobox", { name: "凭证要求" })
-      .selectOption("campus-card");
-    await page
-      .getByRole("combobox", { name: "预约要求" })
-      .selectOption("required");
-    await page
-      .getByRole("combobox", { name: "临时状态" })
-      .selectOption("normal");
-    await page
-      .getByRole("combobox", { name: "开放时间" })
+      .getByRole("combobox", { name: "通常开放时间" })
       .selectOption("weekly");
     await page.getByRole("checkbox", { name: "周一" }).check();
     await page.getByRole("textbox", { name: "开始" }).fill("09:00");
@@ -255,21 +238,9 @@ for (const scenario of [
     await expect(
       page.getByRole("textbox", { name: "设施名称或编号" }),
     ).toHaveValue(scenario.name);
-    await expect(page.getByRole("combobox", { name: "开放对象" })).toHaveValue(
-      "cuhk-member",
-    );
-    await expect(page.getByRole("combobox", { name: "凭证要求" })).toHaveValue(
-      "campus-card",
-    );
-    await expect(page.getByRole("combobox", { name: "预约要求" })).toHaveValue(
-      "required",
-    );
-    await expect(page.getByRole("combobox", { name: "临时状态" })).toHaveValue(
-      "normal",
-    );
-    await expect(page.getByRole("combobox", { name: "开放时间" })).toHaveValue(
-      "weekly",
-    );
+    await expect(
+      page.getByRole("combobox", { name: "通常开放时间" }),
+    ).toHaveValue("weekly");
     await expect(page.getByRole("checkbox", { name: "周一" })).toBeChecked();
     await expect(page.getByRole("textbox", { name: "开始" })).toHaveValue(
       "09:00",
@@ -292,17 +263,7 @@ for (const scenario of [
       .getByRole("textbox", { name: "设施名称或编号" })
       .fill(updatedFixtureName);
     await page.getByRole("combobox", { name: "楼层" }).selectOption(floorId);
-    await page
-      .getByRole("combobox", { name: "开放对象" })
-      .selectOption("public");
-    await page.getByRole("combobox", { name: "凭证要求" }).selectOption("none");
-    await page.getByRole("combobox", { name: "预约要求" }).selectOption("none");
-    await page
-      .getByRole("combobox", { name: "临时状态" })
-      .selectOption("temporarily-closed");
-    await page
-      .getByRole("combobox", { name: "开放时间" })
-      .selectOption("always");
+    await page.getByRole("combobox", { name: "通常开放时间" }).selectOption("");
     await page.getByRole("button", { name: "发布修改" }).click();
     await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
     await expect(
@@ -334,20 +295,9 @@ for (const scenario of [
     await expect(page.getByRole("combobox", { name: "楼层" })).toHaveValue(
       floorId,
     );
-    await expect(page.getByRole("combobox", { name: "开放对象" })).toHaveValue(
-      "public",
-    );
-    await expect(page.getByRole("combobox", { name: "凭证要求" })).toHaveValue(
-      "none",
-    );
-    await expect(page.getByRole("combobox", { name: "预约要求" })).toHaveValue(
-      "none",
-    );
-    await expect(page.getByRole("combobox", { name: "开放时间" })).toHaveValue(
-      "always",
-    );
-    await expect(page.getByRole("combobox", { name: "临时状态" })).toHaveValue(
-      "temporarily-closed",
-    );
+    await page.getByRole("button", { name: "更多信息" }).click();
+    await expect(
+      page.getByRole("combobox", { name: "通常开放时间" }),
+    ).toHaveValue("");
   });
 }

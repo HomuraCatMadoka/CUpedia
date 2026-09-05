@@ -27,28 +27,40 @@ import {
   campusMapProvenanceSources,
   campusMapRevisionProvenance,
   campusMapRevisionVisibility,
-  CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
-  CAMPUS_MAP_FACT_SCHEMA_V1,
+  CAMPUS_MAP_ACTIVE_FACT_SCHEMA_VERSION,
   type CampusMapAccessSchedule,
   type CampusMapAudience,
   type CampusMapCapability,
   type CampusMapCredentialRequirement,
   type CampusMapFactDisplayMetadata,
-  type CampusMapFactSchemaDefinition,
+  type CampusMapFactSchemaDefinitionV1,
+  type CampusMapFactSchemaDefinitionV2,
   type CampusMapFieldDiff,
   type CampusMapGender,
   type CampusMapLocationKind,
+  type CampusMapOfficialAction,
   type CampusMapPinType,
+  type CampusMapPlaceType,
   type CampusMapPlaceOperation,
   type CampusMapPointPrecision,
   type CampusMapProvenanceKind,
   type CampusMapReservationRequirement,
+  type CampusMapRegularHours,
   type CampusMapRevisionStatus,
   type CampusMapRightsStatus,
   type CampusMapTemporaryStatus,
   type CampusMapWheelchairAccess,
+  type CampusMapV2Gender,
+  type CampusMapV2WheelchairAccess,
 } from "@/db/schema";
 import { isCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
+import {
+  isCampusMapPinTypeV1,
+  isCampusMapPlaceType,
+} from "@/lib/campus-map/controlled-values";
+import { isCampusMapOfficialAction } from "@/lib/campus-map/official-action";
+import { campusMapFactFieldAppliesV2 } from "@/lib/campus-map/place-type-contract";
+import { isCampusMapRegularHours } from "@/lib/campus-map/regular-hours";
 
 export type CampusMapCurrentPlaceLocation =
   | {
@@ -115,19 +127,13 @@ export interface CampusMapCurrentPlace {
   revisionId: string;
   factSchemaVersion: number;
   name: string;
-  pinType: CampusMapPinType;
+  placeType: CampusMapPlaceType;
+  regularHours: CampusMapRegularHours | null;
+  officialActions: CampusMapOfficialAction[];
+  visitNote: string | null;
   capabilities: CampusMapCapability[];
-  access: {
-    audience: CampusMapAudience;
-    credentialRequirement: CampusMapCredentialRequirement;
-    schedule: CampusMapAccessSchedule;
-    reservationRequirement: CampusMapReservationRequirement;
-    temporaryStatus: CampusMapTemporaryStatus;
-  };
-  facets: {
-    gender: CampusMapGender;
-    wheelchairAccess: CampusMapWheelchairAccess;
-  };
+  gender: CampusMapV2Gender | null;
+  wheelchairAccess: CampusMapV2WheelchairAccess | null;
   location: CampusMapCurrentPlaceLocation;
   observedAt: Date | null;
   verifiedAt: Date | null;
@@ -146,16 +152,110 @@ export interface CampusMapPublicProvenance {
 export interface CampusMapCurrentPlaceFilters {
   buildingId?: string;
   floorId?: string;
-  pinType?: CampusMapPinType;
+  placeType?: CampusMapPlaceType;
   bounds?: { west: number; south: number; east: number; north: number };
   afterPlaceId?: string;
   limit?: number;
 }
 
-export interface CampusMapFactSchema {
-  version: number;
-  definition: CampusMapFactSchemaDefinition;
-  displayMetadata: CampusMapFactDisplayMetadata;
+export type CampusMapPlaceBySourceHistoryResult =
+  | { status: "missing" }
+  | { status: "found"; placeId: string; provenanceId: string }
+  | { status: "ambiguous" }
+  | { status: "inactive" };
+
+/**
+ * Resolves one immutable source identity through the complete revision ledger,
+ * then verifies that its one Place is still a public active Current fact.
+ * Importers use this read model instead of depending on fact-table joins.
+ */
+export async function resolveCampusMapActivePlaceBySourceHistory(input: {
+  kind: CampusMapProvenanceKind;
+  ref: string;
+}): Promise<CampusMapPlaceBySourceHistoryResult> {
+  const rows = await db
+    .selectDistinct({
+      placeId: campusMapFactRevisions.placeId,
+      provenanceId: campusMapProvenanceSources.id,
+    })
+    .from(campusMapProvenanceSources)
+    .innerJoin(
+      campusMapRevisionProvenance,
+      eq(
+        campusMapRevisionProvenance.provenanceId,
+        campusMapProvenanceSources.id,
+      ),
+    )
+    .innerJoin(
+      campusMapFactRevisions,
+      eq(campusMapFactRevisions.id, campusMapRevisionProvenance.revisionId),
+    )
+    .where(
+      and(
+        eq(campusMapProvenanceSources.sourceKind, input.kind),
+        eq(campusMapProvenanceSources.sourceRef, input.ref),
+      ),
+    );
+  if (rows.length === 0) return { status: "missing" };
+
+  const placeIds = new Set(rows.map((row) => row.placeId));
+  if (placeIds.size !== 1) return { status: "ambiguous" };
+  const placeId = rows[0]!.placeId;
+  const current = await db
+    .select({ placeId: campusMapCurrentFacts.placeId })
+    .from(campusMapCurrentFacts)
+    .innerJoin(
+      campusMapRevisionVisibility,
+      eq(
+        campusMapRevisionVisibility.revisionId,
+        campusMapCurrentFacts.revisionId,
+      ),
+    )
+    .where(
+      and(
+        eq(campusMapCurrentFacts.placeId, placeId),
+        eq(campusMapCurrentFacts.status, "active"),
+        eq(campusMapRevisionVisibility.visibility, "public"),
+      ),
+    )
+    .limit(2);
+  if (current.length !== 1) return { status: "inactive" };
+  return {
+    status: "found",
+    placeId,
+    provenanceId: rows[0]!.provenanceId,
+  };
+}
+
+export type CampusMapFactSchema =
+  | {
+      version: 1;
+      definition: CampusMapFactSchemaDefinitionV1;
+      displayMetadata: CampusMapFactDisplayMetadata;
+    }
+  | {
+      version: 2;
+      definition: CampusMapFactSchemaDefinitionV2;
+      displayMetadata: CampusMapFactDisplayMetadata;
+    };
+
+function projectFactSchema(
+  version: number,
+  definition: CampusMapFactSchemaDefinitionV1 | CampusMapFactSchemaDefinitionV2,
+  displayMetadata: CampusMapFactDisplayMetadata,
+): CampusMapFactSchema {
+  invariant(version === 1 || version === 2, "Unsupported fact schema version");
+  return version === 1
+    ? {
+        version: 1,
+        definition: definition as CampusMapFactSchemaDefinitionV1,
+        displayMetadata,
+      }
+    : {
+        version: 2,
+        definition: definition as CampusMapFactSchemaDefinitionV2,
+        displayMetadata,
+      };
 }
 
 export interface CampusMapPlaceHistoryCursor {
@@ -163,17 +263,8 @@ export interface CampusMapPlaceHistoryCursor {
   revisionId: string;
 }
 
-export interface CampusMapHistoricalFact {
+interface CampusMapHistoricalFactBase {
   name: string;
-  pinType: CampusMapPinType;
-  capabilities: CampusMapCapability[];
-  gender: CampusMapGender;
-  wheelchairAccess: CampusMapWheelchairAccess;
-  audience: CampusMapAudience;
-  credentialRequirement: CampusMapCredentialRequirement;
-  accessSchedule: CampusMapAccessSchedule;
-  reservationRequirement: CampusMapReservationRequirement;
-  temporaryStatus: CampusMapTemporaryStatus;
   buildingId: string | null;
   floorId: string | null;
   locationKind: CampusMapLocationKind;
@@ -185,6 +276,34 @@ export interface CampusMapHistoricalFact {
   verifiedAt: Date | null;
   provenance: CampusMapPublicProvenance[];
 }
+
+export interface CampusMapHistoricalFactV1 extends CampusMapHistoricalFactBase {
+  factSchemaVersion: 1;
+  pinType: CampusMapPinType;
+  capabilities: CampusMapCapability[];
+  gender: CampusMapGender;
+  wheelchairAccess: CampusMapWheelchairAccess;
+  audience: CampusMapAudience;
+  credentialRequirement: CampusMapCredentialRequirement;
+  accessSchedule: CampusMapAccessSchedule;
+  reservationRequirement: CampusMapReservationRequirement;
+  temporaryStatus: CampusMapTemporaryStatus;
+}
+
+export interface CampusMapHistoricalFactV2 extends CampusMapHistoricalFactBase {
+  factSchemaVersion: 2;
+  placeType: CampusMapPlaceType;
+  regularHours: CampusMapRegularHours | null;
+  officialActions: CampusMapOfficialAction[];
+  visitNote: string | null;
+  capabilities: CampusMapCapability[];
+  gender: CampusMapV2Gender | null;
+  wheelchairAccess: CampusMapV2WheelchairAccess | null;
+}
+
+export type CampusMapHistoricalFact =
+  | CampusMapHistoricalFactV1
+  | CampusMapHistoricalFactV2;
 
 export interface CampusMapPlaceHistoryItem {
   id: string;
@@ -305,15 +424,18 @@ interface CampusMapCurrentFactRow {
   revisionId: string;
   factSchemaVersion: number;
   name: string;
-  pinType: CampusMapPinType;
+  pinType: CampusMapPlaceType;
   capabilities: CampusMapCapability[];
-  gender: CampusMapGender;
-  wheelchairAccess: CampusMapWheelchairAccess;
+  gender: CampusMapGender | null;
+  wheelchairAccess: CampusMapWheelchairAccess | null;
   audience: CampusMapAudience;
   credentialRequirement: CampusMapCredentialRequirement;
   accessSchedule: CampusMapAccessSchedule;
   reservationRequirement: CampusMapReservationRequirement;
-  temporaryStatus: CampusMapTemporaryStatus;
+  temporaryStatus: CampusMapTemporaryStatus | null;
+  regularHours: CampusMapRegularHours | null;
+  officialActions: CampusMapOfficialAction[];
+  visitNote: string | null;
   locationKind: CampusMapLocationKind;
   pointPrecision: CampusMapPointPrecision | null;
   longitude: number | null;
@@ -330,6 +452,33 @@ interface CampusMapCurrentFactRow {
   floorDisplayLabel: string | null;
   floorSortOrder: number | null;
 }
+
+type CampusMapStoredFactRow = Pick<
+  CampusMapCurrentFactRow,
+  | "factSchemaVersion"
+  | "name"
+  | "pinType"
+  | "capabilities"
+  | "gender"
+  | "wheelchairAccess"
+  | "audience"
+  | "credentialRequirement"
+  | "accessSchedule"
+  | "reservationRequirement"
+  | "temporaryStatus"
+  | "regularHours"
+  | "officialActions"
+  | "visitNote"
+  | "locationKind"
+  | "pointPrecision"
+  | "longitude"
+  | "latitude"
+  | "coordinateCrs"
+  | "observedAt"
+  | "verifiedAt"
+  | "buildingId"
+  | "floorId"
+>;
 
 interface CampusMapChangesetRow {
   id: string;
@@ -367,6 +516,9 @@ const currentFactSelection = {
   accessSchedule: campusMapCurrentFacts.accessSchedule,
   reservationRequirement: campusMapCurrentFacts.reservationRequirement,
   temporaryStatus: campusMapCurrentFacts.temporaryStatus,
+  regularHours: campusMapCurrentFacts.regularHours,
+  officialActions: campusMapCurrentFacts.officialActions,
+  visitNote: campusMapCurrentFacts.visitNote,
   locationKind: campusMapCurrentFacts.locationKind,
   pointPrecision: campusMapCurrentFacts.pointPrecision,
   longitude: campusMapCurrentFacts.longitude,
@@ -574,29 +726,140 @@ function projectCurrentPlace(
   row: CampusMapCurrentFactRow,
   provenance: CampusMapPublicProvenance[],
 ): CampusMapCurrentPlace {
+  invariant(
+    row.factSchemaVersion === CAMPUS_MAP_ACTIVE_FACT_SCHEMA_VERSION,
+    "Current fact is not V2",
+  );
+  invariant(
+    isCampusMapPlaceType(row.pinType),
+    "Current fact has an invalid Place type",
+  );
+  invariant(
+    row.audience === "unknown" &&
+      row.credentialRequirement === "unknown" &&
+      row.accessSchedule.kind === "unknown" &&
+      row.reservationRequirement === "unknown",
+    "Current V2 fact contains V1 access rules",
+  );
+  invariant(
+    row.gender !== "unknown" &&
+      row.wheelchairAccess !== "unknown" &&
+      row.temporaryStatus === null,
+    "Current V2 fact contains an unknown sentinel",
+  );
+  invariant(
+    row.regularHours === null || isCampusMapRegularHours(row.regularHours),
+    "Current V2 fact has invalid regular hours",
+  );
+  invariant(
+    row.officialActions.every(isCampusMapOfficialAction),
+    "Current V2 fact has an unsafe official action",
+  );
   return {
     id: row.placeId,
     revisionId: row.revisionId,
     factSchemaVersion: row.factSchemaVersion,
     name: row.name,
-    pinType: row.pinType,
+    placeType: row.pinType,
+    regularHours: row.regularHours,
+    officialActions: row.officialActions,
+    visitNote: row.visitNote,
     capabilities: row.capabilities,
-    access: {
-      audience: row.audience,
-      credentialRequirement: row.credentialRequirement,
-      schedule: row.accessSchedule,
-      reservationRequirement: row.reservationRequirement,
-      temporaryStatus: row.temporaryStatus,
-    },
-    facets: {
-      gender: row.gender,
-      wheelchairAccess: row.wheelchairAccess,
-    },
+    gender: row.gender,
+    wheelchairAccess: row.wheelchairAccess,
     location: projectLocation(row),
     observedAt: row.observedAt,
     verifiedAt: row.verifiedAt,
     publishedAt: row.publishedAt,
     provenance,
+  };
+}
+
+function isV1PinType(value: string): value is CampusMapPinType {
+  return isCampusMapPinTypeV1(value);
+}
+
+function isV2PlaceType(value: string): value is CampusMapPlaceType {
+  return isCampusMapPlaceType(value);
+}
+
+function projectHistoricalFact(
+  row: CampusMapStoredFactRow,
+  provenance: CampusMapPublicProvenance[],
+): CampusMapHistoricalFact {
+  const base: CampusMapHistoricalFactBase = {
+    name: row.name,
+    buildingId: row.buildingId,
+    floorId: row.floorId,
+    locationKind: row.locationKind,
+    pointPrecision: row.pointPrecision,
+    longitude: row.longitude,
+    latitude: row.latitude,
+    coordinateCrs: row.coordinateCrs,
+    observedAt: row.observedAt,
+    verifiedAt: row.verifiedAt,
+    provenance,
+  };
+  if (row.factSchemaVersion === 1) {
+    invariant(isV1PinType(row.pinType), "V1 revision has a non-V1 Place type");
+    invariant(
+      row.gender !== null &&
+        row.wheelchairAccess !== null &&
+        row.temporaryStatus !== null &&
+        row.regularHours === null &&
+        row.officialActions.length === 0 &&
+        row.visitNote === null,
+      "V1 revision contains a V2 payload",
+    );
+    return {
+      ...base,
+      factSchemaVersion: 1,
+      pinType: row.pinType,
+      capabilities: row.capabilities,
+      gender: row.gender,
+      wheelchairAccess: row.wheelchairAccess,
+      audience: row.audience,
+      credentialRequirement: row.credentialRequirement,
+      accessSchedule: row.accessSchedule,
+      reservationRequirement: row.reservationRequirement,
+      temporaryStatus: row.temporaryStatus,
+    };
+  }
+  invariant(row.factSchemaVersion === 2, "unsupported Fact schema version");
+  invariant(
+    isV2PlaceType(row.pinType),
+    "V2 revision has an invalid Place type",
+  );
+  invariant(
+    row.audience === "unknown" &&
+      row.credentialRequirement === "unknown" &&
+      row.accessSchedule.kind === "unknown" &&
+      row.reservationRequirement === "unknown",
+    "V2 revision contains V1 access rules",
+  );
+  invariant(
+    row.gender !== "unknown" &&
+      row.wheelchairAccess !== "unknown" &&
+      row.temporaryStatus === null &&
+      (row.regularHours === null ||
+        isCampusMapRegularHours(row.regularHours)) &&
+      row.officialActions.every(isCampusMapOfficialAction) &&
+      (campusMapFactFieldAppliesV2(row.pinType, "capabilities") ||
+        row.capabilities.length === 0) &&
+      (campusMapFactFieldAppliesV2(row.pinType, "gender") ||
+        row.gender === null),
+    "V2 revision payload does not match its schema",
+  );
+  return {
+    ...base,
+    factSchemaVersion: 2,
+    placeType: row.pinType,
+    regularHours: row.regularHours,
+    officialActions: row.officialActions,
+    visitNote: row.visitNote,
+    capabilities: row.capabilities,
+    gender: row.gender,
+    wheelchairAccess: row.wheelchairAccess,
   };
 }
 
@@ -617,19 +880,18 @@ export async function getCampusMapFactSchema(
         : eq(campusMapFactSchemas.version, version),
     )
     .limit(1);
-  if (row) return row;
-  if (version === undefined || version === 1) {
-    const [storedSchema] = await db
-      .select({ version: campusMapFactSchemas.version })
-      .from(campusMapFactSchemas)
-      .limit(1);
-    if (storedSchema && version === undefined) {
-      return null;
-    }
+  if (row?.version === 1) {
     return {
       version: 1,
-      definition: CAMPUS_MAP_FACT_SCHEMA_V1,
-      displayMetadata: CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
+      definition: row.definition as CampusMapFactSchemaDefinitionV1,
+      displayMetadata: row.displayMetadata,
+    };
+  }
+  if (row?.version === 2) {
+    return {
+      version: 2,
+      definition: row.definition as CampusMapFactSchemaDefinitionV2,
+      displayMetadata: row.displayMetadata,
     };
   }
   return null;
@@ -668,6 +930,10 @@ export async function getCampusMapCurrentPlace(
       and(
         eq(campusMapCurrentFacts.placeId, placeId),
         eq(campusMapCurrentFacts.status, "active"),
+        eq(
+          campusMapCurrentFacts.factSchemaVersion,
+          CAMPUS_MAP_ACTIVE_FACT_SCHEMA_VERSION,
+        ),
         eq(campusMapRevisionVisibility.visibility, "public"),
       ),
     )
@@ -756,6 +1022,10 @@ export async function listCampusMapCurrentPlaces(
   const limit = Math.min(Math.max(filters.limit ?? 50, 1), 100);
   const conditions = [
     eq(campusMapCurrentFacts.status, "active"),
+    eq(
+      campusMapCurrentFacts.factSchemaVersion,
+      CAMPUS_MAP_ACTIVE_FACT_SCHEMA_VERSION,
+    ),
     eq(campusMapRevisionVisibility.visibility, "public"),
   ];
 
@@ -765,8 +1035,8 @@ export async function listCampusMapCurrentPlaces(
   if (filters.floorId) {
     conditions.push(eq(campusMapCurrentFacts.floorId, filters.floorId));
   }
-  if (filters.pinType) {
-    conditions.push(eq(campusMapCurrentFacts.pinType, filters.pinType));
+  if (filters.placeType) {
+    conditions.push(eq(campusMapCurrentFacts.pinType, filters.placeType));
   }
   if (filters.afterPlaceId) {
     conditions.push(gt(campusMapCurrentFacts.placeId, filters.afterPlaceId));
@@ -861,6 +1131,10 @@ export async function listCampusMapCurrentPlaces(
         and(
           inArray(campusMapCurrentFacts.placeId, pageIds),
           eq(campusMapCurrentFacts.status, "active"),
+          eq(
+            campusMapCurrentFacts.factSchemaVersion,
+            CAMPUS_MAP_ACTIVE_FACT_SCHEMA_VERSION,
+          ),
           eq(campusMapRevisionVisibility.visibility, "public"),
         ),
       )
@@ -983,6 +1257,9 @@ export async function getCampusMapPlaceHistory(
       accessSchedule: campusMapFactRevisions.accessSchedule,
       reservationRequirement: campusMapFactRevisions.reservationRequirement,
       temporaryStatus: campusMapFactRevisions.temporaryStatus,
+      regularHours: campusMapFactRevisions.regularHours,
+      officialActions: campusMapFactRevisions.officialActions,
+      visitNote: campusMapFactRevisions.visitNote,
       buildingId: campusMapFactRevisions.buildingId,
       floorId: campusMapFactRevisions.floorId,
       locationKind: campusMapFactRevisions.locationKind,
@@ -1058,28 +1335,7 @@ export async function getCampusMapPlaceHistory(
         row.visibility === "public"
           ? {
               visibility: "public",
-              fact: {
-                name: row.name,
-                pinType: row.pinType,
-                capabilities: row.capabilities,
-                gender: row.gender,
-                wheelchairAccess: row.wheelchairAccess,
-                audience: row.audience,
-                credentialRequirement: row.credentialRequirement,
-                accessSchedule: row.accessSchedule,
-                reservationRequirement: row.reservationRequirement,
-                temporaryStatus: row.temporaryStatus,
-                buildingId: row.buildingId,
-                floorId: row.floorId,
-                locationKind: row.locationKind,
-                pointPrecision: row.pointPrecision,
-                longitude: row.longitude,
-                latitude: row.latitude,
-                coordinateCrs: row.coordinateCrs,
-                observedAt: row.observedAt,
-                verifiedAt: row.verifiedAt,
-                provenance: provenance.get(row.id) ?? [],
-              },
+              fact: projectHistoricalFact(row, provenance.get(row.id) ?? []),
             }
           : { visibility: "redacted" },
     }),
@@ -1166,6 +1422,9 @@ export async function getCampusMapPlaceRevision(
       accessSchedule: campusMapFactRevisions.accessSchedule,
       reservationRequirement: campusMapFactRevisions.reservationRequirement,
       temporaryStatus: campusMapFactRevisions.temporaryStatus,
+      regularHours: campusMapFactRevisions.regularHours,
+      officialActions: campusMapFactRevisions.officialActions,
+      visitNote: campusMapFactRevisions.visitNote,
       buildingId: campusMapFactRevisions.buildingId,
       floorId: campusMapFactRevisions.floorId,
       locationKind: campusMapFactRevisions.locationKind,
@@ -1234,11 +1493,11 @@ export async function getCampusMapPlaceRevision(
     mergedIntoPlaceId: row.mergedIntoPlaceId,
     factSchemaVersion: row.factSchemaVersion,
     fieldMetadata: row.fieldMetadata,
-    schema: {
-      version: row.factSchemaVersion,
-      definition: row.schemaDefinition,
-      displayMetadata: row.fieldMetadata,
-    },
+    schema: projectFactSchema(
+      row.factSchemaVersion,
+      row.schemaDefinition,
+      row.fieldMetadata,
+    ),
     operation: row.operation,
     fieldDiff:
       row.visibility === "public" &&
@@ -1255,28 +1514,7 @@ export async function getCampusMapPlaceRevision(
       row.visibility === "public"
         ? {
             visibility: "public",
-            fact: {
-              name: row.name,
-              pinType: row.pinType,
-              capabilities: row.capabilities,
-              gender: row.gender,
-              wheelchairAccess: row.wheelchairAccess,
-              audience: row.audience,
-              credentialRequirement: row.credentialRequirement,
-              accessSchedule: row.accessSchedule,
-              reservationRequirement: row.reservationRequirement,
-              temporaryStatus: row.temporaryStatus,
-              buildingId: row.buildingId,
-              floorId: row.floorId,
-              locationKind: row.locationKind,
-              pointPrecision: row.pointPrecision,
-              longitude: row.longitude,
-              latitude: row.latitude,
-              coordinateCrs: row.coordinateCrs,
-              observedAt: row.observedAt,
-              verifiedAt: row.verifiedAt,
-              provenance: provenance.get(row.id) ?? [],
-            },
+            fact: projectHistoricalFact(row, provenance.get(row.id) ?? []),
           }
         : { visibility: "redacted" },
   };
@@ -1355,11 +1593,11 @@ async function loadChangesByChangeset(
             status: row.status,
             mergedIntoPlaceId: row.mergedIntoPlaceId,
             operation: row.operation,
-            schema: {
-              version: row.factSchemaVersion,
-              definition: row.schemaDefinition,
-              displayMetadata: row.fieldMetadata,
-            },
+            schema: projectFactSchema(
+              row.factSchemaVersion,
+              row.schemaDefinition,
+              row.fieldMetadata,
+            ),
             diff: {
               fields: Object.fromEntries(
                 Object.entries(row.fieldDiff).filter(

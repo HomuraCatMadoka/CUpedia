@@ -43,6 +43,7 @@ Architectural decision records (ADRs) explain why CUpedia accepted a durable bou
 - [0037: Bind Campus Map Place photos to fact revisions](0037-bind-campus-map-place-photos-to-fact-revisions.md)
 - [0038: Resolve AMap hotspots to canonical Campus Map cards](0038-canonical-campus-map-browse-targets.md)
 - [0039: Keep canteen shame voting permanently open](0039-canteen-shame-voting-always-open.md)
+- [0040: Keep Campus Map V2 operating facts minimal](0040-campus-map-minimal-place-facts-v2.md)
 
 ## Maintain the index
 

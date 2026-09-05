@@ -3,13 +3,37 @@
  * and versioned draft decoder. Keep these arrays as the single runtime source
  * so adding a controlled value cannot leave restored drafts behind.
  */
-export const CAMPUS_MAP_PIN_TYPES = [
+/** Historical V1 values. Keep immutable so old revisions remain decodable. */
+export const CAMPUS_MAP_PIN_TYPES_V1 = [
   "toilet",
   "water",
   "printer",
   "common-space",
   "classroom",
 ] as const;
+
+/** Broad, reusable Place search categories used by the active V2 contract. */
+export const CAMPUS_MAP_PLACE_TYPES = [
+  ...CAMPUS_MAP_PIN_TYPES_V1,
+  "sports-facility",
+  "health-service",
+  "vending-machine",
+] as const;
+
+export function isCampusMapPinTypeV1(
+  value: string,
+): value is (typeof CAMPUS_MAP_PIN_TYPES_V1)[number] {
+  return CAMPUS_MAP_PIN_TYPES_V1.some((candidate) => candidate === value);
+}
+
+export function isCampusMapPlaceType(
+  value: string,
+): value is (typeof CAMPUS_MAP_PLACE_TYPES)[number] {
+  return CAMPUS_MAP_PLACE_TYPES.some((candidate) => candidate === value);
+}
+
+/** @deprecated V1-only name retained for historical codecs. */
+export const CAMPUS_MAP_PIN_TYPES = CAMPUS_MAP_PIN_TYPES_V1;
 
 export const CAMPUS_MAP_CAPABILITIES = ["print", "scan", "copy"] as const;
 
@@ -20,11 +44,19 @@ export const CAMPUS_MAP_GENDERS = [
   "unknown",
 ] as const;
 
+export const CAMPUS_MAP_V2_GENDERS = ["male", "female", "all-gender"] as const;
+
 export const CAMPUS_MAP_WHEELCHAIR_ACCESS = [
   "yes",
   "limited",
   "no",
   "unknown",
+] as const;
+
+export const CAMPUS_MAP_V2_WHEELCHAIR_ACCESS = [
+  "yes",
+  "limited",
+  "no",
 ] as const;
 
 export const CAMPUS_MAP_AUDIENCES = [

@@ -1449,7 +1449,7 @@ export function CampusMapRuntime({
   const startFacilityForActiveCategory = useCallback(() => {
     if (!activeAmenity) return;
     cancelPendingUserLocation();
-    startFacilityAdd({ kind: "global", pinType: activeAmenity });
+    startFacilityAdd({ kind: "global", placeType: activeAmenity });
   }, [activeAmenity, cancelPendingUserLocation, startFacilityAdd]);
   useEffect(() => {
     if (!publishNotice) return;
@@ -2087,6 +2087,9 @@ export function CampusMapRuntime({
         if (anchor) {
           setCenterPosition(anchor.wgs84Position);
           setProviderCenterPosition(anchor.providerPosition);
+          // The mobile placement anchor differs from the map center. Treat
+          // reprojection as a position update so the draft follows this point.
+          setMapCenterRevision((revision) => revision + 1);
         }
       } else if (projectionStillOwnsScene) {
         setCenterPosition(asWgs84Position(CAMPUS_CENTER));

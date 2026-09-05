@@ -1,13 +1,11 @@
 import {
-  CAMPUS_MAP_AUDIENCES,
   CAMPUS_MAP_CAPABILITIES,
   CAMPUS_MAP_COORDINATE_CONVERSION_METHODS,
-  CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
-  CAMPUS_MAP_FACT_SCHEMA_V1,
-  CAMPUS_MAP_GENDERS,
-  CAMPUS_MAP_PIN_TYPES,
+  CAMPUS_MAP_FACT_SCHEMA_V2,
+  CAMPUS_MAP_PLACE_TYPES,
   CAMPUS_MAP_SOURCE_COORDINATE_CRS,
-  CAMPUS_MAP_WHEELCHAIR_ACCESS,
+  CAMPUS_MAP_V2_GENDERS,
+  CAMPUS_MAP_V2_WHEELCHAIR_ACCESS,
   type CampusMapProvenanceKind,
 } from "@/db/schema";
 import type {
@@ -27,11 +25,20 @@ import {
   canonicalizeCampusMapUuid,
   isCampusMapUuid,
 } from "@/lib/campus-map/canonical-uuid";
-import { campusMapFactNameError } from "@/lib/campus-map/edit-schema";
+import {
+  campusMapFactNameError,
+  campusMapOptionalShortTextIsValid,
+  CAMPUS_MAP_VISIT_NOTE_MAX_BYTES,
+} from "@/lib/campus-map/edit-schema";
 import {
   CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT,
   CAMPUS_MAP_PLACE_PHOTO_ROLES,
 } from "@/lib/campus-map/place-photos-contract";
+import {
+  campusMapOfficialActionError,
+  CAMPUS_MAP_OFFICIAL_ACTION_MAX_COUNT,
+} from "@/lib/campus-map/official-action";
+import { isCampusMapRegularHours } from "@/lib/campus-map/regular-hours";
 
 const MAX_COMMENT_BYTES = 2_000;
 const MAX_SOURCE_SUMMARY_BYTES = 2_000;
@@ -450,8 +457,27 @@ export function validateFact(
   });
   const nameError = campusMapFactNameError(fact.name);
   if (nameError) errors.push({ code: nameError, anchor: anchor("name") });
-  if (!CAMPUS_MAP_PIN_TYPES.includes(fact.pinType)) {
-    errors.push({ code: "invalid-pin-type", anchor: anchor("pinType") });
+  if (
+    !isRecord(fact) ||
+    !hasOnlyKeys(fact, [
+      "name",
+      "buildingId",
+      "floorId",
+      "placeType",
+      "regularHours",
+      "officialActions",
+      "visitNote",
+      "capabilities",
+      "gender",
+      "wheelchairAccess",
+      "location",
+      "observedAt",
+    ])
+  ) {
+    errors.push({ code: "invalid-fact-shape", anchor: anchor("fact") });
+  }
+  if (!CAMPUS_MAP_PLACE_TYPES.includes(fact.placeType)) {
+    errors.push({ code: "invalid-place-type", anchor: anchor("placeType") });
   }
   if (
     !Array.isArray(fact.capabilities) ||
@@ -465,12 +491,12 @@ export function validateFact(
       anchor: anchor("capabilities"),
     });
   }
-  if (!CAMPUS_MAP_GENDERS.includes(fact.gender)) {
+  if (fact.gender !== null && !CAMPUS_MAP_V2_GENDERS.includes(fact.gender)) {
     errors.push({ code: "invalid-gender", anchor: anchor("gender") });
   }
-  if (CAMPUS_MAP_PIN_TYPES.includes(fact.pinType)) {
+  if (CAMPUS_MAP_PLACE_TYPES.includes(fact.placeType)) {
     const applicableFields = new Set(
-      CAMPUS_MAP_FACT_SCHEMA_V1.pinTypes[fact.pinType].applicableFields,
+      CAMPUS_MAP_FACT_SCHEMA_V2.placeTypes[fact.placeType].applicableFields,
     );
     if (
       Array.isArray(fact.capabilities) &&
@@ -483,55 +509,70 @@ export function validateFact(
       });
     }
     if (
-      CAMPUS_MAP_GENDERS.includes(fact.gender) &&
-      fact.gender !== "unknown" &&
+      fact.gender !== null &&
+      CAMPUS_MAP_V2_GENDERS.includes(fact.gender) &&
       !applicableFields.has("gender")
     ) {
       errors.push({ code: "field-not-applicable", anchor: anchor("gender") });
     }
   }
-  if (!CAMPUS_MAP_WHEELCHAIR_ACCESS.includes(fact.wheelchairAccess)) {
+  if (
+    fact.wheelchairAccess !== null &&
+    !CAMPUS_MAP_V2_WHEELCHAIR_ACCESS.includes(fact.wheelchairAccess)
+  ) {
     errors.push({
       code: "invalid-wheelchair-access",
       anchor: anchor("wheelchairAccess"),
     });
   }
-  if (!CAMPUS_MAP_AUDIENCES.includes(fact.audience)) {
-    errors.push({ code: "invalid-audience", anchor: anchor("audience") });
-  }
   if (
-    !CAMPUS_MAP_CREDENTIAL_REQUIREMENTS.includes(fact.credentialRequirement)
+    fact.regularHours !== null &&
+    !isCampusMapRegularHours(fact.regularHours)
   ) {
     errors.push({
-      code: "invalid-credential-requirement",
-      anchor: anchor("credentialRequirement"),
-    });
-  }
-  if (!validAccessSchedule(fact.accessSchedule)) {
-    errors.push({
-      code: "invalid-access-schedule",
-      anchor: anchor("accessSchedule"),
+      code: "invalid-regular-hours",
+      anchor: anchor("regularHours"),
     });
   }
   if (
-    fact.reservationRequirement !== "none" &&
-    fact.reservationRequirement !== "required" &&
-    fact.reservationRequirement !== "unknown"
+    !Array.isArray(fact.officialActions) ||
+    fact.officialActions.length > CAMPUS_MAP_OFFICIAL_ACTION_MAX_COUNT
   ) {
     errors.push({
-      code: "invalid-reservation-requirement",
-      anchor: anchor("reservationRequirement"),
+      code: "invalid-official-actions",
+      anchor: anchor("officialActions"),
     });
+  } else {
+    const identities = new Set<string>();
+    for (const [index, action] of fact.officialActions.entries()) {
+      const actionError = campusMapOfficialActionError(action);
+      if (actionError) {
+        errors.push({
+          code:
+            actionError === "invalid-label"
+              ? "invalid-official-action-label"
+              : "unsafe-official-action-url",
+          anchor: anchor(`officialActions.${index}`),
+        });
+      } else {
+        const identity = `${action.label.trim()}\u0000${action.url}`;
+        if (identities.has(identity)) {
+          errors.push({
+            code: "duplicate-official-action",
+            anchor: anchor(`officialActions.${index}`),
+          });
+        }
+        identities.add(identity);
+      }
+    }
   }
   if (
-    fact.temporaryStatus !== "normal" &&
-    fact.temporaryStatus !== "temporarily-closed" &&
-    fact.temporaryStatus !== "unknown"
+    !campusMapOptionalShortTextIsValid(
+      fact.visitNote,
+      CAMPUS_MAP_VISIT_NOTE_MAX_BYTES,
+    )
   ) {
-    errors.push({
-      code: "invalid-temporary-status",
-      anchor: anchor("temporaryStatus"),
-    });
+    errors.push({ code: "invalid-visit-note", anchor: anchor("visitNote") });
   }
   if (!validLocation(fact)) {
     errors.push({ code: "invalid-location", anchor: anchor("location") });
@@ -540,39 +581,6 @@ export function validateFact(
     errors.push({ code: "invalid-observed-at", anchor: anchor("observedAt") });
   }
   return errors;
-}
-
-function validAccessSchedule(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  if (value.kind === "unknown" || value.kind === "always") {
-    return Object.keys(value).length === 1;
-  }
-  if (
-    value.kind !== "weekly" ||
-    value.timezone !== "Asia/Hong_Kong" ||
-    !Array.isArray(value.intervals) ||
-    value.intervals.length === 0 ||
-    !hasOnlyKeys(value, ["kind", "timezone", "intervals"])
-  ) {
-    return false;
-  }
-  const weekdays = new Set(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
-  const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
-  return value.intervals.every(
-    (interval) =>
-      isRecord(interval) &&
-      hasOnlyKeys(interval, ["days", "opensAt", "closesAt"]) &&
-      Array.isArray(interval.days) &&
-      interval.days.length > 0 &&
-      interval.days.every(
-        (day) => typeof day === "string" && weekdays.has(day),
-      ) &&
-      typeof interval.opensAt === "string" &&
-      typeof interval.closesAt === "string" &&
-      timePattern.test(interval.opensAt) &&
-      timePattern.test(interval.closesAt) &&
-      interval.opensAt !== interval.closesAt,
-  );
 }
 
 function hasOnlyKeys(
@@ -868,15 +876,30 @@ export function toAppendFact(
     name: input.name.trim(),
     buildingId: input.buildingId,
     floorId: input.floorId,
-    pinType: input.pinType,
+    pinType: input.placeType,
     capabilities: [...input.capabilities],
     gender: input.gender,
     wheelchairAccess: input.wheelchairAccess,
-    audience: input.audience,
-    credentialRequirement: input.credentialRequirement,
-    accessSchedule: input.accessSchedule,
-    reservationRequirement: input.reservationRequirement,
-    temporaryStatus: input.temporaryStatus,
+    audience: "unknown",
+    credentialRequirement: "unknown",
+    accessSchedule: { kind: "unknown" },
+    reservationRequirement: "unknown",
+    temporaryStatus: null,
+    regularHours: input.regularHours
+      ? {
+          timezone: input.regularHours.timezone,
+          intervals: input.regularHours.intervals.map((interval) => ({
+            days: [...interval.days],
+            opensAt: interval.opensAt,
+            closesAt: interval.closesAt,
+          })),
+        }
+      : null,
+    officialActions: input.officialActions.map((action) => ({
+      label: action.label.trim(),
+      url: action.url,
+    })),
+    visitNote: input.visitNote?.trim() ?? null,
     locationKind: input.location.kind,
     pointPrecision:
       input.location.kind === "outdoor-point" ? input.location.precision : null,

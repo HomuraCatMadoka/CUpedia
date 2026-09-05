@@ -127,29 +127,19 @@ export function createCampusMapBrowseFixture(): CampusMapBrowseProjection {
     (facility) => {
       const building = buildingById.get(facility.buildingId);
       if (!building) return [];
-      const audience =
-        facility.access === "公众可达" ? "public" : "cuhk-member";
       return [
         {
           id: facility.id,
           revisionId: facility.id.replace("71000000", "72000000"),
-          factSchemaVersion: 1,
+          factSchemaVersion: 2,
           name: facility.name,
-          pinType: facility.category,
+          placeType: facility.category,
+          regularHours: null,
+          officialActions: [],
+          visitNote: null,
           capabilities: [],
-          access: {
-            audience,
-            credentialRequirement:
-              audience === "public" ? "none" : "campus-card",
-            schedule:
-              audience === "public" ? { kind: "always" } : { kind: "unknown" },
-            reservationRequirement: "none",
-            temporaryStatus: "normal",
-          },
-          facets: {
-            gender: "unknown",
-            wheelchairAccess: "unknown",
-          },
+          gender: null,
+          wheelchairAccess: null,
           location: {
             kind: "floor",
             building: {

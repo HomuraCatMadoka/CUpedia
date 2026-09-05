@@ -64,15 +64,13 @@ vi.mock("@/lib/campus-map/edit-actions", () => ({
       name: "林荫饮水点",
       buildingId: null,
       floorId: null,
-      pinType: "water",
+      placeType: "water",
+      regularHours: null,
+      officialActions: [],
+      visitNote: null,
       capabilities: [],
-      gender: "unknown",
-      wheelchairAccess: "unknown",
-      audience: "cuhk-member",
-      credentialRequirement: "unknown",
-      accessSchedule: { kind: "unknown" },
-      reservationRequirement: "unknown",
-      temporaryStatus: "unknown",
+      gender: null,
+      wheelchairAccess: null,
       location: {
         kind: "outdoor-point",
         longitude: 114.2078,
@@ -90,6 +88,10 @@ vi.mock("@/lib/campus-map/edit-actions", () => ({
 }));
 
 import { CampusMapRuntime as CampusMapRuntimeView } from "@/components/campus-map/campus-map-runtime";
+import {
+  CAMPUS_MAP_FACT_DISPLAY_METADATA_V2,
+  CAMPUS_MAP_FACT_SCHEMA_V2,
+} from "@/db/schema";
 import {
   encodeCampusMapEditSnapshot,
   transitionCampusMapEdit,
@@ -121,6 +123,11 @@ const TEST_AMAP_HOTSPOT_MAPPINGS: readonly CampusMapProviderMappingProjection[] 
 function CampusMapRuntime(props: ComponentProps<typeof CampusMapRuntimeView>) {
   return (
     <CampusMapRuntimeView
+      factSchema={{
+        version: 2,
+        definition: CAMPUS_MAP_FACT_SCHEMA_V2,
+        displayMetadata: CAMPUS_MAP_FACT_DISPLAY_METADATA_V2,
+      }}
       initialBrowseProjection={createCampusMapBrowseFixture()}
       {...props}
     />
@@ -1615,7 +1622,7 @@ describe("Campus Map AMap runtime effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "展开地点卡片" }));
     map.setZoomAndCenter.mockClear();
     map.panTo.mockClear();
-    fireEvent.click(screen.getByRole("button", { name: /洗手间.*公众可达/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^洗手间科学馆/ }));
     await screen.findByRole("heading", { name: "洗手间" });
     await runtime.flushAnimationFrames();
 

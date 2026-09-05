@@ -2,8 +2,25 @@ import type {
   CampusMapCurrentPlace,
   CampusMapCurrentPlaceLocation,
 } from "@/lib/campus-map/fact-store";
+import type {
+  CampusMapAccessSchedule,
+  CampusMapAudience,
+  CampusMapCredentialRequirement,
+  CampusMapGender,
+  CampusMapPinType,
+  CampusMapReservationRequirement,
+  CampusMapTemporaryStatus,
+  CampusMapWheelchairAccess,
+} from "@/db/schema";
+import { projectCampusMapLegacyV2Presentation } from "@/lib/campus-map/legacy-place-ui-adapter";
 
-type CampusMapPinType = CampusMapCurrentPlace["pinType"];
+type CampusMapLegacyAccess = {
+  audience: CampusMapAudience;
+  credentialRequirement: CampusMapCredentialRequirement;
+  schedule: CampusMapAccessSchedule;
+  reservationRequirement: CampusMapReservationRequirement;
+  temporaryStatus: CampusMapTemporaryStatus;
+};
 
 /** Product viewport default, not a Building or Place assertion. */
 export const CAMPUS_MAP_DEFAULT_VIEW_CENTER = [114.2072, 22.4191] as const;
@@ -49,10 +66,14 @@ export interface CampusMapBrowsePlace {
   placeId: string;
   revisionId: string;
   name: string;
-  pinType: CampusMapCurrentPlace["pinType"];
+  /** Temporary adapter for the unchanged V1 map UI. */
+  pinType: CampusMapPinType;
   capabilities: CampusMapCurrentPlace["capabilities"];
-  access: CampusMapCurrentPlace["access"];
-  facets: CampusMapCurrentPlace["facets"];
+  access: CampusMapLegacyAccess;
+  facets: {
+    gender: CampusMapGender;
+    wheelchairAccess: CampusMapWheelchairAccess;
+  };
   buildingId: string | null;
   floorId: string | null;
   floorLabel: string | null;
@@ -367,8 +388,10 @@ export function projectCampusMapBrowse(input: {
   for (const duplicatePlaceId of duplicatePlaceIds) {
     currentPlaceById.delete(duplicatePlaceId);
   }
-  const places = [...currentPlaceById.values()].map(
-    (place): CampusMapBrowsePlace => {
+  const places = [...currentPlaceById.values()].flatMap(
+    (place): CampusMapBrowsePlace[] => {
+      const presentation = projectCampusMapLegacyV2Presentation(place);
+      if (!presentation) return [];
       const buildingId =
         place.location.kind === "building" || place.location.kind === "floor"
           ? place.location.building.id
@@ -379,26 +402,28 @@ export function projectCampusMapBrowse(input: {
         place.location.kind === "floor"
           ? place.location.floor.displayLabel
           : null;
-      return {
-        placeId: place.id,
-        revisionId: place.revisionId,
-        name: place.name,
-        pinType: place.pinType,
-        capabilities: place.capabilities,
-        access: place.access,
-        facets: place.facets,
-        buildingId,
-        floorId,
-        floorLabel,
-        location: place.location,
-        publishedAt: place.publishedAt.toISOString(),
-        selectionTarget: {
-          kind: "place",
+      return [
+        {
           placeId: place.id,
+          revisionId: place.revisionId,
+          name: place.name,
+          pinType: presentation.pinType,
+          capabilities: presentation.capabilities,
+          access: presentation.access,
+          facets: presentation.facets,
           buildingId,
           floorId,
+          floorLabel,
+          location: place.location,
+          publishedAt: place.publishedAt.toISOString(),
+          selectionTarget: {
+            kind: "place",
+            placeId: place.id,
+            buildingId,
+            floorId,
+          },
         },
-      };
+      ];
     },
   );
 

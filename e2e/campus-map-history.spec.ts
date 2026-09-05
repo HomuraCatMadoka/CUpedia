@@ -1,6 +1,10 @@
 // ref #826, #719, #649
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
+import {
+  CAMPUS_MAP_FACT_SCHEMA_V1,
+  CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
+} from "@/db/schema";
 
 import { loginWithPassword } from "./helpers/auth";
 
@@ -26,13 +30,17 @@ async function ensureFixture() {
   try {
     await client.query("begin");
     await client.query("set local session_replication_role = replica");
+    // Exercise real V1 history after V2 activation. Historical labels belong
+    // to the revision snapshot, not a fabricated active/draft schema version.
     await client.query(
       `insert into campus_map_fact_schemas
          (version, status, definition, display_metadata)
-       values (719, 'draft',
-         '{"fields":{"name":{"kind":"text"},"location":{"kind":"location","variants":["outdoor-point"],"pointPrecisions":["approximate","precise"],"canonicalCrs":"wgs84"}},"pinTypes":{"water":{"applicableFields":["name","location"],"requiredFields":["name","location"]}}}',
-         '{"name":{"label":"历史名称"},"location":{"label":"历史位置"}}')
+       values (1, 'superseded', $1::jsonb, $2::jsonb)
        on conflict (version) do nothing`,
+      [
+        JSON.stringify(CAMPUS_MAP_FACT_SCHEMA_V1),
+        JSON.stringify(CAMPUS_MAP_FACT_DISPLAY_METADATA_V1),
+      ],
     );
     await client.query(
       `insert into campus_map_places (id) values ($1), ($2), ($3) on conflict do nothing`,
@@ -61,11 +69,11 @@ async function ensureFixture() {
          (id, place_id, changeset_id, place_change_id, fact_schema_version,
           field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
           name, pin_type, location_kind, point_precision, longitude, latitude,
-          coordinate_crs, created_at)
-       values ($1,$2,$3,$4,719,
+          coordinate_crs, gender, wheelchair_access, temporary_status, created_at)
+       values ($1,$2,$3,$4,1,
          '{"name":{"label":"历史名称"},"location":{"label":"历史位置"}}',
          'active',$5,'地图贡献者','历史测试饮水点','water','outdoor-point',
-         'precise',114.2,22.4,'wgs84','2026-08-20T01:00:00Z')
+         'precise',114.2,22.4,'wgs84','unknown','unknown','unknown','2026-08-20T01:00:00Z')
        on conflict do nothing`,
       [
         ids.createRevision,
@@ -99,11 +107,12 @@ async function ensureFixture() {
          (id, place_id, changeset_id, place_change_id, previous_revision_id,
           fact_schema_version, field_metadata, status, actor_id_snapshot,
           actor_nickname_snapshot, name, pin_type, location_kind, point_precision,
-          longitude, latitude, coordinate_crs, created_at)
-       values ($1,$2,$3,$4,$5,719,
+          longitude, latitude, coordinate_crs, gender, wheelchair_access,
+          temporary_status, created_at)
+       values ($1,$2,$3,$4,$5,1,
          '{"name":{"label":"历史名称"},"location":{"label":"历史位置"}}',
          'retired',$6,'地图贡献者','历史测试饮水点','water','outdoor-point',
-         'precise',114.2,22.4,'wgs84','2026-08-21T01:00:00Z')
+         'precise',114.2,22.4,'wgs84','unknown','unknown','unknown','2026-08-21T01:00:00Z')
        on conflict do nothing`,
       [
         ids.retireRevision,
@@ -138,10 +147,10 @@ async function ensureFixture() {
          (id, place_id, changeset_id, place_change_id, fact_schema_version,
           field_metadata, status, actor_id_snapshot, actor_nickname_snapshot,
           name, pin_type, location_kind, point_precision, longitude, latitude,
-          coordinate_crs, created_at)
-       values ($1,$2,$3,$4,719,'{"name":{"label":"历史名称"}}','active',
+          coordinate_crs, gender, wheelchair_access, temporary_status, created_at)
+       values ($1,$2,$3,$4,1,'{"name":{"label":"历史名称"}}','active',
          $5,'地图贡献者','保留地点','water','outdoor-point','approximate',
-         114.201,22.401,'wgs84','2026-08-19T01:00:00Z') on conflict do nothing`,
+         114.201,22.401,'wgs84','unknown','unknown','unknown','2026-08-19T01:00:00Z') on conflict do nothing`,
       [
         ids.survivorRevision,
         ids.survivorPlace,

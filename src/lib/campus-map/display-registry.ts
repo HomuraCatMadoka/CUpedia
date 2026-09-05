@@ -1,13 +1,16 @@
-import type { CampusMapWeekday } from "@/db/schema";
+import type { CampusMapPinType, CampusMapWeekday } from "@/db/schema";
 import {
   CAMPUS_MAP_AUDIENCES,
   CAMPUS_MAP_CAPABILITIES,
   CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
   CAMPUS_MAP_GENDERS,
+  CAMPUS_MAP_PIN_TYPES_V1,
   CAMPUS_MAP_PLACE_PHOTO_ROLES,
   CAMPUS_MAP_PROVENANCE_KINDS,
   CAMPUS_MAP_RESERVATION_REQUIREMENTS,
   CAMPUS_MAP_TEMPORARY_STATUSES,
+  CAMPUS_MAP_V2_GENDERS,
+  CAMPUS_MAP_V2_WHEELCHAIR_ACCESS,
   CAMPUS_MAP_WHEELCHAIR_ACCESS,
 } from "@/lib/campus-map/controlled-values";
 import type {
@@ -34,13 +37,20 @@ function options<Values extends readonly string[]>(
   return ordered.map((value) => ({ value, label: labels[value] }));
 }
 
-const pinTypes = {
+const placeTypes = {
   toilet: { label: "洗手间" },
   water: { label: "饮水点" },
   printer: { label: "打印服务" },
   "common-space": { label: "公共空间" },
   classroom: { label: "课室" },
-} satisfies Record<CampusMapPublishFactInput["pinType"], { label: string }>;
+  "sports-facility": { label: "体育设施" },
+  "health-service": { label: "医疗服务" },
+  "vending-machine": { label: "自动售卖机" },
+} satisfies Record<CampusMapPublishFactInput["placeType"], { label: string }>;
+
+const pinTypes = Object.fromEntries(
+  CAMPUS_MAP_PIN_TYPES_V1.map((value) => [value, placeTypes[value]]),
+) as Record<CampusMapPinType, { label: string }>;
 
 const capabilityLabels = {
   print: "打印",
@@ -118,7 +128,15 @@ const browseCategories = [
   "printer",
   "common-space",
   "classroom",
-] as const satisfies readonly CampusMapPublishFactInput["pinType"][];
+] as const satisfies readonly (typeof CAMPUS_MAP_PIN_TYPES_V1)[number][];
+
+type LegacyCampusMapFactField =
+  | "pinType"
+  | "audience"
+  | "credentialRequirement"
+  | "accessSchedule"
+  | "reservationRequirement"
+  | "temporaryStatus";
 
 /** Stable product vocabulary shared by Campus Map read and edit surfaces. */
 export const CAMPUS_MAP_DISPLAY_REGISTRY = {
@@ -127,6 +145,11 @@ export const CAMPUS_MAP_DISPLAY_REGISTRY = {
     buildingId: { label: "建筑" },
     floorId: { label: "楼层" },
     pinType: { label: "地点类型" },
+    placeType: { label: "地点类型" },
+    regularHours: { label: "通常开放时间" },
+    temporaryStatus: { label: "临时状态" },
+    officialActions: { label: "官方入口" },
+    visitNote: { label: "到访提示" },
     capabilities: { label: "服务能力" },
     gender: { label: "性别属性" },
     wheelchairAccess: { label: "无障碍通行" },
@@ -134,24 +157,30 @@ export const CAMPUS_MAP_DISPLAY_REGISTRY = {
     credentialRequirement: { label: "凭证要求" },
     accessSchedule: { label: "开放时间" },
     reservationRequirement: { label: "预约要求" },
-    temporaryStatus: { label: "临时状态" },
     location: { label: "位置" },
     observedAt: { label: "观察时间" },
     sources: { label: "资料依据" },
   } satisfies Record<
-    keyof CampusMapPublishFactInput | "sources",
+    keyof CampusMapPublishFactInput | LegacyCampusMapFactField | "sources",
     { label: string }
   >,
+  placeTypes,
   pinTypes,
   browseCategories,
   options: {
     capabilities: options(CAMPUS_MAP_CAPABILITIES, capabilityLabels),
-    gender: options(CAMPUS_MAP_GENDERS, genderLabels, true),
+    gender: options(CAMPUS_MAP_V2_GENDERS, genderLabels),
     wheelchairAccess: options(
-      CAMPUS_MAP_WHEELCHAIR_ACCESS,
+      CAMPUS_MAP_V2_WHEELCHAIR_ACCESS,
       wheelchairAccessLabels,
+    ),
+    temporaryStatus: options(
+      CAMPUS_MAP_TEMPORARY_STATUSES,
+      temporaryStatusLabels,
       true,
     ),
+    provenanceKind: options(CAMPUS_MAP_PROVENANCE_KINDS, provenanceKindLabels),
+    // V1-only values remain available for immutable history rendering.
     audience: options(CAMPUS_MAP_AUDIENCES, audienceLabels, true),
     credentialRequirement: options(
       CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
@@ -164,12 +193,6 @@ export const CAMPUS_MAP_DISPLAY_REGISTRY = {
       reservationRequirementLabels,
       true,
     ),
-    temporaryStatus: options(
-      CAMPUS_MAP_TEMPORARY_STATUSES,
-      temporaryStatusLabels,
-      true,
-    ),
-    provenanceKind: options(CAMPUS_MAP_PROVENANCE_KINDS, provenanceKindLabels),
   },
   weekdays: {
     mon: "周一",
@@ -182,14 +205,19 @@ export const CAMPUS_MAP_DISPLAY_REGISTRY = {
   } satisfies Record<CampusMapWeekday, string>,
 } as const;
 
-export function campusMapPinTypeLabel(
-  value: CampusMapPublishFactInput["pinType"],
+export function campusMapPlaceTypeLabel(
+  value: CampusMapPublishFactInput["placeType"],
 ) {
+  return CAMPUS_MAP_DISPLAY_REGISTRY.placeTypes[value].label;
+}
+
+/** Temporary compatibility label for the unchanged public V1 map UI. */
+export function campusMapPinTypeLabel(value: CampusMapPinType) {
   return CAMPUS_MAP_DISPLAY_REGISTRY.pinTypes[value].label;
 }
 
 export function campusMapFactFieldLabel(
-  value: keyof CampusMapPublishFactInput | "sources",
+  value: keyof CampusMapPublishFactInput | LegacyCampusMapFactField | "sources",
 ) {
   return CAMPUS_MAP_DISPLAY_REGISTRY.fields[value].label;
 }
@@ -202,7 +230,21 @@ export function campusMapDisplayOptionLabel(
     value: string;
     label: string;
   }[];
-  return entries.find((entry) => entry.value === value)?.label ?? value;
+  const currentLabel = entries.find((entry) => entry.value === value)?.label;
+  if (currentLabel) return currentLabel;
+
+  // V2 editors omit old sentinel values, but immutable V1 history must still
+  // render them in the reader's language.
+  if (value === "unknown") {
+    if (
+      group === "gender" ||
+      group === "wheelchairAccess" ||
+      group === "temporaryStatus"
+    ) {
+      return "未知";
+    }
+  }
+  return value;
 }
 
 export function campusMapProvenanceKindLabel(
@@ -221,22 +263,20 @@ const factOptionGroups = {
   capabilities: "capabilities",
   gender: "gender",
   wheelchairAccess: "wheelchairAccess",
+  temporaryStatus: "temporaryStatus",
   audience: "audience",
   credentialRequirement: "credentialRequirement",
   reservationRequirement: "reservationRequirement",
-  temporaryStatus: "temporaryStatus",
-} as const satisfies Partial<
-  Record<
-    keyof CampusMapPublishFactInput,
-    keyof typeof CAMPUS_MAP_DISPLAY_REGISTRY.options
-  >
->;
+} as const;
 
 /** Formats controlled fact values while leaving version-specific shapes intact. */
 export function displayCampusMapFactValue(field: string, value: unknown) {
-  if (field === "pinType" && typeof value === "string") {
-    return value in CAMPUS_MAP_DISPLAY_REGISTRY.pinTypes
-      ? campusMapPinTypeLabel(value as CampusMapPublishFactInput["pinType"])
+  if (
+    (field === "placeType" || field === "pinType") &&
+    typeof value === "string"
+  ) {
+    return value in CAMPUS_MAP_DISPLAY_REGISTRY.placeTypes
+      ? campusMapPlaceTypeLabel(value as CampusMapPublishFactInput["placeType"])
       : value;
   }
   const group = factOptionGroups[field as keyof typeof factOptionGroups];

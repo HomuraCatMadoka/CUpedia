@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CampusMapEditSheet } from "@/components/campus-map/edit-sheet";
+import { CampusMapEditSheet as CampusMapEditSheetView } from "@/components/campus-map/edit-sheet";
+import {
+  CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
+  CAMPUS_MAP_FACT_DISPLAY_METADATA_V2,
+  CAMPUS_MAP_FACT_SCHEMA_V1,
+  CAMPUS_MAP_FACT_SCHEMA_V2,
+} from "@/db/schema";
 import {
   createCampusMapEditDraft,
   transitionCampusMapEdit,
@@ -18,6 +25,18 @@ const revisionId = "30000000-0000-4000-8000-000000000001";
 const changesetId = "40000000-0000-4000-8000-000000000001";
 const buildingId = "50000000-0000-4000-8000-000000000001";
 const floorId = "60000000-0000-4000-8000-000000000001";
+
+const activeFactSchema: CampusMapFactSchema = {
+  version: 2,
+  definition: CAMPUS_MAP_FACT_SCHEMA_V2,
+  displayMetadata: CAMPUS_MAP_FACT_DISPLAY_METADATA_V2,
+};
+
+function CampusMapEditSheet(
+  props: ComponentProps<typeof CampusMapEditSheetView>,
+) {
+  return <CampusMapEditSheetView factSchema={activeFactSchema} {...props} />;
+}
 
 const buildings: CampusMapBrowseBuilding[] = [
   {
@@ -89,6 +108,32 @@ function editDraft() {
 }
 
 describe("Campus Map single-page edit Sheet", () => {
+  it.each([
+    ["missing", null],
+    [
+      "historical V1",
+      {
+        version: 1,
+        definition: CAMPUS_MAP_FACT_SCHEMA_V1,
+        displayMetadata: CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
+      } satisfies CampusMapFactSchema,
+    ],
+  ])("fails closed when the active schema is %s", (_label, factSchema) => {
+    const onEvent = vi.fn();
+    render(
+      <CampusMapEditSheet
+        session={{ status: "editing", draft: draft() }}
+        centerPosition={[114.209, 22.419]}
+        factSchema={factSchema}
+        onEvent={onEvent}
+      />,
+    );
+
+    expect(screen.getByRole("alert").textContent).toContain("暂时无法编辑设施");
+    expect(screen.queryByRole("button", { name: "发布设施" })).toBeNull();
+    expect(onEvent).not.toHaveBeenCalled();
+  });
+
   it("keeps a building-required Add focused on building and optional floor", () => {
     const session = transitionCampusMapEdit(null, {
       type: "START_FACILITY_ADD",
@@ -406,18 +451,21 @@ describe("Campus Map single-page edit Sheet", () => {
     vi.setSystemTime(new Date("2026-08-26T04:00:00Z"));
     const onEvent = vi.fn();
     const factSchema = {
-      version: 1,
+      version: 2,
       definition: {
         fields: {},
-        pinTypes: {
+        placeTypes: {
           toilet: { applicableFields: [], requiredFields: [] },
           water: { applicableFields: [], requiredFields: [] },
           printer: {
-            applicableFields: ["name", "pinType", "capabilities", "location"],
-            requiredFields: ["name", "pinType", "capabilities", "location"],
+            applicableFields: ["name", "placeType", "capabilities", "location"],
+            requiredFields: ["name", "placeType", "capabilities", "location"],
           },
           "common-space": { applicableFields: [], requiredFields: [] },
           classroom: { applicableFields: [], requiredFields: [] },
+          "sports-facility": { applicableFields: [], requiredFields: [] },
+          "health-service": { applicableFields: [], requiredFields: [] },
+          "vending-machine": { applicableFields: [], requiredFields: [] },
         },
       },
       displayMetadata: {},
@@ -431,7 +479,7 @@ describe("Campus Map single-page edit Sheet", () => {
             ...draft(),
             fact: {
               ...draft().fact,
-              pinType: "printer",
+              placeType: "printer",
               location: {
                 kind: "outdoor-point",
                 longitude: 114.2,
@@ -453,34 +501,35 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(onEvent).toHaveBeenLastCalledWith({
       type: "REQUEST_PUBLISH",
       accessedOn: "2026-08-26",
-      requiredFields: ["name", "pinType", "capabilities", "location"],
+      requiredFields: ["name", "placeType", "capabilities", "location"],
     });
   });
 
-  it("shows the canonical access fields that apply to the active schema", () => {
+  it("keeps future V2 card fields out of the compatibility editor", () => {
     const factSchema = {
-      version: 1,
+      version: 2,
       definition: {
         fields: {},
-        pinTypes: {
+        placeTypes: {
           toilet: { applicableFields: [], requiredFields: [] },
           water: {
             applicableFields: [
               "name",
-              "pinType",
-              "capabilities",
-              "audience",
-              "credentialRequirement",
-              "accessSchedule",
-              "reservationRequirement",
-              "temporaryStatus",
+              "placeType",
+              "regularHours",
+              "officialActions",
+              "visitNote",
+              "wheelchairAccess",
               "location",
             ],
-            requiredFields: ["name", "pinType", "capabilities", "location"],
+            requiredFields: ["name", "placeType", "location"],
           },
           printer: { applicableFields: [], requiredFields: [] },
           "common-space": { applicableFields: [], requiredFields: [] },
           classroom: { applicableFields: [], requiredFields: [] },
+          "sports-facility": { applicableFields: [], requiredFields: [] },
+          "health-service": { applicableFields: [], requiredFields: [] },
+          "vending-machine": { applicableFields: [], requiredFields: [] },
         },
       },
       displayMetadata: {},
@@ -512,14 +561,15 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "更多信息" }));
-    expect(screen.getByRole("combobox", { name: "开放对象" })).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "凭证要求" })).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "开放时间" })).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "预约要求" })).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "临时状态" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "通常开放时间" })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "临时状态" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "添加官方入口" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "到访提示" })).toBeNull();
+    expect(screen.getByRole("combobox", { name: "无障碍通行" })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "开放对象" })).toBeNull();
   });
 
-  it("maps editable names and controlled access conditions to one fact event", () => {
+  it("maps editable names to one fact event", () => {
     const onEvent = vi.fn();
     const session: CampusMapEditSession = {
       status: "editing",
@@ -555,21 +605,9 @@ describe("Campus Map single-page edit Sheet", () => {
         name: "科学馆 1/F 东翼饮水机",
       },
     });
-
-    fireEvent.click(screen.getByRole("button", { name: "更多信息" }));
-    fireEvent.change(screen.getByRole("combobox", { name: "开放对象" }), {
-      target: { value: "cuhk-member" },
-    });
-    expect(onEvent).toHaveBeenLastCalledWith({
-      type: "CHANGE_FACT",
-      fact: {
-        ...session.draft.fact,
-        audience: "cuhk-member",
-      },
-    });
   });
 
-  it("lets contributors remove an extra weekly access interval", () => {
+  it("lets contributors remove an extra regular-hours interval", () => {
     const onEvent = vi.fn();
     const firstInterval = {
       days: ["mon" as const],
@@ -589,8 +627,7 @@ describe("Campus Map single-page edit Sheet", () => {
             crs: "wgs84",
             precision: "approximate",
           },
-          accessSchedule: {
-            kind: "weekly",
+          regularHours: {
             timezone: "Asia/Hong_Kong",
             intervals: [
               firstInterval,
@@ -618,8 +655,7 @@ describe("Campus Map single-page edit Sheet", () => {
       type: "CHANGE_FACT",
       fact: {
         ...session.draft.fact,
-        accessSchedule: {
-          kind: "weekly",
+        regularHours: {
           timezone: "Asia/Hong_Kong",
           intervals: [firstInterval],
         },
@@ -931,6 +967,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(onEvent).toHaveBeenLastCalledWith({
       type: "REQUEST_PUBLISH",
       accessedOn: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      requiredFields: ["name", "placeType", "location"],
     });
 
     view.rerender(
@@ -1079,7 +1116,15 @@ describe("Campus Map single-page edit Sheet", () => {
           draft: {
             ...session.draft,
             idempotencyKey: "10000000-0000-4000-8000-000000000002",
-            fact: { ...session.draft.fact, audience: "cuhk-member" },
+            fact: {
+              ...session.draft.fact,
+              regularHours: {
+                timezone: "Asia/Hong_Kong",
+                intervals: [
+                  { days: ["mon"], opensAt: "09:00", closesAt: "18:00" },
+                ],
+              },
+            },
           },
         }}
         centerPosition={[114.209, 22.419]}
@@ -1092,7 +1137,7 @@ describe("Campus Map single-page edit Sheet", () => {
         .getByRole("button", { name: "更多信息" })
         .getAttribute("aria-expanded"),
     ).toBe("true");
-    expect(screen.getByRole("group", { name: "开放与使用条件" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "补充资料" })).toBeTruthy();
   });
 
   it("keeps the edit heading programmatically focusable", () => {
@@ -1127,7 +1172,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(heading.className).toContain("focus-visible:border-l-2");
   });
 
-  it("exposes every place type as one accessible radio group", () => {
+  it("keeps new V2 place types out of the compatibility editor", () => {
     render(
       <CampusMapEditSheet
         session={{
@@ -1156,6 +1201,9 @@ describe("Campus Map single-page edit Sheet", () => {
     for (const label of ["饮水点", "洗手间", "打印服务", "公共空间", "课室"]) {
       expect(screen.getByRole("radio", { name: label })).toBeTruthy();
     }
+    expect(screen.queryByRole("radio", { name: "体育设施" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "医疗服务" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "自动售卖机" })).toBeNull();
     expect(typeGroup.getAttribute("tabindex")).toBe("-1");
     expect(screen.queryByText(/Changeset 说明/)).toBeNull();
   });
@@ -1188,8 +1236,8 @@ describe("Campus Map single-page edit Sheet", () => {
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
 
     expect(onEvent).toHaveBeenLastCalledWith({
-      type: "CHANGE_PIN_TYPE",
-      pinType: "toilet",
+      type: "CHANGE_PLACE_TYPE",
+      placeType: "toilet",
     });
   });
 
@@ -1281,8 +1329,8 @@ describe("Campus Map single-page edit Sheet", () => {
     fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
 
     expect(onEvent).toHaveBeenLastCalledWith({
-      type: "CHANGE_PIN_TYPE",
-      pinType: "toilet",
+      type: "CHANGE_PLACE_TYPE",
+      placeType: "toilet",
       idempotencyKey: expect.any(String),
     });
     expect(onEvent.mock.calls.at(-1)?.[0].idempotencyKey).not.toBe(
@@ -1593,7 +1641,7 @@ describe("Campus Map single-page edit Sheet", () => {
     );
   });
 
-  it("keeps provenance controls out while exposing canonical access controls", () => {
+  it("keeps provenance controls out while exposing optional V2 details", () => {
     const onEvent = vi.fn();
     const session: CampusMapEditSession = {
       status: "editing",
@@ -1621,7 +1669,7 @@ describe("Campus Map single-page edit Sheet", () => {
 
     expect(screen.queryByLabelText("现场观察时间（香港时间）")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "更多信息" }));
-    expect(screen.getByRole("combobox", { name: "开放时间" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "通常开放时间" })).toBeTruthy();
     expect(screen.queryByText("资料依据")).toBeNull();
     expect(onEvent).not.toHaveBeenCalled();
   });
@@ -1683,7 +1731,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.queryByLabelText("现场观察时间（香港时间）")).toBeNull();
   });
 
-  it("keeps unrelated access controls collapsed for an old local error", () => {
+  it("opens the relevant detail control for a local error", () => {
     const session: CampusMapEditSession = {
       status: "editing",
       localError: "capabilities",
@@ -1691,7 +1739,7 @@ describe("Campus Map single-page edit Sheet", () => {
         ...editDraft(),
         fact: {
           ...editDraft().fact,
-          pinType: "printer",
+          placeType: "printer",
           location: {
             kind: "outdoor-point",
             longitude: 114.2,
@@ -1713,13 +1761,13 @@ describe("Campus Map single-page edit Sheet", () => {
 
     expect(
       document.querySelector('[data-edit-field="capabilities"]'),
-    ).toBeNull();
+    ).not.toBeNull();
     expect(
       screen
         .getByRole("button", { name: "更多信息" })
         .getAttribute("aria-expanded"),
-    ).toBe("false");
-    expect(screen.queryByRole("group", { name: "开放与使用条件" })).toBeNull();
+    ).toBe("true");
+    expect(screen.getByRole("group", { name: "补充资料" })).toBeTruthy();
   });
 
   it("makes the map location row programmatically focusable", () => {
@@ -1807,10 +1855,10 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.queryByText(/WGS84 · 约略/)).toBeNull();
   });
 
-  it("keeps an access validation target visible and focusable", () => {
+  it("keeps a regular-hours validation target visible and focusable", () => {
     const session: CampusMapEditSession = {
       status: "editing",
-      localError: "accessSchedule",
+      localError: "regularHours",
       draft: {
         ...editDraft(),
         fact: {
@@ -1834,11 +1882,11 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    expect(screen.getByRole("combobox", { name: "开放时间" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "通常开放时间" })).toBeTruthy();
     expect(
-      document.querySelector('[data-edit-field="accessSchedule"]'),
+      document.querySelector('[data-edit-field="regularHours"]'),
     ).toBeTruthy();
-    fireEvent.focus(screen.getByRole("combobox", { name: "开放时间" }));
+    fireEvent.focus(screen.getByRole("combobox", { name: "通常开放时间" }));
     view.rerender(
       <CampusMapEditSheet
         session={{ ...session, localError: undefined }}
@@ -1846,7 +1894,7 @@ describe("Campus Map single-page edit Sheet", () => {
         onEvent={vi.fn()}
       />,
     );
-    expect(screen.getByRole("group", { name: "开放与使用条件" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "补充资料" })).toBeTruthy();
   });
 
   it("uses reposition wording for an Edit placement", () => {
@@ -2110,14 +2158,14 @@ describe("Campus Map single-page edit Sheet", () => {
     };
     const mine: CampusMapPublishFactInput = {
       ...baseDraft.fact,
-      pinType: "printer",
+      placeType: "printer",
       capabilities: ["print"],
-      gender: "unknown",
+      gender: null,
       location,
     };
     const currentFact: CampusMapPublishFactInput = {
       ...baseDraft.fact,
-      pinType: "toilet",
+      placeType: "toilet",
       capabilities: [],
       gender: "female",
       location,
@@ -2148,9 +2196,9 @@ describe("Campus Map single-page edit Sheet", () => {
       idempotencyKey: expect.any(String),
       photos: [],
       fact: expect.objectContaining({
-        pinType: "printer",
+        placeType: "printer",
         capabilities: ["print"],
-        gender: "unknown",
+        gender: null,
       }),
     });
     expect(screen.getByText("我的：打印服务 · 服务：打印")).toBeTruthy();
