@@ -68,7 +68,7 @@ export default async function HomePage() {
               </CardHeader>
             </Card>
           ) : (
-            <Link key={module.href} href={module.href}>
+            <Link key={module.href} href={module.href} prefetch={false}>
               <Card className="transition-shadow hover:shadow-md">
                 <CardHeader>
                   <CardTitle className="text-lg">{module.title}</CardTitle>

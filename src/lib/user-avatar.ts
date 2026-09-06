@@ -1,4 +1,5 @@
-export const DEFAULT_AVATAR_URL = "/images/default-avatar.jpg";
+// When replacing the image, bump this version and its next.config.ts cache rule.
+export const DEFAULT_AVATAR_URL = "/images/default-avatar.jpg?v=1";
 
 export type EquippedPersonTitle = {
   displayName: string;

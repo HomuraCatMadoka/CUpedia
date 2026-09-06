@@ -56,6 +56,7 @@ export function CourseReviewAuthorIdentity(
             aria-label={`${nickname ?? "用户"}的成就橱窗`}
             className="shrink-0"
             href={`/courses/achievements/showcase/${showcaseId}`}
+            prefetch={false}
           >
             {avatar}
           </Link>
@@ -68,6 +69,7 @@ export function CourseReviewAuthorIdentity(
               <Link
                 className="text-sm font-medium hover:underline"
                 href={`/courses/achievements/showcase/${showcaseId}`}
+                prefetch={false}
               >
                 {nickname}
               </Link>
@@ -104,6 +106,7 @@ export function CourseReviewAuthorIdentity(
         <Link
           className="text-sm font-medium break-words hover:underline"
           href={`/courses/achievements/showcase/${showcaseId}`}
+          prefetch={false}
         >
           {nickname}
         </Link>

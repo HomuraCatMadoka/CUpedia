@@ -118,7 +118,7 @@ describe("achievement profiles", () => {
 
     await expect(getMyAchievementProfile()).resolves.toEqual({
       showcaseId,
-      avatarUrl: "/images/default-avatar.jpg",
+      avatarUrl: "/images/default-avatar.jpg?v=1",
       equippedTitle: null,
       achievements: [],
     });
