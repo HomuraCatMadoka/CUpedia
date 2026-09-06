@@ -1,5 +1,5 @@
 import {
-  campusMapPinTypeStyle,
+  campusMapPlaceTypeStyle,
   campusMapFloorLabel,
 } from "@/components/campus-map/browse-card-presentation";
 
@@ -22,10 +22,7 @@ import {
   projectCampusMapBuildingDisplay,
   type CampusMapBuildingDisplayProjection,
 } from "@/lib/campus-map/building-display";
-import {
-  pinTypeMarkerContent,
-  type CampusMapPinType,
-} from "@/lib/campus-map/canonical-marker";
+import { placeTypeMarkerContent } from "@/lib/campus-map/canonical-marker";
 
 interface ProviderLngLat {
   lng: number;
@@ -71,8 +68,8 @@ interface ProviderNamespace<ProviderMap extends ProviderMapLike> {
 export type CampusMapCanonicalBrowseMode =
   | { kind: "hidden" }
   | {
-      kind: "amenity";
-      amenity: CampusMapPinType;
+      kind: "places";
+      placeIds: readonly string[];
       selectedPlaceId: string | null;
     };
 
@@ -102,7 +99,10 @@ type MarkerIdentity = {
   marker: CampusMapBrowseMarker;
 };
 
-type MarkerTarget = MarkerIdentity & { position: CampusMapAmapPosition };
+type MarkerTarget = MarkerIdentity & {
+  position: CampusMapAmapPosition;
+  visiblePlaceIds: readonly string[];
+};
 
 function scheduleAfterProviderEvents(callback: () => void) {
   if (typeof requestAnimationFrame === "function") {
@@ -113,16 +113,10 @@ function scheduleAfterProviderEvents(callback: () => void) {
   return () => clearTimeout(timeout);
 }
 
-function pinTypeMarkerKey(marker: CampusMapBrowseMarker) {
+function placeTypeMarkerKey(marker: CampusMapBrowseMarker) {
   return marker.kind === "place"
     ? campusMapAmapPlacePositionKey(marker.placeId)
-    : `${campusMapAmapBuildingPositionKey(marker.buildingId)}:${marker.pinType}`;
-}
-
-function markerContainsPlace(marker: CampusMapBrowseMarker, placeId: string) {
-  return marker.kind === "place"
-    ? marker.placeId === placeId
-    : marker.placeIds.includes(placeId);
+    : `${campusMapAmapBuildingPositionKey(marker.buildingId)}:${marker.placeType}`;
 }
 
 function providerPositionKey(position: ProviderLngLat | CampusMapAmapPosition) {
@@ -141,24 +135,25 @@ function buildingLabel(
   );
 }
 
-function pinTypeMarkerView(
-  marker: CampusMapBrowseMarker,
+function placeTypeMarkerView(
+  target: MarkerTarget,
   projection: CampusMapBrowseProjection,
   buildingDisplay: CampusMapBuildingDisplayProjection,
 ) {
-  const style = campusMapPinTypeStyle(marker.pinType);
+  const marker = target.marker;
+  const style = campusMapPlaceTypeStyle(marker.placeType);
   if (marker.kind === "place") {
     const place = projection.places.find(
       (candidate) => candidate.placeId === marker.placeId,
     );
     if (!place) return null;
     return {
-      markerKey: pinTypeMarkerKey(marker),
+      markerKey: placeTypeMarkerKey(marker),
       name: place.name,
       buildingName: "校内地点",
       floorLabel:
         marker.position.precision === "precise" ? "精确位置" : "约略位置",
-      pinType: marker.pinType,
+      placeType: marker.placeType,
       color: style.color,
       markerLabel: `${place.name}，${
         marker.position.precision === "precise" ? "精确" : "约略"
@@ -169,7 +164,7 @@ function pinTypeMarkerView(
     (candidate) => candidate.buildingId === marker.buildingId,
   );
   if (!building) return null;
-  const markerPlaces = marker.placeIds.flatMap((placeId) => {
+  const markerPlaces = target.visiblePlaceIds.flatMap((placeId) => {
     const place = projection.places.find(
       (candidate) => candidate.placeId === placeId,
     );
@@ -177,7 +172,7 @@ function pinTypeMarkerView(
   });
   if (markerPlaces.length === 0) return null;
   return {
-    markerKey: pinTypeMarkerKey(marker),
+    markerKey: placeTypeMarkerKey(marker),
     name:
       markerPlaces.length === 1
         ? markerPlaces[0]!.name
@@ -190,7 +185,7 @@ function pinTypeMarkerView(
             markerPlaces[0]!.floorLabel,
           )
         : `${markerPlaces.length} 个地点`,
-    pinType: marker.pinType,
+    placeType: marker.placeType,
     color: style.color,
     markerLabel: `${buildingLabel(building, buildingDisplay)}有 ${markerPlaces.length} 个${style.label}，建筑位置参考`,
   };
@@ -199,16 +194,17 @@ function pinTypeMarkerView(
 function markerTargets(input: {
   projection: CampusMapBrowseProjection;
   providerPositions: Readonly<Record<string, CampusMapAmapPosition>>;
-  mode: Extract<CampusMapCanonicalBrowseMode, { kind: "amenity" }>;
+  mode: Extract<CampusMapCanonicalBrowseMode, { kind: "places" }>;
 }) {
+  const visiblePlaceIds = new Set(input.mode.placeIds);
   return input.projection.markers.flatMap((marker): MarkerTarget[] => {
-    if (
-      marker.pinType !== input.mode.amenity ||
-      (input.mode.selectedPlaceId &&
-        !markerContainsPlace(marker, input.mode.selectedPlaceId))
-    ) {
-      return [];
-    }
+    const matchingPlaceIds =
+      marker.kind === "place"
+        ? visiblePlaceIds.has(marker.placeId)
+          ? [marker.placeId]
+          : []
+        : marker.placeIds.filter((placeId) => visiblePlaceIds.has(placeId));
+    if (matchingPlaceIds.length === 0) return [];
     const position =
       marker.kind === "place"
         ? input.providerPositions[campusMapAmapPlacePositionKey(marker.placeId)]
@@ -218,9 +214,10 @@ function markerTargets(input: {
     return position
       ? [
           {
-            key: pinTypeMarkerKey(marker),
+            key: placeTypeMarkerKey(marker),
             marker,
             position,
+            visiblePlaceIds: matchingPlaceIds,
           },
         ]
       : [];
@@ -228,22 +225,22 @@ function markerTargets(input: {
 }
 
 function isTargetSelected(
-  target: MarkerIdentity,
+  target: MarkerTarget,
   selectedPlaceId: string | null,
 ) {
   return Boolean(
-    selectedPlaceId && markerContainsPlace(target.marker, selectedPlaceId),
+    selectedPlaceId && target.visiblePlaceIds.includes(selectedPlaceId),
   );
 }
 
 function targetContent(
-  target: MarkerIdentity,
+  target: MarkerTarget,
   projection: CampusMapBrowseProjection,
   buildingDisplay: CampusMapBuildingDisplayProjection,
   selected: boolean,
 ) {
-  const view = pinTypeMarkerView(target.marker, projection, buildingDisplay);
-  return view ? pinTypeMarkerContent({ ...view, selected }) : null;
+  const view = placeTypeMarkerView(target, projection, buildingDisplay);
+  return view ? placeTypeMarkerContent({ ...view, selected }) : null;
 }
 
 /**
@@ -257,6 +254,8 @@ export class AmapCanonicalBrowseLayer<
   private projection: CampusMapBrowseProjection | null = null;
   private dataSignature: string | null = null;
   private readonly markers = new Map<string, ProviderMarker>();
+  private targetsByKey = new Map<string, MarkerTarget>();
+  private selectedPlaceId: string | null = null;
   private cancelPendingDismiss: (() => void) | null = null;
   private cancelCompanionClickExpiry: (() => void) | null = null;
   private suppressCompanionMapClick = false;
@@ -303,7 +302,10 @@ export class AmapCanonicalBrowseLayer<
       mode,
     });
     const dataSignature = targets
-      .map(({ key, position }) => `${key}:${providerPositionKey(position)}`)
+      .map(
+        ({ key, position, visiblePlaceIds }) =>
+          `${key}:${visiblePlaceIds.join(",")}:${providerPositionKey(position)}`,
+      )
       .join("|");
     if (
       this.cluster &&
@@ -312,11 +314,17 @@ export class AmapCanonicalBrowseLayer<
     ) {
       this.clearMarkers();
     }
+    if (targets.length === 0) {
+      this.clearMarkers();
+      return true;
+    }
 
     const buildingDisplay = projectCampusMapBuildingDisplay(
       input.projection.buildings,
     );
     const targetsByKey = new Map(targets.map((target) => [target.key, target]));
+    this.targetsByKey = targetsByKey;
+    this.selectedPlaceId = mode.selectedPlaceId;
     const targetsByPosition = new Map<string, MarkerTarget[]>();
     for (const target of targets) {
       const key = providerPositionKey(target.position);
@@ -359,19 +367,22 @@ export class AmapCanonicalBrowseLayer<
               this.markers.set(target.key, marker);
               marker.setContent(content);
               marker.on("click", () => {
-                const current = targetsByKey.get(target!.key);
+                const current = this.targetsByKey.get(target!.key);
                 if (!current) return;
-                if (current.marker.kind === "place") {
+                const selectedPlaceId = this.selectedPlaceId;
+                const directPlaceId =
+                  selectedPlaceId &&
+                  current.visiblePlaceIds.includes(selectedPlaceId)
+                    ? selectedPlaceId
+                    : current.visiblePlaceIds.length === 1
+                      ? current.visiblePlaceIds[0]!
+                      : null;
+                if (directPlaceId) {
                   this.activateCanonicalTarget({
                     type: "OPEN_PLACE",
-                    placeId: current.marker.placeId,
+                    placeId: directPlaceId,
                   });
-                } else if (current.marker.placeIds.length === 1) {
-                  this.activateCanonicalTarget({
-                    type: "OPEN_PLACE",
-                    placeId: current.marker.placeIds[0]!,
-                  });
-                } else {
+                } else if (current.marker.kind === "building-presence") {
                   this.activateCanonicalTarget({
                     type: "OPEN_BUILDING",
                     buildingId: current.marker.buildingId,
@@ -386,7 +397,14 @@ export class AmapCanonicalBrowseLayer<
               count: number;
               marker: ProviderMarker;
             }) => {
-              const color = campusMapPinTypeStyle(mode.amenity).color;
+              const firstPlaceType = targets[0]?.marker.placeType;
+              const color =
+                firstPlaceType &&
+                targets.every(
+                  (target) => target.marker.placeType === firstPlaceType,
+                )
+                  ? campusMapPlaceTypeStyle(firstPlaceType).color
+                  : "#174b38";
               marker.setContent(
                 `<button type="button" data-cupedia-marker="true" aria-label="${count} 个设施位置" style="display:grid;min-width:46px;height:46px;place-items:center;border:3px solid white;border-radius:999px;background:${color};color:white;font:700 14px system-ui;box-shadow:0 3px 12px rgba(0,0,0,.22);padding:0 12px">${count}</button>`,
               );
@@ -405,7 +423,7 @@ export class AmapCanonicalBrowseLayer<
         this.projection = input.projection;
         this.dataSignature = dataSignature;
       }
-      this.syncSelection(input.projection, mode);
+      this.syncSelection(input.projection, targets, mode.selectedPlaceId);
       return true;
     } catch {
       this.clearMarkers();
@@ -450,25 +468,26 @@ export class AmapCanonicalBrowseLayer<
     this.projection = null;
     this.dataSignature = null;
     this.markers.clear();
+    this.targetsByKey.clear();
+    this.selectedPlaceId = null;
   }
 
   private syncSelection(
     projection: CampusMapBrowseProjection,
-    mode: Extract<CampusMapCanonicalBrowseMode, { kind: "amenity" }>,
+    visibleTargets: readonly MarkerTarget[],
+    selectedPlaceId: string | null,
   ) {
     const buildingDisplay = projectCampusMapBuildingDisplay(
       projection.buildings,
     );
-    const targets = new Map<string, MarkerIdentity>();
-    for (const marker of projection.markers) {
-      const key = pinTypeMarkerKey(marker);
-      targets.set(key, { key, marker });
-    }
+    const targets = new Map(
+      visibleTargets.map((target) => [target.key, target]),
+    );
 
     for (const [key, marker] of this.markers) {
       const target = targets.get(key);
       if (!target) continue;
-      const selected = isTargetSelected(target, mode.selectedPlaceId);
+      const selected = isTargetSelected(target, selectedPlaceId);
       const content = targetContent(
         target,
         projection,

@@ -3,7 +3,7 @@ import {
   type CampusMapBrowseProjection,
 } from "@/lib/campus-map/browse-projection";
 import type { CampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
-import type { CampusMapPinType } from "@/lib/campus-map/canonical-marker";
+import type { CampusMapPlaceType } from "@/lib/campus-map/place-type-contract";
 
 interface CampusMapTestBuilding {
   id: string;
@@ -18,7 +18,7 @@ interface CampusMapTestBuilding {
 interface CampusMapTestFacility {
   id: string;
   buildingId: string;
-  category: CampusMapPinType;
+  category: CampusMapPlaceType;
   name: string;
   floorId: string;
   access: string;

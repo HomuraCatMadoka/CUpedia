@@ -48,6 +48,12 @@ const catalog: CampusMapSceneCatalog = {
       category: "water",
       cameraTarget: null,
     },
+    swimmingPool: {
+      buildingId: null,
+      floorId: null,
+      category: "sports-facility",
+      cameraTarget: "place-point",
+    },
   },
   contents: {
     room401: {
@@ -185,6 +191,53 @@ describe("Campus Map canonical scene transition", () => {
       buildingId: "science",
       reason: "place-selection",
     });
+  });
+
+  it("opens a V2 Place whose type is not a required top-level category", () => {
+    const result = transitionCampusMapSession(
+      EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      { type: "OPEN_PLACE", placeId: "swimmingPool", source: "search" },
+      catalog,
+    );
+
+    expect(result).toMatchObject({
+      status: "accepted",
+      session: {
+        mode: "browse",
+        scene: { kind: "place", placeId: "swimmingPool" },
+      },
+    });
+    expect(resolveCampusMapScene(result.session, catalog)).toMatchObject({
+      status: "valid",
+      context: { category: "sports-facility" },
+    });
+  });
+
+  it("rejects a Place whose type is outside the controlled V2 values", () => {
+    const invalidCatalog: CampusMapSceneCatalog = {
+      ...catalog,
+      places: {
+        ...catalog.places,
+        mistypedHealthService: {
+          buildingId: null,
+          floorId: null,
+          category: "health-servcie",
+          cameraTarget: null,
+        },
+      },
+    };
+
+    expect(
+      transitionCampusMapSession(
+        EMPTY_CAMPUS_MAP_SCENE_SESSION,
+        {
+          type: "OPEN_PLACE",
+          placeId: "mistypedHealthService",
+          source: "search",
+        },
+        invalidCatalog,
+      ),
+    ).toMatchObject({ status: "rejected", reason: "unknown-place" });
   });
 
   it.each([

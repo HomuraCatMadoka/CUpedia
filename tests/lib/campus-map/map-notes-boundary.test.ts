@@ -17,7 +17,7 @@ const correctionCatalog: CampusMapSceneCatalog = {
     "72000000-0000-4000-8000-000000000002": {
       buildingId: null,
       floorId: null,
-      category: "map-note-correction",
+      category: "water",
       cameraTarget: "place-point",
     },
   },

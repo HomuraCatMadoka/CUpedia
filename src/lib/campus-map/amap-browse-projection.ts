@@ -1,6 +1,5 @@
 import {
   CAMPUS_MAP_DEFAULT_VIEW_CENTER,
-  type CampusMapBrowseMarker,
   type CampusMapBrowseProjection,
 } from "@/lib/campus-map/browse-projection";
 import {
@@ -12,8 +11,7 @@ import type { CampusMapAmapCoordinateRequest } from "@/lib/campus-map/amap-coord
 
 interface CampusMapAmapProjectionDemand {
   selectedBuildingId: string | null;
-  visibleAmenity: CampusMapBrowseMarker["pinType"] | null;
-  selectedPlaceId: string | null;
+  visiblePlaceIds: readonly string[];
   allBuildings?: boolean;
 }
 
@@ -51,20 +49,16 @@ export function projectCampusMapBrowseToAmap(
   projection: CampusMapBrowseProjection,
   demand: CampusMapAmapProjectionDemand = {
     selectedBuildingId: null,
-    visibleAmenity: null,
-    selectedPlaceId: null,
+    visiblePlaceIds: [],
   },
 ): CampusMapAmapCoordinateProjection {
   const positions: Record<string, CampusMapAmapPosition> = {};
   const providerRequests: CampusMapAmapCoordinateRequest[] = [];
-  const visibleMarkers = projection.markers.filter(
-    (marker) =>
-      demand.visibleAmenity !== null &&
-      marker.pinType === demand.visibleAmenity &&
-      (demand.selectedPlaceId === null ||
-        (marker.kind === "place"
-          ? marker.placeId === demand.selectedPlaceId
-          : marker.placeIds.includes(demand.selectedPlaceId))),
+  const visiblePlaceIds = new Set(demand.visiblePlaceIds);
+  const visibleMarkers = projection.markers.filter((marker) =>
+    marker.kind === "place"
+      ? visiblePlaceIds.has(marker.placeId)
+      : marker.placeIds.some((placeId) => visiblePlaceIds.has(placeId)),
   );
   const visibleBuildingIds = new Set(
     visibleMarkers.flatMap((marker) =>

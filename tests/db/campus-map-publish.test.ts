@@ -559,9 +559,9 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     expect(projection.places.map((place) => place.name)).toContain("BMS LT");
     expect(
       projection.places.some((place) =>
-        ["sports-facility", "health-service"].includes(place.pinType),
+        ["sports-facility", "health-service"].includes(place.placeType),
       ),
-    ).toBe(false);
+    ).toBe(true);
 
     const mappings = await pool.query<{ count: string }>(
       `select count(*)::text as count

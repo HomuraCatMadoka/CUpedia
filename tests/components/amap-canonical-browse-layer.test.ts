@@ -19,16 +19,13 @@ const placeProjection: CampusMapBrowseProjection = {
       placeId,
       revisionId: "80700000-0000-4000-8000-000000000002",
       name: "打印站",
-      pinType: "printer",
+      placeType: "printer",
+      regularHours: null,
+      officialActions: [],
+      visitNote: null,
       capabilities: [],
-      access: {
-        audience: "public",
-        credentialRequirement: "none",
-        schedule: { kind: "always" },
-        reservationRequirement: "none",
-        temporaryStatus: "normal",
-      },
-      facets: { gender: "unknown", wheelchairAccess: "unknown" },
+      gender: null,
+      wheelchairAccess: null,
       buildingId: null,
       floorId: null,
       floorLabel: null,
@@ -42,6 +39,9 @@ const placeProjection: CampusMapBrowseProjection = {
         },
       },
       publishedAt: "2026-08-30T00:00:00.000Z",
+      observedAt: null,
+      verifiedAt: null,
+      provenance: [],
       selectionTarget: {
         kind: "place",
         placeId,
@@ -54,7 +54,7 @@ const placeProjection: CampusMapBrowseProjection = {
     {
       kind: "place",
       placeId,
-      pinType: "printer",
+      placeType: "printer",
       position: {
         longitude: position[0],
         latitude: position[1],
@@ -116,7 +116,7 @@ function duplicateBuildingProjection(): CampusMapBrowseProjection {
     presences: [
       {
         buildingId,
-        pinType: "printer",
+        placeType: "printer",
         placeIds: [placeId],
         floorIds: [],
       },
@@ -125,8 +125,59 @@ function duplicateBuildingProjection(): CampusMapBrowseProjection {
       {
         kind: "building-presence",
         buildingId,
-        pinType: "printer",
+        placeType: "printer",
         placeIds: [placeId],
+        position: {
+          longitude: position[0],
+          latitude: position[1],
+          crs: "wgs84",
+        },
+      },
+    ],
+  };
+}
+
+function healthBuildingProjection(
+  serviceCount: 1 | 2,
+): CampusMapBrowseProjection {
+  const projection = duplicateBuildingProjection();
+  const outpatient = {
+    ...projection.places[0]!,
+    name: "门诊（Outpatient Service）",
+    placeType: "health-service" as const,
+  };
+  const dental = {
+    ...outpatient,
+    placeId: "80700000-0000-4000-8000-000000000003",
+    revisionId: "80700000-0000-4000-8000-000000000004",
+    name: "牙科（Dental Service）",
+    selectionTarget: {
+      ...outpatient.selectionTarget,
+      placeId: "80700000-0000-4000-8000-000000000003",
+    },
+  };
+  const places = serviceCount === 1 ? [outpatient] : [outpatient, dental];
+  const placeIds = places.map((place) => place.placeId);
+  return {
+    ...projection,
+    buildings: projection.buildings.map((building) =>
+      building.buildingId === buildingId ? { ...building, placeIds } : building,
+    ),
+    places,
+    presences: [
+      {
+        buildingId,
+        placeType: "health-service",
+        placeIds,
+        floorIds: [],
+      },
+    ],
+    markers: [
+      {
+        kind: "building-presence",
+        buildingId,
+        placeType: "health-service",
+        placeIds,
         position: {
           longitude: position[0],
           latitude: position[1],
@@ -328,7 +379,103 @@ describe("AmapCanonicalBrowseLayer", () => {
       providerPositions: {
         [campusMapAmapPlacePositionKey(placeId)]: position,
       },
-      mode: { kind: "amenity", amenity: "printer", selectedPlaceId: null },
+      mode: { kind: "places", placeIds: [placeId], selectedPlaceId: null },
+    });
+    TestMarker.latest?.emitClickWithoutPointerGesture();
+
+    expect(intents).toEqual([{ type: "OPEN_PLACE", placeId }]);
+    layer.destroy();
+  });
+
+  it.each([
+    ["one health service directly", 1, { type: "OPEN_PLACE", placeId }],
+    [
+      "the Building list for two health services",
+      2,
+      { type: "OPEN_BUILDING", buildingId },
+    ],
+  ] as const)(
+    "opens %s from a Building marker",
+    (_label, serviceCount, intent) => {
+      const intents: unknown[] = [];
+      const projection = healthBuildingProjection(serviceCount);
+      const layer = new AmapCanonicalBrowseLayer({
+        map: new TestMap(),
+        provider: { MarkerCluster: TestMarkerCluster },
+        onIntent: (nextIntent) => intents.push(nextIntent),
+        onHotspot: vi.fn(),
+      });
+
+      layer.render({
+        projection,
+        providerPositions: {
+          [campusMapAmapBuildingPositionKey(buildingId)]: position,
+        },
+        mode: {
+          kind: "places",
+          placeIds: projection.places.map((place) => place.placeId),
+          selectedPlaceId: null,
+        },
+      });
+      TestMarker.latest?.emitClickWithoutPointerGesture();
+
+      expect(intents).toEqual([intent]);
+      layer.destroy();
+    },
+  );
+
+  it("reopens the selected service from a shared Building marker", () => {
+    const intents: unknown[] = [];
+    const projection = healthBuildingProjection(2);
+    const layer = new AmapCanonicalBrowseLayer({
+      map: new TestMap(),
+      provider: { MarkerCluster: TestMarkerCluster },
+      onIntent: (intent) => intents.push(intent),
+      onHotspot: vi.fn(),
+    });
+
+    const renderInput = {
+      projection,
+      providerPositions: {
+        [campusMapAmapBuildingPositionKey(buildingId)]: position,
+      },
+      mode: {
+        kind: "places" as const,
+        placeIds: projection.places.map((place) => place.placeId),
+        selectedPlaceId: null,
+      },
+    };
+    layer.render(renderInput);
+    layer.render({
+      ...renderInput,
+      mode: { ...renderInput.mode, selectedPlaceId: placeId },
+    });
+    TestMarker.latest?.emitClickWithoutPointerGesture();
+
+    expect(intents).toEqual([{ type: "OPEN_PLACE", placeId }]);
+    layer.destroy();
+  });
+
+  it("opens the only visible service from a shared Building marker", () => {
+    const intents: unknown[] = [];
+    const projection = healthBuildingProjection(2);
+    const layer = new AmapCanonicalBrowseLayer({
+      map: new TestMap(),
+      provider: { MarkerCluster: TestMarkerCluster },
+      onIntent: (intent) => intents.push(intent),
+      onHotspot: vi.fn(),
+    });
+
+    layer.render({
+      projection,
+      providerPositions: {
+        [campusMapAmapBuildingPositionKey(buildingId)]: position,
+      },
+      mode: {
+        kind: "places",
+        placeIds: [placeId],
+        selectedPlaceId: null,
+      },
     });
     TestMarker.latest?.emitClickWithoutPointerGesture();
 
@@ -351,7 +498,7 @@ describe("AmapCanonicalBrowseLayer", () => {
       providerPositions: {
         [campusMapAmapPlacePositionKey(placeId)]: position,
       },
-      mode: { kind: "amenity", amenity: "printer", selectedPlaceId: null },
+      mode: { kind: "places", placeIds: [placeId], selectedPlaceId: null },
     });
 
     TestMarker.latest?.emitClickWithoutPointerGesture();
@@ -377,7 +524,7 @@ describe("AmapCanonicalBrowseLayer", () => {
       providerPositions: {
         [campusMapAmapPlacePositionKey(placeId)]: position,
       },
-      mode: { kind: "amenity", amenity: "printer", selectedPlaceId: null },
+      mode: { kind: "places", placeIds: [placeId], selectedPlaceId: null },
     });
 
     map.emitClick();
@@ -403,7 +550,7 @@ describe("AmapCanonicalBrowseLayer", () => {
       providerPositions: {
         [campusMapAmapPlacePositionKey(placeId)]: position,
       },
-      mode: { kind: "amenity", amenity: "printer", selectedPlaceId: null },
+      mode: { kind: "places", placeIds: [placeId], selectedPlaceId: null },
     });
 
     map.emitClick();
@@ -447,7 +594,7 @@ describe("AmapCanonicalBrowseLayer", () => {
       providerPositions: {
         [campusMapAmapPlacePositionKey(placeId)]: position,
       },
-      mode: { kind: "amenity", amenity: "printer", selectedPlaceId: null },
+      mode: { kind: "places", placeIds: [placeId], selectedPlaceId: null },
     });
     map.emitClick();
 
@@ -472,8 +619,8 @@ describe("AmapCanonicalBrowseLayer", () => {
         [campusMapAmapPlacePositionKey(placeId)]: position,
       },
       mode: {
-        kind: "amenity",
-        amenity: "printer",
+        kind: "places",
+        placeIds: [placeId],
         selectedPlaceId: placeId,
       },
     });
@@ -484,7 +631,7 @@ describe("AmapCanonicalBrowseLayer", () => {
     layer.destroy();
   });
 
-  it("rebuilds when a published Place receives its provider position", () => {
+  it("renders when a published Place receives its provider position", () => {
     const layer = new AmapCanonicalBrowseLayer({
       map: new TestMap(),
       provider: { MarkerCluster: StickyEmptyCluster },
@@ -492,8 +639,8 @@ describe("AmapCanonicalBrowseLayer", () => {
       onHotspot: vi.fn(),
     });
     const mode = {
-      kind: "amenity" as const,
-      amenity: "printer" as const,
+      kind: "places" as const,
+      placeIds: [placeId],
       selectedPlaceId: placeId,
     };
 
@@ -506,9 +653,8 @@ describe("AmapCanonicalBrowseLayer", () => {
       mode,
     });
 
-    expect(StickyEmptyCluster.instances).toHaveLength(2);
-    expect(StickyEmptyCluster.instances[0]?.setMap).toHaveBeenCalledWith(null);
-    expect(StickyEmptyCluster.instances[1]?.markers[0]?.content).toContain(
+    expect(StickyEmptyCluster.instances).toHaveLength(1);
+    expect(StickyEmptyCluster.instances[0]?.markers[0]?.content).toContain(
       `data-canonical-marker-key="${campusMapAmapPlacePositionKey(placeId)}"`,
     );
     layer.destroy();
@@ -528,8 +674,8 @@ describe("AmapCanonicalBrowseLayer", () => {
         [campusMapAmapBuildingPositionKey(buildingId)]: position,
       },
       mode: {
-        kind: "amenity",
-        amenity: "printer",
+        kind: "places",
+        placeIds: [placeId],
         selectedPlaceId: null,
       },
     });

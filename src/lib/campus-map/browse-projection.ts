@@ -2,25 +2,7 @@ import type {
   CampusMapCurrentPlace,
   CampusMapCurrentPlaceLocation,
 } from "@/lib/campus-map/fact-store";
-import type {
-  CampusMapAccessSchedule,
-  CampusMapAudience,
-  CampusMapCredentialRequirement,
-  CampusMapGender,
-  CampusMapPinType,
-  CampusMapReservationRequirement,
-  CampusMapTemporaryStatus,
-  CampusMapWheelchairAccess,
-} from "@/db/schema";
-import { projectCampusMapLegacyV2Presentation } from "@/lib/campus-map/legacy-place-ui-adapter";
-
-type CampusMapLegacyAccess = {
-  audience: CampusMapAudience;
-  credentialRequirement: CampusMapCredentialRequirement;
-  schedule: CampusMapAccessSchedule;
-  reservationRequirement: CampusMapReservationRequirement;
-  temporaryStatus: CampusMapTemporaryStatus;
-};
+import type { CampusMapPlaceType } from "@/db/schema";
 
 /** Product viewport default, not a Building or Place assertion. */
 export const CAMPUS_MAP_DEFAULT_VIEW_CENTER = [114.2072, 22.4191] as const;
@@ -66,19 +48,26 @@ export interface CampusMapBrowsePlace {
   placeId: string;
   revisionId: string;
   name: string;
-  /** Temporary adapter for the unchanged V1 map UI. */
-  pinType: CampusMapPinType;
+  placeType: CampusMapCurrentPlace["placeType"];
+  regularHours: CampusMapCurrentPlace["regularHours"];
+  officialActions: CampusMapCurrentPlace["officialActions"];
+  visitNote: CampusMapCurrentPlace["visitNote"];
   capabilities: CampusMapCurrentPlace["capabilities"];
-  access: CampusMapLegacyAccess;
-  facets: {
-    gender: CampusMapGender;
-    wheelchairAccess: CampusMapWheelchairAccess;
-  };
+  gender: CampusMapCurrentPlace["gender"];
+  wheelchairAccess: CampusMapCurrentPlace["wheelchairAccess"];
   buildingId: string | null;
   floorId: string | null;
   floorLabel: string | null;
   location: CampusMapCurrentPlaceLocation;
+  observedAt: string | null;
+  verifiedAt: string | null;
   publishedAt: string;
+  provenance: ReadonlyArray<{
+    kind: CampusMapCurrentPlace["provenance"][number]["kind"];
+    accessedOn: string;
+    observedAt: string | null;
+    hasLocationEvidence: boolean;
+  }>;
   selectionTarget: {
     kind: "place";
     placeId: string;
@@ -89,7 +78,7 @@ export interface CampusMapBrowsePlace {
 
 export interface CampusMapBrowsePresence {
   buildingId: string;
-  pinType: CampusMapPinType;
+  placeType: CampusMapPlaceType;
   placeIds: readonly string[];
   floorIds: readonly string[];
 }
@@ -98,14 +87,14 @@ export type CampusMapBrowseMarker =
   | {
       kind: "building-presence";
       buildingId: string;
-      pinType: CampusMapPinType;
+      placeType: CampusMapPlaceType;
       placeIds: readonly string[];
       position: NonNullable<CampusMapBrowseBuildingSource["anchor"]>;
     }
   | {
       kind: "place";
       placeId: string;
-      pinType: CampusMapPinType;
+      placeType: CampusMapPlaceType;
       position: Extract<
         CampusMapCurrentPlaceLocation,
         { kind: "outdoor-point" }
@@ -173,6 +162,69 @@ function normalizedSearchTerm(value: string) {
     .replace(/[^\p{L}\p{N}]+/gu, "");
 }
 
+function searchParts(value: string) {
+  return value.trim().split(/\s+/u).map(normalizedSearchTerm).filter(Boolean);
+}
+
+function matchesSearchParts(
+  parts: readonly string[],
+  values: readonly (string | null | undefined)[],
+) {
+  return parts.every((part) =>
+    values.some((value) =>
+      value ? normalizedSearchTerm(value).includes(part) : false,
+    ),
+  );
+}
+
+function buildingSearchValues(building: CampusMapBrowseBuildingSource) {
+  return [
+    building.name,
+    building.englishName,
+    building.code,
+    ...building.aliases,
+  ];
+}
+
+function isExactPlaceName(query: string, name: string) {
+  const normalizedQuery = normalizedSearchTerm(query);
+  if (!normalizedQuery) return false;
+  const variants = [name, ...name.split(/[()（）]/u)]
+    .map((value) => normalizedSearchTerm(value))
+    .filter(Boolean);
+  return variants.some((variant) => variant === normalizedQuery);
+}
+
+const CLASSROOM_QUERY_PATTERN =
+  /教室|课室|課室|classroom|lecture\s*(?:theatre|room)|\blt\d*\b|\b(?:room|rm)\s*[a-z]*\d+\b/iu;
+const CLASSROOM_ROOM_SUFFIX_PATTERN =
+  /^(?:lt\d*|(?:room|rm)?[a-z]{0,3}\d{1,4}[a-z]?)$/iu;
+
+function matchesClassroomBuildingFallback(
+  query: string,
+  building: CampusMapBrowseBuildingSource,
+) {
+  const normalizedQuery = normalizedSearchTerm(query);
+  if (!normalizedQuery) return false;
+  const buildingTerms = buildingSearchValues(building)
+    .flatMap((value) => (value ? [normalizedSearchTerm(value)] : []))
+    .filter((value) => value.length >= 2)
+    .sort((left, right) => right.length - left.length);
+
+  return buildingTerms.some((term) => {
+    const index = normalizedQuery.indexOf(term);
+    if (index < 0) return false;
+    const remainder = `${normalizedQuery.slice(0, index)}${normalizedQuery.slice(
+      index + term.length,
+    )}`;
+    if (!remainder) return false;
+    return (
+      CLASSROOM_QUERY_PATTERN.test(query) ||
+      CLASSROOM_ROOM_SUFFIX_PATTERN.test(remainder)
+    );
+  });
+}
+
 function isValidWgs84Point(value: {
   longitude: number;
   latitude: number;
@@ -237,31 +289,23 @@ export function queryCampusMapBrowse(
   projection: CampusMapBrowseProjection,
   filters: {
     query?: string;
-    pinType?: CampusMapPinType;
+    placeType?: CampusMapPlaceType;
     placeMatch?: "all" | "name";
   } = {},
 ): CampusMapBrowseResults {
-  const queryParts = (filters.query ?? "")
-    .trim()
-    .split(/\s+/u)
-    .map(normalizedSearchTerm)
-    .filter(Boolean);
+  const queryParts = searchParts(filters.query ?? "");
   const buildingById = new Map(
     projection.buildings.map((building) => [building.buildingId, building]),
   );
-  const matchesQuery = (values: Array<string | null>) =>
-    queryParts.every((part) =>
-      values.some((value) =>
-        value ? normalizedSearchTerm(value).includes(part) : false,
-      ),
-    );
   const places = projection.places.filter((place) => {
-    if (filters.pinType && place.pinType !== filters.pinType) return false;
+    if (filters.placeType && place.placeType !== filters.placeType) {
+      return false;
+    }
     const building = place.buildingId
       ? buildingById.get(place.buildingId)
       : undefined;
     if (
-      !matchesQuery([
+      !matchesSearchParts(queryParts, [
         place.name,
         place.floorLabel,
         building?.name ?? null,
@@ -283,13 +327,8 @@ export function queryCampusMapBrowse(
   );
   const buildings = projection.buildings.filter((building) => {
     if (matchingBuildingIds.has(building.buildingId)) return true;
-    if (filters.pinType) return false;
-    return matchesQuery([
-      building.name,
-      building.englishName,
-      building.code,
-      ...building.aliases,
-    ]);
+    if (filters.placeType) return false;
+    return matchesSearchParts(queryParts, buildingSearchValues(building));
   });
 
   return {
@@ -303,13 +342,80 @@ export function queryCampusMapBrowse(
   };
 }
 
+/**
+ * Produces the user-facing search order without turning a parent Building into
+ * a Place. Exact Place names come first; a classroom-like query may fall back
+ * to a sourced Building name/code while staying explicitly labelled as such.
+ */
+export function searchCampusMapBrowse(
+  projection: CampusMapBrowseProjection,
+  query: string,
+) {
+  const trimmedQuery = query.trim();
+  const parts = searchParts(trimmedQuery);
+  if (parts.length === 0) return [];
+
+  const buildingById = new Map(
+    projection.buildings.map((building) => [building.buildingId, building]),
+  );
+  const places = queryCampusMapBrowse(projection, {
+    query: trimmedQuery,
+    placeMatch: "name",
+  }).places;
+  const placeResults = places
+    .map((place) => ({
+      kind: "place" as const,
+      match: isExactPlaceName(trimmedQuery, place.name)
+        ? ("exact-name" as const)
+        : ("name" as const),
+      place,
+      building: place.buildingId
+        ? (buildingById.get(place.buildingId) ?? null)
+        : null,
+    }))
+    .sort(
+      (left, right) =>
+        Number(right.match === "exact-name") -
+        Number(left.match === "exact-name"),
+    );
+  const matchedClassroomBuildingIds = new Set(
+    places.flatMap((place) =>
+      place.placeType === "classroom" && place.buildingId
+        ? [place.buildingId]
+        : [],
+    ),
+  );
+
+  const buildingResults = projection.buildings.flatMap((building) => {
+    const directMatch = matchesSearchParts(
+      parts,
+      buildingSearchValues(building),
+    );
+    const classroomFallback =
+      !matchedClassroomBuildingIds.has(building.buildingId) &&
+      matchesClassroomBuildingFallback(trimmedQuery, building);
+    if (!directMatch && !classroomFallback) return [];
+    return [
+      {
+        kind: "building" as const,
+        match: classroomFallback
+          ? ("classroom-fallback" as const)
+          : ("building" as const),
+        building,
+      },
+    ];
+  });
+
+  return [...placeResults, ...buildingResults];
+}
+
 export function queryCampusMapNearby(
   projection: CampusMapBrowseProjection,
   origin: {
     longitude: number;
     latitude: number;
     maxDistanceMeters?: number;
-    pinType?: CampusMapPinType;
+    placeType?: CampusMapPlaceType;
   },
 ): CampusMapBrowseNearbyResults {
   if (
@@ -329,7 +435,7 @@ export function queryCampusMapNearby(
   const maxDistance = origin.maxDistanceMeters ?? Number.POSITIVE_INFINITY;
   const places = projection.places
     .flatMap((place, index) => {
-      if (origin.pinType && place.pinType !== origin.pinType) return [];
+      if (origin.placeType && place.placeType !== origin.placeType) return [];
       const point =
         place.location.kind === "outdoor-point"
           ? place.location.point
@@ -388,10 +494,8 @@ export function projectCampusMapBrowse(input: {
   for (const duplicatePlaceId of duplicatePlaceIds) {
     currentPlaceById.delete(duplicatePlaceId);
   }
-  const places = [...currentPlaceById.values()].flatMap(
-    (place): CampusMapBrowsePlace[] => {
-      const presentation = projectCampusMapLegacyV2Presentation(place);
-      if (!presentation) return [];
+  const places = [...currentPlaceById.values()].map(
+    (place): CampusMapBrowsePlace => {
       const buildingId =
         place.location.kind === "building" || place.location.kind === "floor"
           ? place.location.building.id
@@ -402,28 +506,37 @@ export function projectCampusMapBrowse(input: {
         place.location.kind === "floor"
           ? place.location.floor.displayLabel
           : null;
-      return [
-        {
+      return {
+        placeId: place.id,
+        revisionId: place.revisionId,
+        name: place.name,
+        placeType: place.placeType,
+        regularHours: place.regularHours,
+        officialActions: place.officialActions,
+        visitNote: place.visitNote,
+        capabilities: place.capabilities,
+        gender: place.gender,
+        wheelchairAccess: place.wheelchairAccess,
+        buildingId,
+        floorId,
+        floorLabel,
+        location: place.location,
+        observedAt: place.observedAt?.toISOString() ?? null,
+        verifiedAt: place.verifiedAt?.toISOString() ?? null,
+        publishedAt: place.publishedAt.toISOString(),
+        provenance: place.provenance.map((source) => ({
+          kind: source.kind,
+          accessedOn: source.accessedOn,
+          observedAt: source.observedAt?.toISOString() ?? null,
+          hasLocationEvidence: source.hasLocationEvidence,
+        })),
+        selectionTarget: {
+          kind: "place",
           placeId: place.id,
-          revisionId: place.revisionId,
-          name: place.name,
-          pinType: presentation.pinType,
-          capabilities: presentation.capabilities,
-          access: presentation.access,
-          facets: presentation.facets,
           buildingId,
           floorId,
-          floorLabel,
-          location: place.location,
-          publishedAt: place.publishedAt.toISOString(),
-          selectionTarget: {
-            kind: "place",
-            placeId: place.id,
-            buildingId,
-            floorId,
-          },
         },
-      ];
+      };
     },
   );
 
@@ -432,7 +545,7 @@ export function projectCampusMapBrowse(input: {
     string,
     {
       buildingId: string;
-      pinType: CampusMapPinType;
+      placeType: CampusMapPlaceType;
       placeIds: string[];
       floorIds: string[];
     }
@@ -443,10 +556,10 @@ export function projectCampusMapBrowse(input: {
     buildingPlaceIds.push(place.placeId);
     placeIdsByBuilding.set(place.buildingId, buildingPlaceIds);
 
-    const key = `${place.buildingId}:${place.pinType}`;
+    const key = `${place.buildingId}:${place.placeType}`;
     const presence = presenceByKey.get(key) ?? {
       buildingId: place.buildingId,
-      pinType: place.pinType,
+      placeType: place.placeType,
       placeIds: [],
       floorIds: [],
     };
@@ -483,7 +596,7 @@ export function projectCampusMapBrowse(input: {
             {
               kind: "building-presence",
               buildingId: presence.buildingId,
-              pinType: presence.pinType,
+              placeType: presence.placeType,
               placeIds: presence.placeIds,
               position: anchor,
             },
@@ -497,7 +610,7 @@ export function projectCampusMapBrowse(input: {
           {
             kind: "place",
             placeId: place.placeId,
-            pinType: place.pinType,
+            placeType: place.placeType,
             position: place.location.point,
           },
         ]

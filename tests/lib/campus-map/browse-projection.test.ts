@@ -5,6 +5,7 @@ import {
   queryCampusMapBrowse,
   queryCampusMapNearby,
   readCampusMapBrowse,
+  searchCampusMapBrowse,
 } from "@/lib/campus-map/browse-projection";
 import type { CampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
 
@@ -96,30 +97,30 @@ describe("Campus Map browse projection (#647)", () => {
     });
 
     expect(
-      projection.places.map(({ placeId, buildingId, floorId, pinType }) => ({
+      projection.places.map(({ placeId, buildingId, floorId, placeType }) => ({
         placeId,
         buildingId,
         floorId,
-        pinType,
+        placeType,
       })),
     ).toEqual([
       {
         placeId: firstPlaceId,
         buildingId: BUILDING_ID,
         floorId: FLOOR_ID,
-        pinType: "toilet",
+        placeType: "toilet",
       },
       {
         placeId: secondPlaceId,
         buildingId: BUILDING_ID,
         floorId: FLOOR_ID,
-        pinType: "toilet",
+        placeType: "toilet",
       },
     ]);
     expect(projection.presences).toEqual([
       {
         buildingId: BUILDING_ID,
-        pinType: "toilet",
+        placeType: "toilet",
         placeIds: [firstPlaceId, secondPlaceId],
         floorIds: [FLOOR_ID],
       },
@@ -128,7 +129,7 @@ describe("Campus Map browse projection (#647)", () => {
       {
         kind: "building-presence",
         buildingId: BUILDING_ID,
-        pinType: "toilet",
+        placeType: "toilet",
         placeIds: [firstPlaceId, secondPlaceId],
         position: {
           longitude: 114.20801,
@@ -165,7 +166,7 @@ describe("Campus Map browse projection (#647)", () => {
       {
         kind: "place",
         placeId: firstPlaceId,
-        pinType: "water",
+        placeType: "water",
         position: {
           longitude: 114.21,
           latitude: 22.42,
@@ -176,7 +177,7 @@ describe("Campus Map browse projection (#647)", () => {
       {
         kind: "place",
         placeId: secondPlaceId,
-        pinType: "water",
+        placeType: "water",
         position: {
           longitude: 114.21,
           latitude: 22.42,
@@ -246,7 +247,7 @@ describe("Campus Map browse projection (#647)", () => {
     expect(projection.markers).toEqual([]);
   });
 
-  it("keeps new V2 Place types out of the unchanged public map UI", () => {
+  it("projects published V2 Place types into public browse and markers", () => {
     const sportsFacility = {
       ...floorPlace(
         "30000000-0000-4000-8000-000000000021",
@@ -261,9 +262,19 @@ describe("Campus Map browse projection (#647)", () => {
       places: [sportsFacility],
     });
 
-    expect(projection.places).toEqual([]);
-    expect(projection.presences).toEqual([]);
-    expect(projection.markers).toEqual([]);
+    expect(projection.places).toMatchObject([
+      { name: "大学游泳池", placeType: "sports-facility" },
+    ]);
+    expect(projection.presences).toMatchObject([
+      { buildingId: BUILDING_ID, placeType: "sports-facility" },
+    ]);
+    expect(projection.markers).toMatchObject([
+      {
+        kind: "building-presence",
+        buildingId: BUILDING_ID,
+        placeType: "sports-facility",
+      },
+    ]);
   });
 
   it("returns every matching Place with honest Building, location, and equipment counts", () => {
@@ -279,7 +290,7 @@ describe("Campus Map browse projection (#647)", () => {
 
     const results = queryCampusMapBrowse(projection, {
       query: "科学馆 洗手间",
-      pinType: "toilet",
+      placeType: "toilet",
     });
 
     expect(results.places.map((place) => place.placeId)).toEqual([
@@ -360,6 +371,141 @@ describe("Campus Map browse projection (#647)", () => {
 
     expect(results.buildings).toHaveLength(1);
     expect(results.places).toEqual([]);
+  });
+
+  it("opens one exact classroom Place before its sourced Building context", () => {
+    const bmsBuilding = {
+      ...building,
+      name: "李卓敏基本医学大楼",
+      englishName: "Choh-Ming Li Basic Medical Sciences Building",
+      code: "H11",
+      aliases: ["BMS"],
+    };
+    const classroom = {
+      ...floorPlace(
+        "30000000-0000-4000-8000-000000000031",
+        "40000000-0000-4000-8000-000000000031",
+      ),
+      name: "BMS LT",
+      placeType: "classroom" as const,
+      location: {
+        kind: "building" as const,
+        building: {
+          id: BUILDING_ID,
+          name: bmsBuilding.name,
+          englishName: bmsBuilding.englishName,
+          code: bmsBuilding.code,
+        },
+      },
+    };
+    const projection = projectCampusMapBrowse({
+      buildings: [bmsBuilding],
+      places: [classroom],
+    });
+
+    expect(searchCampusMapBrowse(projection, "BMS LT")).toMatchObject([
+      {
+        kind: "place",
+        match: "exact-name",
+        place: { placeId: classroom.id },
+      },
+    ]);
+    expect(
+      searchCampusMapBrowse(projection, "李卓敏基本医学大楼 LT"),
+    ).toMatchObject([{ kind: "place", place: { placeId: classroom.id } }]);
+  });
+
+  it("labels an evidence-backed classroom Building fallback without inventing a Place", () => {
+    const bmsBuilding = {
+      ...building,
+      name: "李卓敏基本医学大楼",
+      englishName: "Choh-Ming Li Basic Medical Sciences Building",
+      code: "H11",
+      aliases: ["BMS"],
+    };
+    const projection = projectCampusMapBrowse({
+      buildings: [bmsBuilding],
+      places: [],
+    });
+
+    expect(searchCampusMapBrowse(projection, "BMS LT3")).toMatchObject([
+      {
+        kind: "building",
+        match: "classroom-fallback",
+        building: { buildingId: BUILDING_ID },
+      },
+    ]);
+    expect(searchCampusMapBrowse(projection, "不存在建筑 LT3")).toEqual([]);
+  });
+
+  it("resolves Chinese and English Place names to one pool identity", () => {
+    const pool = {
+      ...outdoorPlace(
+        "30000000-0000-4000-8000-000000000032",
+        "40000000-0000-4000-8000-000000000032",
+      ),
+      name: "大学游泳池（University Swimming Pool）",
+      placeType: "sports-facility" as const,
+    };
+    const projection = projectCampusMapBrowse({
+      buildings: [building],
+      places: [pool],
+    });
+
+    for (const query of ["大学游泳池", "University Swimming Pool"]) {
+      expect(searchCampusMapBrowse(projection, query)).toMatchObject([
+        {
+          kind: "place",
+          match: "exact-name",
+          place: { placeId: pool.id },
+        },
+      ]);
+    }
+  });
+
+  it("keeps two health services independently selectable by their own names", () => {
+    const healthBuilding = {
+      ...building,
+      name: "保健处",
+      englishName: "University Health Centre",
+      code: "UHC",
+      aliases: ["大学保健处"],
+    };
+    const healthPlace = (
+      idSuffix: string,
+      name: string,
+    ): CampusMapCurrentPlace => ({
+      ...floorPlace(
+        `30000000-0000-4000-8000-0000000000${idSuffix}`,
+        `40000000-0000-4000-8000-0000000000${idSuffix}`,
+      ),
+      name,
+      placeType: "health-service",
+      location: {
+        kind: "building",
+        building: {
+          id: BUILDING_ID,
+          name: healthBuilding.name,
+          englishName: healthBuilding.englishName,
+          code: healthBuilding.code,
+        },
+      },
+    });
+    const outpatient = healthPlace("33", "门诊（Outpatient Service）");
+    const dental = healthPlace("34", "牙科（Dental Service）");
+    const projection = projectCampusMapBrowse({
+      buildings: [healthBuilding],
+      places: [outpatient, dental],
+    });
+
+    expect(searchCampusMapBrowse(projection, "门诊")).toMatchObject([
+      { kind: "place", place: { placeId: outpatient.id } },
+    ]);
+    expect(
+      searchCampusMapBrowse(projection, "Service").map((result) =>
+        result.kind === "place" ? result.place.placeId : result.kind,
+      ),
+    ).toEqual([outpatient.id, dental.id]);
   });
 
   it("returns nearby Places separately and labels Building-anchor distances as approximate evidence", () => {

@@ -426,6 +426,181 @@ function mixedWaterProjection() {
   };
 }
 
+function representativeV2Projection({
+  includeClassroom = true,
+}: { includeClassroom?: boolean } = {}) {
+  const bmsBuildingId = "367d9f99-13e6-5805-8447-5b523f7b36d3";
+  const healthBuildingId = "a8bfebbd-87bf-5ac9-a089-446c4198e38d";
+  const publishedAt = new Date("2026-09-04T00:00:00.000Z");
+  const source = {
+    kind: "official" as const,
+    accessedOn: "2026-09-04",
+    observedAt: null,
+    rightsStatus: "unknown" as const,
+    hasLocationEvidence: false,
+  };
+  const bmsBuilding = {
+    id: bmsBuildingId,
+    name: "李卓敏基本医学大楼",
+    englishName: "Choh-Ming Li Basic Medical Sciences Building",
+    code: "H11",
+  };
+  const healthBuilding = {
+    id: healthBuildingId,
+    name: "大学保健处",
+    englishName: "University Health Centre",
+    code: "UHC",
+  };
+  const places: CampusMapCurrentPlace[] = [
+    ...(includeClassroom
+      ? [
+          {
+            id: "87900000-0000-4000-8000-000000000001",
+            revisionId: "87910000-0000-4000-8000-000000000001",
+            factSchemaVersion: 2,
+            name: "BMS LT",
+            placeType: "classroom" as const,
+            regularHours: null,
+            officialActions: [
+              {
+                label: "查看 RES 课室资料",
+                url: "https://www.res.cuhk.edu.hk/classrooms/",
+              },
+            ],
+            visitNote: null,
+            capabilities: [],
+            gender: null,
+            wheelchairAccess: null,
+            location: { kind: "building" as const, building: bmsBuilding },
+            observedAt: null,
+            verifiedAt: null,
+            publishedAt,
+            provenance: [source],
+          },
+        ]
+      : []),
+    {
+      id: "87900000-0000-4000-8000-000000000002",
+      revisionId: "87910000-0000-4000-8000-000000000002",
+      factSchemaVersion: 2,
+      name: "大学游泳池（University Swimming Pool）",
+      placeType: "sports-facility",
+      regularHours: {
+        timezone: "Asia/Hong_Kong",
+        intervals: [
+          {
+            days: ["mon", "tue", "wed", "thu"],
+            opensAt: "10:30",
+            closesAt: "13:30",
+          },
+        ],
+      },
+      officialActions: [
+        {
+          label: "查看最新安排",
+          url: "https://calendar.google.com/calendar/",
+        },
+        {
+          label: "查看官方详情",
+          url: "https://www.osa.cuhk.edu.hk/swimming-pool/",
+        },
+      ],
+      visitNote: "学生入场 HK$5，只收八达通。",
+      capabilities: [],
+      gender: null,
+      wheelchairAccess: null,
+      location: {
+        kind: "outdoor-point",
+        point: {
+          longitude: 114.20539677143097,
+          latitude: 22.417996104088313,
+          crs: "wgs84",
+          precision: "approximate",
+        },
+      },
+      observedAt: null,
+      verifiedAt: publishedAt,
+      publishedAt,
+      provenance: [{ ...source, hasLocationEvidence: true }],
+    },
+    {
+      id: "87900000-0000-4000-8000-000000000003",
+      revisionId: "87910000-0000-4000-8000-000000000003",
+      factSchemaVersion: 2,
+      name: "门诊（Outpatient Service）",
+      placeType: "health-service",
+      regularHours: {
+        timezone: "Asia/Hong_Kong",
+        intervals: [
+          {
+            days: ["mon", "tue", "wed", "thu", "fri"],
+            opensAt: "08:45",
+            closesAt: "13:00",
+          },
+        ],
+      },
+      officialActions: [
+        {
+          label: "网上预约",
+          url: "https://booking.umso.cuhk.edu.hk/booking/",
+        },
+        { label: "电话预约", url: "tel:+85239436439" },
+      ],
+      visitNote: "登记时须出示个人身份证明。",
+      capabilities: [],
+      gender: null,
+      wheelchairAccess: null,
+      location: { kind: "building", building: healthBuilding },
+      observedAt: null,
+      verifiedAt: publishedAt,
+      publishedAt,
+      provenance: [source],
+    },
+    {
+      id: "87900000-0000-4000-8000-000000000004",
+      revisionId: "87910000-0000-4000-8000-000000000004",
+      factSchemaVersion: 2,
+      name: "牙科（Dental Service）",
+      placeType: "health-service",
+      regularHours: null,
+      officialActions: [{ label: "电话预约", url: "tel:+85239436412" }],
+      visitNote: null,
+      capabilities: [],
+      gender: null,
+      wheelchairAccess: null,
+      location: { kind: "building", building: healthBuilding },
+      observedAt: null,
+      verifiedAt: publishedAt,
+      publishedAt,
+      provenance: [source],
+    },
+  ];
+
+  return projectCampusMapBrowse({
+    buildings: [
+      {
+        buildingId: bmsBuildingId,
+        name: bmsBuilding.name,
+        englishName: bmsBuilding.englishName,
+        code: bmsBuilding.code,
+        aliases: ["BMS"],
+        anchor: { longitude: 114.212, latitude: 22.418, crs: "wgs84" },
+        floors: [],
+      },
+      {
+        buildingId: healthBuildingId,
+        name: healthBuilding.name,
+        englishName: healthBuilding.englishName,
+        code: healthBuilding.code,
+        aliases: ["保健处", "University Medical Service Office"],
+        anchor: { longitude: 114.207, latitude: 22.421, crs: "wgs84" },
+        floors: [],
+      },
+    ],
+    places,
+  });
+}
+
 describe("CampusMapRuntime", () => {
   it("renders category results as name, location, and rating summary without repeating the known category", async () => {
     const placeId = "71000000-0000-4000-8000-000000000002";
@@ -512,8 +687,119 @@ describe("CampusMapRuntime", () => {
       target: { value: "不存在的地点" },
     });
 
-    expect(await screen.findByText("没有找到建筑或地点")).not.toBeNull();
+    expect(await screen.findByText("没有找到“不存在的地点”")).not.toBeNull();
+    const reviseSearch = screen.getByRole("button", { name: "修改搜索" });
+    const addPlace = screen.getByRole("button", { name: "补充地点" });
+    expect(reviseSearch.className).toContain("bg-[#174b38]");
+    expect(addPlace.className).toContain("border");
+    expect(addPlace.className).not.toContain("bg-[#174b38]");
     expect(screen.queryByText(/正式建筑或设施/)).toBeNull();
+  });
+
+  it("opens an exact classroom search directly as the stable Place card", async () => {
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={representativeV2Projection()}
+      />,
+    );
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
+
+    fireEvent.change(search, { target: { value: "BMS LT" } });
+    fireEvent.submit(search.closest("form")!);
+
+    const heading = await screen.findByRole("heading", { name: "BMS LT" });
+    const card = heading.closest("section");
+    if (!card) throw new Error("expected the classroom Place card");
+    expect(
+      within(card).getByText("课室", { exact: true, selector: "p" }),
+    ).toBeTruthy();
+    expect(within(card).getByText("位置", { selector: "dt" })).toBeTruthy();
+    expect(
+      within(card).getByText("李卓敏基本医学大楼", { selector: "dd" }),
+    ).toBeTruthy();
+    expect(window.location.search).toContain(
+      "scene=place&id=87900000-0000-4000-8000-000000000001",
+    );
+  });
+
+  it("keeps a classroom-like Building fallback honest", async () => {
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={representativeV2Projection({
+          includeClassroom: false,
+        })}
+      />,
+    );
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
+
+    fireEvent.change(search, { target: { value: "H11 LT2" } });
+    const suggestion = await screen.findByRole("button", {
+      name: /李卓敏基本医学大楼.*建筑建议.*教室尚未收录/u,
+    });
+    fireEvent.click(suggestion);
+
+    expect(
+      await screen.findByRole("heading", { name: "李卓敏基本医学大楼" }),
+    ).toBeTruthy();
+    expect(screen.getByText("建筑建议", { exact: true })).toBeTruthy();
+    expect(screen.getByText("已找到所属建筑；这个教室尚未收录。")).toBeTruthy();
+    expect(window.location.search).toContain("scene=building");
+    expect(window.location.search).not.toContain("scene=place");
+  });
+
+  it("selects the bilingual pool Place and shows usual hours plus two official actions", async () => {
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={representativeV2Projection()}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("搜索建筑或地点…"), {
+      target: { value: "University Swimming Pool" },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /大学游泳池.*室外位置.*周一至周四 10:30–13:30/u,
+      }),
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "大学游泳池（University Swimming Pool）",
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText("通常开放时间")).toBeTruthy();
+    expect(screen.getByText("周一至周四 10:30–13:30")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /查看最新安排/u })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /查看官方详情/u })).toBeTruthy();
+    expect(document.body.textContent).not.toContain("营业中");
+  });
+
+  it("lists co-located health services separately and opens booking directly", async () => {
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={representativeV2Projection()}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("搜索建筑或地点…"), {
+      target: { value: "Service" },
+    });
+    expect(
+      await screen.findByRole("button", { name: /门诊.*大学保健处/u }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /牙科.*大学保健处/u }),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /门诊.*大学保健处/u }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "门诊（Outpatient Service）",
+      }),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: /网上预约/u })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /电话预约/u })).toBeTruthy();
   });
 
   it("keeps a unique building code searchable without repeating it in the UI", async () => {
@@ -3095,7 +3381,7 @@ describe("CampusMapRuntime", () => {
   it("shows three category results before offering the full list", async () => {
     const projection = createCampusMapBrowseFixture();
     const waterPlace = projection.places.find(
-      (place) => place.pinType === "water",
+      (place) => place.placeType === "water",
     );
     if (!waterPlace) throw new Error("water fixture missing");
     const extraPlaces = [

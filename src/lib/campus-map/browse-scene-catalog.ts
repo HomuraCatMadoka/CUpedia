@@ -24,7 +24,7 @@ export function createCampusMapSceneCatalog(
         {
           buildingId: place.buildingId,
           floorId: place.floorId,
-          category: place.pinType,
+          category: place.placeType,
           cameraTarget:
             place.location.kind === "outdoor-point"
               ? "place-point"

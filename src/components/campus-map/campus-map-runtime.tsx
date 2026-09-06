@@ -25,15 +25,16 @@ import {
 import {
   CAMPUS_MAP_CATEGORIES as CATEGORIES,
   CampusMapFacilityResultButton as FacilityResultButton,
-  campusMapPinTypeStyle as pinTypeStyle,
+  campusMapPlaceTypeStyle as placeTypeStyle,
   campusMapFeedbackSummaryLabel as feedbackSummaryLabel,
   campusMapFloorLabel as floorLabel,
   campusMapPlaceLocationLabel as placeLocationLabel,
-  knownCampusMapPinType as knownPinType,
+  knownCampusMapBrowseCategory as knownBrowseCategory,
 } from "@/components/campus-map/browse-card-presentation";
 import { AmapCanonicalBrowseLayer } from "@/components/campus-map/amap-canonical-browse-layer";
 import { AmapBuildingPickerRuntime } from "@/components/campus-map/amap-building-picker-runtime";
 import { CampusMapEditSheet } from "@/components/campus-map/edit-sheet";
+import { CampusMapPlaceCardContent } from "@/components/campus-map/place-card-content";
 import { useCampusMapEditSessionOwner } from "@/components/campus-map/use-campus-map-edit-session-owner";
 
 import {
@@ -65,7 +66,6 @@ import {
   type AmapPlaceContextResolver,
   type AmapPlaceContextResult,
 } from "@/lib/campus-map/amap-place-context";
-import type { CampusMapPinType } from "@/lib/campus-map/canonical-marker";
 import type { CampusMapPlaceFeedbackSummary } from "@/lib/campus-map/place-feedback";
 import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
 import {
@@ -81,6 +81,7 @@ import {
   EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
   queryCampusMapBrowse,
   queryCampusMapNearby,
+  searchCampusMapBrowse,
   type CampusMapBrowseBuilding,
   type CampusMapBrowsePlace,
   type CampusMapBrowseProjection,
@@ -89,7 +90,6 @@ import {
   CampusMapBrowseProjectionStore,
   type CampusMapBrowseRefreshResult,
 } from "@/lib/campus-map/browse-projection-store";
-import { summarizeCampusMapAccess } from "@/lib/campus-map/access-summary";
 import { projectCampusMapBuildingDirectory } from "@/lib/campus-map/building-directory";
 import {
   campusMapBuildingDisplayFor,
@@ -132,6 +132,9 @@ import {
   type CampusMapSession,
 } from "@/lib/campus-map/scene-kernel";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
+import { projectCampusMapPlaceCard } from "@/lib/campus-map/place-card";
+import { CAMPUS_MAP_PLACE_TYPES } from "@/lib/campus-map/controlled-values";
+import type { CampusMapPlaceType } from "@/lib/campus-map/place-type-contract";
 import {
   resolveCampusMapProviderHotspot,
   type CampusMapProviderHotspotResolution,
@@ -139,7 +142,6 @@ import {
 import type { CampusMapProviderMappingProjection } from "@/lib/campus-map/provider-mapping-domain";
 import { cn } from "@/lib/utils";
 
-type PinType = CampusMapPinType;
 type Building = CampusMapBrowseBuilding;
 type Place = CampusMapBrowsePlace;
 const EMPTY_PLACE_COVERS: Record<string, CampusMapPlacePhotoView> = {};
@@ -451,9 +453,9 @@ function facilityBackLabel(returnTo: CampusMapSession | null) {
   const returnScene = returnTo?.mode === "browse" ? returnTo.scene : null;
   if (returnScene?.kind === "search-results") return "返回搜索结果";
   if (returnScene?.kind === "category-results") {
-    const category = knownPinType(returnScene.category);
+    const category = knownBrowseCategory(returnScene.category);
     return category
-      ? `返回${pinTypeStyle(category).label}列表`
+      ? `返回${placeTypeStyle(category).label}列表`
       : "返回设施列表";
   }
   if (returnScene?.kind === "building") return "返回建筑";
@@ -509,6 +511,14 @@ function metadataLabel(...parts: Array<string | null | undefined>) {
   return parts.filter(Boolean).join(" · ");
 }
 
+function knownFeedbackSummaryLabel(
+  summary: CampusMapPlaceFeedbackSummary | undefined,
+) {
+  return summary?.averageRating === null || !summary?.ratingCount
+    ? null
+    : feedbackSummaryLabel(summary);
+}
+
 function facilityResultLocationLabel(
   facility: Place,
   building: CampusMapBrowseBuilding | undefined,
@@ -519,7 +529,22 @@ function facilityResultLocationLabel(
   const visibleBuildingLabel = buildingLabel ?? building.name;
   return facility.location.kind === "floor"
     ? `${visibleBuildingLabel} · ${facility.location.floor.displayLabel}`
-    : `${visibleBuildingLabel} · 楼层未知`;
+    : visibleBuildingLabel;
+}
+
+function placeCardFor(
+  facility: Place,
+  building: CampusMapBrowseBuilding | undefined,
+  buildingLabel?: string,
+) {
+  return projectCampusMapPlaceCard({
+    ...facility,
+    locationLabel: facilityResultLocationLabel(
+      facility,
+      building,
+      buildingLabel,
+    ),
+  });
 }
 
 function publishedPlaceNotice(
@@ -574,13 +599,13 @@ function groupBuildingFacilities(building: Building, places: readonly Place[]) {
 }
 
 function summarizeFacilityTypes(places: readonly Place[]) {
-  const counts = new Map<PinType, number>();
+  const counts = new Map<CampusMapPlaceType, number>();
   for (const facility of places) {
-    counts.set(facility.pinType, (counts.get(facility.pinType) ?? 0) + 1);
+    counts.set(facility.placeType, (counts.get(facility.placeType) ?? 0) + 1);
   }
-  return CATEGORIES.flatMap((category) => {
-    const count = counts.get(category.id) ?? 0;
-    return count > 0 ? [{ ...category, count }] : [];
+  return CAMPUS_MAP_PLACE_TYPES.flatMap((placeType) => {
+    const count = counts.get(placeType) ?? 0;
+    return count > 0 ? [{ ...placeTypeStyle(placeType), count }] : [];
   });
 }
 
@@ -645,6 +670,10 @@ export function CampusMapRuntime({
   const places = browseProjection.places;
   const buildingDisplay = useMemo(
     () => projectCampusMapBuildingDisplay(buildings),
+    [buildings],
+  );
+  const buildingById = useMemo(
+    () => new Map(buildings.map((building) => [building.buildingId, building])),
     [buildings],
   );
   const buildingsRef = useRef(buildings);
@@ -1327,21 +1356,11 @@ export function CampusMapRuntime({
   const state = projectedState(session, driverSnapshot.returnTo, sceneCatalog);
   const panelSnap = state.sheet.snap;
   const selectedFacility = facilityFor(state.selection, places);
-  const selectedAccessLabel = selectedFacility
-    ? summarizeCampusMapAccess(selectedFacility.access)
-    : null;
   const selectedBuilding = selectedFacility?.buildingId
-    ? (buildings.find(
-        (building) => building.buildingId === selectedFacility.buildingId,
-      ) ?? null)
+    ? (buildingById.get(selectedFacility.buildingId) ?? null)
     : buildingFor(state.selection, buildings);
-  const activeAmenity = knownPinType(state.mapFilter.category);
-  const selectedMarkerPlaceId = activeAmenity
-    ? null
-    : (selectedFacility?.placeId ?? null);
-  const visibleMarkerAmenity =
-    activeAmenity ??
-    (selectedMarkerPlaceId ? (selectedFacility?.pinType ?? null) : null);
+  const activeCategory = knownBrowseCategory(state.mapFilter.category);
+  const selectedMarkerPlaceId = selectedFacility?.placeId ?? null;
   const selectedFacilityBackLabel = selectedFacility
     ? facilityBackLabel(driverSnapshot.returnTo)
     : "返回地图";
@@ -1373,7 +1392,7 @@ export function CampusMapRuntime({
   }, [activeListReturnTo]);
 
   useEffect(() => {
-    if (!activeAmenity) return;
+    if (!activeCategory) return;
     const revealActiveCategory = () =>
       activeCategoryFilterRef.current?.scrollIntoView?.({
         block: "nearest",
@@ -1382,7 +1401,7 @@ export function CampusMapRuntime({
     revealActiveCategory();
     window.addEventListener("resize", revealActiveCategory);
     return () => window.removeEventListener("resize", revealActiveCategory);
-  }, [activeAmenity]);
+  }, [activeCategory]);
 
   const dispatch = useCallback(
     (intent: CampusMapDriverIntent) => {
@@ -1483,18 +1502,49 @@ export function CampusMapRuntime({
     dispatch,
     recoverPublish,
   });
+  const editSessionStatus = editSession?.status ?? null;
+  const browseMarkersHidden = editSession !== null;
+  const locationSelectionActive = editSessionStatus === "selecting-location";
+  const activeSearchQuery = locationSelectionActive
+    ? queryDraft
+    : state.mapFilter.query;
+  const searchResults = useMemo(() => {
+    if (!activeSearchQuery.trim()) return [];
+    if (locationSelectionActive) {
+      return queryCampusMapBrowse(browseProjection, {
+        query: activeSearchQuery,
+        placeMatch: "name",
+      }).buildings.map((building) => ({
+        kind: "building" as const,
+        match: "building" as const,
+        building,
+      }));
+    }
+    return searchCampusMapBrowse(browseProjection, activeSearchQuery);
+  }, [activeSearchQuery, browseProjection, locationSelectionActive]);
+  const visibleMarkerPlaceIds = useMemo(() => {
+    if (activeCategory) {
+      return places
+        .filter((place) => place.placeType === activeCategory)
+        .map((place) => place.placeId);
+    }
+    if (selectedMarkerPlaceId) return [selectedMarkerPlaceId];
+    return searchResults.flatMap((result) =>
+      result.kind === "place" ? [result.place.placeId] : [],
+    );
+  }, [activeCategory, places, searchResults, selectedMarkerPlaceId]);
   const markerMode = useMemo(
     () =>
-      editSession
+      browseMarkersHidden
         ? ({ kind: "hidden" } as const)
-        : visibleMarkerAmenity
+        : visibleMarkerPlaceIds.length > 0
           ? ({
-              kind: "amenity",
-              amenity: visibleMarkerAmenity,
+              kind: "places",
+              placeIds: visibleMarkerPlaceIds,
               selectedPlaceId: selectedMarkerPlaceId,
             } as const)
           : ({ kind: "hidden" } as const),
-    [editSession, selectedMarkerPlaceId, visibleMarkerAmenity],
+    [browseMarkersHidden, selectedMarkerPlaceId, visibleMarkerPlaceIds],
   );
   const readVisiblePlacementAnchor = useCallback(() => {
     const map = mapRef.current;
@@ -1542,17 +1592,15 @@ export function CampusMapRuntime({
     state.buildingContext.floorId,
   ]);
   const startFacilityForActiveCategory = useCallback(() => {
-    if (!activeAmenity) return;
+    if (!activeCategory) return;
     cancelPendingUserLocation();
-    startFacilityAdd({ kind: "global", placeType: activeAmenity });
-  }, [activeAmenity, cancelPendingUserLocation, startFacilityAdd]);
+    startFacilityAdd({ kind: "global", placeType: activeCategory });
+  }, [activeCategory, cancelPendingUserLocation, startFacilityAdd]);
   useEffect(() => {
     if (!publishNotice) return;
     const timeout = window.setTimeout(() => setPublishNotice(null), 4_000);
     return () => window.clearTimeout(timeout);
   }, [publishNotice]);
-  const editSessionStatus = editSession?.status ?? null;
-  const locationSelectionActive = editSessionStatus === "selecting-location";
   const editSessionIdempotencyKey = editSession?.draft.idempotencyKey ?? null;
   const activeLocationBuildingCandidateId =
     locationSelectionActive &&
@@ -2162,16 +2210,14 @@ export function CampusMapRuntime({
     () =>
       projectCampusMapBrowseToAmap(browseProjection, {
         selectedBuildingId: selectedBuilding?.buildingId ?? null,
-        visibleAmenity: visibleMarkerAmenity,
-        selectedPlaceId: selectedMarkerPlaceId,
+        visiblePlaceIds: visibleMarkerPlaceIds,
         allBuildings: editSession?.status === "selecting-location",
       }),
     [
       browseProjection,
       editSession?.status,
       selectedBuilding?.buildingId,
-      selectedMarkerPlaceId,
-      visibleMarkerAmenity,
+      visibleMarkerPlaceIds,
     ],
   );
   const amapCoordinateProjectionRef = useRef(amapCoordinateProjection);
@@ -2335,32 +2381,6 @@ export function CampusMapRuntime({
     selectedTransientHotspot,
   ]);
 
-  const activeSearchQuery = locationSelectionActive
-    ? queryDraft
-    : state.mapFilter.query;
-  const searchResults = useMemo(() => {
-    if (!activeSearchQuery.trim()) return [];
-    const results = queryCampusMapBrowse(browseProjection, {
-      query: activeSearchQuery,
-      placeMatch: "name",
-    });
-    const buildingResults = results.buildings.map((building) => ({
-      kind: "building" as const,
-      building,
-    }));
-    if (locationSelectionActive) return buildingResults;
-    return [
-      ...buildingResults,
-      ...results.places.map((facility) => ({
-        kind: "place" as const,
-        facility,
-        building:
-          buildings.find(
-            (building) => building.buildingId === facility.buildingId,
-          ) ?? null,
-      })),
-    ];
-  }, [activeSearchQuery, browseProjection, buildings, locationSelectionActive]);
   const highlightedLocationBuildingIds = useMemo(
     () =>
       locationSelectionActive
@@ -2451,11 +2471,11 @@ export function CampusMapRuntime({
   const buildingFacilityGroups = selectedBuilding
     ? groupBuildingFacilities(selectedBuilding, buildingFacilities)
     : [];
-  const categoryResults = activeAmenity
-    ? queryCampusMapBrowse(browseProjection, { pinType: activeAmenity })
+  const categoryResults = activeCategory
+    ? queryCampusMapBrowse(browseProjection, { placeType: activeCategory })
     : null;
   const categoryDistanceByPlaceId = useMemo(() => {
-    if (!activeAmenity || userLocation.status !== "located") {
+    if (!activeCategory || userLocation.status !== "located") {
       return new Map<
         string,
         {
@@ -2467,13 +2487,13 @@ export function CampusMapRuntime({
     return new Map(
       queryCampusMapNearby(browseProjection, {
         ...userLocation.position,
-        pinType: activeAmenity,
+        placeType: activeCategory,
       }).places.map(({ place, distanceMeters, distanceEvidence }) => [
         place.placeId,
         { distanceMeters, distanceEvidence },
       ]),
     );
-  }, [activeAmenity, browseProjection, userLocation]);
+  }, [activeCategory, browseProjection, userLocation]);
   const categoryFacilities = useMemo(() => {
     const places = categoryResults?.places ?? [];
     if (!categoryDistanceByPlaceId.size) return places;
@@ -2492,8 +2512,8 @@ export function CampusMapRuntime({
       : categoryFacilities.slice(0, CAMPUS_MAP_CATEGORY_PEEK_RESULT_LIMIT);
   const hasMoreCategoryFacilities =
     categoryFacilities.length > CAMPUS_MAP_CATEGORY_PEEK_RESULT_LIMIT;
-  const activeCategoryStyle = activeAmenity
-    ? pinTypeStyle(activeAmenity)
+  const activeCategoryStyle = activeCategory
+    ? placeTypeStyle(activeCategory)
     : null;
   const selectedBuildingHasFacilities = Boolean(
     selectedBuilding &&
@@ -2529,6 +2549,33 @@ export function CampusMapRuntime({
     : null;
   const selectedBuildingDisplayName =
     selectedBuildingDisplay?.label ?? selectedBuilding?.name ?? null;
+  const selectedPlaceCard = selectedFacility
+    ? placeCardFor(
+        selectedFacility,
+        selectedBuilding ?? undefined,
+        selectedBuildingDisplayName ?? undefined,
+      )
+    : null;
+  const selectedPlaceShowsLocation =
+    selectedFacility?.placeType === "classroom";
+  const buildingPreviewCard =
+    buildingPreviewFacility && selectedBuilding
+      ? placeCardFor(
+          buildingPreviewFacility,
+          selectedBuilding,
+          selectedBuildingDisplayName ?? undefined,
+        )
+      : null;
+  const selectedBuildingIsClassroomFallback = Boolean(
+    selectedBuilding &&
+    !selectedFacility &&
+    searchResults.some(
+      (result) =>
+        result.kind === "building" &&
+        result.match === "classroom-fallback" &&
+        result.building.buildingId === selectedBuilding.buildingId,
+    ),
+  );
   const selectedBuildingQualifier = selectedBuildingDisplay?.qualifier ?? null;
   const visibleSelectedBuildingQualifier =
     selectedBuildingQualifier &&
@@ -2577,7 +2624,7 @@ export function CampusMapRuntime({
     mobilePanelLayout = { kind: "empty-building" };
   } else if (selectedBuilding) {
     mobilePanelLayout = { kind: "building" };
-  } else if (activeAmenity) {
+  } else if (activeCategory) {
     mobilePanelLayout = {
       kind: "category",
       resultCount: categoryFacilities.length,
@@ -2592,7 +2639,7 @@ export function CampusMapRuntime({
     selectedTransientHotspot ||
     selectedBuilding ||
     selectedFacility ||
-    activeAmenity,
+    activeCategory,
   );
 
   return (
@@ -2691,6 +2738,17 @@ export function CampusMapRuntime({
           onSubmit={(event) => {
             event.preventDefault();
             if (!locationSelectionActive) {
+              const exactClassrooms = searchResults.flatMap((result) =>
+                result.kind === "place" &&
+                result.match === "exact-name" &&
+                result.place.placeType === "classroom"
+                  ? [result.place]
+                  : [],
+              );
+              if (exactClassrooms.length === 1) {
+                selectFacility(exactClassrooms[0]!, "search");
+                return;
+              }
               dispatch({ type: "SEARCH", query: queryDraft });
             }
           }}
@@ -2748,10 +2806,10 @@ export function CampusMapRuntime({
                   const id =
                     result.kind === "building"
                       ? result.building.buildingId
-                      : result.facility.placeId;
+                      : result.place.placeId;
                   const resultStyle =
                     result.kind === "place"
-                      ? pinTypeStyle(result.facility.pinType)
+                      ? placeTypeStyle(result.place.placeType)
                       : null;
                   const ResultIcon = resultStyle?.icon ?? Building2Icon;
                   const resultBuilding = result.building;
@@ -2774,13 +2832,25 @@ export function CampusMapRuntime({
                     result.kind === "place" && resultBuilding
                       ? (resultBuildingDisplay?.label ?? resultBuilding.name)
                       : null;
+                  const resultPlaceCard =
+                    result.kind === "place"
+                      ? placeCardFor(
+                          result.place,
+                          resultBuilding ?? undefined,
+                          resultBuildingLabel ?? undefined,
+                        )
+                      : null;
                   const subtitle =
                     result.kind === "building"
-                      ? result.building.englishName
+                      ? metadataLabel(
+                          result.building.englishName,
+                          result.match === "classroom-fallback"
+                            ? "建筑建议 · 教室尚未收录"
+                            : null,
+                        )
                       : metadataLabel(
-                          resultBuildingLabel,
-                          placeLocationLabel(result.facility),
-                          summarizeCampusMapAccess(result.facility.access),
+                          resultPlaceCard?.locationLabel,
+                          resultPlaceCard?.primaryFact?.value,
                         );
                   const content = (
                     <>
@@ -2799,7 +2869,7 @@ export function CampusMapRuntime({
                           <span className="truncate">
                             {result.kind === "building"
                               ? result.building.name
-                              : result.facility.name}
+                              : result.place.name}
                           </span>
                           {visibleBuildingQualifier ? (
                             <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-600">
@@ -2829,7 +2899,7 @@ export function CampusMapRuntime({
                             selectBuilding(result.building, "search");
                           }
                         } else {
-                          selectFacility(result.facility, "search");
+                          selectFacility(result.place, "search");
                         }
                       }}
                     >
@@ -2838,11 +2908,39 @@ export function CampusMapRuntime({
                   );
                 })
               ) : (
-                <p className="px-4 py-4 text-sm text-neutral-600">
-                  {locationSelectionActive
-                    ? "没有找到建筑"
-                    : "没有找到建筑或地点"}
-                </p>
+                <div className="px-4 py-4 text-sm text-neutral-600">
+                  <p>
+                    {locationSelectionActive
+                      ? "没有找到建筑"
+                      : `没有找到“${activeSearchQuery}”`}
+                  </p>
+                  {!locationSelectionActive ? (
+                    <>
+                      <p className="mt-1 text-xs leading-5 text-neutral-500">
+                        试试缩短名称、切换中英文，或输入建筑代码。
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="min-h-11 rounded-xl bg-[#174b38] px-3 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
+                          onClick={() => {
+                            searchInputRef.current?.focus();
+                            searchInputRef.current?.select();
+                          }}
+                        >
+                          修改搜索
+                        </button>
+                        <button
+                          type="button"
+                          className="min-h-11 rounded-xl border border-black/15 px-3 font-semibold text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                          onClick={startGlobalFacilityAdd}
+                        >
+                          补充地点
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
               )}
             </div>
           ) : null}
@@ -2964,7 +3062,7 @@ export function CampusMapRuntime({
         >
           <LocateFixedIcon aria-hidden="true" className="size-5" />
         </button>
-        {!selectedTransientHotspot && !selectedBuilding && !activeAmenity ? (
+        {!selectedTransientHotspot && !selectedBuilding && !activeCategory ? (
           <button
             type="button"
             aria-label="新增设施"
@@ -3158,34 +3256,36 @@ export function CampusMapRuntime({
               className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:pb-5"
             >
               {visibleCategoryFacilities.map((facility) => {
-                const building = buildings.find(
-                  (item) => item.buildingId === facility.buildingId,
+                const building = facility.buildingId
+                  ? buildingById.get(facility.buildingId)
+                  : undefined;
+                const visibleBuildingName = building
+                  ? campusMapBuildingDisplayFor(
+                      buildingDisplay,
+                      building.buildingId,
+                    )?.label
+                  : undefined;
+                const card = placeCardFor(
+                  facility,
+                  building,
+                  visibleBuildingName,
                 );
                 return (
                   <FacilityResultButton
                     key={facility.placeId}
                     facility={facility}
-                    location={facilityResultLocationLabel(
-                      facility,
-                      building,
-                      building
-                        ? campusMapBuildingDisplayFor(
-                            buildingDisplay,
-                            building.buildingId,
-                          )?.label
-                        : undefined,
-                    )}
+                    location={card.locationLabel}
                     coverPhoto={placeCovers[facility.placeId]}
                     summary={metadataLabel(
-                      feedbackSummaryLabel(
-                        initialFeedbackSummaries[facility.placeId],
-                      ),
                       categoryDistanceByPlaceId.has(facility.placeId)
                         ? nearbyDistanceLabel(
                             categoryDistanceByPlaceId.get(facility.placeId)!,
                           )
                         : null,
-                      summarizeCampusMapAccess(facility.access),
+                      knownFeedbackSummaryLabel(
+                        initialFeedbackSummaries[facility.placeId],
+                      ),
+                      card.primaryFact?.value,
                     )}
                     variant="category"
                     onSelect={() => selectFacility(facility, "category")}
@@ -3273,16 +3373,10 @@ export function CampusMapRuntime({
                 {selectedFacility ? (
                   <p className="mt-1 truncate text-sm text-neutral-500">
                     {metadataLabel(
-                      pinTypeStyle(selectedFacility.pinType).label,
-                      selectedBuilding
-                        ? selectedBuildingDisplayName
-                        : placeLocationLabel(selectedFacility),
-                      selectedBuilding
-                        ? floorLabel(
-                            selectedFacility.floorId,
-                            selectedFacility.floorLabel,
-                          )
-                        : null,
+                      placeTypeStyle(selectedFacility.placeType).label,
+                      selectedPlaceShowsLocation
+                        ? null
+                        : selectedPlaceCard?.locationLabel,
                     )}
                   </p>
                 ) : selectedBuilding ? (
@@ -3327,6 +3421,15 @@ export function CampusMapRuntime({
               </button>
             </div>
 
+            {selectedBuildingIsClassroomFallback ? (
+              <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 md:px-5">
+                <p className="font-semibold">建筑建议</p>
+                <p className="mt-1 leading-5">
+                  已找到所属建筑；这个教室尚未收录。
+                </p>
+              </div>
+            ) : null}
+
             {!selectedFacility && selectedBuildingIsEmpty ? (
               <div className="shrink-0 border-b border-black/8 px-4 py-3 md:px-5">
                 <button
@@ -3343,18 +3446,17 @@ export function CampusMapRuntime({
 
             {selectedFacility ? (
               <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:pb-5">
-                {selectedAccessLabel ? (
-                  <p className="pt-4 text-sm text-neutral-600">
-                    {selectedAccessLabel}
-                  </p>
+                {selectedPlaceCard ? (
+                  <CampusMapPlaceCardContent
+                    card={selectedPlaceCard}
+                    className="pt-4"
+                    showLocation={selectedPlaceShowsLocation}
+                  />
                 ) : null}
                 <div
                   role="group"
                   aria-label="地点操作"
-                  className={cn(
-                    "grid grid-cols-2 gap-2",
-                    selectedAccessLabel ? "mt-3" : "mt-4",
-                  )}
+                  className="mt-4 grid grid-cols-2 gap-2"
                 >
                   <a
                     href={selectedFacilityDetailHref}
@@ -3511,25 +3613,19 @@ export function CampusMapRuntime({
                     {state.sheet.snap !== "full" &&
                     buildingOverviewDirectory?.status === "ready" ? (
                       <div className="md:hidden">
-                        {buildingPreviewFacility ? (
+                        {buildingPreviewFacility && buildingPreviewCard ? (
                           <FacilityResultButton
                             facility={buildingPreviewFacility}
-                            location={facilityResultLocationLabel(
-                              buildingPreviewFacility,
-                              selectedBuilding,
-                              selectedBuildingDisplayName ?? undefined,
-                            )}
+                            location={buildingPreviewCard.locationLabel}
                             summary={metadataLabel(
-                              pinTypeStyle(buildingPreviewFacility.pinType)
+                              placeTypeStyle(buildingPreviewFacility.placeType)
                                 .label,
-                              feedbackSummaryLabel(
+                              knownFeedbackSummaryLabel(
                                 initialFeedbackSummaries[
                                   buildingPreviewFacility.placeId
                                 ],
                               ),
-                              summarizeCampusMapAccess(
-                                buildingPreviewFacility.access,
-                              ),
+                              buildingPreviewCard.primaryFact?.value,
                             )}
                             variant="preview"
                             onSelect={() =>
@@ -3590,23 +3686,24 @@ export function CampusMapRuntime({
                             </h4>
                             <div className="divide-y divide-black/8">
                               {group.places.map((facility) => {
+                                const card = placeCardFor(
+                                  facility,
+                                  selectedBuilding,
+                                  selectedBuildingDisplayName ?? undefined,
+                                );
                                 return (
                                   <FacilityResultButton
                                     key={facility.placeId}
                                     facility={facility}
-                                    location={facilityResultLocationLabel(
-                                      facility,
-                                      selectedBuilding,
-                                      selectedBuildingDisplayName ?? undefined,
-                                    )}
+                                    location={card.locationLabel}
                                     summary={metadataLabel(
-                                      pinTypeStyle(facility.pinType).label,
-                                      feedbackSummaryLabel(
+                                      placeTypeStyle(facility.placeType).label,
+                                      knownFeedbackSummaryLabel(
                                         initialFeedbackSummaries[
                                           facility.placeId
                                         ],
                                       ),
-                                      summarizeCampusMapAccess(facility.access),
+                                      card.primaryFact?.value,
                                     )}
                                     variant="building"
                                     onSelect={() =>
