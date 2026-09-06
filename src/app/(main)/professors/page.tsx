@@ -109,6 +109,7 @@ export default async function ProfessorsPage({
             {filtering ? (
               <Link
                 href="/professors"
+                prefetch={false}
                 className="rounded-sm text-sm text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 清除筛选
@@ -124,6 +125,7 @@ export default async function ProfessorsPage({
             {filtering && (
               <Link
                 href="/professors"
+                prefetch={false}
                 className="mt-3 inline-flex min-h-11 touch-manipulation items-center font-medium text-foreground underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 清除筛选
@@ -139,6 +141,7 @@ export default async function ProfessorsPage({
               >
                 <Link
                   href={`/professors/${professor.publicId}?from=${encodeURIComponent(currentHref)}`}
+                  prefetch={false}
                   aria-label={`查看 ${formatProfessorNameText(professor.name)}（${professor.department ?? professor.faculty ?? "香港中文大学"}）的教授测评`}
                   className="group flex min-h-44 min-w-0 flex-col items-center justify-center rounded-2xl px-1 py-3 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-56 sm:px-3 sm:py-5"
                 >
@@ -176,6 +179,7 @@ export default async function ProfessorsPage({
             {result.page > 1 ? (
               <Link
                 href={directoryHref({ ...filters, page: result.page - 1 })}
+                prefetch={false}
                 className={buttonVariants({
                   variant: "outline",
                   size: "lg",
@@ -202,6 +206,7 @@ export default async function ProfessorsPage({
             {result.page < totalPages ? (
               <Link
                 href={directoryHref({ ...filters, page: result.page + 1 })}
+                prefetch={false}
                 className={buttonVariants({
                   variant: "outline",
                   size: "lg",

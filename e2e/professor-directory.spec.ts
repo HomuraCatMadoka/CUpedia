@@ -2,6 +2,7 @@ import { Client } from "pg";
 import { expect, test } from "@playwright/test";
 
 import { loginWithPassword } from "./helpers/auth";
+import { expectIdleWithoutPrefetch, trackPrefetch } from "./helpers/prefetch";
 import { expectBottomSheetViewportToStayStill } from "./helpers/mobile-bottom-sheet";
 
 const PERSON_ID = "e2e-professor-directory-person";
@@ -255,6 +256,36 @@ test.afterAll(async () => {
     );
   });
 });
+
+for (const width of [1280, 390]) {
+  test(`professor cards avoid speculative requests at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 844 });
+    const paths = trackPrefetch(page);
+    await page.goto("/professors");
+    const card = page
+      .locator(`a[href^="/professors/${PUBLIC_ID}"]`)
+      .filter({ visible: true });
+    await expect(card).toBeVisible();
+    await page
+      .locator(`a[href^="/professors/${SCHOOL_PUBLIC_ID}"]`)
+      .scrollIntoViewIfNeeded();
+    await card.hover();
+    await expectIdleWithoutPrefetch(page, paths);
+    await card.click();
+    await expect(page).toHaveURL(new RegExp(`/professors/${PUBLIC_ID}`));
+    await expect(
+      page.getByRole("heading", { name: RENDERED_PROFESSOR_NAME }),
+    ).toBeVisible();
+    await page.goBack();
+    await expect(card).toBeVisible();
+    paths.length = 0;
+    await page.reload();
+    await expect(card).toBeVisible();
+    await expectIdleWithoutPrefetch(page, paths);
+  });
+}
 
 test("ignores a stale department filter instead of showing an empty directory", async ({
   page,

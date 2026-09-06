@@ -197,6 +197,7 @@ export function AnnouncementPanel({
             )}
             <Link
               href="/announcements"
+              prefetch={false}
               className="justify-self-end text-sm font-medium underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
               全部公告（{total}）

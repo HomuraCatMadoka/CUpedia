@@ -34,6 +34,7 @@ export function ShameRankEntryLink() {
   return (
     <Link
       href="/canteen/shit-rank"
+      prefetch={false}
       className="canteen-shame-entry inline-flex items-center rounded-full border border-[var(--canteen-line)] bg-[var(--canteen-tray)] px-3 py-1.5 text-xs font-semibold tracking-tight text-[var(--canteen-ink)] transition-colors hover:bg-[var(--canteen-fill-strong)] sm:px-3.5 sm:py-2 sm:text-sm"
     >
       💩堂榜

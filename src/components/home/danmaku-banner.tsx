@@ -350,6 +350,7 @@ export function DanmakuBanner({
             />
             <Link
               href="/login"
+              prefetch={false}
               className="absolute inset-y-0 right-1 inline-flex min-h-11 items-center rounded-lg px-2.5 text-[0.8125rem] font-medium whitespace-nowrap text-[var(--canteen-link)] hover:underline"
             >
               登录后发送

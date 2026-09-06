@@ -1,43 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-
-function trackPrefetch(page: Page) {
-  const paths: string[] = [];
-  page.on("request", (request) => {
-    const headers = request.headers();
-    if (
-      headers["next-router-prefetch"] ||
-      headers["next-router-segment-prefetch"]
-    ) {
-      paths.push(new URL(request.url()).pathname);
-    }
-  });
-  return paths;
-}
-
-async function expectIdleWithoutPrefetch(
-  page: Page,
-  paths: string[],
-  targetPath?: string,
-) {
-  // Observe the forbidden network event after the page's UI is ready. A timeout
-  // is the expected result of this negative assertion, not a readiness signal.
-  await expect(
-    page.waitForRequest(
-      (request) => {
-        const headers = request.headers();
-        return Boolean(
-          (headers["next-router-prefetch"] ||
-            headers["next-router-segment-prefetch"]) &&
-          (!targetPath || new URL(request.url()).pathname === targetPath),
-        );
-      },
-      { timeout: 3_000 },
-    ),
-  ).rejects.toThrow(/Timeout/);
-  expect(paths.filter((path) => !targetPath || path === targetPath)).toEqual(
-    [],
-  );
-}
+import { expect, test } from "@playwright/test";
+import { expectIdleWithoutPrefetch, trackPrefetch } from "./helpers/prefetch";
 
 test.describe("#875 navigation only requests pages on intent", () => {
   test.beforeEach(() => {

@@ -383,7 +383,11 @@ export function CourseReviewEditor({
       {!isAuthenticated ? (
         <div className="m-6 rounded-xl border bg-secondary/40 p-4 text-sm text-muted-foreground">
           请先{" "}
-          <Link href="/login" className="font-medium text-foreground underline">
+          <Link
+            href="/login"
+            prefetch={false}
+            className="font-medium text-foreground underline"
+          >
             登录
           </Link>{" "}
           后提交测评或点赞。

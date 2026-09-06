@@ -44,6 +44,7 @@ export function CanteenShell({
         <div className="canteen-fade-in mb-4 hidden sm:block">
           <Link
             href={backHref}
+            prefetch={false}
             className="canteen-back-link"
             aria-label={backLabel}
           >
@@ -86,6 +87,7 @@ export function CanteenShell({
                   <div className="shrink-0 sm:hidden">
                     <Link
                       href={backHref}
+                      prefetch={false}
                       className="canteen-back-link"
                       aria-label={backLabel}
                     >

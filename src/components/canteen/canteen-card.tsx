@@ -44,9 +44,7 @@ function CanteenIconOrb({
       ) : !pending ? (
         <span className="canteen-icon-initials">{initials}</span>
       ) : null}
-      {pending ? (
-        <span className="canteen-icon-pending" />
-      ) : null}
+      {pending ? <span className="canteen-icon-pending" /> : null}
     </span>
   );
 }
@@ -73,6 +71,7 @@ export function CanteenCard({
   return (
     <Link
       href={href}
+      prefetch={false}
       className={cn("canteen-icon-link", className)}
       aria-label={accessibleName}
     >
