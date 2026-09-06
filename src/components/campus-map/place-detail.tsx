@@ -16,6 +16,7 @@ import type {
   CampusMapPlaceFeedbackView,
 } from "@/lib/campus-map/place-feedback";
 import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
+import { safeCampusMapListReturnPath } from "@/lib/campus-map/scene-codec";
 
 function scheduleLabel(schedule: CampusMapLegacyPlaceFact["accessSchedule"]) {
   if (schedule.kind !== "weekly") {
@@ -105,6 +106,7 @@ export function CampusMapPlaceDetail({
     },
     page: { items: [], nextCursor: null, isPaginated: false },
   };
+  const mapListReturnPath = safeCampusMapListReturnPath(mapHref);
 
   return (
     <main className="w-full min-w-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_oklab,var(--color-emerald-500)_10%,transparent),transparent_42%)] px-4 py-8 sm:px-6 lg:py-12">
@@ -256,11 +258,16 @@ export function CampusMapPlaceDetail({
           viewerCanWrite={viewerCanWrite}
           isAdmin={isAdmin}
           reviewsAfter={reviewsAfter}
+          mapListReturnPath={mapListReturnPath}
         />
 
         <div>
           <Link
-            href={`/campus-map/places/${placeId}/history`}
+            href={`/campus-map/places/${placeId}/history${
+              mapListReturnPath
+                ? `?from=${encodeURIComponent(mapListReturnPath)}`
+                : ""
+            }`}
             prefetch={false}
             aria-label="查看编辑记录 / History"
             className="inline-flex min-h-11 items-center rounded-xl bg-foreground px-4 text-sm font-semibold text-background transition-colors hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"

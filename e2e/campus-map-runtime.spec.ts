@@ -1,4 +1,4 @@
-// refs #646, #649, #799, #838
+// refs #646, #649, #799, #838, #878
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { loginWithPassword } from "./helpers/auth";
@@ -267,7 +267,7 @@ test("Campus Map and its AMap config require authentication", async ({
 
 test("search and marker open one canonical Place card", async ({ page }) => {
   await page.goto("/campus-map");
-  const search = page.getByPlaceholder("搜索建筑或地点…");
+  const search = page.locator('input[placeholder="搜索建筑或地点…"]:visible');
   await search.fill("正式测试饮水点");
   await page
     .getByRole("button", { name: /正式测试饮水点.*正式测试楼/ })
@@ -322,6 +322,117 @@ test("search and marker open one canonical Place card", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "正式测试饮水点" }),
   ).toBeVisible();
+});
+
+test("mobile Place details return to the same search list and history position", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        const style = document.createElement("style");
+        style.textContent =
+          '[data-campus-map-results="search"] { max-height: 60px !important; }';
+        document.head.append(style);
+      },
+      { once: true },
+    );
+  });
+  await page.goto("/campus-map");
+  const search = page.locator('input[placeholder="搜索建筑或地点…"]:visible');
+  await search.fill("正式");
+  const result = page.getByRole("button", { name: /正式测试饮水点/ });
+  await expect(result).toBeVisible();
+  const resultList = page.locator('[data-campus-map-results="search"]:visible');
+  const expectedScrollTop = await resultList.evaluate((element) => {
+    element.scrollTop = 48;
+    return element.scrollTop;
+  });
+  expect(expectedScrollTop).toBeGreaterThan(0);
+  const returnTo = `${new URL(page.url()).pathname}${new URL(page.url()).search}`;
+  const returnUrl = new URL(returnTo, page.url()).toString();
+
+  await result.evaluate((element) => (element as HTMLButtonElement).click());
+  const details = page.getByRole("link", { name: "查看完整详情" });
+  await expect(details).toHaveAttribute(
+    "href",
+    `/campus-map/places/${browseIds.place}?from=${encodeURIComponent(returnTo)}`,
+  );
+  await details.press("Enter");
+  await expect(page).toHaveURL(
+    new RegExp(`/campus-map/places/${browseIds.place}\\?from=`),
+  );
+
+  const returnLink = page.getByRole("link", { name: "返回地图" });
+  await returnLink.focus();
+  await returnLink.press("Enter");
+  await expect(page).toHaveURL(returnUrl);
+  await expect(search).toHaveValue("正式");
+  await expect
+    .poll(() => resultList.evaluate((element) => element.scrollTop))
+    .toBe(expectedScrollTop);
+
+  await page.goBack();
+  await expect(page).toHaveURL(
+    new RegExp(`/campus-map/places/${browseIds.place}\\?from=`),
+  );
+  await page.goBack();
+  await expect(page).toHaveURL(returnUrl);
+  await expect(search).toHaveValue("正式");
+  await page.goForward();
+  await expect(page).toHaveURL(
+    new RegExp(`/campus-map/places/${browseIds.place}\\?from=`),
+  );
+  await page.goForward();
+  await expect(page).toHaveURL(returnUrl);
+});
+
+test("mobile category, panel, and selected target stay reachable", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/campus-map");
+  const classroom = page.getByRole("button", { name: "课室", exact: true });
+  await classroom.focus();
+  await classroom.press("Enter");
+  await expect(classroom).toHaveAttribute("aria-pressed", "true");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const filters = page.getByRole("navigation", { name: "设施筛选" });
+  await expect(filters).toBeInViewport();
+  await expect(classroom).toBeInViewport({ ratio: 0.99 });
+  await expect(page.getByRole("button", { name: "展开地点卡片" })).toHaveCount(
+    0,
+  );
+  const closeCategory = page.getByRole("button", { name: "关闭课室列表" });
+  await closeCategory.focus();
+  await closeCategory.press("Enter");
+  await expect(page.getByRole("heading", { name: "课室" })).toHaveCount(0);
+
+  await page.goto(
+    `/campus-map?v=1&scene=building&id=${browseIds.building}&snap=peek`,
+  );
+  const expand = page.getByRole("button", { name: "展开地点卡片" });
+  await expand.focus();
+  await expand.press("Enter");
+  const collapse = page.getByRole("button", { name: "收起地点卡片" });
+  await expect(collapse).toHaveAttribute("aria-expanded", "true");
+  const panel = page.getByRole("region", { name: "正式测试楼" });
+  const panelBox = await panel.boundingBox();
+  expect(panelBox).not.toBeNull();
+  await expect
+    .poll(async () => {
+      const point = await readAmapProjectedPoint(page, [114.2072, 22.4191]);
+      return point[1];
+    })
+    .toBeLessThan(panelBox!.y);
+  await collapse.focus();
+  await collapse.press("Enter");
+  await expect(
+    page.getByRole("button", { name: "展开地点卡片" }),
+  ).toHaveAttribute("aria-expanded", "false");
 });
 
 test("Building expands into Place and Back restores the Building card", async ({

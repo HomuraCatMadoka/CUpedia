@@ -7,6 +7,7 @@ import {
   encodeCampusMapUrl,
   encodeCampusMapHistoryMetadata,
   normalizeCampusMapUrlSession,
+  safeCampusMapListReturnPath,
 } from "@/lib/campus-map/scene-codec";
 import type {
   CampusMapSceneCatalog,
@@ -75,6 +76,23 @@ describe("Campus Map versioned scene codec", () => {
         visibility: "redacted",
       }),
     ).toBe("/campus-map?v=1");
+  });
+
+  it("accepts only internal result-list return paths", () => {
+    for (const path of [
+      "/campus-map?v=1&scene=search&q=%E9%A5%AE%E6%B0%B4&snap=peek",
+      "/campus-map?v=1&scene=category&id=water&snap=full",
+      "/campus-map?v=1&scene=building&id=science&snap=peek",
+    ]) {
+      expect(safeCampusMapListReturnPath(path)).toBe(path);
+    }
+    for (const path of [
+      "https://evil.example/campus-map",
+      "/campus-map?v=1&scene=place&id=fountain&snap=peek",
+      "/campus-map?v=1&scene=search&q=water&q=toilet&snap=peek",
+    ]) {
+      expect(safeCampusMapListReturnPath(path)).toBeNull();
+    }
   });
 
   it("round-trips a canonical Map Note return context for refresh recovery", () => {

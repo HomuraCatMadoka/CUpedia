@@ -16,7 +16,10 @@ import {
   getCampusMapViewerPlaceFeedback,
 } from "@/lib/campus-map/place-feedback";
 import { getCampusMapRevisionPhotoViews } from "@/lib/campus-map/place-photos";
-import { encodeCampusMapPlaceHref } from "@/lib/campus-map/scene-codec";
+import {
+  encodeCampusMapPlaceHref,
+  safeCampusMapListReturnPath,
+} from "@/lib/campus-map/scene-codec";
 import { projectCampusMapLegacyPlaceFact } from "@/lib/campus-map/legacy-place-ui-adapter";
 
 export const dynamic = "force-dynamic";
@@ -26,12 +29,16 @@ export default async function CampusMapPlacePage({
   searchParams,
 }: {
   params: Promise<{ placeId: string }>;
-  searchParams?: Promise<{ reviewsAfter?: string | string[] }>;
+  searchParams?: Promise<{
+    from?: string | string[];
+    reviewsAfter?: string | string[];
+  }>;
 }) {
   const { placeId } = await params;
-  const rawReviewsAfter = (await searchParams)?.reviewsAfter;
+  const { from, reviewsAfter: rawReviewsAfter } = (await searchParams) ?? {};
   const reviewsAfter =
     typeof rawReviewsAfter === "string" ? rawReviewsAfter : undefined;
+  const mapListReturnPath = safeCampusMapListReturnPath(from);
   const history = await getCampusMapPlaceHistory(placeId, { limit: 1 });
   const head = history.head;
   if (!head) notFound();
@@ -77,7 +84,7 @@ export default async function CampusMapPlacePage({
           ? current.comment
           : null
       }
-      mapHref={encodeCampusMapPlaceHref(placeId, head)}
+      mapHref={mapListReturnPath ?? encodeCampusMapPlaceHref(placeId, head)}
       building={
         buildingRecord
           ? {

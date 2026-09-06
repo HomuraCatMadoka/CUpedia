@@ -2891,9 +2891,14 @@ describe("CampusMapRuntime", () => {
     const search = screen.getByPlaceholderText("搜索建筑或地点…");
 
     fireEvent.change(search, { target: { value: "大学图书馆 饮水机" } });
-    fireEvent.click(
-      await screen.findByRole("button", { name: /饮水机.*大学图书馆/ }),
-    );
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    const result = await screen.findByRole("button", {
+      name: /饮水机.*大学图书馆/,
+    });
+    const resultList = result.parentElement;
+    expect(resultList).not.toBeNull();
+    resultList!.scrollTop = 96;
+    fireEvent.click(result);
 
     expect(
       await screen.findByRole("heading", { name: "饮水机" }),
@@ -2902,6 +2907,19 @@ describe("CampusMapRuntime", () => {
       "?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
     expect(screen.getByRole("button", { name: "返回搜索结果" })).not.toBeNull();
+    const details = screen.getByRole("link", { name: "查看完整详情" });
+    const detailsUrl = new URL(
+      details.getAttribute("href") ?? "",
+      "https://cupedia.test",
+    );
+    expect(detailsUrl.searchParams.get("from")).toBe(returnTo);
+
+    fireEvent.click(screen.getByRole("button", { name: "返回搜索结果" }));
+    const restoredResult = await screen.findByRole("button", {
+      name: /饮水机.*大学图书馆/,
+    });
+    expect((search as HTMLInputElement).value).toBe("大学图书馆 饮水机");
+    expect(restoredResult.parentElement?.scrollTop).toBe(96);
   });
 
   it("uses a generic Back label for a direct outdoor Place", async () => {
@@ -3009,6 +3027,18 @@ describe("CampusMapRuntime", () => {
     expect(screen.getByRole("button", { name: "新增饮水点" })).not.toBeNull();
   });
 
+  it("keeps an empty category card compact without offering a meaningless expansion", async () => {
+    render(<CampusMapRuntime />);
+
+    fireEvent.click(screen.getByRole("button", { name: "课室" }));
+
+    expect(await screen.findByRole("heading", { name: "课室" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /查看全部 0 处设施/u }),
+    ).toBeNull();
+  });
+
   it("returns focus to the category filter when its card is dismissed", async () => {
     render(<CampusMapRuntime />);
 
@@ -3071,7 +3101,40 @@ describe("CampusMapRuntime", () => {
     ).not.toBeNull();
     expect(screen.queryByRole("button", { name: /西门饮水机/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "查看全部 4 处设施" }));
-    expect(screen.getByRole("button", { name: /西门饮水机/ })).not.toBeNull();
+    const result = screen.getByRole("button", { name: /西门饮水机/ });
+    const resultList = result.parentElement;
+    expect(resultList).not.toBeNull();
+    resultList!.scrollTop = 88;
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+
+    fireEvent.click(result);
+    const detailsUrl = new URL(
+      screen.getByRole("link", { name: "查看完整详情" }).getAttribute("href") ??
+        "",
+      "https://cupedia.test",
+    );
+    expect(detailsUrl.searchParams.get("from")).toBe(returnTo);
+
+    fireEvent.click(screen.getByRole("button", { name: "返回饮水点列表" }));
+    const restoredResult = await screen.findByRole("button", {
+      name: /西门饮水机/,
+    });
+    expect(restoredResult.parentElement?.scrollTop).toBe(88);
+    expect(
+      screen.getByRole("button", { name: "饮水点", pressed: true }),
+    ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "收起地点卡片" })).not.toBeNull();
+
+    const restoredList = restoredResult.parentElement;
+    expect(restoredList).not.toBeNull();
+    restoredList!.scrollTop = 144;
+    fireEvent.click(screen.getByRole("button", { name: "收起设施列表" }));
+    fireEvent.click(screen.getByRole("button", { name: "查看全部 4 处设施" }));
+
+    expect(
+      screen.getByRole("button", { name: /西门饮水机/ }).parentElement
+        ?.scrollTop,
+    ).toBe(144);
   });
 
   it("restores navigation from browser history state", async () => {
