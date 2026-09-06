@@ -144,10 +144,6 @@ function officialActionDestination(url: string) {
   return new URL(url).hostname.replace(/^www\./iu, "");
 }
 
-function isBookingAction(action: CampusMapOfficialAction) {
-  return /预约|預約|booking|appointment/iu.test(action.label);
-}
-
 function knownFacts(input: CampusMapPlaceCardInput) {
   const facts: CampusMapPlaceCardFact[] = [];
   if (input.regularHours) {
@@ -210,13 +206,6 @@ export function projectCampusMapPlaceCard(
   const primaryKey = primaryFactKey(input.placeType, facts);
   const primaryFact = facts.find((fact) => fact.key === primaryKey) ?? null;
   const safeActions = input.officialActions.filter(isCampusMapOfficialAction);
-  const prioritizedActions =
-    input.placeType === "health-service"
-      ? safeActions.sort(
-          (left, right) =>
-            Number(isBookingAction(right)) - Number(isBookingAction(left)),
-        )
-      : safeActions;
   const observedOn = knownDate(input.observedAt);
   const verifiedOn = knownDate(input.verifiedAt);
 
@@ -226,7 +215,7 @@ export function projectCampusMapPlaceCard(
     locationIsPrimary: input.placeType === "classroom",
     primaryFact,
     detailFacts: facts.filter((fact) => fact.key !== primaryFact?.key),
-    officialActions: prioritizedActions.slice(0, 2).map((action) => ({
+    officialActions: safeActions.slice(0, 2).map((action) => ({
       ...action,
       destination: officialActionDestination(action.url),
     })),

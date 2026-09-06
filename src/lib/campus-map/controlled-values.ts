@@ -12,11 +12,16 @@ export const CAMPUS_MAP_PIN_TYPES_V1 = [
   "classroom",
 ] as const;
 
-/** Broad, reusable Place search categories used by the active V2 contract. */
-export const CAMPUS_MAP_PLACE_TYPES = [
+/** Place types with a separately accepted public map/card presentation. */
+export const CAMPUS_MAP_PUBLIC_PLACE_TYPES = [
   ...CAMPUS_MAP_PIN_TYPES_V1,
   "sports-facility",
   "health-service",
+] as const;
+
+/** Broad, reusable Place search categories used by the active V2 contract. */
+export const CAMPUS_MAP_PLACE_TYPES = [
+  ...CAMPUS_MAP_PUBLIC_PLACE_TYPES,
   "vending-machine",
 ] as const;
 
@@ -30,6 +35,12 @@ export function isCampusMapPlaceType(
   value: string,
 ): value is (typeof CAMPUS_MAP_PLACE_TYPES)[number] {
   return CAMPUS_MAP_PLACE_TYPES.some((candidate) => candidate === value);
+}
+
+export function isCampusMapPublicPlaceType(
+  value: string,
+): value is (typeof CAMPUS_MAP_PUBLIC_PLACE_TYPES)[number] {
+  return CAMPUS_MAP_PUBLIC_PLACE_TYPES.some((candidate) => candidate === value);
 }
 
 /** @deprecated V1-only name retained for historical codecs. */

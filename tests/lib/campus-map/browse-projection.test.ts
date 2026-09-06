@@ -277,6 +277,26 @@ describe("Campus Map browse projection (#647)", () => {
     ]);
   });
 
+  it("keeps the reserved vending-machine type out of public browse", () => {
+    const vendingMachine = {
+      ...floorPlace(
+        "30000000-0000-4000-8000-000000000022",
+        "40000000-0000-4000-8000-000000000022",
+      ),
+      name: "自动售卖机",
+      placeType: "vending-machine" as const,
+    };
+
+    const projection = projectCampusMapBrowse({
+      buildings: [building],
+      places: [vendingMachine],
+    });
+
+    expect(projection.places).toEqual([]);
+    expect(projection.presences).toEqual([]);
+    expect(projection.markers).toEqual([]);
+  });
+
   it("returns every matching Place with honest Building, location, and equipment counts", () => {
     const firstPlaceId = "30000000-0000-4000-8000-000000000005";
     const secondPlaceId = "30000000-0000-4000-8000-000000000006";

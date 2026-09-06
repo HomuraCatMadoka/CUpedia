@@ -10,6 +10,7 @@ import {
   campusMapPinTypeLabel,
   CAMPUS_MAP_DISPLAY_REGISTRY,
 } from "@/lib/campus-map/display-registry";
+import { isCampusMapPublicPlaceType } from "@/lib/campus-map/controlled-values";
 import type {
   CampusMapHistoricalFact,
   CampusMapHistoricalFactV1,
@@ -112,11 +113,15 @@ export function CampusMapPlaceDetail({
     page: { items: [], nextCursor: null, isPaginated: false },
   };
   const mapListReturnPath = safeCampusMapListReturnPath(mapHref);
+  const presentedFact =
+    fact?.factSchemaVersion === 2 && !isCampusMapPublicPlaceType(fact.placeType)
+      ? null
+      : fact;
   const placeCard =
-    fact?.factSchemaVersion === 2
+    presentedFact?.factSchemaVersion === 2
       ? projectCampusMapPlaceCard({
-          ...fact,
-          locationLabel: locationLabel(fact, building),
+          ...presentedFact,
+          locationLabel: locationLabel(presentedFact, building),
         })
       : null;
 
@@ -185,24 +190,24 @@ export function CampusMapPlaceDetail({
           </section>
         ) : null}
 
-        {fact ? (
+        {presentedFact ? (
           <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold">地点资料</h2>
-            {fact.factSchemaVersion === 1 ? (
+            {presentedFact.factSchemaVersion === 1 ? (
               <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 <FactRow
                   label={campusMapFactFieldLabel("pinType")}
-                  value={campusMapPinTypeLabel(fact.pinType)}
+                  value={campusMapPinTypeLabel(presentedFact.pinType)}
                 />
                 <FactRow
                   label={campusMapFactFieldLabel("location")}
-                  value={locationLabel(fact, building)}
+                  value={locationLabel(presentedFact, building)}
                 />
                 <FactRow
                   label={campusMapFactFieldLabel("capabilities")}
                   value={
-                    fact.capabilities.length > 0
-                      ? fact.capabilities
+                    presentedFact.capabilities.length > 0
+                      ? presentedFact.capabilities
                           .map((value) =>
                             campusMapDisplayOptionLabel("capabilities", value),
                           )
@@ -212,42 +217,48 @@ export function CampusMapPlaceDetail({
                 />
                 <FactRow
                   label={campusMapFactFieldLabel("gender")}
-                  value={campusMapDisplayOptionLabel("gender", fact.gender)}
+                  value={campusMapDisplayOptionLabel(
+                    "gender",
+                    presentedFact.gender,
+                  )}
                 />
                 <FactRow
                   label={campusMapFactFieldLabel("audience")}
-                  value={campusMapDisplayOptionLabel("audience", fact.audience)}
+                  value={campusMapDisplayOptionLabel(
+                    "audience",
+                    presentedFact.audience,
+                  )}
                 />
                 <FactRow
                   label={campusMapFactFieldLabel("credentialRequirement")}
                   value={campusMapDisplayOptionLabel(
                     "credentialRequirement",
-                    fact.credentialRequirement,
+                    presentedFact.credentialRequirement,
                   )}
                 />
                 <FactRow
                   label={campusMapFactFieldLabel("accessSchedule")}
-                  value={scheduleLabel(fact.accessSchedule)}
+                  value={scheduleLabel(presentedFact.accessSchedule)}
                 />
                 <FactRow
                   label={campusMapFactFieldLabel("reservationRequirement")}
                   value={campusMapDisplayOptionLabel(
                     "reservationRequirement",
-                    fact.reservationRequirement,
+                    presentedFact.reservationRequirement,
                   )}
                 />
                 <FactRow
                   label={campusMapFactFieldLabel("temporaryStatus")}
                   value={campusMapDisplayOptionLabel(
                     "temporaryStatus",
-                    fact.temporaryStatus,
+                    presentedFact.temporaryStatus,
                   )}
                 />
                 <FactRow
                   label={campusMapFactFieldLabel("wheelchairAccess")}
                   value={campusMapDisplayOptionLabel(
                     "wheelchairAccess",
-                    fact.wheelchairAccess,
+                    presentedFact.wheelchairAccess,
                   )}
                 />
               </dl>

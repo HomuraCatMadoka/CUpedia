@@ -71,29 +71,29 @@ describe("Campus Map compact Place card (#879)", () => {
     expect(JSON.stringify(card)).not.toMatch(/当前|营业中|实时/u);
   });
 
-  it("prioritizes booking for health services and exposes at most two safe official actions", () => {
+  it("preserves reviewed action order and exposes at most two safe official actions", () => {
     const card = projectCampusMapPlaceCard(
       input({
         placeType: "health-service",
         officialActions: [
           { label: "官方详情", url: "https://www.umso.cuhk.edu.hk/" },
+          { label: "不安全", url: "javascript:alert(1)" },
+          { label: "查询服务", url: "tel:+85239436439" },
           {
-            label: "网上预约",
+            label: "Book an appointment",
             url: "https://booking.umso.cuhk.edu.hk/booking/",
           },
-          { label: "电话预约", url: "tel:+85239436439" },
-          { label: "不安全", url: "javascript:alert(1)" },
         ],
       }),
     );
 
     expect(card.officialActions).toHaveLength(2);
     expect(card.officialActions.map((action) => action.label)).toEqual([
-      "网上预约",
-      "电话预约",
+      "官方详情",
+      "查询服务",
     ]);
     expect(card.officialActions[0]).toMatchObject({
-      destination: "booking.umso.cuhk.edu.hk",
+      destination: "umso.cuhk.edu.hk",
     });
   });
 

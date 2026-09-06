@@ -71,6 +71,33 @@ const fact: CampusMapHistoricalFactV1 = {
   provenance: [],
 };
 
+function v2Fact(
+  overrides: Partial<CampusMapHistoricalFactV2> = {},
+): CampusMapHistoricalFactV2 {
+  return {
+    factSchemaVersion: 2,
+    name: "室外饮水点",
+    placeType: "water",
+    regularHours: null,
+    officialActions: [],
+    visitNote: null,
+    capabilities: [],
+    gender: null,
+    wheelchairAccess: null,
+    buildingId: null,
+    floorId: null,
+    locationKind: "outdoor-point",
+    pointPrecision: "approximate",
+    longitude: 114.205,
+    latitude: 22.419,
+    coordinateCrs: "wgs84",
+    observedAt: null,
+    verifiedAt: null,
+    provenance: [],
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -141,7 +168,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
     expect(screen.queryByRole("button", { name: "停用地点" })).toBeNull();
   });
 
-  it("renders a V2 health-service card with known facts and booking first", () => {
+  it("renders a V2 health-service card with reviewed booking actions first", () => {
     const healthFact: CampusMapHistoricalFactV2 = {
       factSchemaVersion: 2,
       name: "门诊（Outpatient Service）",
@@ -157,12 +184,12 @@ describe("Campus Map Place detail (#816, #825)", () => {
         ],
       },
       officialActions: [
-        { label: "官方详情", url: "https://www.umso.cuhk.edu.hk/" },
         {
           label: "网上预约",
           url: "https://booking.umso.cuhk.edu.hk/booking/",
         },
         { label: "电话预约", url: "tel:+85239436439" },
+        { label: "官方详情", url: "https://www.umso.cuhk.edu.hk/" },
       ],
       visitNote: "登记时须出示个人身份证明。",
       capabilities: [],
@@ -233,6 +260,39 @@ describe("Campus Map Place detail (#816, #825)", () => {
     expect(details?.open).toBe(true);
     expect(screen.getByText("登记时须出示个人身份证明。")).toBeTruthy();
     expect(screen.getByText(/官方资料 · 查阅于 2026-09-02/u)).toBeTruthy();
+  });
+
+  it("keeps a reserved V2 type out of the public detail presentation", () => {
+    const vendingFact = v2Fact({
+      name: "图书馆自动售卖机",
+      placeType: "vending-machine",
+    });
+
+    render(
+      <CampusMapPlaceDetail
+        placeId={placeId}
+        head={{
+          revisionId,
+          status: "active",
+          visibility: "public",
+          mergedIntoPlaceId: null,
+          name: vendingFact.name,
+        }}
+        fact={vendingFact}
+        retirementReason={null}
+        mapHref="/campus-map?v=1"
+        building={null}
+        isAdmin={false}
+      />,
+    );
+
+    expect(screen.queryByRole("heading", { name: "地点资料" })).toBeNull();
+    expect(
+      screen.getByText(
+        "这份地点资料目前不可公开，但稳定链接和公开历史仍然保留。",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("自动售卖机", { exact: true })).toBeNull();
   });
 
   it("separates map inclusion from a temporary closure", () => {

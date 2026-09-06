@@ -133,8 +133,8 @@ import {
 } from "@/lib/campus-map/scene-kernel";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
 import { projectCampusMapPlaceCard } from "@/lib/campus-map/place-card";
-import { CAMPUS_MAP_PLACE_TYPES } from "@/lib/campus-map/controlled-values";
-import type { CampusMapPlaceType } from "@/lib/campus-map/place-type-contract";
+import { CAMPUS_MAP_PUBLIC_PLACE_TYPES } from "@/lib/campus-map/controlled-values";
+import type { CampusMapPublicPlaceType } from "@/lib/campus-map/place-type-contract";
 import {
   resolveCampusMapProviderHotspot,
   type CampusMapProviderHotspotResolution,
@@ -599,11 +599,11 @@ function groupBuildingFacilities(building: Building, places: readonly Place[]) {
 }
 
 function summarizeFacilityTypes(places: readonly Place[]) {
-  const counts = new Map<CampusMapPlaceType, number>();
+  const counts = new Map<CampusMapPublicPlaceType, number>();
   for (const facility of places) {
     counts.set(facility.placeType, (counts.get(facility.placeType) ?? 0) + 1);
   }
-  return CAMPUS_MAP_PLACE_TYPES.flatMap((placeType) => {
+  return CAMPUS_MAP_PUBLIC_PLACE_TYPES.flatMap((placeType) => {
     const count = counts.get(placeType) ?? 0;
     return count > 0 ? [{ ...placeTypeStyle(placeType), count }] : [];
   });
@@ -2557,7 +2557,7 @@ export function CampusMapRuntime({
       )
     : null;
   const selectedPlaceShowsLocation =
-    selectedFacility?.placeType === "classroom";
+    selectedPlaceCard?.locationIsPrimary ?? false;
   const buildingPreviewCard =
     buildingPreviewFacility && selectedBuilding
       ? placeCardFor(

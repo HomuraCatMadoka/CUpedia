@@ -2,7 +2,8 @@ import type {
   CampusMapCurrentPlace,
   CampusMapCurrentPlaceLocation,
 } from "@/lib/campus-map/fact-store";
-import type { CampusMapPlaceType } from "@/db/schema";
+import { isCampusMapPublicPlaceType } from "@/lib/campus-map/controlled-values";
+import type { CampusMapPublicPlaceType } from "@/lib/campus-map/place-type-contract";
 
 /** Product viewport default, not a Building or Place assertion. */
 export const CAMPUS_MAP_DEFAULT_VIEW_CENTER = [114.2072, 22.4191] as const;
@@ -48,7 +49,7 @@ export interface CampusMapBrowsePlace {
   placeId: string;
   revisionId: string;
   name: string;
-  placeType: CampusMapCurrentPlace["placeType"];
+  placeType: CampusMapPublicPlaceType;
   regularHours: CampusMapCurrentPlace["regularHours"];
   officialActions: CampusMapCurrentPlace["officialActions"];
   visitNote: CampusMapCurrentPlace["visitNote"];
@@ -78,7 +79,7 @@ export interface CampusMapBrowsePlace {
 
 export interface CampusMapBrowsePresence {
   buildingId: string;
-  placeType: CampusMapPlaceType;
+  placeType: CampusMapPublicPlaceType;
   placeIds: readonly string[];
   floorIds: readonly string[];
 }
@@ -87,14 +88,14 @@ export type CampusMapBrowseMarker =
   | {
       kind: "building-presence";
       buildingId: string;
-      placeType: CampusMapPlaceType;
+      placeType: CampusMapPublicPlaceType;
       placeIds: readonly string[];
       position: NonNullable<CampusMapBrowseBuildingSource["anchor"]>;
     }
   | {
       kind: "place";
       placeId: string;
-      placeType: CampusMapPlaceType;
+      placeType: CampusMapPublicPlaceType;
       position: Extract<
         CampusMapCurrentPlaceLocation,
         { kind: "outdoor-point" }
@@ -289,7 +290,7 @@ export function queryCampusMapBrowse(
   projection: CampusMapBrowseProjection,
   filters: {
     query?: string;
-    placeType?: CampusMapPlaceType;
+    placeType?: CampusMapPublicPlaceType;
     placeMatch?: "all" | "name";
   } = {},
 ): CampusMapBrowseResults {
@@ -415,7 +416,7 @@ export function queryCampusMapNearby(
     longitude: number;
     latitude: number;
     maxDistanceMeters?: number;
-    placeType?: CampusMapPlaceType;
+    placeType?: CampusMapPublicPlaceType;
   },
 ): CampusMapBrowseNearbyResults {
   if (
@@ -494,8 +495,9 @@ export function projectCampusMapBrowse(input: {
   for (const duplicatePlaceId of duplicatePlaceIds) {
     currentPlaceById.delete(duplicatePlaceId);
   }
-  const places = [...currentPlaceById.values()].map(
-    (place): CampusMapBrowsePlace => {
+  const places = [...currentPlaceById.values()].flatMap(
+    (place): CampusMapBrowsePlace[] => {
+      if (!isCampusMapPublicPlaceType(place.placeType)) return [];
       const buildingId =
         place.location.kind === "building" || place.location.kind === "floor"
           ? place.location.building.id
@@ -506,37 +508,39 @@ export function projectCampusMapBrowse(input: {
         place.location.kind === "floor"
           ? place.location.floor.displayLabel
           : null;
-      return {
-        placeId: place.id,
-        revisionId: place.revisionId,
-        name: place.name,
-        placeType: place.placeType,
-        regularHours: place.regularHours,
-        officialActions: place.officialActions,
-        visitNote: place.visitNote,
-        capabilities: place.capabilities,
-        gender: place.gender,
-        wheelchairAccess: place.wheelchairAccess,
-        buildingId,
-        floorId,
-        floorLabel,
-        location: place.location,
-        observedAt: place.observedAt?.toISOString() ?? null,
-        verifiedAt: place.verifiedAt?.toISOString() ?? null,
-        publishedAt: place.publishedAt.toISOString(),
-        provenance: place.provenance.map((source) => ({
-          kind: source.kind,
-          accessedOn: source.accessedOn,
-          observedAt: source.observedAt?.toISOString() ?? null,
-          hasLocationEvidence: source.hasLocationEvidence,
-        })),
-        selectionTarget: {
-          kind: "place",
+      return [
+        {
           placeId: place.id,
+          revisionId: place.revisionId,
+          name: place.name,
+          placeType: place.placeType,
+          regularHours: place.regularHours,
+          officialActions: place.officialActions,
+          visitNote: place.visitNote,
+          capabilities: place.capabilities,
+          gender: place.gender,
+          wheelchairAccess: place.wheelchairAccess,
           buildingId,
           floorId,
+          floorLabel,
+          location: place.location,
+          observedAt: place.observedAt?.toISOString() ?? null,
+          verifiedAt: place.verifiedAt?.toISOString() ?? null,
+          publishedAt: place.publishedAt.toISOString(),
+          provenance: place.provenance.map((source) => ({
+            kind: source.kind,
+            accessedOn: source.accessedOn,
+            observedAt: source.observedAt?.toISOString() ?? null,
+            hasLocationEvidence: source.hasLocationEvidence,
+          })),
+          selectionTarget: {
+            kind: "place",
+            placeId: place.id,
+            buildingId,
+            floorId,
+          },
         },
-      };
+      ];
     },
   );
 
@@ -545,7 +549,7 @@ export function projectCampusMapBrowse(input: {
     string,
     {
       buildingId: string;
-      placeType: CampusMapPlaceType;
+      placeType: CampusMapPublicPlaceType;
       placeIds: string[];
       floorIds: string[];
     }

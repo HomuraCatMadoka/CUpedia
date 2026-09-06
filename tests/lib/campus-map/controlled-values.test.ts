@@ -5,6 +5,7 @@ import {
   CAMPUS_MAP_COORDINATE_CONVERSION_METHODS,
   CAMPUS_MAP_PIN_TYPES_V1,
   CAMPUS_MAP_PLACE_TYPES,
+  CAMPUS_MAP_PUBLIC_PLACE_TYPES,
   CAMPUS_MAP_PROVENANCE_KINDS,
   CAMPUS_MAP_RIGHTS_STATUSES,
   CAMPUS_MAP_SOURCE_COORDINATE_CRS,
@@ -31,6 +32,15 @@ describe("Campus Map controlled values", () => {
       "printer",
       "common-space",
       "classroom",
+    ]);
+    expect(CAMPUS_MAP_PUBLIC_PLACE_TYPES).toEqual([
+      ...CAMPUS_MAP_PIN_TYPES_V1,
+      "sports-facility",
+      "health-service",
+    ]);
+    expect(CAMPUS_MAP_PLACE_TYPES).toEqual([
+      ...CAMPUS_MAP_PUBLIC_PLACE_TYPES,
+      "vending-machine",
     ]);
   });
 });

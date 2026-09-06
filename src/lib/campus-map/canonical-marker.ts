@@ -1,6 +1,6 @@
-import type { CampusMapPlaceType } from "@/lib/campus-map/place-type-contract";
+import type { CampusMapPublicPlaceType } from "@/lib/campus-map/place-type-contract";
 
-const PLACE_TYPE_PATHS: Record<CampusMapPlaceType, string> = {
+const PLACE_TYPE_PATHS: Record<CampusMapPublicPlaceType, string> = {
   toilet:
     '<path d="M7 12h13a1 1 0 0 1 1 1 5 5 0 0 1-5 5h-.6a.5.5 0 0 0-.42.77l1.54 2.47a.5.5 0 0 1-.42.76H5.4a.5.5 0 0 1-.42-.77L7 18"/><path d="M8 18a5 5 0 0 1-5-5V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8"/>',
   water:
@@ -14,15 +14,13 @@ const PLACE_TYPE_PATHS: Record<CampusMapPlaceType, string> = {
   "sports-facility":
     '<path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/>',
   "health-service": '<path d="M12 3v18"/><path d="M3 12h18"/>',
-  "vending-machine":
-    '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M8 6h8"/><path d="M8 10h8"/><path d="M8 14h4"/><path d="M15 17h1"/>',
 };
 
 function icon(path: string, attribute = "") {
   return `<svg aria-hidden="true" ${attribute} viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
 }
 
-export function placeTypeMarkerIcon(placeType: CampusMapPlaceType) {
+export function placeTypeMarkerIcon(placeType: CampusMapPublicPlaceType) {
   return icon(
     PLACE_TYPE_PATHS[placeType],
     `data-place-type-icon="${placeType}"`,
@@ -62,7 +60,7 @@ export function placeTypeMarkerContent(input: {
   name: string;
   buildingName: string;
   floorLabel: string;
-  placeType: CampusMapPlaceType;
+  placeType: CampusMapPublicPlaceType;
   color: string;
   selected: boolean;
   markerLabel?: string;

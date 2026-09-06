@@ -4,7 +4,6 @@ import {
   HeartPulseIcon,
   PrinterIcon,
   SchoolIcon,
-  StoreIcon,
   ToiletIcon,
   UsersRoundIcon,
 } from "lucide-react";
@@ -15,7 +14,7 @@ import {
   campusMapPlaceTypeLabel,
   CAMPUS_MAP_DISPLAY_REGISTRY,
 } from "@/lib/campus-map/display-registry";
-import type { CampusMapPlaceType } from "@/lib/campus-map/place-type-contract";
+import type { CampusMapPublicPlaceType } from "@/lib/campus-map/place-type-contract";
 import type { CampusMapPlaceFeedbackSummary } from "@/lib/campus-map/place-feedback";
 import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
 import { cn } from "@/lib/utils";
@@ -28,9 +27,8 @@ const PLACE_TYPE_PRESENTATION = {
   classroom: { icon: SchoolIcon, color: "#a33f52" },
   "sports-facility": { icon: DumbbellIcon, color: "#b25b25" },
   "health-service": { icon: HeartPulseIcon, color: "#b33d5c" },
-  "vending-machine": { icon: StoreIcon, color: "#5f6f3c" },
 } satisfies Record<
-  CampusMapPlaceType,
+  CampusMapPublicPlaceType,
   {
     icon: typeof ToiletIcon;
     color: string;
@@ -42,7 +40,7 @@ export const CAMPUS_MAP_CATEGORIES =
     campusMapPlaceTypeStyle(placeType),
   );
 
-export function campusMapPlaceTypeStyle(placeType: CampusMapPlaceType) {
+export function campusMapPlaceTypeStyle(placeType: CampusMapPublicPlaceType) {
   return {
     id: placeType,
     label: campusMapPlaceTypeLabel(placeType),
