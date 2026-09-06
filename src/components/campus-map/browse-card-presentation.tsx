@@ -1,5 +1,7 @@
 import {
   DropletsIcon,
+  DumbbellIcon,
+  HeartPulseIcon,
   PrinterIcon,
   SchoolIcon,
   ToiletIcon,
@@ -9,22 +11,24 @@ import Image from "next/image";
 
 import type { CampusMapBrowsePlace } from "@/lib/campus-map/browse-projection";
 import {
-  campusMapPinTypeLabel,
+  campusMapPlaceTypeLabel,
   CAMPUS_MAP_DISPLAY_REGISTRY,
 } from "@/lib/campus-map/display-registry";
-import type { CampusMapPinType } from "@/lib/campus-map/canonical-marker";
+import type { CampusMapPublicPlaceType } from "@/lib/campus-map/place-type-contract";
 import type { CampusMapPlaceFeedbackSummary } from "@/lib/campus-map/place-feedback";
 import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
 import { cn } from "@/lib/utils";
 
-const PIN_TYPE_PRESENTATION = {
+const PLACE_TYPE_PRESENTATION = {
   toilet: { icon: ToiletIcon, color: "#1b6f55" },
   water: { icon: DropletsIcon, color: "#227a9b" },
   printer: { icon: PrinterIcon, color: "#675aa7" },
   "common-space": { icon: UsersRoundIcon, color: "#9a5b32" },
   classroom: { icon: SchoolIcon, color: "#a33f52" },
+  "sports-facility": { icon: DumbbellIcon, color: "#b25b25" },
+  "health-service": { icon: HeartPulseIcon, color: "#b33d5c" },
 } satisfies Record<
-  CampusMapPinType,
+  CampusMapPublicPlaceType,
   {
     icon: typeof ToiletIcon;
     color: string;
@@ -32,20 +36,19 @@ const PIN_TYPE_PRESENTATION = {
 >;
 
 export const CAMPUS_MAP_CATEGORIES =
-  CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories.map((pinType) => ({
-    id: pinType,
-    label: campusMapPinTypeLabel(pinType),
-    ...PIN_TYPE_PRESENTATION[pinType],
-  }));
-
-export function campusMapPinTypeStyle(pinType: CampusMapPinType) {
-  return (
-    CAMPUS_MAP_CATEGORIES.find((item) => item.id === pinType) ??
-    CAMPUS_MAP_CATEGORIES[0]
+  CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories.map((placeType) =>
+    campusMapPlaceTypeStyle(placeType),
   );
+
+export function campusMapPlaceTypeStyle(placeType: CampusMapPublicPlaceType) {
+  return {
+    id: placeType,
+    label: campusMapPlaceTypeLabel(placeType),
+    ...PLACE_TYPE_PRESENTATION[placeType],
+  };
 }
 
-export function knownCampusMapPinType(value: string | null) {
+export function knownCampusMapBrowseCategory(value: string | null) {
   return CAMPUS_MAP_CATEGORIES.find((item) => item.id === value)?.id ?? null;
 }
 
@@ -65,7 +68,7 @@ export function campusMapFloorLabel(
   displayLabel?: string | null,
 ) {
   if (displayLabel) return displayLabel;
-  if (!floorId) return "未指定楼层";
+  if (!floorId) return "建筑内";
   return floorId.endsWith("/F") ? floorId : `${floorId}/F`;
 }
 
@@ -93,7 +96,7 @@ export function CampusMapFacilityResultButton({
   variant: "category" | "building" | "preview";
   onSelect: () => void;
 }) {
-  const style = campusMapPinTypeStyle(facility.pinType);
+  const style = campusMapPlaceTypeStyle(facility.placeType);
   const Icon = style.icon;
   const showsIcon = variant === "building";
   return (

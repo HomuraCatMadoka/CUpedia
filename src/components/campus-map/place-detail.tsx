@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CampusMapPlaceCardContent } from "@/components/campus-map/place-card-content";
 import { PlaceFeedbackSection } from "@/components/campus-map/place-feedback-section";
 import { PlaceLifecycleControls } from "@/components/campus-map/place-lifecycle-controls";
 import { PlacePhotoGallery } from "@/components/campus-map/place-photo-gallery";
@@ -9,8 +10,13 @@ import {
   campusMapPinTypeLabel,
   CAMPUS_MAP_DISPLAY_REGISTRY,
 } from "@/lib/campus-map/display-registry";
-import type { CampusMapPlaceHistoryHead } from "@/lib/campus-map/fact-store";
-import type { CampusMapLegacyPlaceFact } from "@/lib/campus-map/legacy-place-ui-adapter";
+import { isCampusMapPublicPlaceType } from "@/lib/campus-map/controlled-values";
+import type {
+  CampusMapHistoricalFact,
+  CampusMapHistoricalFactV1,
+  CampusMapPlaceHistoryHead,
+} from "@/lib/campus-map/fact-store";
+import { projectCampusMapPlaceCard } from "@/lib/campus-map/place-card";
 import type {
   CampusMapPlaceFeedbackPage,
   CampusMapPlaceFeedbackView,
@@ -18,7 +24,7 @@ import type {
 import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
 import { safeCampusMapListReturnPath } from "@/lib/campus-map/scene-codec";
 
-function scheduleLabel(schedule: CampusMapLegacyPlaceFact["accessSchedule"]) {
+function scheduleLabel(schedule: CampusMapHistoricalFactV1["accessSchedule"]) {
   if (schedule.kind !== "weekly") {
     return campusMapDisplayOptionLabel("accessSchedule", schedule.kind);
   }
@@ -33,7 +39,7 @@ function scheduleLabel(schedule: CampusMapLegacyPlaceFact["accessSchedule"]) {
 }
 
 function locationLabel(
-  fact: CampusMapLegacyPlaceFact,
+  fact: CampusMapHistoricalFact,
   building: {
     name: string;
     floorLabel: string | null;
@@ -49,7 +55,7 @@ function locationLabel(
   if (!building) return "建筑资料暂不可用";
   return fact.locationKind === "floor" && building.floorLabel
     ? `${building.name} · ${building.floorLabel}`
-    : `${building.name} · 楼层未知`;
+    : building.name;
 }
 
 function FactRow({ label, value }: { label: string; value: string }) {
@@ -79,7 +85,7 @@ export function CampusMapPlaceDetail({
 }: {
   placeId: string;
   head: CampusMapPlaceHistoryHead;
-  fact: CampusMapLegacyPlaceFact | null;
+  fact: CampusMapHistoricalFact | null;
   retirementReason: string | null;
   mapHref: string;
   building: { name: string; floorLabel: string | null } | null;
@@ -107,6 +113,17 @@ export function CampusMapPlaceDetail({
     page: { items: [], nextCursor: null, isPaginated: false },
   };
   const mapListReturnPath = safeCampusMapListReturnPath(mapHref);
+  const presentedFact =
+    fact?.factSchemaVersion === 2 && !isCampusMapPublicPlaceType(fact.placeType)
+      ? null
+      : fact;
+  const placeCard =
+    presentedFact?.factSchemaVersion === 2
+      ? projectCampusMapPlaceCard({
+          ...presentedFact,
+          locationLabel: locationLabel(presentedFact, building),
+        })
+      : null;
 
   return (
     <main className="w-full min-w-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_oklab,var(--color-emerald-500)_10%,transparent),transparent_42%)] px-4 py-8 sm:px-6 lg:py-12">
@@ -173,71 +190,86 @@ export function CampusMapPlaceDetail({
           </section>
         ) : null}
 
-        {fact ? (
+        {presentedFact ? (
           <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold">地点资料</h2>
-            <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-              <FactRow
-                label={campusMapFactFieldLabel("pinType")}
-                value={campusMapPinTypeLabel(fact.pinType)}
-              />
-              <FactRow
-                label={campusMapFactFieldLabel("location")}
-                value={locationLabel(fact, building)}
-              />
-              <FactRow
-                label={campusMapFactFieldLabel("capabilities")}
-                value={
-                  fact.capabilities.length > 0
-                    ? fact.capabilities
-                        .map((value) =>
-                          campusMapDisplayOptionLabel("capabilities", value),
-                        )
-                        .join("、")
-                    : "未记录"
-                }
-              />
-              <FactRow
-                label={campusMapFactFieldLabel("gender")}
-                value={campusMapDisplayOptionLabel("gender", fact.gender)}
-              />
-              <FactRow
-                label={campusMapFactFieldLabel("audience")}
-                value={campusMapDisplayOptionLabel("audience", fact.audience)}
-              />
-              <FactRow
-                label={campusMapFactFieldLabel("credentialRequirement")}
-                value={campusMapDisplayOptionLabel(
-                  "credentialRequirement",
-                  fact.credentialRequirement,
-                )}
-              />
-              <FactRow
-                label={campusMapFactFieldLabel("accessSchedule")}
-                value={scheduleLabel(fact.accessSchedule)}
-              />
-              <FactRow
-                label={campusMapFactFieldLabel("reservationRequirement")}
-                value={campusMapDisplayOptionLabel(
-                  "reservationRequirement",
-                  fact.reservationRequirement,
-                )}
-              />
-              <FactRow
-                label={campusMapFactFieldLabel("temporaryStatus")}
-                value={campusMapDisplayOptionLabel(
-                  "temporaryStatus",
-                  fact.temporaryStatus,
-                )}
-              />
-              <FactRow
-                label={campusMapFactFieldLabel("wheelchairAccess")}
-                value={campusMapDisplayOptionLabel(
-                  "wheelchairAccess",
-                  fact.wheelchairAccess,
-                )}
-              />
-            </dl>
+            {presentedFact.factSchemaVersion === 1 ? (
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                <FactRow
+                  label={campusMapFactFieldLabel("pinType")}
+                  value={campusMapPinTypeLabel(presentedFact.pinType)}
+                />
+                <FactRow
+                  label={campusMapFactFieldLabel("location")}
+                  value={locationLabel(presentedFact, building)}
+                />
+                <FactRow
+                  label={campusMapFactFieldLabel("capabilities")}
+                  value={
+                    presentedFact.capabilities.length > 0
+                      ? presentedFact.capabilities
+                          .map((value) =>
+                            campusMapDisplayOptionLabel("capabilities", value),
+                          )
+                          .join("、")
+                      : "未记录"
+                  }
+                />
+                <FactRow
+                  label={campusMapFactFieldLabel("gender")}
+                  value={campusMapDisplayOptionLabel(
+                    "gender",
+                    presentedFact.gender,
+                  )}
+                />
+                <FactRow
+                  label={campusMapFactFieldLabel("audience")}
+                  value={campusMapDisplayOptionLabel(
+                    "audience",
+                    presentedFact.audience,
+                  )}
+                />
+                <FactRow
+                  label={campusMapFactFieldLabel("credentialRequirement")}
+                  value={campusMapDisplayOptionLabel(
+                    "credentialRequirement",
+                    presentedFact.credentialRequirement,
+                  )}
+                />
+                <FactRow
+                  label={campusMapFactFieldLabel("accessSchedule")}
+                  value={scheduleLabel(presentedFact.accessSchedule)}
+                />
+                <FactRow
+                  label={campusMapFactFieldLabel("reservationRequirement")}
+                  value={campusMapDisplayOptionLabel(
+                    "reservationRequirement",
+                    presentedFact.reservationRequirement,
+                  )}
+                />
+                <FactRow
+                  label={campusMapFactFieldLabel("temporaryStatus")}
+                  value={campusMapDisplayOptionLabel(
+                    "temporaryStatus",
+                    presentedFact.temporaryStatus,
+                  )}
+                />
+                <FactRow
+                  label={campusMapFactFieldLabel("wheelchairAccess")}
+                  value={campusMapDisplayOptionLabel(
+                    "wheelchairAccess",
+                    presentedFact.wheelchairAccess,
+                  )}
+                />
+              </dl>
+            ) : placeCard ? (
+              <div className="mt-4">
+                <p className="mb-4 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+                  {placeCard.placeTypeLabel}
+                </p>
+                <CampusMapPlaceCardContent card={placeCard} />
+              </div>
+            ) : null}
             {photos.length > 0 ? (
               <div className="mt-5 border-t pt-5">
                 <h3 className="text-sm font-semibold">地点照片</h3>

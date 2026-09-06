@@ -145,7 +145,7 @@ function createNullablePlaceFixture(): CampusMapBrowseProjection {
     placeId: "building-only-water",
     revisionId: "building-only-water-revision",
     name: "大堂饮水点",
-    pinType: "water" as const,
+    placeType: "water" as const,
     buildingId: building.buildingId,
     floorId: null,
     floorLabel: null,
@@ -170,7 +170,7 @@ function createNullablePlaceFixture(): CampusMapBrowseProjection {
     placeId: "outdoor-water",
     revisionId: "outdoor-water-revision",
     name: "林荫饮水点",
-    pinType: "water" as const,
+    placeType: "water" as const,
     buildingId: null,
     floorId: null,
     floorLabel: null,
@@ -205,7 +205,7 @@ function createNullablePlaceFixture(): CampusMapBrowseProjection {
       ...base.markers.map((marker) =>
         marker.kind === "building-presence" &&
         marker.buildingId === building.buildingId &&
-        marker.pinType === buildingOnly.pinType
+        marker.placeType === buildingOnly.placeType
           ? {
               ...marker,
               placeIds: [...marker.placeIds, buildingOnly.placeId],
@@ -215,7 +215,7 @@ function createNullablePlaceFixture(): CampusMapBrowseProjection {
       {
         kind: "place",
         placeId: outdoor.placeId,
-        pinType: outdoor.pinType,
+        placeType: outdoor.placeType,
         position: outdoor.location.point,
       },
     ],
@@ -900,6 +900,51 @@ describe("Campus Map AMap runtime effects", () => {
       }
     },
   );
+
+  it("opens one searchable sports Place from its canonical map marker", async () => {
+    const base = createNullablePlaceFixture();
+    const projection = {
+      ...base,
+      places: base.places.map((place) =>
+        place.placeId === "outdoor-water"
+          ? {
+              ...place,
+              name: "大学游泳池（University Swimming Pool）",
+              placeType: "sports-facility" as const,
+            }
+          : place,
+      ),
+      markers: base.markers.map((marker) =>
+        marker.kind === "place" && marker.placeId === "outdoor-water"
+          ? { ...marker, placeType: "sports-facility" as const }
+          : marker,
+      ),
+    };
+    const { runtime } = await renderWithRuntime({ projection });
+
+    fireEvent.change(screen.getByPlaceholderText("搜索建筑或地点…"), {
+      target: { value: "University Swimming Pool" },
+    });
+    await screen.findByRole("button", { name: /大学游泳池/u });
+    const marker = await waitFor(() => {
+      const match = runtime.markers.findLast(
+        (candidate) =>
+          candidate.content.includes("大学游泳池") &&
+          (candidate.handlers.get("click") ?? []).length > 0,
+      );
+      expect(match).toBeDefined();
+      return match!;
+    });
+
+    await act(async () => marker.emit("click"));
+
+    expect(
+      await screen.findByRole("heading", { name: /大学游泳池/u }),
+    ).not.toBeNull();
+    expect(window.location.search).toBe(
+      "?v=1&scene=place&id=outdoor-water&snap=peek",
+    );
+  });
 
   it("opens a building-only Place from a multi-Place Building marker directory", async () => {
     const projection = createNullablePlaceFixture();

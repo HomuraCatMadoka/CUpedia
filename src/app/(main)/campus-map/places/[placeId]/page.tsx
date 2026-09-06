@@ -20,7 +20,6 @@ import {
   encodeCampusMapPlaceHref,
   safeCampusMapListReturnPath,
 } from "@/lib/campus-map/scene-codec";
-import { projectCampusMapLegacyPlaceFact } from "@/lib/campus-map/legacy-place-ui-adapter";
 
 export const dynamic = "force-dynamic";
 
@@ -58,15 +57,14 @@ export default async function CampusMapPlacePage({
     : null;
   const canonicalFact =
     current?.content.visibility === "public" ? current.content.fact : null;
-  const fact = canonicalFact
-    ? projectCampusMapLegacyPlaceFact(canonicalFact)
-    : null;
-  const buildingRecord = fact?.buildingId
-    ? buildings.find((item) => item.buildingId === fact.buildingId)
+  const buildingRecord = canonicalFact?.buildingId
+    ? buildings.find((item) => item.buildingId === canonicalFact.buildingId)
     : null;
   const floorRecord =
-    fact?.floorId && buildingRecord
-      ? buildingRecord.floors.find((item) => item.floorId === fact.floorId)
+    canonicalFact?.floorId && buildingRecord
+      ? buildingRecord.floors.find(
+          (item) => item.floorId === canonicalFact.floorId,
+        )
       : null;
   const buildingDisplay = projectCampusMapBuildingDisplay(buildings);
   const buildingName = buildingRecord
@@ -78,7 +76,7 @@ export default async function CampusMapPlacePage({
     <CampusMapPlaceDetail
       placeId={placeId}
       head={head}
-      fact={fact}
+      fact={canonicalFact}
       retirementReason={
         head.status === "retired" && current?.operation === "retire"
           ? current.comment
@@ -99,7 +97,7 @@ export default async function CampusMapPlacePage({
       viewerCanWrite={Boolean(viewer)}
       reviewsAfter={reviewsAfter ?? null}
       photos={
-        fact && head.status === "active"
+        canonicalFact && head.status === "active"
           ? (photosByRevision[head.revisionId] ?? [])
           : []
       }

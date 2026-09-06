@@ -8,6 +8,7 @@ import type {
 } from "@/lib/campus-map/scene-kernel";
 import type { CameraReason } from "@/lib/campus-map/camera-policy";
 import { isCanonicalCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
+import { isCampusMapPlaceType } from "@/lib/campus-map/controlled-values";
 
 export type CampusMapSessionSemantics =
   | { status: "invalid"; reason: string }
@@ -114,6 +115,7 @@ function findFacility(catalog: CampusMapSceneCatalog, placeId: string) {
     (buildingId !== null && !isCanonicalCampusMapId(buildingId)) ||
     (floorId !== null && !isCanonicalCampusMapId(floorId)) ||
     !isCanonicalCampusMapId(category) ||
+    !isCampusMapPlaceType(category) ||
     (floorId !== null && buildingId === null) ||
     (cameraTarget !== undefined &&
       cameraTarget !== null &&
@@ -333,7 +335,14 @@ export function resolveCampusMapSessionSemantics(
       : Boolean(
           entity && building?.floorIds.includes(entity.floorId as string),
         );
-  if (!entity || !validRelationship || !hasCategory(catalog, entity.category)) {
+  // A canonical Place may use a searchable V2 Place type without receiving a
+  // top-level category button. Content scenes still belong to that visible
+  // category catalog, but Place selection is valid from its canonical entry.
+  if (
+    !entity ||
+    !validRelationship ||
+    (scene.kind === "content" && !hasCategory(catalog, entity.category))
+  ) {
     return {
       status: "invalid",
       reason: scene.kind === "place" ? "unknown-place" : "unknown-content",

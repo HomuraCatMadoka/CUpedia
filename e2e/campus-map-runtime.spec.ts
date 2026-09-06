@@ -734,7 +734,7 @@ test("publish handoff shows one success prompt and never restores the form", asy
     page.getByRole("heading", { name: publishedName }),
   ).toBeVisible();
   await expect(page.getByRole("status")).toContainText(
-    "已添加到 正式测试楼 · 未指定楼层",
+    "已添加到 正式测试楼 · 建筑内",
   );
   await expect(page.getByText("PUBLISHED")).toHaveCount(0);
   const publishNoticeBox = await page.getByRole("status").boundingBox();

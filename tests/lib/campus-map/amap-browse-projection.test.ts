@@ -85,8 +85,7 @@ describe("AMap browse projection adapter (#647)", () => {
     const original = structuredClone(projection);
     const result = projectCampusMapBrowseToAmap(projection, {
       selectedBuildingId: BUILDING_ID,
-      visibleAmenity: null,
-      selectedPlaceId: null,
+      visiblePlaceIds: [],
     });
 
     expect(result).toEqual({
@@ -129,8 +128,7 @@ describe("AMap browse projection adapter (#647)", () => {
       },
       {
         selectedBuildingId: "building-40",
-        visibleAmenity: null,
-        selectedPlaceId: null,
+        visiblePlaceIds: [],
       },
     );
 
@@ -143,9 +141,8 @@ describe("AMap browse projection adapter (#647)", () => {
 
   it("projects every anchored canonical Building for location selection", () => {
     const result = projectCampusMapBrowseToAmap(projection, {
-      visibleAmenity: null,
       selectedBuildingId: null,
-      selectedPlaceId: null,
+      visiblePlaceIds: [],
       allBuildings: true,
     });
 
@@ -163,8 +160,7 @@ describe("AMap browse projection adapter (#647)", () => {
   it("does not project a precise Place until that overlay is requested", () => {
     const result = projectCampusMapBrowseToAmap(preciseOutdoorProjection, {
       selectedBuildingId: null,
-      visibleAmenity: null,
-      selectedPlaceId: null,
+      visiblePlaceIds: [],
     });
 
     expect(result.positions).not.toHaveProperty(
@@ -176,8 +172,7 @@ describe("AMap browse projection adapter (#647)", () => {
   it("routes a visible precise Place to the provider fallback", () => {
     const result = projectCampusMapBrowseToAmap(preciseOutdoorProjection, {
       selectedBuildingId: null,
-      visibleAmenity: "water",
-      selectedPlaceId: null,
+      visiblePlaceIds: ["30000000-0000-4000-8000-000000000002"],
     });
 
     expect(result.positions).not.toHaveProperty(
@@ -194,8 +189,7 @@ describe("AMap browse projection adapter (#647)", () => {
   it("keeps the coordinate signature stable across non-coordinate refreshes", () => {
     const demand = {
       selectedBuildingId: null,
-      visibleAmenity: "water" as const,
-      selectedPlaceId: null,
+      visiblePlaceIds: ["30000000-0000-4000-8000-000000000002"],
     };
     const original = projectCampusMapBrowseToAmap(
       preciseOutdoorProjection,
@@ -220,8 +214,7 @@ describe("AMap browse projection adapter (#647)", () => {
   it("changes the coordinate signature when provider demand moves", () => {
     const demand = {
       selectedBuildingId: null,
-      visibleAmenity: "water" as const,
-      selectedPlaceId: null,
+      visiblePlaceIds: ["30000000-0000-4000-8000-000000000002"],
     };
     const original = projectCampusMapBrowseToAmap(
       preciseOutdoorProjection,

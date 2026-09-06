@@ -1,4 +1,7 @@
-import { CAMPUS_MAP_PLACE_TYPES } from "@/lib/campus-map/controlled-values";
+import {
+  CAMPUS_MAP_PLACE_TYPES,
+  CAMPUS_MAP_PUBLIC_PLACE_TYPES,
+} from "@/lib/campus-map/controlled-values";
 
 export const CAMPUS_MAP_FACT_FIELD_KEYS_V2 = [
   "name",
@@ -15,6 +18,8 @@ export const CAMPUS_MAP_FACT_FIELD_KEYS_V2 = [
 export type CampusMapFactFieldKeyV2 =
   (typeof CAMPUS_MAP_FACT_FIELD_KEYS_V2)[number];
 export type CampusMapPlaceType = (typeof CAMPUS_MAP_PLACE_TYPES)[number];
+export type CampusMapPublicPlaceType =
+  (typeof CAMPUS_MAP_PUBLIC_PLACE_TYPES)[number];
 
 export const CAMPUS_MAP_REQUIRED_FACT_FIELDS_V2 = [
   "name",

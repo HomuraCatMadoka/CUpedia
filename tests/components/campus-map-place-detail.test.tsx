@@ -36,11 +36,15 @@ vi.mock("@/lib/campus-map/place-feedback-actions", () => ({
 }));
 
 import { CampusMapPlaceDetail } from "@/components/campus-map/place-detail";
-import type { CampusMapLegacyPlaceFact } from "@/lib/campus-map/legacy-place-ui-adapter";
+import type {
+  CampusMapHistoricalFactV1,
+  CampusMapHistoricalFactV2,
+} from "@/lib/campus-map/fact-store";
 
 const placeId = "00000000-0000-4000-8000-000000008160";
 const revisionId = "00000000-0000-4000-8000-000000008161";
-const fact: CampusMapLegacyPlaceFact = {
+const fact: CampusMapHistoricalFactV1 = {
+  factSchemaVersion: 1,
   name: "联合书院图书馆饮水机",
   pinType: "water",
   capabilities: [],
@@ -66,6 +70,33 @@ const fact: CampusMapLegacyPlaceFact = {
   verifiedAt: null,
   provenance: [],
 };
+
+function v2Fact(
+  overrides: Partial<CampusMapHistoricalFactV2> = {},
+): CampusMapHistoricalFactV2 {
+  return {
+    factSchemaVersion: 2,
+    name: "室外饮水点",
+    placeType: "water",
+    regularHours: null,
+    officialActions: [],
+    visitNote: null,
+    capabilities: [],
+    gender: null,
+    wheelchairAccess: null,
+    buildingId: null,
+    floorId: null,
+    locationKind: "outdoor-point",
+    pointPrecision: "approximate",
+    longitude: 114.205,
+    latitude: 22.419,
+    coordinateCrs: "wgs84",
+    observedAt: null,
+    verifiedAt: null,
+    provenance: [],
+    ...overrides,
+  };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -135,6 +166,133 @@ describe("Campus Map Place detail (#816, #825)", () => {
     expect(screen.queryByText(placeId)).toBeNull();
     expect(document.body.textContent).not.toMatch(/Revision|Changeset/);
     expect(screen.queryByRole("button", { name: "停用地点" })).toBeNull();
+  });
+
+  it("renders a V2 health-service card with reviewed booking actions first", () => {
+    const healthFact: CampusMapHistoricalFactV2 = {
+      factSchemaVersion: 2,
+      name: "门诊（Outpatient Service）",
+      placeType: "health-service",
+      regularHours: {
+        timezone: "Asia/Hong_Kong",
+        intervals: [
+          {
+            days: ["mon", "tue", "wed", "thu", "fri"],
+            opensAt: "08:45",
+            closesAt: "13:00",
+          },
+        ],
+      },
+      officialActions: [
+        {
+          label: "网上预约",
+          url: "https://booking.umso.cuhk.edu.hk/booking/",
+        },
+        { label: "电话预约", url: "tel:+85239436439" },
+        { label: "官方详情", url: "https://www.umso.cuhk.edu.hk/" },
+      ],
+      visitNote: "登记时须出示个人身份证明。",
+      capabilities: [],
+      gender: null,
+      wheelchairAccess: null,
+      buildingId: "00000000-0000-4000-8000-000000008162",
+      floorId: null,
+      locationKind: "building",
+      pointPrecision: null,
+      longitude: null,
+      latitude: null,
+      coordinateCrs: null,
+      observedAt: null,
+      verifiedAt: new Date("2026-09-02T00:00:00.000Z"),
+      provenance: [
+        {
+          kind: "official",
+          accessedOn: "2026-09-02",
+          observedAt: null,
+          rightsStatus: "unknown",
+          hasLocationEvidence: false,
+        },
+      ],
+    };
+
+    render(
+      <CampusMapPlaceDetail
+        placeId={placeId}
+        head={{
+          revisionId,
+          status: "active",
+          visibility: "public",
+          mergedIntoPlaceId: null,
+          name: healthFact.name,
+        }}
+        fact={healthFact}
+        retirementReason={null}
+        mapHref="/campus-map?v=1"
+        building={{ name: "大学保健处", floorLabel: null }}
+        isAdmin={false}
+      />,
+    );
+
+    expect(screen.getByText("医疗服务")).toBeTruthy();
+    expect(screen.getAllByText("大学保健处")).toHaveLength(1);
+    expect(screen.getByText("周一至周五 08:45–13:00")).toBeTruthy();
+    const officialLinks = screen
+      .getAllByRole("link")
+      .filter((link) =>
+        ["网上预约", "电话预约"].some((label) =>
+          link.textContent?.includes(label),
+        ),
+      );
+    expect(officialLinks.map((link) => link.textContent)).toEqual([
+      "网上预约booking.umso.cuhk.edu.hk",
+      "电话预约电话 +85239436439",
+    ]);
+    expect(screen.queryByText("官方详情")).toBeNull();
+    expect(document.body.textContent).not.toContain("楼层未知");
+    expect(document.body.textContent).not.toContain("未记录");
+    expect(document.body.textContent).not.toContain("实时");
+
+    const details = screen
+      .getByText("查看其他已知资料与来源")
+      .closest("details");
+    expect(details?.open).toBe(false);
+    fireEvent.click(screen.getByText("查看其他已知资料与来源"));
+    expect(details?.open).toBe(true);
+    expect(screen.getByText("登记时须出示个人身份证明。")).toBeTruthy();
+    expect(screen.getByText(/官方资料 · 查阅于 2026-09-02/u)).toBeTruthy();
+  });
+
+  it("keeps a reserved V2 type out of the public detail presentation", () => {
+    const vendingFact = v2Fact({
+      name: "图书馆自动售卖机",
+      placeType: "vending-machine",
+    });
+
+    render(
+      <CampusMapPlaceDetail
+        placeId={placeId}
+        head={{
+          revisionId,
+          status: "active",
+          visibility: "public",
+          mergedIntoPlaceId: null,
+          name: vendingFact.name,
+        }}
+        fact={vendingFact}
+        retirementReason={null}
+        mapHref="/campus-map?v=1"
+        building={null}
+        isAdmin={false}
+      />,
+    );
+
+    expect(screen.queryByRole("heading", { name: "地点资料" })).toBeNull();
+    expect(
+      screen.getByText(
+        "这份地点资料目前不可公开，但稳定链接和公开历史仍然保留。",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("自动售卖机", { exact: true })).toBeNull();
   });
 
   it("separates map inclusion from a temporary closure", () => {
