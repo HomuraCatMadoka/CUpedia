@@ -226,11 +226,52 @@ describe("Campus Map single-page edit Sheet", () => {
     );
 
     expect(screen.getByRole("heading", { name: "设施在哪里？" })).toBeTruthy();
-    expect(screen.getByText("点选建筑图钉，或在上方搜索建筑。")).toBeTruthy();
+    expect(
+      screen.getByText("点选地图上的建筑，或在上方搜索建筑。"),
+    ).toBeTruthy();
     expect(screen.queryByText("先选择所属建筑")).toBeNull();
     expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
     expect(screen.queryByRole("button", { name: "发布设施" })).toBeNull();
     expect(screen.getByRole("button", { name: "选择室外位置" })).toBeTruthy();
+  });
+
+  it("shows a tapped Building name before the user confirms it", () => {
+    const onEvent = vi.fn();
+    const session = transitionCampusMapEdit(null, {
+      type: "START_FACILITY_ADD",
+      idempotencyKey: "10000000-0000-4000-8000-000000000001",
+      entry: { kind: "global" },
+    }).session!;
+
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.209, 22.419]}
+        buildings={buildings}
+        locationBuildingCandidateId={buildingId}
+        onEvent={onEvent}
+      />,
+    );
+
+    const candidate = screen.getByRole("group", { name: "已选建筑" });
+    expect(within(candidate).getByText("科学馆")).toBeTruthy();
+    expect(
+      screen.getByText("点选地图上的建筑，或在上方搜索建筑。"),
+    ).toBeTruthy();
+    const confirm = screen.getByRole("button", {
+      name: "确认科学馆作为所属建筑",
+    });
+    expect(document.activeElement).toBe(confirm);
+    fireEvent.click(confirm);
+    expect(onEvent).toHaveBeenCalledWith({
+      type: "SELECT_BUILDING_LOCATION",
+      locationDisplay: {
+        buildingId,
+        buildingName: "科学馆",
+        floorId: null,
+        floorLabel: null,
+      },
+    });
   });
 
   it("keeps a disambiguating code in the compact building context", () => {

@@ -98,12 +98,12 @@ _Avoid_: 把发布者等同核对者；用已核对暗示易变状态仍然实�
 不是服务器申请或公共事实。
 _Avoid_: Application；待审核地点；把草稿 marker 放进其他用户的地图
 
-**设施新增入口（Facility Add entry）**: 全局入口先让用户在地图上明确选择带锚点的 canonical
+**设施新增入口（Facility Add entry）**: 全局入口先让用户明确选择并确认带锚点的 canonical
 Building；Building 卡片入口固定带入该 Building 与当前 Floor；类别入口额外带入 Place type。只有用户
 明确选择“这是室外设施”时，才进入 center pin / WGS84 选点。Add 使用 Place type 的 canonical 默认名，
 只要求确认位置、可选楼层、地点类型与发布；其他可选事实保持未填写，名称与详情留给后续 Edit。
-入口来源属于草稿交互上下文，不是可发布事实；入口自动带入的值是任务初始状态，用户未修改时关闭
-任务无需确认放弃。
+入口来源与未确认的 Building 候选属于草稿交互上下文，不是可发布事实；入口自动带入的值是任务初始
+状态，用户未修改时关闭任务无需确认放弃。
 _Avoid_: 用长目录下拉框寻找建筑；根据地图中心、距离或 provider POI 推断 Building；在 Add 强迫填写
 名称、照片或运营资料；根据当前选中卡片悄悄改变全局“新增设施”的含义
 

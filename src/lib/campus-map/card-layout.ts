@@ -23,7 +23,7 @@ export function campusMapMobilePanelHeight(
 ): string {
   switch (layout.kind) {
     case "location-selection":
-      return "min(168px, 42dvh)";
+      return "min(192px, 42dvh)";
     case "placing":
       return "min(336px, 48dvh)";
     case "edit":

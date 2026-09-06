@@ -1964,6 +1964,29 @@ describe("CampusMapRuntime", () => {
     ).toBeTruthy();
   });
 
+  it("closes an unconfirmed Building candidate without a discard prompt", async () => {
+    render(<CampusMapRuntime />);
+
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
+    const search = await screen.findByRole("textbox", { name: "搜索建筑" });
+    fireEvent.change(search, { target: { value: "科学馆" } });
+    fireEvent.click(await screen.findByRole("button", { name: /科学馆/u }));
+    expect(screen.getByRole("group", { name: "已选建筑" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "设施在哪里？" })).toBeNull(),
+    );
+    expect(
+      screen.queryByRole("heading", { name: "放弃未发布的修改？" }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "新增设施" }));
+    await screen.findByRole("dialog", { name: "设施在哪里？" });
+    expect(screen.queryByRole("group", { name: "已选建筑" })).toBeNull();
+  });
+
   it("uses an explicit Building-card action to inherit the selected floor", async () => {
     render(<CampusMapRuntime />);
     await selectScienceCentre();
@@ -2398,6 +2421,11 @@ describe("CampusMapRuntime", () => {
       await screen.findByRole("button", { name: /何善衡工程学大楼/u }),
     );
 
+    const confirmBuilding = screen.getByRole("button", {
+      name: "确认何善衡工程学大楼作为所属建筑",
+    });
+    expect(document.activeElement).toBe(confirmBuilding);
+    fireEvent.click(confirmBuilding);
     await screen.findByRole("heading", { name: "新增设施" });
     expect(screen.getByText("何善衡工程学大楼")).not.toBeNull();
   });
@@ -2542,6 +2570,11 @@ describe("CampusMapRuntime", () => {
     fireEvent.change(search, { target: { value: "科学馆" } });
     fireEvent.click(await screen.findByRole("button", { name: /科学馆/u }));
 
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "确认科学馆作为所属建筑",
+      }),
+    );
     await screen.findByRole("heading", { name: "新增设施" });
     expect(screen.getByText("科学馆")).not.toBeNull();
   });
