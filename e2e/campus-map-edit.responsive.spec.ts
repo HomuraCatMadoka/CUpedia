@@ -1,4 +1,4 @@
-// ref #646, #649, #814, #838, #864
+// ref #646, #649, #814, #838, #864, #880
 import { expect, test, type Page } from "@playwright/test";
 import { loginWithPassword } from "./helpers/auth";
 import { installFakeCampusMapAmap } from "./helpers/campus-map-amap";
@@ -212,6 +212,59 @@ test("Campus Map Add offers the preserved official Building directory", async ({
   expect(locationSheetBox!.height).toBeLessThanOrEqual(200);
   await expect(page.getByRole("button", { name: "发布设施" })).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: "建筑" })).toHaveCount(0);
+});
+
+test("Campus Map Add keeps touch Building choices readable without hover", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/campus-map");
+  await page.getByRole("button", { name: "新增设施" }).click();
+
+  const marker = page.locator("[data-campus-map-building-picker]").nth(8);
+  await expect(marker).toHaveAttribute("data-building-priority", "default");
+  await expect(marker.locator("span").first()).toHaveClass(/size-3/u);
+  const accessibleName = await marker.getAttribute("aria-label");
+  expect(accessibleName).toMatch(/^选择.+作为所属建筑$/u);
+  const buildingName = accessibleName!.replace(/^选择|作为所属建筑$/gu, "");
+
+  await page.getByRole("textbox", { name: "搜索建筑" }).fill(buildingName);
+  await expect(marker).toHaveAttribute("data-building-priority", "search");
+  await expect(marker.locator("span").last()).toHaveClass(/opacity-100/u);
+  const markerBox = await marker.boundingBox();
+  expect(markerBox).not.toBeNull();
+  expect(markerBox!.width).toBeGreaterThanOrEqual(44);
+  expect(markerBox!.height).toBeGreaterThanOrEqual(44);
+  await marker.click();
+
+  const selectedMarker = page.locator(
+    '[data-campus-map-building-picker][data-building-priority="selected"]',
+  );
+  await expect(selectedMarker).toHaveAttribute("aria-pressed", "true");
+  await expect(selectedMarker.locator("span").last()).toHaveClass(
+    /opacity-100/u,
+  );
+  await expect(page.getByRole("group", { name: "已选建筑" })).toContainText(
+    buildingName,
+  );
+  const confirm = page.getByRole("button", {
+    name: `确认${buildingName}作为所属建筑`,
+  });
+  await expect(confirm).toBeVisible();
+
+  const sheetBox = await page
+    .getByRole("dialog", { name: "设施在哪里？" })
+    .boundingBox();
+  expect(sheetBox).not.toBeNull();
+  expect(sheetBox!.height).toBeLessThanOrEqual(260);
+  expect(sheetBox!.y + sheetBox!.height).toBeLessThanOrEqual(844);
+
+  await page.getByRole("button", { name: "关闭地图编辑" }).click();
+  await expect(page.getByRole("dialog", { name: "设施在哪里？" })).toHaveCount(
+    0,
+  );
+  await page.getByRole("button", { name: "新增设施" }).click();
+  await expect(page.getByRole("group", { name: "已选建筑" })).toHaveCount(0);
 });
 
 test("Campus Map editing supports the minimal Add dirty-close path", async ({

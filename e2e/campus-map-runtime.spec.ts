@@ -1,4 +1,4 @@
-// refs #646, #649, #799, #838, #878
+// refs #646, #649, #799, #838, #878, #880
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { loginWithPassword } from "./helpers/auth";
@@ -240,6 +240,11 @@ test("Campus Map and its AMap config require authentication", async ({
   ).toBeVisible();
   await page
     .getByRole("button", { name: "选择正式测试楼作为所属建筑" })
+    .click();
+  await page
+    .getByRole("button", {
+      name: "确认正式测试楼作为所属建筑",
+    })
     .click();
   await page
     .getByRole("group", { name: "设施类型" })
@@ -710,6 +715,11 @@ test("publish handoff shows one success prompt and never restores the form", asy
   ).toBeVisible();
   await page.getByPlaceholder("搜索建筑…").fill("正式测试楼");
   await page.locator(`[data-search-result="${browseIds.building}"]`).click();
+  await page
+    .getByRole("button", {
+      name: "确认正式测试楼作为所属建筑",
+    })
+    .click();
   await page
     .getByRole("group", { name: "设施类型" })
     .getByText("打印服务", { exact: true })

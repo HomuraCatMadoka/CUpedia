@@ -1,4 +1,4 @@
-// ref #814, #821, #838, #864
+// ref #814, #821, #838, #864, #880
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 
@@ -27,8 +27,9 @@ async function cleanupFixtures() {
     try {
       await client.query("set local session_replication_role = replica");
       const places = await client.query<{ place_id: string }>(
-        "select place_id from campus_map_current_facts where name = any($1::text[])",
-        [cleanupNames],
+        `select place_id from campus_map_current_facts
+          where name = any($1::text[]) or building_id = $2`,
+        [cleanupNames, buildingId],
       );
       const placeIds = places.rows.map((row) => row.place_id);
       if (placeIds.length) {
@@ -178,6 +179,11 @@ for (const scenario of [
     await buildingPicker.press(
       scenario.kind === "building" ? "Enter" : "Space",
     );
+    const confirmBuilding = page.getByRole("button", {
+      name: "确认QA 814 测试楼作为所属建筑",
+    });
+    await expect(confirmBuilding).toBeFocused();
+    await confirmBuilding.press("Enter");
     await expect(page.getByRole("heading", { name: "新增设施" })).toBeVisible();
     await expect(
       page.getByText("QA 814 测试楼", { exact: true }),
@@ -301,3 +307,37 @@ for (const scenario of [
     ).toHaveValue("");
   });
 }
+
+test("Building-card Add inherits its Building, exits cleanly, and publishes minimal facts", async ({
+  page,
+}) => {
+  await page.goto("/campus-map");
+  await page.getByPlaceholder("搜索建筑或地点…").fill("QA 814 测试楼");
+  await page.locator(`[data-search-result="${buildingId}"]`).click();
+  await expect(
+    page.getByRole("heading", { name: "QA 814 测试楼" }),
+  ).toBeVisible();
+
+  const addFromBuildingCard = page.getByRole("button", {
+    name: /在QA 814 测试楼新增(?:第一处)?设施/u,
+  });
+  await addFromBuildingCard.click();
+  await expect(page.getByRole("heading", { name: "新增设施" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "所属建筑" })).toContainText(
+    "QA 814 测试楼",
+  );
+  await expect(page.getByRole("combobox", { name: "建筑" })).toHaveCount(0);
+  await page.getByRole("button", { name: "关闭地图编辑" }).click();
+  await expect(
+    page.getByRole("alertdialog", { name: "放弃未发布的修改？" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "QA 814 测试楼" }),
+  ).toBeVisible();
+
+  await addFromBuildingCard.click();
+  await page.getByRole("radio", { name: "课室" }).check({ force: true });
+  await page.getByRole("button", { name: "发布设施" }).click();
+  await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
+  await expect(page.getByRole("heading", { name: "课室" })).toBeVisible();
+});

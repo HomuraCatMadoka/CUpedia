@@ -26,8 +26,19 @@ export interface AmapBuildingPickerRuntimeInput {
   projection: CampusMapBrowseProjection;
   providerPositions: Readonly<Record<string, CampusMapAmapPosition>>;
   scope: string;
+  highlightedBuildingIds?: readonly string[];
+  selectedBuildingId?: string | null;
   claimProviderTarget(action: () => void): void;
   selectBuilding(buildingId: string): void;
+}
+
+type BuildingPickerMarkerPriority = "default" | "search" | "selected";
+
+interface BuildingPickerMarkerEntry {
+  buildingId: string;
+  name: string;
+  priority: BuildingPickerMarkerPriority;
+  marker: ProviderMarker;
 }
 
 function escapeHtml(value: string) {
@@ -39,26 +50,51 @@ function escapeHtml(value: string) {
     .replaceAll(">", "&gt;");
 }
 
-function buildingPickerMarkerContent(name: string) {
+function buildingPickerMarkerContent(
+  name: string,
+  priority: BuildingPickerMarkerPriority,
+) {
   const label = escapeHtml(name);
-  return `<button type="button" title="${label}" data-cupedia-marker data-campus-map-building-picker aria-label="选择${label}作为所属建筑" class="group relative grid size-11 cursor-pointer place-items-center rounded-full border-[3px] border-white bg-[#174b38] text-white shadow-[0_4px_14px_rgba(23,33,28,.28)] transition-transform hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#176346]/30 motion-reduce:transform-none motion-reduce:transition-none"><span aria-hidden="true" class="text-xs font-bold">建</span><span aria-hidden="true" class="pointer-events-none absolute top-1/2 left-full ml-2 max-w-40 -translate-y-1/2 truncate rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-left text-[13px] leading-5 font-semibold whitespace-nowrap text-[#174b38] opacity-0 shadow-[0_4px_14px_rgba(23,33,28,.24)] transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none">${label}</span></button>`;
+  const isSelected = priority === "selected";
+  const isPrioritized = priority !== "default";
+  const marker = isPrioritized
+    ? `<span aria-hidden="true" class="grid size-8 place-items-center rounded-full border-[3px] border-white bg-[#174b38] text-[11px] font-bold text-white shadow-md${isSelected ? " ring-2 ring-[#176346]/30" : ""}">建</span>`
+    : '<span aria-hidden="true" class="size-3 rounded-full border-2 border-white bg-[#487463] shadow-sm"></span>';
+  const labelVisibility = isPrioritized
+    ? "opacity-100"
+    : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100";
+  return `<button type="button" title="${label}" data-cupedia-marker data-campus-map-building-picker data-building-priority="${priority}" aria-label="选择${label}作为所属建筑" aria-pressed="${isSelected}" class="group relative grid size-11 cursor-pointer place-items-center rounded-full bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]/30">${marker}<span aria-hidden="true" class="pointer-events-none absolute top-1/2 left-full ml-1.5 max-w-48 -translate-y-1/2 truncate rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-left text-[13px] leading-5 font-semibold whitespace-nowrap text-[#174b38] ${labelVisibility} shadow-md transition-opacity motion-reduce:transition-none">${label}</span></button>`;
+}
+
+function markerPriority(
+  buildingId: string,
+  selectedBuildingId: string | null,
+  highlightedBuildingIds: ReadonlySet<string>,
+): BuildingPickerMarkerPriority {
+  if (buildingId === selectedBuildingId) return "selected";
+  if (highlightedBuildingIds.has(buildingId)) return "search";
+  return "default";
+}
+
+function markerZIndex(priority: BuildingPickerMarkerPriority) {
+  return priority === "selected" ? 280 : priority === "search" ? 260 : 220;
 }
 
 export class AmapBuildingPickerRuntime {
   private map: ProviderMap | null = null;
-  private markers: ProviderMarker[] = [];
+  private entries: BuildingPickerMarkerEntry[] = [];
   private signature: string | null = null;
 
   destroy() {
-    if (this.map && this.markers.length > 0) {
+    if (this.map && this.entries.length > 0) {
       try {
-        this.map.remove(this.markers);
+        this.map.remove(this.entries.map((entry) => entry.marker));
       } catch {
         // Provider cleanup must not break the search fallback.
       }
     }
     this.map = null;
-    this.markers = [];
+    this.entries = [];
     this.signature = null;
   }
 
@@ -87,42 +123,77 @@ export class AmapBuildingPickerRuntime {
         position[1],
       ]),
     ]);
-    if (this.map === input.map && this.signature === signature) return;
+    const highlightedBuildingIds = new Set(input.highlightedBuildingIds ?? []);
+    const selectedBuildingId = input.selectedBuildingId ?? null;
+
+    if (this.map === input.map && this.signature === signature) {
+      try {
+        for (const entry of this.entries) {
+          const priority = markerPriority(
+            entry.buildingId,
+            selectedBuildingId,
+            highlightedBuildingIds,
+          );
+          if (priority === entry.priority) continue;
+          entry.marker.setContent(
+            buildingPickerMarkerContent(entry.name, priority),
+          );
+          entry.marker.setzIndex(markerZIndex(priority));
+          entry.priority = priority;
+        }
+      } catch {
+        this.destroy();
+      }
+      return;
+    }
     this.destroy();
 
-    const markers: ProviderMarker[] = [];
+    const entries: BuildingPickerMarkerEntry[] = [];
     try {
       for (const target of targets) {
-        const content = buildingPickerMarkerContent(target.name);
+        const priority = markerPriority(
+          target.buildingId,
+          selectedBuildingId,
+          highlightedBuildingIds,
+        );
+        const zIndex = markerZIndex(priority);
+        const content = buildingPickerMarkerContent(target.name, priority);
         const marker = new input.provider.Marker({
           position: target.position,
           content,
           anchor: "bottom-center",
-          zIndex: 240,
+          zIndex,
         });
         marker.setContent(content);
-        marker.setzIndex(240);
+        marker.setzIndex(zIndex);
         marker.on("click", () => {
           input.claimProviderTarget(() =>
             input.selectBuilding(target.buildingId),
           );
         });
-        markers.push(marker);
+        entries.push({
+          buildingId: target.buildingId,
+          name: target.name,
+          priority,
+          marker,
+        });
       }
-      if (markers.length > 0) input.map.add(markers);
+      if (entries.length > 0) {
+        input.map.add(entries.map((entry) => entry.marker));
+      }
       this.map = input.map;
-      this.markers = markers;
+      this.entries = entries;
       this.signature = signature;
     } catch {
-      if (markers.length > 0) {
+      if (entries.length > 0) {
         try {
-          input.map.remove(markers);
+          input.map.remove(entries.map((entry) => entry.marker));
         } catch {
           // Best-effort cleanup for a partially mounted provider overlay.
         }
       }
       this.map = null;
-      this.markers = [];
+      this.entries = [];
       this.signature = null;
     }
   }

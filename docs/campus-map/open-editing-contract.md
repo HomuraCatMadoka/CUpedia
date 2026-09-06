@@ -209,8 +209,9 @@ Browse
 - `Browse`、`Select Place` 与 `Add Point` 是互斥模式；MVP 不展示 Line、Area 或 Relation。
 - Add 与 Edit 共用同一 session 与 Sheet shell，不增加多步骤 wizard。全局与类别 Add 先显示紧凑的
   地图选 Building 状态；地图上的临时按钮只来自 CUpedia canonical Building 锚点，provider hotspot
-  不参与 Building 选择。现有校园搜索在此状态保持可用，并把所选 Building 带入同一个 Add session；
-  地图加载失败时仍可搜索或退出。距离、地图中心和 provider 名称都不能推断 containment。
+  不参与 Building 选择。普通 Building 使用小型视觉点但保留完整点击范围；搜索命中与当前候选显示
+  常驻名称并提高图面层级。点选或搜索先形成不发布的 Building 候选，用户看到名称并确认后才带入同一个
+  Add session。地图加载失败时仍可搜索或退出。距离、地图中心和 provider 名称都不能推断 containment。
 - Building 卡片 Add 固定 Building，只允许楼层保持当前值、改选或设为未知；全局 Add 选定 Building
   后，“更改位置”返回地图选择，而不是打开长 Building 下拉框。类别入口在整个过程保留 Pin type。
 - Add 表单只显示位置、可选楼层、设施类型和发布。名称采用 Pin type 的 canonical 默认名且不在 Add

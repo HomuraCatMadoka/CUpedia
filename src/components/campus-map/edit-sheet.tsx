@@ -40,6 +40,7 @@ interface CampusMapEditSheetProps {
   factSchema?: CampusMapFactSchema | null;
   buildings?: readonly CampusMapBrowseBuilding[];
   buildingDirectoryStatus?: "ready" | "refreshing" | "error";
+  locationBuildingCandidateId?: string | null;
   onRetryBuildings?(): void;
   onEvent(event: CampusMapEditEvent): void;
 }
@@ -459,6 +460,7 @@ export function CampusMapEditSheet({
   factSchema,
   buildings = [],
   buildingDirectoryStatus = "ready",
+  locationBuildingCandidateId = null,
   onRetryBuildings,
   onEvent,
 }: CampusMapEditSheetProps) {
@@ -548,6 +550,17 @@ export function CampusMapEditSheet({
     () => projectCampusMapBuildingDisplay(buildings),
     [buildings],
   );
+  const locationBuildingCandidate = locationBuildingCandidateId
+    ? buildings.find(
+        (building) => building.buildingId === locationBuildingCandidateId,
+      )
+    : null;
+  const locationBuildingCandidateLabel = locationBuildingCandidate
+    ? (campusMapBuildingDisplayFor(
+        buildingDisplay,
+        locationBuildingCandidate.buildingId,
+      )?.label ?? locationBuildingCandidate.name)
+    : null;
   const selectedBuildingQualifier = selectedBuilding
     ? (campusMapBuildingDisplayFor(buildingDisplay, selectedBuilding.buildingId)
         ?.qualifier ?? null)
@@ -1374,7 +1387,7 @@ export function CampusMapEditSheet({
           <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm">
             {buildingDirectoryStatus === "ready" && buildings.length === 0
               ? "当前没有已收录建筑。"
-              : "点选建筑图钉，或在上方搜索建筑。"}
+              : "点选地图上的建筑，或在上方搜索建筑。"}
           </p>
         ) : isPlacing ? (
           <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm">
@@ -1416,7 +1429,7 @@ export function CampusMapEditSheet({
           </div>
         ) : null}
         {isSelectingLocation ? (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="grid gap-2">
             {buildingDirectoryStatus === "refreshing" ? (
               <p className="text-xs text-neutral-600" role="status">
                 正在载入建筑…
@@ -1438,9 +1451,41 @@ export function CampusMapEditSheet({
                 ) : null}
               </div>
             ) : null}
+            {locationBuildingCandidate && locationBuildingCandidateLabel ? (
+              <div
+                role="group"
+                aria-label="已选建筑"
+                aria-live="polite"
+                className="flex min-h-11 items-center gap-3"
+              >
+                <strong className="min-w-0 flex-1 text-sm leading-5 text-neutral-900">
+                  {locationBuildingCandidateLabel}
+                </strong>
+                <button
+                  key={locationBuildingCandidate.buildingId}
+                  autoFocus
+                  type="button"
+                  aria-label={`确认${locationBuildingCandidateLabel}作为所属建筑`}
+                  className="min-h-11 shrink-0 rounded-lg bg-[#174b38] px-3 text-sm font-semibold whitespace-nowrap text-white hover:bg-[#123d2e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
+                  onClick={() =>
+                    onEvent({
+                      type: "SELECT_BUILDING_LOCATION",
+                      locationDisplay: {
+                        buildingId: locationBuildingCandidate.buildingId,
+                        buildingName: locationBuildingCandidateLabel,
+                        floorId: null,
+                        floorLabel: null,
+                      },
+                    })
+                  }
+                >
+                  确认
+                </button>
+              </div>
+            ) : null}
             <button
               type="button"
-              className="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-[#176346] underline decoration-[#176346]/35 underline-offset-4 hover:decoration-[#176346] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
+              className="inline-flex min-h-11 items-center justify-self-start rounded-lg text-sm font-semibold text-[#176346] underline decoration-[#176346]/35 underline-offset-4 hover:decoration-[#176346] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
               onClick={() => onEvent({ type: "START_OUTDOOR_PLACEMENT" })}
             >
               选择室外位置
