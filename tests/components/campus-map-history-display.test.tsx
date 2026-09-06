@@ -67,12 +67,15 @@ const revision: CampusMapPlaceHistoryItem = {
 
 describe("Campus Map history display vocabulary", () => {
   it("renders controlled values through the shared display registry", () => {
+    const mapListReturnPath =
+      "/campus-map?v=1&scene=search&q=printer&snap=peek";
     render(
       <CampusMapRevisionPage
         revision={{
           ...revision,
           schema: { version: 1, displayMetadata: {} },
         }}
+        mapListReturnPath={mapListReturnPath}
       />,
     );
 
@@ -81,5 +84,10 @@ describe("Campus Map history display vocabulary", () => {
     expect(screen.getByText("打印、扫描")).toBeTruthy();
     expect(screen.getByText("中大成员")).toBeTruthy();
     expect(document.body.textContent).not.toContain("cuhk-member");
+    expect(
+      screen.getByRole("link", { name: "返回修订历史" }).getAttribute("href"),
+    ).toBe(
+      `/campus-map/places/${revision.placeId}/history?from=${encodeURIComponent(mapListReturnPath)}`,
+    );
   });
 });

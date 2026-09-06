@@ -212,6 +212,48 @@ export function encodeCampusMapPlaceHref(
   return `/campus-map?${params.toString()}`;
 }
 
+export function safeCampusMapListReturnPath(value: unknown): string | null {
+  if (typeof value !== "string" || !value.startsWith("/campus-map?")) {
+    return null;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(value, "https://campus-map.local");
+  } catch {
+    return null;
+  }
+  if (
+    url.origin !== "https://campus-map.local" ||
+    url.pathname !== "/campus-map" ||
+    url.hash ||
+    hasRepeatedUrlKeys(url.searchParams) ||
+    url.searchParams.get("v") !== String(CAMPUS_MAP_SCENE_CODEC_VERSION)
+  ) {
+    return null;
+  }
+
+  const params = url.searchParams;
+  const scene = params.get("scene");
+  const valid =
+    (scene === "search" &&
+      hasOnlyUrlKeys(params, ["v", "scene", "q", "snap"]) &&
+      isCanonicalCampusMapId(params.get("q")) &&
+      snap(params.get("snap")) !== null) ||
+    (scene === "category" &&
+      hasOnlyUrlKeys(params, ["v", "scene", "id", "snap"]) &&
+      isCanonicalCampusMapId(params.get("id")) &&
+      snap(params.get("snap")) !== null) ||
+    (scene === "building" &&
+      hasOnlyUrlKeys(params, ["v", "scene", "id", "floor", "snap"]) &&
+      isCanonicalCampusMapId(params.get("id")) &&
+      (params.get("floor") === null ||
+        isCanonicalCampusMapId(params.get("floor"))) &&
+      snap(params.get("snap")) !== null);
+
+  return valid ? `${url.pathname}${url.search}` : null;
+}
+
 export function decodeCampusMapUrl(
   input: URLSearchParams | string,
   catalog: CampusMapSceneCatalog,

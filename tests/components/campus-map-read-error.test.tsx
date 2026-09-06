@@ -57,10 +57,12 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
   });
 
   it("keeps raw revision identity behind the ordinary history detail action", () => {
+    const mapListReturnPath =
+      "/campus-map?v=1&scene=category&id=water&snap=full";
     render(
       <CampusMapHistoryPage
         placeId="00000000-0000-4000-8000-000000007192"
-        mapHref="/campus-map?v=1"
+        mapHref={mapListReturnPath}
         head={null}
         items={[
           {
@@ -104,6 +106,10 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
       "00000000-0000-4000-8000-000000007193",
     );
     expect(document.body.textContent).not.toContain("Changeset");
-    expect(screen.getByRole("link", { name: "查看修改详情" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "查看修改详情" }).getAttribute("href"),
+    ).toBe(
+      `/campus-map/places/00000000-0000-4000-8000-000000007192/history/00000000-0000-4000-8000-000000007198?from=${encodeURIComponent(mapListReturnPath)}`,
+    );
   });
 });

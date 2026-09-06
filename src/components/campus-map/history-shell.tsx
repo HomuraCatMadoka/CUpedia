@@ -9,6 +9,7 @@ import type {
 } from "@/lib/campus-map/fact-store";
 import { CopyDeepLinkButton } from "@/components/campus-map/copy-deep-link-button";
 import { displayCampusMapFactValue } from "@/lib/campus-map/display-registry";
+import { safeCampusMapListReturnPath } from "@/lib/campus-map/scene-codec";
 
 const operationLabels = {
   create: "建立地点",
@@ -38,6 +39,10 @@ export function CampusMapHistoryPage({
   nextHref: string | null;
 }) {
   const name = head?.name ?? "地点";
+  const mapListReturnPath = safeCampusMapListReturnPath(mapHref);
+  const returnQuery = mapListReturnPath
+    ? `?from=${encodeURIComponent(mapListReturnPath)}`
+    : "";
 
   return (
     <CampusMapReadShell
@@ -46,7 +51,9 @@ export function CampusMapHistoryPage({
       actions={
         <div className="flex flex-wrap gap-2">
           <ReadLink href={mapHref}>返回地图</ReadLink>
-          <ReadLink href={`/campus-map/places/${placeId}`}>地点详情</ReadLink>
+          <ReadLink href={`/campus-map/places/${placeId}${returnQuery}`}>
+            地点详情
+          </ReadLink>
           <CopyDeepLinkButton />
         </div>
       }
@@ -93,7 +100,7 @@ export function CampusMapHistoryPage({
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <ReadLink
-                  href={`/campus-map/places/${placeId}/history/${item.id}`}
+                  href={`/campus-map/places/${placeId}/history/${item.id}${returnQuery}`}
                 >
                   查看修改详情
                 </ReadLink>
@@ -113,6 +120,7 @@ export function CampusMapHistoryPage({
 
 export function CampusMapRevisionPage({
   revision,
+  mapListReturnPath = null,
 }: {
   revision: CampusMapPlaceHistoryItem & {
     schema: {
@@ -120,11 +128,15 @@ export function CampusMapRevisionPage({
       displayMetadata: Record<string, { label: string }>;
     };
   };
+  mapListReturnPath?: string | null;
 }) {
   const title =
     revision.content.visibility === "public"
       ? revision.content.fact.name
       : `修订 ${shortId(revision.id)}`;
+  const returnQuery = mapListReturnPath
+    ? `?from=${encodeURIComponent(mapListReturnPath)}`
+    : "";
   return (
     <CampusMapReadShell
       eyebrow="PLACE REVISION"
@@ -184,7 +196,9 @@ export function CampusMapRevisionPage({
           <ReadLink href={`/campus-map/changesets/${revision.changesetId}`}>
             查看 Changeset
           </ReadLink>
-          <ReadLink href={`/campus-map/places/${revision.placeId}/history`}>
+          <ReadLink
+            href={`/campus-map/places/${revision.placeId}/history${returnQuery}`}
+          >
             返回修订历史
           </ReadLink>
         </div>

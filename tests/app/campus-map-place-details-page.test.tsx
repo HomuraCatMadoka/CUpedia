@@ -29,6 +29,12 @@ vi.mock("@/lib/campus-map/place-photos", () => ({
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
 
 import CampusMapPlacePage from "@/app/(main)/campus-map/places/[placeId]/page";
+import CampusMapPlaceHistoryRoute from "@/app/(main)/campus-map/places/[placeId]/history/page";
+import CampusMapPlaceRevisionRoute from "@/app/(main)/campus-map/places/[placeId]/history/[revisionId]/page";
+import {
+  CampusMapHistoryPage,
+  CampusMapRevisionPage,
+} from "@/components/campus-map/history-shell";
 import { CampusMapPlaceDetail } from "@/components/campus-map/place-detail";
 
 const placeId = "00000000-0000-4000-8000-000000008160";
@@ -207,5 +213,55 @@ describe("Campus Map stable Place page (#816)", () => {
       name: "卫星遥感地面接收站（H40）",
       floorLabel: "1/F",
     });
+  });
+
+  it("returns a Place to the safe map result list that opened it", async () => {
+    const from = "/campus-map?v=1&scene=search&q=%E9%A5%AE%E6%B0%B4&snap=peek";
+
+    const element = await CampusMapPlacePage({
+      params: Promise.resolve({ placeId }),
+      searchParams: Promise.resolve({ from }),
+    });
+
+    expect(element.props.mapHref).toBe(from);
+  });
+
+  it("keeps the safe map return while browsing Place history", async () => {
+    const from = "/campus-map?v=1&scene=category&id=water&snap=full";
+    mocks.getHistory.mockResolvedValueOnce({
+      placeExists: true,
+      head: {
+        revisionId,
+        status: "active",
+        visibility: "public",
+        mergedIntoPlaceId: null,
+        name: "饮水点",
+      },
+      items: [],
+      nextCursor: "next-page",
+    });
+
+    const element = await CampusMapPlaceHistoryRoute({
+      params: Promise.resolve({ placeId }),
+      searchParams: Promise.resolve({ from }),
+    });
+
+    expect(element.type).toBe(CampusMapHistoryPage);
+    expect(element.props.mapHref).toBe(from);
+    expect(element.props.nextHref).toBe(
+      `/campus-map/places/${placeId}/history?cursor=next-page&from=${encodeURIComponent(from)}`,
+    );
+  });
+
+  it("keeps the safe map return while reading one Place revision", async () => {
+    const from = "/campus-map?v=1&scene=building&id=science&snap=peek";
+
+    const element = await CampusMapPlaceRevisionRoute({
+      params: Promise.resolve({ placeId, revisionId }),
+      searchParams: Promise.resolve({ from }),
+    });
+
+    expect(element.type).toBe(CampusMapRevisionPage);
+    expect(element.props.mapListReturnPath).toBe(from);
   });
 });

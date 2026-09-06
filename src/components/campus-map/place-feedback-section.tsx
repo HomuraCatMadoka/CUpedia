@@ -20,6 +20,22 @@ function feedbackDate(value: string) {
   }).format(new Date(value));
 }
 
+function placeFeedbackHref({
+  placeId,
+  reviewsAfter,
+  mapListReturnPath,
+}: {
+  placeId: string;
+  reviewsAfter?: string;
+  mapListReturnPath: string | null;
+}) {
+  const params = new URLSearchParams();
+  if (reviewsAfter) params.set("reviewsAfter", reviewsAfter);
+  if (mapListReturnPath) params.set("from", mapListReturnPath);
+  const search = params.size ? `?${params.toString()}` : "";
+  return `/campus-map/places/${placeId}${search}#place-feedback`;
+}
+
 export function PlaceFeedbackSection({
   placeId,
   feedback,
@@ -27,6 +43,7 @@ export function PlaceFeedbackSection({
   viewerCanWrite,
   isAdmin,
   reviewsAfter,
+  mapListReturnPath = null,
 }: {
   placeId: string;
   feedback: CampusMapPlaceFeedbackPage;
@@ -34,6 +51,7 @@ export function PlaceFeedbackSection({
   viewerCanWrite: boolean;
   isAdmin: boolean;
   reviewsAfter: string | null;
+  mapListReturnPath?: string | null;
 }) {
   const [localSnapshot, setLocalSnapshot] = useState<{
     base: CampusMapPlaceFeedbackPage;
@@ -121,7 +139,9 @@ export function PlaceFeedbackSection({
           <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
             公开评分和评价可直接阅读。
             <Link
-              href={`/login?callbackUrl=${encodeURIComponent(`/campus-map/places/${placeId}#place-feedback`)}`}
+              href={`/login?callbackUrl=${encodeURIComponent(
+                placeFeedbackHref({ placeId, mapListReturnPath }),
+              )}`}
               className="ml-1 font-semibold text-foreground underline underline-offset-4"
             >
               登录后评分或写评价
@@ -192,7 +212,7 @@ export function PlaceFeedbackSection({
         <nav aria-label="评价分页" className="mt-4 flex flex-wrap gap-3">
           {snapshot.page.isPaginated ? (
             <Link
-              href={`/campus-map/places/${placeId}#place-feedback`}
+              href={placeFeedbackHref({ placeId, mapListReturnPath })}
               className="inline-flex min-h-11 items-center rounded-xl border px-4 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               返回最新评价
@@ -200,7 +220,11 @@ export function PlaceFeedbackSection({
           ) : null}
           {snapshot.page.nextCursor ? (
             <Link
-              href={`/campus-map/places/${placeId}?reviewsAfter=${encodeURIComponent(snapshot.page.nextCursor)}#place-feedback`}
+              href={placeFeedbackHref({
+                placeId,
+                reviewsAfter: snapshot.page.nextCursor,
+                mapListReturnPath,
+              })}
               className="inline-flex min-h-11 items-center rounded-xl border px-4 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               查看下一页评价

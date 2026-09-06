@@ -371,6 +371,8 @@ describe("Campus Map Place detail (#816, #825)", () => {
 
   it("shows summary and long reviews, then updates an accessible one-to-five-star form", async () => {
     const longReview = "很长的到访体验".repeat(80);
+    const mapListReturnPath =
+      "/campus-map?v=1&scene=search&q=%E9%A5%AE%E6%B0%B4&snap=peek";
     let resolveFeedback: ((value: unknown) => void) | undefined;
     let refreshedWhilePending: boolean | null = null;
     refresh.mockImplementationOnce(() => {
@@ -395,7 +397,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
         }}
         fact={fact}
         retirementReason={null}
-        mapHref="/campus-map?v=1"
+        mapHref={mapListReturnPath}
         building={{ name: "联合书院图书馆", floorLabel: "1/F" }}
         isAdmin
         reviewsAfter="opaque-current-page"
@@ -439,7 +441,18 @@ describe("Campus Map Place detail (#816, #825)", () => {
       screen.getByLabelText(/平均 4.3 分，共 12 个评分、8 条文字评价/),
     ).toBeTruthy();
     expect(screen.getByText(longReview).className).toContain("break-words");
-    expect(screen.getByRole("link", { name: "查看下一页评价" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "查看下一页评价" }).getAttribute("href"),
+    ).toBe(
+      `/campus-map/places/${placeId}?reviewsAfter=opaque-cursor&from=${encodeURIComponent(mapListReturnPath)}#place-feedback`,
+    );
+    expect(
+      screen
+        .getByRole("link", { name: "查看编辑记录 / History" })
+        .getAttribute("href"),
+    ).toBe(
+      `/campus-map/places/${placeId}/history?from=${encodeURIComponent(mapListReturnPath)}`,
+    );
     expect(
       (screen.getByRole("radio", { name: "4 星" }) as HTMLInputElement).checked,
     ).toBe(true);
