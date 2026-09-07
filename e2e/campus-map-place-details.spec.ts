@@ -1,4 +1,4 @@
-// ref #816, #817, #818
+// ref #816, #817, #818, #900
 import path from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
@@ -386,9 +386,12 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await expect(page).toHaveURL(new RegExp(`scene=place&id=${ids.place}`));
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
     await page.getByRole("link", { name: "查看完整详情" }).click();
-    await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
+    const detail = page.locator("#main-content");
+    await expect(
+      detail.getByRole("heading", { name: placeName }),
+    ).toBeVisible();
 
-    const photoTrigger = page.getByRole("button", {
+    const photoTrigger = detail.getByRole("button", {
       name: /查看地点照片：入口/u,
     });
     await expect(photoTrigger).toBeVisible();
@@ -397,25 +400,25 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await expect(page.getByAltText("入口照片")).toBeVisible();
     await page.keyboard.press("Escape");
 
-    await expect(page.getByText("暂无评分", { exact: true })).toBeVisible();
-    await page.getByText("5 星", { exact: true }).click();
-    await expect(page.getByRole("radio", { name: "5 星" })).toBeChecked();
-    await page
+    await expect(detail.getByText("暂无评分", { exact: true })).toBeVisible();
+    await detail.getByText("5 星", { exact: true }).click();
+    await expect(detail.getByRole("radio", { name: "5 星" })).toBeChecked();
+    await detail
       .getByRole("textbox", { name: "评价（选填）" })
       .fill("位置很好找，饮水机运作正常。长句也应当安全换行而不撑破页面。");
-    await page.getByRole("button", { name: "发布评价" }).click();
+    await detail.getByRole("button", { name: "发布评价" }).click();
 
     await expect(
-      page.getByLabel("平均 5.0 分，共 1 个评分、1 条文字评价"),
+      detail.getByLabel("平均 5.0 分，共 1 个评分、1 条文字评价"),
     ).toBeVisible();
     await expect(
-      page
+      detail
         .getByRole("listitem")
         .getByText(
           "位置很好找，饮水机运作正常。长句也应当安全换行而不撑破页面。",
         ),
     ).toBeVisible();
-    await page.getByRole("link", { name: "返回地图" }).click();
+    await detail.getByRole("link", { name: "返回地图" }).click();
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
     await page.getByRole("button", { name: "饮水点", exact: true }).click();
 
