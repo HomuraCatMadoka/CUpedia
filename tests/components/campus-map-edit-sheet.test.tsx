@@ -546,68 +546,62 @@ describe("Campus Map single-page edit Sheet", () => {
     });
   });
 
-  it("keeps future V2 card fields out of the compatibility editor", () => {
-    const factSchema = {
-      version: 2,
-      definition: {
-        fields: {},
-        placeTypes: {
-          toilet: { applicableFields: [], requiredFields: [] },
-          water: {
-            applicableFields: [
-              "name",
-              "placeType",
-              "regularHours",
-              "officialActions",
-              "visitNote",
-              "wheelchairAccess",
-              "location",
-            ],
-            requiredFields: ["name", "placeType", "location"],
-          },
-          printer: { applicableFields: [], requiredFields: [] },
-          "common-space": { applicableFields: [], requiredFields: [] },
-          classroom: { applicableFields: [], requiredFields: [] },
-          "sports-facility": { applicableFields: [], requiredFields: [] },
-          "health-service": { applicableFields: [], requiredFields: [] },
-          "vending-machine": { applicableFields: [], requiredFields: [] },
-        },
-      },
-      displayMetadata: {},
-    } as unknown as CampusMapFactSchema;
+  it("edits V2 official actions and visit notes", () => {
+    const onEvent = vi.fn();
+    const initialDraft = editDraft();
+    const initialFact = {
+      ...initialDraft.fact,
+      officialActions: [
+        { label: "现有官网", url: "https://www.cuhk.edu.hk/health" },
+      ],
+      visitNote: "请先在地下登记。",
+    };
 
     render(
       <CampusMapEditSheet
         session={{
           status: "editing",
-          localError: "capabilities",
-          draft: {
-            ...editDraft(),
-            fact: {
-              ...editDraft().fact,
-              location: {
-                kind: "outdoor-point",
-                longitude: 114.2,
-                latitude: 22.4,
-                crs: "wgs84",
-                precision: "approximate",
-              },
-            },
-          },
+          draft: { ...initialDraft, fact: initialFact },
         }}
         centerPosition={[114.2, 22.4]}
-        factSchema={factSchema}
-        onEvent={vi.fn()}
+        onEvent={onEvent}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "更多信息" }));
-    expect(screen.getByRole("combobox", { name: "通常开放时间" })).toBeTruthy();
-    expect(screen.queryByRole("combobox", { name: "临时状态" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "添加官方入口" })).toBeNull();
-    expect(screen.queryByRole("textbox", { name: "到访提示" })).toBeNull();
-    expect(screen.getByRole("combobox", { name: "无障碍通行" })).toBeTruthy();
-    expect(screen.queryByRole("combobox", { name: "开放对象" })).toBeNull();
+    const actionLabel = screen.getByRole("textbox", {
+      name: "官方入口 1 显示名称",
+    });
+    expect((actionLabel as HTMLInputElement).value).toBe("现有官网");
+    expect(
+      (screen.getByRole("textbox", { name: "到访提示" }) as HTMLTextAreaElement)
+        .value,
+    ).toBe("请先在地下登记。");
+
+    fireEvent.change(actionLabel, { target: { value: "预约页面" } });
+    expect(onEvent).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "CHANGE_FACT",
+        fact: expect.objectContaining({
+          officialActions: [
+            {
+              label: "预约页面",
+              url: "https://www.cuhk.edu.hk/health",
+            },
+          ],
+          visitNote: initialFact.visitNote,
+        }),
+      }),
+    );
+
+    fireEvent.change(screen.getByRole("textbox", { name: "到访提示" }), {
+      target: { value: "只接受八达通。" },
+    });
+    expect(onEvent).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "CHANGE_FACT",
+        fact: expect.objectContaining({ visitNote: "只接受八达通。" }),
+      }),
+    );
   });
 
   it("maps editable names to one fact event", () => {
@@ -1213,7 +1207,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(heading.className).toContain("focus-visible:border-l-2");
   });
 
-  it("keeps new V2 place types out of the compatibility editor", () => {
+  it("keeps Add limited to the original five public facility types", () => {
     render(
       <CampusMapEditSheet
         session={{
@@ -1247,6 +1241,25 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.queryByRole("radio", { name: "自动售卖机" })).toBeNull();
     expect(typeGroup.getAttribute("tabindex")).toBe("-1");
     expect(screen.queryByText(/Changeset 说明/)).toBeNull();
+  });
+
+  it("shows the V2-only public place types in Edit", () => {
+    render(
+      <CampusMapEditSheet
+        session={{ status: "editing", draft: editDraft() }}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    const typeGroup = screen.getByRole("group", { name: "设施类型" });
+    expect(typeGroup.querySelectorAll('input[type="radio"]')).toHaveLength(7);
+    expect(screen.getByRole("radio", { name: "体育设施" })).toBeTruthy();
+    const healthService = screen.getByRole("radio", { name: "医疗服务" });
+    expect(healthService).toBeTruthy();
+    expect(healthService.closest("label")?.className).toContain("col-span-3");
+    expect(screen.queryByRole("radio", { name: "自动售卖机" })).toBeNull();
+    expect(screen.getByText("通常开放时间、官方入口与到访提示")).toBeTruthy();
   });
 
   it("delegates place-type changes to the edit-session transition", () => {
@@ -1938,6 +1951,45 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.getByRole("group", { name: "补充资料" })).toBeTruthy();
   });
 
+  it.each(["officialActions", "visitNote"] as const)(
+    "keeps the %s validation target visible and focusable",
+    (field) => {
+      const session: CampusMapEditSession = {
+        status: "editing",
+        localError: field,
+        draft: editDraft(),
+      };
+
+      render(
+        <CampusMapEditSheet
+          session={session}
+          centerPosition={[114.2, 22.4]}
+          onEvent={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByRole("group", { name: "补充资料" })).toBeTruthy();
+      const target = document.querySelector<HTMLElement>(
+        `[data-edit-field="${field}"]`,
+      );
+      expect(target).not.toBeNull();
+      target!.focus();
+      expect(document.activeElement).toBe(target);
+      expect(target!.getAttribute("aria-invalid")).toBe("true");
+      const describedBy = target!.getAttribute("aria-describedby");
+      expect(describedBy).toBeTruthy();
+      const description = describedBy
+        ?.split(/\s+/)
+        .map((id) => document.getElementById(id)?.textContent)
+        .join(" ");
+      expect(description).toContain(
+        field === "officialActions"
+          ? "每个入口都要有名称，并使用安全的"
+          : "请删除空白内容，或缩短提示",
+      );
+    },
+  );
+
   it("uses reposition wording for an Edit placement", () => {
     const session: CampusMapEditSession = {
       status: "placing",
@@ -2146,6 +2198,47 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(description).toContain("我的：2026年8月25日 12:00（香港时间）");
     expect(description).toContain("最新：2026年8月25日 13:30（香港时间）");
     expect(description).not.toContain("2026-08-25T04:00:00.000Z");
+  });
+
+  it("shows both labels and targets when resolving official-action conflicts", () => {
+    const baseDraft = editDraft();
+    if (!baseDraft.fact.location) throw new Error("missing Edit location");
+    const mine: CampusMapPublishFactInput = {
+      ...baseDraft.fact,
+      location: baseDraft.fact.location,
+      officialActions: [
+        { label: "预约页面", url: "https://example.com/my-booking" },
+      ],
+    };
+    const currentFact: CampusMapPublishFactInput = {
+      ...mine,
+      officialActions: [
+        { label: "预约页面", url: "https://example.com/latest-booking" },
+      ],
+    };
+
+    render(
+      <CampusMapEditSheet
+        session={{
+          status: "conflict",
+          draft: { ...baseDraft, fact: mine },
+          conflict: {
+            kind: "current",
+            currentRevisionId: revisionId,
+            currentFact,
+          },
+        }}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("我的：预约页面（https://example.com/my-booking）"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("最新：预约页面（https://example.com/latest-booking）"),
+    ).toBeTruthy();
   });
 
   it("blocks an indoor placement conflict when canonical labels are unavailable", () => {

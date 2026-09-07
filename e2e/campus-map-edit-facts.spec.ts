@@ -1,4 +1,4 @@
-// ref #814, #821, #838, #864, #880
+// ref #814, #821, #838, #864, #880, #881
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 
@@ -10,6 +10,9 @@ const floorId = "00000000-0000-4000-8000-000000008142";
 const fixtureNames = ["QA 814 建筑级饮水机", "QA 814 楼层饮水机"] as const;
 const updatedFixtureName = "QA 821 已更新楼层饮水机";
 const cleanupNames = [...fixtureNames, updatedFixtureName];
+const officialActionLabel = "QA 881 官网";
+const officialActionUrl = "https://www.cuhk.edu.hk/qa-881";
+const visitNote = "QA 881 只接受八达通。";
 
 async function withClient<T>(operation: (client: Client) => Promise<T>) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
@@ -19,6 +22,22 @@ async function withClient<T>(operation: (client: Client) => Promise<T>) {
   } finally {
     await client.end();
   }
+}
+
+async function readCurrentFact(placeId: string) {
+  return withClient(async (client) => {
+    const result = await client.query<{
+      revisionId: string;
+      visitNote: string | null;
+    }>(
+      `select revision_id as "revisionId", visit_note as "visitNote"
+         from campus_map_current_facts where place_id = $1`,
+      [placeId],
+    );
+    const fact = result.rows[0];
+    if (!fact) throw new Error(`missing Current fact for ${placeId}`);
+    return fact;
+  });
 }
 
 async function cleanupFixtures() {
@@ -141,7 +160,7 @@ test.afterAll(cleanupFixtures);
 
 test.beforeEach(async ({ page }) => {
   await installFakeCampusMapAmap(page);
-  await loginWithPassword(page, "admin@test.com", "password123");
+  await loginWithPassword(page, "user@test.com", "password123");
 });
 
 for (const scenario of [
@@ -161,6 +180,11 @@ for (const scenario of [
   test(`publishes minimal ${scenario.kind} Add facts, then completes details in Edit`, async ({
     page,
   }) => {
+    await page.setViewportSize(
+      scenario.kind === "building"
+        ? { width: 1280, height: 800 }
+        : { width: 390, height: 844 },
+    );
     await page.goto("/campus-map");
     await page.getByRole("button", { name: "新增设施" }).click();
     await expect(
@@ -204,6 +228,8 @@ for (const scenario of [
 
     await page.getByRole("button", { name: "发布设施" }).click();
     await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
+    const stablePlaceId = new URL(page.url()).searchParams.get("id");
+    expect(stablePlaceId).not.toBeNull();
     await expect(
       page.getByRole("heading", { name: scenario.defaultName }),
     ).toBeVisible();
@@ -220,9 +246,27 @@ for (const scenario of [
     await page.getByRole("checkbox", { name: "周一" }).check();
     await page.getByRole("textbox", { name: "开始" }).fill("09:00");
     await page.getByRole("textbox", { name: "结束" }).fill("17:00");
+    await page.getByRole("button", { name: "添加官方入口" }).click();
+    await page
+      .getByRole("textbox", { name: "官方入口 1 显示名称" })
+      .fill(officialActionLabel);
+    const officialActionTarget = page.getByRole("textbox", {
+      name: "官方入口 1 链接或联系方式",
+    });
+    if (scenario.kind === "building") {
+      await officialActionTarget.fill("http://unsafe.example.com");
+      await page.getByRole("button", { name: "发布修改" }).click();
+      await expect(
+        page.getByText(/每个入口都要有名称，并使用安全的 https:\/\//u),
+      ).toBeVisible();
+    }
+    await officialActionTarget.fill(officialActionUrl);
+    await page.getByRole("textbox", { name: "到访提示" }).fill(visitNote);
 
     await page.getByRole("button", { name: "发布修改" }).click();
-    await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
+    await expect(page).toHaveURL(
+      new RegExp(`scene=place&id=${stablePlaceId}&snap=peek$`),
+    );
     await expect(
       page.getByRole("heading", { name: scenario.name }),
     ).toBeVisible();
@@ -231,6 +275,9 @@ for (const scenario of [
     await expect(
       page.getByRole("heading", { name: scenario.name }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: new RegExp(officialActionLabel) }),
+    ).toHaveAttribute("href", officialActionUrl);
     const search = page.locator('input[placeholder="搜索建筑或地点…"]:visible');
     await search.fill(scenario.name);
     const result = page.locator("[data-search-result]").filter({
@@ -254,6 +301,17 @@ for (const scenario of [
     await expect(page.getByRole("textbox", { name: "结束" })).toHaveValue(
       "17:00",
     );
+    await expect(
+      page.getByRole("textbox", { name: "官方入口 1 显示名称" }),
+    ).toHaveValue(officialActionLabel);
+    await expect(
+      page.getByRole("textbox", {
+        name: "官方入口 1 链接或联系方式",
+      }),
+    ).toHaveValue(officialActionUrl);
+    await expect(page.getByRole("textbox", { name: "到访提示" })).toHaveValue(
+      visitNote,
+    );
 
     await expect(page.getByRole("radio", { name: "建筑内" })).toBeChecked();
     await expect(page.getByRole("combobox", { name: "建筑" })).toHaveValue(
@@ -264,6 +322,49 @@ for (const scenario of [
     );
 
     if (scenario.kind !== "building") return;
+
+    const latestVisitNote = "QA 881 另一位编辑者的最新提示。";
+    const staleVisitNote = "QA 881 过期草稿里的提示。";
+    const concurrentPage = await page.context().newPage();
+    await installFakeCampusMapAmap(concurrentPage);
+    await concurrentPage.goto(
+      `/campus-map?v=1&scene=place&id=${stablePlaceId}&snap=peek`,
+    );
+    await concurrentPage.getByRole("button", { name: "建议修改" }).click();
+    await concurrentPage
+      .getByRole("textbox", { name: "到访提示" })
+      .fill(latestVisitNote);
+    await concurrentPage.getByRole("button", { name: "发布修改" }).click();
+    await expect(
+      concurrentPage.getByRole("heading", { name: scenario.name }),
+    ).toBeVisible();
+    await concurrentPage.close();
+
+    await page.getByRole("textbox", { name: "到访提示" }).fill(staleVisitNote);
+    await page.getByRole("button", { name: "发布修改" }).click();
+    await expect(page.getByText("这处地点刚刚被其他人更新")).toBeVisible();
+    await expect(page.getByText(`我的：${staleVisitNote}`)).toBeVisible();
+    await expect(page.getByText(`最新：${latestVisitNote}`)).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "到访提示" })).toHaveValue(
+      staleVisitNote,
+    );
+    await page.getByRole("button", { name: "采用最新资料" }).click();
+
+    await page
+      .getByRole("textbox", { name: "到访提示" })
+      .fill("QA 881 不应发布的取消草稿。");
+    await page.getByRole("button", { name: "关闭地图编辑" }).click();
+    await expect(
+      page.getByRole("alertdialog", { name: "放弃未发布的修改？" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "放弃草稿" }).click();
+    await expect(
+      page.getByRole("heading", { name: scenario.name }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "建议修改" }).click();
+    await expect(page.getByRole("textbox", { name: "到访提示" })).toHaveValue(
+      latestVisitNote,
+    );
 
     await page
       .getByRole("textbox", { name: "设施名称或编号" })
@@ -301,14 +402,13 @@ for (const scenario of [
     await expect(page.getByRole("combobox", { name: "楼层" })).toHaveValue(
       floorId,
     );
-    await page.getByRole("button", { name: "更多信息" }).click();
     await expect(
       page.getByRole("combobox", { name: "通常开放时间" }),
     ).toHaveValue("");
   });
 }
 
-test("Building-card Add inherits its Building, exits cleanly, and publishes minimal facts", async ({
+test("Building-card Add inherits its Building, exits cleanly, and rejects an ineligible editor", async ({
   page,
 }) => {
   await page.goto("/campus-map");
@@ -339,5 +439,37 @@ test("Building-card Add inherits its Building, exits cleanly, and publishes mini
   await page.getByRole("radio", { name: "课室" }).check({ force: true });
   await page.getByRole("button", { name: "发布设施" }).click();
   await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
+  const stablePlaceId = new URL(page.url()).searchParams.get("id");
+  expect(stablePlaceId).not.toBeNull();
+  if (!stablePlaceId) throw new Error("missing stable Place id");
   await expect(page.getByRole("heading", { name: "课室" })).toBeVisible();
+  const beforeDeniedPublish = await readCurrentFact(stablePlaceId);
+
+  await withClient((client) =>
+    client.query("update users set nickname = '' where email = $1", [
+      "user@test.com",
+    ]),
+  );
+  try {
+    await page.goto(
+      `/campus-map?v=1&scene=place&id=${stablePlaceId}&snap=peek`,
+    );
+    await page.getByRole("button", { name: "建议修改" }).click();
+    await page.getByRole("button", { name: "更多信息" }).click();
+    const ineligibleDraft = page.getByRole("textbox", { name: "到访提示" });
+    await ineligibleDraft.fill("QA 881 资料未完成用户的草稿。");
+    await page.getByRole("button", { name: "发布修改" }).click();
+    await expect(
+      page.getByRole("dialog", { name: "完善账户后继续" }),
+    ).toBeVisible();
+    await expect(ineligibleDraft).toHaveValue("QA 881 资料未完成用户的草稿。");
+    const afterDeniedPublish = await readCurrentFact(stablePlaceId);
+    expect(afterDeniedPublish).toEqual(beforeDeniedPublish);
+  } finally {
+    await withClient((client) =>
+      client.query("update users set nickname = 'TestUser' where email = $1", [
+        "user@test.com",
+      ]),
+    );
+  }
 });
