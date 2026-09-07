@@ -19,6 +19,9 @@ function trackSessionRequests(page: Page): string[] {
 }
 
 async function announceVisibleReturn(page: Page) {
+  // Automated Chromium keeps every Playwright page visible, so dispatch the
+  // exact event Better Auth subscribes to after asserting its visible state.
+  // docs/development/auth.md records the matching ordinary-Chrome tab test.
   await expect
     .poll(() => page.evaluate(() => document.visibilityState))
     .toBe("visible");
@@ -78,7 +81,7 @@ test.describe("#893 session refresh request ownership", () => {
     expect(sessionRequests).toHaveLength(2);
   });
 
-  test("a visible tab coming back online refreshes a revoked session once", async ({
+  test("a visible or reconnected tab refreshes a revoked session once", async ({
     page,
   }) => {
     await loginWithPassword(page, SEED_EMAIL, SEED_PASSWORD);
@@ -93,17 +96,27 @@ test.describe("#893 session refresh request ownership", () => {
     await expectSignedIn(page);
     await expect.poll(() => sessionRequests.length).toBe(1);
 
+    await revokeServerSessions(page);
+    await announceVisibleReturn(page);
+    await expectSignedOut(page);
+    await expect.poll(() => sessionRequests.length).toBe(2);
+
+    await loginWithPassword(page, SEED_EMAIL, SEED_PASSWORD);
+    await page.goto("/");
+    await expectSignedIn(page);
+    await expect.poll(() => sessionRequests.length).toBe(3);
+
     await page.context().setOffline(true);
     await revokeServerSessions(page);
     await announceVisibleReturn(page);
-    expect(sessionRequests).toHaveLength(1);
+    expect(sessionRequests).toHaveLength(3);
     await page.context().setOffline(false);
 
     await expectSignedOut(page);
-    expect(sessionRequests).toHaveLength(2);
+    expect(sessionRequests).toHaveLength(4);
   });
 
-  test("another tab signing in and out refreshes the current tab once per action", async ({
+  test("another tab's login is observed on return and logout broadcasts once", async ({
     page,
   }) => {
     const sessionRequests = trackSessionRequests(page);
@@ -118,6 +131,8 @@ test.describe("#893 session refresh request ownership", () => {
     await otherTab.getByRole("button", { name: "登录", exact: true }).click();
     await expect(otherTab).toHaveURL("/");
     await expectSignedIn(otherTab);
+    // Better Auth does not broadcast sign-in. The existing tab observes the
+    // shared session cookie when the user returns to it.
     await announceVisibleReturn(page);
     await expectSignedIn(page);
     await expect.poll(() => sessionRequests.length).toBe(2);
@@ -127,5 +142,25 @@ test.describe("#893 session refresh request ownership", () => {
     await expect(otherTab).toHaveURL("/login");
     await expectSignedOut(page);
     expect(sessionRequests).toHaveLength(3);
+  });
+
+  test("the mapped Better Auth name cannot bypass nickname validation", async ({
+    page,
+  }) => {
+    await loginWithPassword(page, SEED_EMAIL, SEED_PASSWORD);
+    await page.goto("/");
+    await expectSignedIn(page);
+
+    for (const data of [{ name: "bad-name" }, { nickname: "bad-name" }]) {
+      const status = await page.evaluate(async (body) => {
+        const response = await fetch("/api/auth/update-user", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        return response.status;
+      }, data);
+      expect(status).toBe(400);
+    }
   });
 });

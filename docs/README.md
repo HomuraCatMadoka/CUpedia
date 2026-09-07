@@ -7,6 +7,7 @@ This page is a directory-level map, not an inventory of every artifact. Start wi
 | Task                                               | Start here                                                                  |
 | -------------------------------------------------- | --------------------------------------------------------------------------- |
 | Set up local development                           | [Development setup](development/setup.md)                                   |
+| Change authentication                              | [Authentication maintenance](development/auth.md)                           |
 | Change the database                                | [Database workflow](development/database.md)                                |
 | Choose tests or understand CI                      | [Testing guide](development/testing.md), then [CI topology](ci-topology.md) |
 | Change Wiki persistence, drafts, search, or assets | [Wiki data guide](development/wiki.md)                                      |
