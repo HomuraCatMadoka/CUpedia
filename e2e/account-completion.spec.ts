@@ -26,6 +26,14 @@ async function loginWithOtp(
   await expect(page).toHaveURL("/");
 }
 
+async function expectSessionCookieCacheAccepted(
+  page: import("@playwright/test").Page,
+) {
+  const response = await page.request.get("/api/auth/get-session");
+  expect(response.status()).toBe(200);
+  expect(response.headers()["set-cookie"] ?? "").not.toContain("session_data");
+}
+
 async function triggerDanmaku(
   page: import("@playwright/test").Page,
   draft: string,
@@ -45,6 +53,7 @@ test("legacy OTP-only user completes nickname and password in place before publi
   await createOtpOnlyUser(email);
 
   await loginWithOtp(page, email);
+  await expectSessionCookieCacheAccepted(page);
   const dialog = await triggerDanmaku(page, draft);
   await expect(dialog).toBeVisible();
   await expect(page.getByLabel("弹幕内容")).toHaveValue(draft);

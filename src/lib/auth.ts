@@ -22,6 +22,7 @@ export const auth = betterAuth({
     },
   }),
   user: {
+    fields: { name: "nickname" },
     additionalFields: {
       nickname: { type: "string", required: true },
       role: {
@@ -65,7 +66,12 @@ export const auth = betterAuth({
     // and email-OTP boundaries — client checks are bypassable.
     before: createAuthMiddleware(async (ctx) => {
       const body = ctx.body as
-        | { email?: unknown; nickname?: unknown; type?: unknown }
+        | {
+            email?: unknown;
+            name?: unknown;
+            nickname?: unknown;
+            type?: unknown;
+          }
         | undefined;
       const email = body?.email;
       if (shouldRejectOtpRequest(ctx.path, email)) {
@@ -92,6 +98,16 @@ export const auth = betterAuth({
           throw new APIError("BAD_REQUEST", { message: nickname.error });
         }
         if (body) body.nickname = nickname.nickname;
+      }
+      if (ctx.path === "/update-user" && body) {
+        for (const field of ["name", "nickname"] as const) {
+          if (body[field] === undefined) continue;
+          const nickname = validateSignupNickname(body[field]);
+          if (!nickname.ok) {
+            throw new APIError("BAD_REQUEST", { message: nickname.error });
+          }
+          body[field] = nickname.nickname;
+        }
       }
     }),
   },
