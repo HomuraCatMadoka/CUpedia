@@ -147,6 +147,7 @@ async function cleanupFixtures() {
         "delete from campus_map_buildings where id = any($1::uuid[])",
         [fixtureBuildingIds],
       );
+      await client.query("delete from campus_map_publish_rate_limits");
       await client.query("commit");
     } catch (error) {
       await client.query("rollback");
@@ -181,6 +182,9 @@ test.beforeAll(async () => {
 test.afterAll(cleanupFixtures);
 
 test.beforeEach(async ({ page }) => {
+  await withClient((client) =>
+    client.query("delete from campus_map_publish_rate_limits"),
+  );
   await installFakeCampusMapAmap(page);
   await loginWithPassword(page, "user@test.com", "password123");
 });
