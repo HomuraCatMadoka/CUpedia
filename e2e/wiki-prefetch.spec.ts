@@ -1,7 +1,20 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { PAGE_IDS } from "../scripts/seed-data";
 import { expectIdleWithoutPrefetch, trackPrefetch } from "./helpers/prefetch";
 import { wikiPageUrl } from "./helpers/wiki";
+
+function collectRuntimeFailures(page: Page): string[] {
+  const failures: string[] = [];
+  page.on("pageerror", (error) =>
+    failures.push(`JavaScript: ${error.message}`),
+  );
+  page.on("response", (response) => {
+    if (response.status() >= 500) {
+      failures.push(`HTTP ${response.status()}: ${response.url()}`);
+    }
+  });
+  return failures;
+}
 
 test.describe("#892 Wiki navigation avoids low-hit prefetch", () => {
   test.beforeEach(() => {
@@ -14,6 +27,7 @@ test.describe("#892 Wiki navigation avoids low-hit prefetch", () => {
   test("hover stays idle and a slow desktop navigation shows immediate feedback", async ({
     page,
   }) => {
+    const runtimeFailures = collectRuntimeFailures(page);
     const prefetchedPaths = trackPrefetch(page);
     await page.goto("/wiki");
     const tree = page.getByRole("navigation", { name: "Wiki 页面树" });
@@ -84,11 +98,13 @@ test.describe("#892 Wiki navigation avoids low-hit prefetch", () => {
     await expect(page).toHaveURL(/\/wiki$/);
     await page.goForward();
     await expect(page).toHaveURL(new RegExp(`${href}$`));
+    expect(runtimeFailures).toEqual([]);
   });
 
   test("opening an article does not prefetch history and history still works", async ({
     page,
   }) => {
+    const runtimeFailures = collectRuntimeFailures(page);
     const prefetchedPaths = trackPrefetch(page);
     const articlePath = `/wiki/${PAGE_IDS.welcome}`;
     const historyPath = `/wiki/history/${PAGE_IDS.welcome}`;
@@ -104,5 +120,6 @@ test.describe("#892 Wiki navigation avoids low-hit prefetch", () => {
     await page.goBack();
     await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.welcome));
     await expect(page.locator("main h1").first()).toBeVisible();
+    expect(runtimeFailures).toEqual([]);
   });
 });
