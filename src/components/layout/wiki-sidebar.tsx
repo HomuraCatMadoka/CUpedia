@@ -38,7 +38,6 @@ import { cn } from "@/lib/utils";
 import { isFocusedWikiEditorRoute } from "@/lib/wiki-routes";
 import { getWikiDisplayTitle } from "@/lib/wiki-title";
 import { useSidebar } from "@/components/layout/sidebar-provider";
-import { PrefetchLink } from "@/components/layout/prefetch-link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -511,8 +510,9 @@ function PageTreeItem({
             <PageIcon icon={node.icon} />
           </span>
         )}
-        <PrefetchLink
+        <Link
           href={href}
+          prefetch={false}
           onClick={(event) => {
             if (suppressNextClickRef.current) {
               event.preventDefault();
@@ -561,7 +561,7 @@ function PageTreeItem({
               className="ml-2 size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
             />
           )}
-        </PrefetchLink>
+        </Link>
         <div
           data-testid="wiki-tree-row-actions"
           className="pointer-events-none absolute right-1 hidden items-center gap-0.5 opacity-0 transition-opacity group-focus-within/row:pointer-events-auto group-focus-within/row:opacity-100 group-hover/row:pointer-events-auto group-hover/row:opacity-100 md:flex"
@@ -1173,7 +1173,6 @@ export function WikiSidebar({
     (event, href) => {
       if (
         event.defaultPrevented ||
-        !isMobile ||
         event.button !== 0 ||
         event.metaKey ||
         event.ctrlKey ||
@@ -1186,15 +1185,19 @@ export function WikiSidebar({
       event.preventDefault();
       if (pendingHrefRef.current) return;
       if (href === pathname) {
-        closeMobile();
+        if (isMobile) closeMobile();
         return;
       }
 
       pendingHrefRef.current = href;
       setPendingHref(href);
-      feedbackTimerRef.current = setTimeout(() => {
+      if (isMobile) {
+        feedbackTimerRef.current = setTimeout(() => {
+          setFeedbackHref(href);
+        }, NAVIGATION_FEEDBACK_DELAY_MS);
+      } else {
         setFeedbackHref(href);
-      }, NAVIGATION_FEEDBACK_DELAY_MS);
+      }
 
       startTransition(() => router.push(href));
     },

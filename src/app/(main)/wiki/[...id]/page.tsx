@@ -211,7 +211,7 @@ export default async function WikiReadPage({
               {getWikiDisplayTitle(page.title)}
             </h1>
             <div className="flex shrink-0 gap-2">
-              <Link href={`/wiki/history/${page.id}`}>
+              <Link href={`/wiki/history/${page.id}`} prefetch={false}>
                 <span className="inline-block rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground hover:bg-accent">
                   历史
                 </span>
