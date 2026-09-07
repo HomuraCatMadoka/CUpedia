@@ -96,12 +96,18 @@ export interface CampusMapPublishPhotoInput {
   role: CampusMapPlacePhotoRole;
 }
 
+export interface CampusMapPublishRequestedFloorInput {
+  /** User-confirmed label; the server resolves it to a stable Floor ID. */
+  displayLabel: string;
+}
+
 export type CampusMapPublishChange =
   | {
       operation: "create";
       fact: CampusMapPublishFactInput;
       sources: CampusMapPublishSourceInput[];
       photos?: CampusMapPublishPhotoInput[];
+      requestedFloor?: CampusMapPublishRequestedFloorInput;
     }
   | {
       operation: "update";

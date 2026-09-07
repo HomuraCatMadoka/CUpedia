@@ -14,6 +14,10 @@ import {
   firstInvalidCampusMapEditField,
   type CampusMapEditFieldKey,
 } from "@/lib/campus-map/edit-schema";
+import {
+  campusMapFloorLabelError,
+  normalizeCampusMapFloorLabel,
+} from "@/lib/campus-map/floor-label";
 import { isCampusMapOfficialAction } from "@/lib/campus-map/official-action";
 import { campusMapFactFieldAppliesV2 } from "@/lib/campus-map/place-type-contract";
 import { isCampusMapRegularHours } from "@/lib/campus-map/regular-hours";
@@ -28,7 +32,7 @@ import {
   type CampusMapPlacePhotoRole,
 } from "@/lib/campus-map/place-photos-contract";
 
-export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 9 as const;
+export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 10 as const;
 
 export type CampusMapPublishFeedbackReason = Extract<
   CampusMapPublishReceiptOutcome,
@@ -72,6 +76,11 @@ export interface CampusMapEditPhoto {
   role: CampusMapPlacePhotoRole;
 }
 
+export interface CampusMapMissingFloorDraft {
+  displayLabel: string;
+  confirmed: boolean;
+}
+
 export interface CampusMapEditDraft {
   mode: "add" | "edit";
   placeId: string | null;
@@ -91,6 +100,8 @@ export interface CampusMapEditDraft {
   /** An incomplete location choice owned by the edit session, never published. */
   locationIntent: "indoor" | null;
   locationDisplay?: CampusMapIndoorLocationDisplay | null;
+  /** Add-only user intent; it is resolved to a stable floorId on publish. */
+  missingFloor: CampusMapMissingFloorDraft | null;
   warningAcknowledgements: CampusMapPublishCommand["warningAcknowledgements"];
 }
 
@@ -224,6 +235,14 @@ export type CampusMapEditEvent =
       idempotencyKey?: string;
       locationDisplay?: CampusMapIndoorLocationDisplay | null;
     }
+  | { type: "START_MISSING_FLOOR"; idempotencyKey?: string }
+  | {
+      type: "CHANGE_MISSING_FLOOR_LABEL";
+      displayLabel: string;
+      idempotencyKey?: string;
+    }
+  | { type: "CONFIRM_MISSING_FLOOR" }
+  | { type: "CANCEL_MISSING_FLOOR"; idempotencyKey?: string }
   | {
       type: "CHANGE_PLACE_TYPE";
       placeType: CampusMapPublishFactInput["placeType"];
@@ -331,6 +350,7 @@ function clearDraftLocation(draft: CampusMapEditDraft): CampusMapEditDraft {
     placementMethod: null,
     locationIntent: null,
     locationDisplay: null,
+    missingFloor: null,
     warningAcknowledgements: [],
   };
 }
@@ -349,6 +369,7 @@ function normalizeRestoredMinimalAddDraft(
       : null,
     baselineSources: [],
     baselinePhotos: [],
+    missingFloor: null,
     warningAcknowledgements: [],
   };
 }
@@ -386,6 +407,7 @@ export function createCampusMapEditDraft(input: {
       fact,
       input.locationDisplay ?? null,
     ),
+    missingFloor: null,
     warningAcknowledgements: [],
   };
 }
@@ -472,12 +494,14 @@ export function isCampusMapEditDirty(
       stable(draft.fact) !== stable(baselineFact) ||
       stable(draft.sources) !== stable(draft.baselineSources) ||
       stable(draft.photos) !== stable(draft.baselinePhotos) ||
+      draft.missingFloor !== null ||
       draft.locationIntent !== null
     );
   }
   return (
     stable(draft.fact) !== stable(draft.baselineFact) ||
     stable(draft.photos) !== stable(draft.baselinePhotos) ||
+    draft.missingFloor !== null ||
     draft.locationIntent !== null
   );
 }
@@ -582,6 +606,9 @@ function transitionFactChange(
       locationDisplay: samePlacement(next.draft.fact, fact)
         ? next.draft.locationDisplay
         : matchingLocationDisplay(fact, locationDisplay),
+      missingFloor: samePlacement(next.draft.fact, fact)
+        ? next.draft.missingFloor
+        : null,
     },
   });
 }
@@ -590,7 +617,12 @@ function normalizeServerErrorTarget(field: string | undefined): string {
   if (!field) return "form-heading";
   const path = field.split(/[^A-Za-z]+/).filter(Boolean);
   if (path.includes("buildingId")) return "building";
-  if (path.includes("location") || path.includes("floorId")) {
+  if (
+    path.includes("location") ||
+    path.includes("floorId") ||
+    path.includes("floorLabel") ||
+    path.includes("requestedFloor")
+  ) {
     return "location";
   }
   if (path.includes("placeType")) return "placeType";
@@ -631,6 +663,11 @@ function publishTransition(
         draft.fact.location?.kind !== "floor"));
   const error =
     (buildingLocationMissing ? "buildingId" : null) ??
+    (draft.missingFloor !== null &&
+    (!draft.missingFloor.confirmed ||
+      campusMapFloorLabelError(draft.missingFloor.displayLabel) !== null)
+      ? "floorLabel"
+      : null) ??
     firstInvalidCampusMapEditField(draft, requiredFields) ??
     (draft.locationIntent === "indoor" ? "buildingId" : null);
   if (error) {
@@ -643,7 +680,12 @@ function publishTransition(
         { kind: "focus", target: normalizeServerErrorTarget(error) },
         {
           kind: "announce",
-          message: error === "buildingId" ? "请选择建筑" : "请先完成必填资料",
+          message:
+            error === "buildingId"
+              ? "请选择建筑"
+              : error === "floorLabel"
+                ? "请填写并确认实际楼层标签"
+                : "请先完成必填资料",
         },
       ],
     };
@@ -879,6 +921,7 @@ export function transitionCampusMapEdit(
         placementMethod: null,
         locationIntent: null,
         locationDisplay,
+        missingFloor: null,
         warningAcknowledgements: [],
       },
     };
@@ -961,6 +1004,7 @@ export function transitionCampusMapEdit(
         placementMethod: method,
         locationIntent: null,
         locationDisplay: null,
+        missingFloor: null,
         warningAcknowledgements: [],
       },
     };
@@ -1085,6 +1129,98 @@ export function transitionCampusMapEdit(
       event.idempotencyKey,
       event.locationDisplay,
     );
+  }
+  if (event.type === "START_MISSING_FLOOR") {
+    if (
+      session.draft.mode !== "add" ||
+      !session.draft.fact.buildingId ||
+      (session.draft.fact.location?.kind !== "building" &&
+        session.draft.fact.location?.kind !== "floor")
+    ) {
+      return rejected(session);
+    }
+    const attemptDraft = draftForPayloadChange(session, event.idempotencyKey);
+    if (!attemptDraft) return rejected(session);
+    const buildingDisplay = attemptDraft.locationDisplay;
+    return persisted({
+      ...editable({ ...session, draft: attemptDraft }),
+      draft: {
+        ...attemptDraft,
+        fact: {
+          ...attemptDraft.fact,
+          floorId: null,
+          location: { kind: "building" },
+        },
+        locationDisplay: buildingDisplay
+          ? { ...buildingDisplay, floorId: null, floorLabel: null }
+          : null,
+        missingFloor: { displayLabel: "", confirmed: false },
+        warningAcknowledgements: [],
+      },
+    });
+  }
+  if (event.type === "CHANGE_MISSING_FLOOR_LABEL") {
+    if (session.draft.mode !== "add" || !session.draft.missingFloor) {
+      return rejected(session);
+    }
+    const attemptDraft = draftForPayloadChange(session, event.idempotencyKey);
+    if (!attemptDraft) return rejected(session);
+    return persisted({
+      ...editable({ ...session, draft: attemptDraft }),
+      draft: {
+        ...attemptDraft,
+        missingFloor: {
+          displayLabel: event.displayLabel,
+          confirmed: false,
+        },
+        warningAcknowledgements: [],
+      },
+    });
+  }
+  if (event.type === "CONFIRM_MISSING_FLOOR") {
+    if (session.draft.mode !== "add" || !session.draft.missingFloor) {
+      return rejected(session);
+    }
+    const labelError = campusMapFloorLabelError(
+      session.draft.missingFloor.displayLabel,
+    );
+    if (labelError) {
+      return {
+        accepted: true,
+        session: {
+          ...editable(session),
+          localError: "floorLabel",
+        },
+        commands: [
+          { kind: "persist-snapshot" },
+          { kind: "focus", target: "location" },
+          { kind: "announce", message: "请填写有效的实际楼层标签" },
+        ],
+      };
+    }
+    return persisted({
+      ...editable(session),
+      draft: {
+        ...session.draft,
+        missingFloor: {
+          displayLabel: normalizeCampusMapFloorLabel(
+            session.draft.missingFloor.displayLabel,
+          ),
+          confirmed: true,
+        },
+      },
+    });
+  }
+  if (event.type === "CANCEL_MISSING_FLOOR") {
+    if (session.draft.mode !== "add" || !session.draft.missingFloor) {
+      return rejected(session);
+    }
+    const attemptDraft = draftForPayloadChange(session, event.idempotencyKey);
+    if (!attemptDraft) return rejected(session);
+    return persisted({
+      ...editable({ ...session, draft: attemptDraft }),
+      draft: { ...attemptDraft, missingFloor: null },
+    });
   }
   if (event.type === "CHANGE_PLACE_TYPE") {
     const currentPreset = CAMPUS_MAP_EDIT_SCHEMA.presets.find(
@@ -1591,6 +1727,7 @@ export function transitionCampusMapEdit(
           baselineFact: clone(session.conflict.currentFact),
           baselinePhotos: clone(session.conflict.currentPhotos ?? []),
           idempotencyKey: event.idempotencyKey,
+          missingFloor: null,
           warningAcknowledgements: [],
         },
       },
@@ -1616,6 +1753,7 @@ export function transitionCampusMapEdit(
           baselinePhotos: clone(session.conflict.currentPhotos ?? []),
           baseRevisionId: session.conflict.currentRevisionId,
           idempotencyKey: event.idempotencyKey,
+          missingFloor: null,
           warningAcknowledgements: [],
         },
       },
@@ -1646,6 +1784,13 @@ export function deriveCampusMapPublishCommand(
 ): CampusMapPublishCommand {
   if (!draft.fact.location)
     throw new Error("Campus Map edit draft has no location");
+  if (
+    draft.missingFloor &&
+    (!draft.missingFloor.confirmed ||
+      campusMapFloorLabelError(draft.missingFloor.displayLabel) !== null)
+  ) {
+    throw new Error("Campus Map missing Floor label is not confirmed");
+  }
   const fact = draft.fact as CampusMapPublishFactInput;
   const changedFields = PUBLISH_FACT_FIELDS.filter((field) => {
     if (!draft.baselineFact) return true;
@@ -1680,6 +1825,15 @@ export function deriveCampusMapPublishCommand(
           fact,
           sources: draft.sources,
           photos: draft.photos.map(({ assetId, role }) => ({ assetId, role })),
+          ...(draft.missingFloor
+            ? {
+                requestedFloor: {
+                  displayLabel: normalizeCampusMapFloorLabel(
+                    draft.missingFloor.displayLabel,
+                  ),
+                },
+              }
+            : {}),
         }
       : {
           operation: "update" as const,
@@ -1768,6 +1922,7 @@ function upgradeLegacyEditSession(value: unknown, version: number): unknown {
       locationIntent: null,
       photos: [],
       baselinePhotos: [],
+      missingFloor: null,
       ...((version === 1 || version === 2) && { locationDisplay: null }),
     };
     sessionValue = {
@@ -1804,6 +1959,11 @@ function upgradeLegacyEditSession(value: unknown, version: number): unknown {
       };
       draftValue = sessionValue.draft as Record<string, unknown>;
     }
+  }
+
+  if (version < 10) {
+    draftValue = { ...draftValue, missingFloor: null };
+    sessionValue = { ...sessionValue, draft: draftValue };
   }
 
   const conflict = isRecord(sessionValue.conflict)
@@ -2227,6 +2387,16 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
       ? draft.entrySource !== null
       : draft.entrySource === null) &&
     (draft.locationIntent === null || draft.locationIntent === "indoor") &&
+    (draft.missingFloor === null ||
+      (draft.mode === "add" &&
+        isRecord(draft.missingFloor) &&
+        typeof draft.missingFloor.displayLabel === "string" &&
+        typeof draft.missingFloor.confirmed === "boolean" &&
+        isRecord(draft.fact) &&
+        draft.fact.location !== null &&
+        isRecord(draft.fact.location) &&
+        draft.fact.location.kind === "building" &&
+        draft.fact.floorId === null)) &&
     (draft.placementCandidate === null ||
       looksLikePlacement(draft.placementCandidate)) &&
     Array.isArray(draft.sources) &&

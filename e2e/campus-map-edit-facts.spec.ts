@@ -1,4 +1,4 @@
-// ref #814, #821, #838, #864, #880, #881
+// ref #814, #821, #838, #864, #880, #881, #890
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 
@@ -7,6 +7,13 @@ import { installFakeCampusMapAmap } from "./helpers/campus-map-amap";
 
 const buildingId = "00000000-0000-4000-8000-000000008141";
 const floorId = "00000000-0000-4000-8000-000000008142";
+const emptyFloorBuildingId = "00000000-0000-4000-8000-000000008143";
+const mobileEmptyFloorBuildingId = "00000000-0000-4000-8000-000000008144";
+const fixtureBuildingIds = [
+  buildingId,
+  emptyFloorBuildingId,
+  mobileEmptyFloorBuildingId,
+] as const;
 const fixtureNames = ["QA 814 建筑级饮水机", "QA 814 楼层饮水机"] as const;
 const updatedFixtureName = "QA 821 已更新楼层饮水机";
 const cleanupNames = [...fixtureNames, updatedFixtureName];
@@ -47,8 +54,8 @@ async function cleanupFixtures() {
       await client.query("set local session_replication_role = replica");
       const places = await client.query<{ place_id: string }>(
         `select place_id from campus_map_current_facts
-          where name = any($1::text[]) or building_id = $2`,
-        [cleanupNames, buildingId],
+          where name = any($1::text[]) or building_id = any($2::uuid[])`,
+        [cleanupNames, fixtureBuildingIds],
       );
       const placeIds = places.rows.map((row) => row.place_id);
       if (placeIds.length) {
@@ -124,12 +131,22 @@ async function cleanupFixtures() {
           );
         }
       }
-      await client.query("delete from campus_map_floors where id = $1", [
-        floorId,
-      ]);
-      await client.query("delete from campus_map_buildings where id = $1", [
-        buildingId,
-      ]);
+      await client.query(
+        `delete from campus_map_floor_provenance
+          where floor_id in (
+            select id from campus_map_floors
+             where building_id = any($1::uuid[])
+          )`,
+        [fixtureBuildingIds],
+      );
+      await client.query(
+        "delete from campus_map_floors where building_id = any($1::uuid[])",
+        [fixtureBuildingIds],
+      );
+      await client.query(
+        "delete from campus_map_buildings where id = any($1::uuid[])",
+        [fixtureBuildingIds],
+      );
       await client.query("commit");
     } catch (error) {
       await client.query("rollback");
@@ -144,9 +161,14 @@ test.beforeAll(async () => {
     await client.query(
       `insert into campus_map_buildings
          (id, name, english_name, code, aliases, anchor_longitude, anchor_latitude, anchor_crs)
-       values ($1, 'QA 814 测试楼', 'QA 814 Building', 'QA814', '{}',
-         114.2072, 22.4191, 'wgs84')`,
-      [buildingId],
+       values
+         ($1, 'QA 814 测试楼', 'QA 814 Building', 'QA814', '{}',
+           114.2072, 22.4191, 'wgs84'),
+         ($2, 'QA 890 空楼层测试楼', 'QA 890 Empty Floor Building', 'QA890', '{}',
+           114.2082, 22.4198, 'wgs84'),
+         ($3, 'QA 890 移动空楼层测试楼', 'QA 890 Mobile Empty Floor Building', 'QA890M', '{}',
+           114.2084, 22.4199, 'wgs84')`,
+      [buildingId, emptyFloorBuildingId, mobileEmptyFloorBuildingId],
     );
     await client.query(
       `insert into campus_map_floors (id, building_id, display_label, sort_order)
@@ -162,6 +184,108 @@ test.beforeEach(async ({ page }) => {
   await installFakeCampusMapAmap(page);
   await loginWithPassword(page, "user@test.com", "password123");
 });
+
+for (const scenario of [
+  {
+    viewportName: "desktop",
+    viewport: { width: 1280, height: 800 },
+    buildingId: emptyFloorBuildingId,
+    buildingName: "QA 890 空楼层测试楼",
+    floorLabel: "LG1",
+  },
+  {
+    viewportName: "mobile",
+    viewport: { width: 390, height: 844 },
+    buildingId: mobileEmptyFloorBuildingId,
+    buildingName: "QA 890 移动空楼层测试楼",
+    floorLabel: "G",
+  },
+] as const) {
+  test(`adds a confirmed missing Floor from a Building card on ${scenario.viewportName}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(scenario.viewport);
+    await page.goto("/campus-map");
+    const search = page.locator('input[placeholder="搜索建筑或地点…"]:visible');
+    await search.fill(scenario.buildingName);
+    await page.locator(`[data-search-result="${scenario.buildingId}"]`).click();
+    await expect(
+      page.getByRole("heading", { name: scenario.buildingName }),
+    ).toBeVisible();
+
+    await page
+      .getByRole("button", {
+        name: new RegExp(`在${scenario.buildingName}新增(?:第一处)?设施`, "u"),
+      })
+      .click();
+    await expect(page.getByText(/这栋建筑尚未收录楼层/)).toBeVisible();
+    await page
+      .getByRole("combobox", { name: "楼层" })
+      .selectOption({ label: "添加缺失楼层…" });
+    await page
+      .getByRole("textbox", { name: "实际楼层标签" })
+      .fill(scenario.floorLabel);
+    await page.getByRole("button", { name: "确认此楼层" }).click();
+    await expect(
+      page.getByText(`已确认楼层标签：${scenario.floorLabel}`),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await page.getByRole("button", { name: "发布设施" }).click();
+
+    await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
+    const stablePlaceId = new URL(page.url()).searchParams.get("id");
+    expect(stablePlaceId).not.toBeNull();
+    await expect(page.getByRole("heading", { name: "饮水机" })).toBeVisible();
+    await expect(
+      page.getByText(
+        `饮水点 · ${scenario.buildingName} · ${scenario.floorLabel}`,
+        { exact: true },
+      ),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "建议修改" }).click();
+    await expect(page.getByRole("combobox", { name: "建筑" })).toHaveValue(
+      scenario.buildingId,
+    );
+    const reopenedFloor = page.getByRole("combobox", { name: "楼层" });
+    await expect(reopenedFloor.locator("option:checked")).toHaveText(
+      scenario.floorLabel,
+    );
+    await page.getByRole("button", { name: "关闭地图编辑" }).click();
+
+    await page.goto(
+      `/campus-map?v=1&scene=building&id=${scenario.buildingId}&snap=full`,
+    );
+    const buildingCard = page.getByRole("region", {
+      name: scenario.buildingName,
+    });
+    await expect(
+      buildingCard.getByRole("button", {
+        name: scenario.floorLabel,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(buildingCard).toContainText("饮水点");
+
+    const stored = await withClient((client) =>
+      client.query<{ floorId: string; displayLabel: string }>(
+        `select fact.floor_id as "floorId", floor.display_label as "displayLabel"
+           from campus_map_current_facts fact
+           join campus_map_floors floor
+             on floor.building_id = fact.building_id and floor.id = fact.floor_id
+          where fact.place_id = $1`,
+        [stablePlaceId],
+      ),
+    );
+    expect(stored.rows).toEqual([
+      { floorId: expect.any(String), displayLabel: scenario.floorLabel },
+    ]);
+  });
+}
 
 for (const scenario of [
   {

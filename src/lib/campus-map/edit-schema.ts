@@ -8,6 +8,10 @@ import {
   type CampusMapFactFieldKeyV2,
 } from "@/lib/campus-map/place-type-contract";
 import { isCampusMapRegularHours } from "@/lib/campus-map/regular-hours";
+import {
+  campusMapUtf8ByteLength,
+  containsInvalidCampusMapPostgresText,
+} from "@/lib/campus-map/text-validation";
 import type {
   CampusMapPublishFactInput,
   CampusMapPublishSourceInput,
@@ -41,33 +45,16 @@ export type CampusMapFactNameErrorCode =
 export const CAMPUS_MAP_FACT_NAME_MAX_BYTES = 240;
 export const CAMPUS_MAP_VISIT_NOTE_MAX_BYTES = 500;
 
-function containsUnpairedSurrogate(value: string): boolean {
-  for (let index = 0; index < value.length; index += 1) {
-    const codeUnit = value.charCodeAt(index);
-    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
-      if (index + 1 >= value.length) return true;
-      const next = value.charCodeAt(index + 1);
-      if (next < 0xdc00 || next > 0xdfff) return true;
-      index += 1;
-    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
-      return true;
-    }
-  }
-  return false;
-}
-
 export function campusMapFactNameError(
   value: unknown,
 ): CampusMapFactNameErrorCode | null {
   if (typeof value !== "string" || value.trim() === "") {
     return "fact-name-required";
   }
-  if (value.includes("\u0000") || containsUnpairedSurrogate(value)) {
+  if (containsInvalidCampusMapPostgresText(value)) {
     return "fact-name-invalid";
   }
-  if (
-    new TextEncoder().encode(value).byteLength > CAMPUS_MAP_FACT_NAME_MAX_BYTES
-  ) {
+  if (campusMapUtf8ByteLength(value) > CAMPUS_MAP_FACT_NAME_MAX_BYTES) {
     return "fact-name-too-long";
   }
   return null;
@@ -81,9 +68,8 @@ export function campusMapOptionalShortTextIsValid(
     value === null ||
     (typeof value === "string" &&
       value.trim() !== "" &&
-      !value.includes("\u0000") &&
-      !containsUnpairedSurrogate(value) &&
-      new TextEncoder().encode(value).byteLength <= maxBytes)
+      !containsInvalidCampusMapPostgresText(value) &&
+      campusMapUtf8ByteLength(value) <= maxBytes)
   );
 }
 

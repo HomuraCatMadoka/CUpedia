@@ -210,6 +210,93 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(within(buildingGroup).queryByText("H10")).toBeNull();
   });
 
+  it("explains an empty Floor directory and asks for explicit label confirmation", () => {
+    const emptyFloorBuildings: CampusMapBrowseBuilding[] = [
+      { ...buildings[0], floors: [] },
+    ];
+    const onEvent = vi.fn();
+    let session = transitionCampusMapEdit(null, {
+      type: "START_FACILITY_ADD",
+      idempotencyKey: "10000000-0000-4000-8000-000000000001",
+      entry: {
+        kind: "building",
+        locationDisplay: {
+          buildingId,
+          buildingName: "科学馆",
+          floorId: null,
+          floorLabel: null,
+        },
+      },
+    }).session!;
+    const view = render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.209, 22.419]}
+        buildings={emptyFloorBuildings}
+        onEvent={onEvent}
+      />,
+    );
+
+    expect(screen.getByText(/这栋建筑尚未收录楼层/).textContent).toContain(
+      "未指定楼层",
+    );
+    expect(screen.getByRole("option", { name: "添加缺失楼层…" })).toBeTruthy();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "楼层" }), {
+      target: { value: "__add-missing-floor" },
+    });
+    expect(onEvent).toHaveBeenLastCalledWith({ type: "START_MISSING_FLOOR" });
+
+    session = transitionCampusMapEdit(session, {
+      type: "START_MISSING_FLOOR",
+    }).session!;
+    view.rerender(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.209, 22.419]}
+        buildings={emptyFloorBuildings}
+        onEvent={onEvent}
+      />,
+    );
+    const input = screen.getByRole("textbox", { name: "实际楼层标签" });
+    fireEvent.change(input, { target: { value: "LG1" } });
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "CHANGE_MISSING_FLOOR_LABEL",
+      displayLabel: "LG1",
+    });
+
+    session = transitionCampusMapEdit(session, {
+      type: "CHANGE_MISSING_FLOOR_LABEL",
+      displayLabel: "LG1",
+    }).session!;
+    view.rerender(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.209, 22.419]}
+        buildings={emptyFloorBuildings}
+        onEvent={onEvent}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "确认此楼层" }));
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "CONFIRM_MISSING_FLOOR",
+    });
+
+    session = transitionCampusMapEdit(session, {
+      type: "CONFIRM_MISSING_FLOOR",
+    }).session!;
+    view.rerender(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.209, 22.419]}
+        buildings={emptyFloorBuildings}
+        onEvent={onEvent}
+      />,
+    );
+    expect(screen.getByText("已确认楼层标签：LG1")).toBeTruthy();
+    expect(document.body.textContent).toContain("不代表官方或已审核资料");
+  });
+
   it("does not duplicate the Building directory inside global Add", () => {
     const session = transitionCampusMapEdit(null, {
       type: "START_FACILITY_ADD",

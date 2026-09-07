@@ -31,6 +31,10 @@ import {
   CAMPUS_MAP_VISIT_NOTE_MAX_BYTES,
 } from "@/lib/campus-map/edit-schema";
 import {
+  campusMapFloorLabelError,
+  isCampusMapFloorEvidenceSource,
+} from "@/lib/campus-map/floor-label";
+import {
   CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT,
   CAMPUS_MAP_PLACE_PHOTO_ROLES,
 } from "@/lib/campus-map/place-photos-contract";
@@ -39,6 +43,10 @@ import {
   CAMPUS_MAP_OFFICIAL_ACTION_MAX_COUNT,
 } from "@/lib/campus-map/official-action";
 import { isCampusMapRegularHours } from "@/lib/campus-map/regular-hours";
+import {
+  campusMapUtf8ByteLength,
+  containsInvalidCampusMapPostgresText,
+} from "@/lib/campus-map/text-validation";
 
 const MAX_COMMENT_BYTES = 2_000;
 const MAX_SOURCE_SUMMARY_BYTES = 2_000;
@@ -128,29 +136,6 @@ export function normalizePublishCommandIdentifiers(
   };
 }
 
-function utf8Bytes(value: string): number {
-  return Buffer.byteLength(value, "utf8");
-}
-
-function containsUnpairedSurrogate(value: string): boolean {
-  for (let index = 0; index < value.length; index += 1) {
-    const codeUnit = value.charCodeAt(index);
-    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
-      if (index + 1 >= value.length) return true;
-      const next = value.charCodeAt(index + 1);
-      if (next < 0xdc00 || next > 0xdfff) return true;
-      index += 1;
-    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function containsInvalidPostgresText(value: string): boolean {
-  return value.includes("\u0000") || containsUnpairedSurrogate(value);
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -173,6 +158,9 @@ export function hasPublishCommandStructure(
       "photos" in change &&
       (!Array.isArray(change.photos) || !change.photos.every(isRecord))
     ) {
+      return false;
+    }
+    if ("requestedFloor" in change && !isRecord(change.requestedFloor)) {
       return false;
     }
     return (
@@ -201,7 +189,7 @@ export function isPublishCommandTooLarge(
 ): boolean {
   const limit =
     kind === "bulk" ? MAX_BULK_COMMAND_BYTES : MAX_SINGLE_COMMAND_BYTES;
-  return utf8Bytes(serializedCommand) > limit;
+  return campusMapUtf8ByteLength(serializedCommand) > limit;
 }
 
 export function isValidPublishIdempotencyKey(value: unknown): value is string {
@@ -214,10 +202,10 @@ export function validateComment(
   if (typeof comment !== "string" || comment.trim() === "") {
     return [{ code: "comment-required", anchor: { field: "comment" } }];
   }
-  if (containsInvalidPostgresText(comment)) {
+  if (containsInvalidCampusMapPostgresText(comment)) {
     return [{ code: "comment-invalid", anchor: { field: "comment" } }];
   }
-  return utf8Bytes(comment) > MAX_COMMENT_BYTES
+  return campusMapUtf8ByteLength(comment) > MAX_COMMENT_BYTES
     ? [{ code: "comment-too-long", anchor: { field: "comment" } }]
     : [];
 }
@@ -237,12 +225,14 @@ export function validateChangesetMetadata(
       code: "source-summary-required",
       anchor: { field: "sourceSummary" },
     });
-  } else if (containsInvalidPostgresText(command.sourceSummary)) {
+  } else if (containsInvalidCampusMapPostgresText(command.sourceSummary)) {
     errors.push({
       code: "source-summary-invalid",
       anchor: { field: "sourceSummary" },
     });
-  } else if (utf8Bytes(command.sourceSummary) > MAX_SOURCE_SUMMARY_BYTES) {
+  } else if (
+    campusMapUtf8ByteLength(command.sourceSummary) > MAX_SOURCE_SUMMARY_BYTES
+  ) {
     errors.push({
       code: "source-summary-too-long",
       anchor: { field: "sourceSummary" },
@@ -288,7 +278,7 @@ export function validateChangesetMetadata(
       (changeIndex as number) >= command.changes.length ||
       typeof record.code !== "string" ||
       record.code.trim() === "" ||
-      utf8Bytes(record.code) > MAX_WARNING_CODE_BYTES ||
+      campusMapUtf8ByteLength(record.code) > MAX_WARNING_CODE_BYTES ||
       typeof record.fingerprint !== "string" ||
       !/^[0-9a-f]{64}$/.test(record.fingerprint)
     ) {
@@ -317,9 +307,9 @@ function validateRequiredMetadataText(
 ): void {
   if (typeof value !== "string" || value.trim() === "") {
     errors.push({ code: requiredCode, anchor: { field } });
-  } else if (containsInvalidPostgresText(value)) {
+  } else if (containsInvalidCampusMapPostgresText(value)) {
     errors.push({ code: invalidCode, anchor: { field } });
-  } else if (utf8Bytes(value) > maxBytes) {
+  } else if (campusMapUtf8ByteLength(value) > maxBytes) {
     errors.push({ code: tooLongCode, anchor: { field } });
   }
 }
@@ -344,6 +334,12 @@ export function validateChangeIdentities(
       continue;
     }
     if (change.operation === "create") continue;
+    if ("requestedFloor" in change) {
+      errors.push({
+        code: "requested-floor-create-only",
+        anchor: { changeIndex, field: "requestedFloor" },
+      });
+    }
     if (
       typeof change.placeId !== "string" ||
       !isCampusMapUuid(change.placeId)
@@ -388,6 +384,48 @@ export function validateChangeIdentities(
           },
         });
       }
+    }
+  }
+  for (const [changeIndex, change] of command.changes.entries()) {
+    if (!("requestedFloor" in change)) continue;
+    if (change.operation !== "create") continue;
+    if (command.kind !== "single") {
+      errors.push({
+        code: "requested-floor-single-only",
+        anchor: { changeIndex, field: "requestedFloor" },
+      });
+    }
+    const requestedFloor = change.requestedFloor;
+    if (!requestedFloor) {
+      errors.push({
+        code: "invalid-requested-floor",
+        anchor: { changeIndex, field: "requestedFloor" },
+      });
+      continue;
+    }
+    const labelError = campusMapFloorLabelError(requestedFloor.displayLabel);
+    if (!hasOnlyKeys(requestedFloor, ["displayLabel"]) || labelError !== null) {
+      errors.push({
+        code: labelError ?? "invalid-requested-floor",
+        anchor: { changeIndex, field: "requestedFloor.displayLabel" },
+      });
+    }
+    if (
+      change.fact.location?.kind !== "building" ||
+      change.fact.floorId !== null ||
+      typeof change.fact.buildingId !== "string" ||
+      !isCampusMapUuid(change.fact.buildingId)
+    ) {
+      errors.push({
+        code: "invalid-requested-floor-location",
+        anchor: { changeIndex, field: "location" },
+      });
+    }
+    if (!change.sources.some(isCampusMapFloorEvidenceSource)) {
+      errors.push({
+        code: "requested-floor-user-source-required",
+        anchor: { changeIndex, field: "requestedFloor" },
+      });
     }
   }
   for (const [changeIndex, change] of command.changes.entries()) {
@@ -583,10 +621,7 @@ export function validateFact(
   return errors;
 }
 
-function hasOnlyKeys(
-  value: Record<string, unknown>,
-  expected: string[],
-): boolean {
+function hasOnlyKeys(value: object, expected: string[]): boolean {
   const keys = Object.keys(value).sort();
   const expectedKeys = [...expected].sort();
   return (
@@ -642,9 +677,9 @@ export function validateSource(
   });
   if (typeof source.ref !== "string" || source.ref.trim() === "") {
     errors.push({ code: "source-ref-required", anchor: anchor("ref") });
-  } else if (containsInvalidPostgresText(source.ref)) {
+  } else if (containsInvalidCampusMapPostgresText(source.ref)) {
     errors.push({ code: "source-ref-invalid", anchor: anchor("ref") });
-  } else if (utf8Bytes(source.ref) > MAX_SOURCE_REF_BYTES) {
+  } else if (campusMapUtf8ByteLength(source.ref) > MAX_SOURCE_REF_BYTES) {
     errors.push({ code: "source-ref-too-long", anchor: anchor("ref") });
   }
   if (
@@ -743,10 +778,13 @@ function validateOptionalSourceText(
 ): void {
   if (
     value !== null &&
-    (typeof value !== "string" || containsInvalidPostgresText(value))
+    (typeof value !== "string" || containsInvalidCampusMapPostgresText(value))
   ) {
     errors.push({ code: "source-text-invalid", anchor });
-  } else if (typeof value === "string" && utf8Bytes(value) > maxBytes) {
+  } else if (
+    typeof value === "string" &&
+    campusMapUtf8ByteLength(value) > maxBytes
+  ) {
     errors.push({ code, anchor });
   }
 }
@@ -970,7 +1008,7 @@ function validSourceCoordinate(coordinate: unknown): boolean {
     ) &&
     typeof conversion.version === "string" &&
     conversion.version.trim() !== "" &&
-    !containsInvalidPostgresText(conversion.version) &&
-    utf8Bytes(conversion.version) <= MAX_SOURCE_VERSION_BYTES
+    !containsInvalidCampusMapPostgresText(conversion.version) &&
+    campusMapUtf8ByteLength(conversion.version) <= MAX_SOURCE_VERSION_BYTES
   );
 }
