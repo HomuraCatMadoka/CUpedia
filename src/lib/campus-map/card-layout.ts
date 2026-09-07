@@ -36,7 +36,7 @@ export function campusMapMobilePanelHeight(
       return `min(${contentHeight}px, 62dvh)`;
     }
     case "transient-hotspot":
-      return "120px";
+      return "min(184px, 52dvh)";
     case "empty-building":
       return "208px";
     case "place":

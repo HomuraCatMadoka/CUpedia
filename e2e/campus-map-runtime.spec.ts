@@ -1,4 +1,4 @@
-// refs #646, #649, #799, #838, #878, #880, #888
+// refs #646, #649, #799, #838, #878, #880, #888, #889
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { loginWithPassword } from "./helpers/auth";
@@ -69,6 +69,93 @@ const browseFactCleanup = [
 ] as const;
 
 async function cleanupBrowseFixtureData(client: Client) {
+  const dynamicPlaces = await client.query<{ place_id: string }>(
+    `select place_id from campus_map_current_facts
+      where building_id = $1 and place_id <> $2`,
+    [browseIds.building, browseIds.place],
+  );
+  const dynamicPlaceIds = dynamicPlaces.rows.map((row) => row.place_id);
+  if (dynamicPlaceIds.length > 0) {
+    const revisions = await client.query<{
+      changeset_id: string;
+      provenance_id: string | null;
+    }>(
+      `select distinct revision.changeset_id, provenance.provenance_id
+         from campus_map_fact_revisions revision
+         left join campus_map_revision_provenance provenance
+           on provenance.revision_id = revision.id
+        where revision.place_id = any($1::uuid[])`,
+      [dynamicPlaceIds],
+    );
+    const changesetIds = [
+      ...new Set(revisions.rows.map((row) => row.changeset_id)),
+    ];
+    const provenanceIds = [
+      ...new Set(
+        revisions.rows.flatMap((row) =>
+          row.provenance_id ? [row.provenance_id] : [],
+        ),
+      ),
+    ];
+    await client.query(
+      "delete from campus_map_publish_requests where changeset_id = any($1::uuid[])",
+      [changesetIds],
+    );
+    await client.query(
+      "delete from campus_map_current_facts where place_id = any($1::uuid[])",
+      [dynamicPlaceIds],
+    );
+    await client.query(
+      "delete from campus_map_current_revisions where place_id = any($1::uuid[])",
+      [dynamicPlaceIds],
+    );
+    await client.query(
+      `delete from campus_map_revision_photos
+        where revision_id in (
+          select id from campus_map_fact_revisions
+           where place_id = any($1::uuid[])
+        )`,
+      [dynamicPlaceIds],
+    );
+    await client.query(
+      `delete from campus_map_revision_visibility
+        where revision_id in (
+          select id from campus_map_fact_revisions
+           where place_id = any($1::uuid[])
+        )`,
+      [dynamicPlaceIds],
+    );
+    await client.query(
+      `delete from campus_map_revision_provenance
+        where revision_id in (
+          select id from campus_map_fact_revisions
+           where place_id = any($1::uuid[])
+        )`,
+      [dynamicPlaceIds],
+    );
+    await client.query(
+      "delete from campus_map_fact_revisions where place_id = any($1::uuid[])",
+      [dynamicPlaceIds],
+    );
+    await client.query(
+      "delete from campus_map_place_changes where place_id = any($1::uuid[])",
+      [dynamicPlaceIds],
+    );
+    await client.query(
+      "delete from campus_map_changesets where id = any($1::uuid[])",
+      [changesetIds],
+    );
+    await client.query(
+      "delete from campus_map_places where id = any($1::uuid[])",
+      [dynamicPlaceIds],
+    );
+    if (provenanceIds.length > 0) {
+      await client.query(
+        "delete from campus_map_provenance_sources where id = any($1::uuid[])",
+        [provenanceIds],
+      );
+    }
+  }
   await client.query(
     "delete from campus_map_provider_mappings where provider = 'amap' and provider_object_id = any($1::text[])",
     [[mappedBuildingProviderId, mappedPlaceProviderId]],
@@ -211,6 +298,20 @@ async function withBrowseFixture(action: "apply" | "cleanup") {
   }
 }
 
+async function readPublishedBuildingId(placeId: string) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const result = await client.query<{ building_id: string | null }>(
+      "select building_id from campus_map_current_facts where place_id = $1",
+      [placeId],
+    );
+    return result.rows[0]?.building_id ?? null;
+  } finally {
+    await client.end();
+  }
+}
+
 test.beforeAll(() => withBrowseFixture("apply"));
 test.afterAll(() => withBrowseFixture("cleanup"));
 
@@ -238,9 +339,8 @@ test("Campus Map and its AMap config require authentication", async ({
   await expect(
     page.getByRole("heading", { name: "设施在哪里？" }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "选择正式测试楼作为所属建筑" })
-    .click();
+  await page.getByPlaceholder("搜索建筑…").fill("正式测试楼");
+  await page.locator(`[data-search-result="${browseIds.building}"]`).click();
   await page
     .getByRole("button", {
       name: "确认正式测试楼作为所属建筑",
@@ -605,6 +705,40 @@ test("a mapped AMap Building starts Add with its canonical Building selected", a
   await expect(page.getByRole("combobox", { name: "建筑" })).toHaveCount(0);
 });
 
+test("global Add selects the mapped AMap Building hotspot on desktop", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/campus-map");
+  await page.getByRole("button", { name: "新增设施" }).click();
+  await expect(
+    page.getByRole("heading", { name: "设施在哪里？" }),
+  ).toBeVisible();
+  await expect(page.locator("[data-campus-map-building-picker]")).toHaveCount(
+    0,
+  );
+
+  await emitAmapEvent(page, "hotspotclick", {
+    id: mappedBuildingProviderId,
+    name: "高德正式测试楼",
+    lnglat: { lng: 114.2072, lat: 22.4191 },
+  });
+
+  await expect(page.getByRole("group", { name: "已选建筑" })).toContainText(
+    "正式测试楼",
+  );
+  await expect(
+    page.locator("[data-campus-map-provider-building-selection]"),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "确认正式测试楼作为所属建筑" })
+    .click();
+  await expect(page.getByRole("heading", { name: "新增设施" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "所属建筑" })).toContainText(
+    "正式测试楼",
+  );
+});
+
 test("mapped and unmapped AMap hotspots keep canonical and transient cards separate", async ({
   page,
 }) => {
@@ -642,7 +776,6 @@ test("mapped and unmapped AMap hotspots keep canonical and transient cards separ
     page.getByRole("heading", { name: "未映射高德参考点" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "新增设施" })).toHaveCount(0);
-
   await page.getByRole("button", { name: "饮水点", pressed: false }).click();
   await expect(page).toHaveURL(/scene=category&id=water&snap=peek$/);
   await expect(page.getByRole("heading", { name: "饮水点" })).toBeVisible();
@@ -652,6 +785,40 @@ test("mapped and unmapped AMap hotspots keep canonical and transient cards separ
   await expect(
     page.getByRole("heading", { name: "未映射高德参考点" }),
   ).toHaveCount(0);
+});
+
+test("the transient provider action stays inside the card on a short mobile viewport", async ({
+  page,
+}) => {
+  const providerName = "未映射高德参考点（科学馆东座临时入口）";
+  await page.setViewportSize({ width: 568, height: 320 });
+  await page.goto("/campus-map");
+
+  await emitAmapEvent(page, "hotspotclick", {
+    id: unmappedProviderId,
+    name: providerName,
+    lnglat: { lng: 114.2074, lat: 22.4193 },
+  });
+
+  const card = page.getByRole("region", { name: providerName });
+  const action = card.getByRole("button", {
+    name: "选择所属建筑后添加",
+  });
+  await expect(card).toBeVisible();
+  await expect(action).toBeVisible();
+  const cardBox = await card.boundingBox();
+  const actionBox = await action.boundingBox();
+  expect(cardBox).not.toBeNull();
+  expect(actionBox).not.toBeNull();
+  expect(actionBox!.y).toBeGreaterThanOrEqual(cardBox!.y);
+  expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(
+    cardBox!.y + cardBox!.height,
+  );
+  await action.click();
+  await expect(
+    page.getByRole("heading", { name: "设施在哪里？" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "发布设施" })).toHaveCount(0);
 });
 
 test("three peek/full rounds and ResizeObserver callbacks do not accumulate camera drift", async ({
@@ -940,4 +1107,42 @@ test("cards remain usable at 390x844, 720x844, and 1280x800", async ({
       );
     }
   }
+});
+
+test("global Add publishes the mapped AMap Building association", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/campus-map");
+  await page.getByRole("button", { name: "新增设施" }).click();
+
+  await emitAmapEvent(page, "hotspotclick", {
+    id: mappedBuildingProviderId,
+    name: "高德正式测试楼",
+    lnglat: { lng: 114.2072, lat: 22.4191 },
+  });
+  await expect(page.getByRole("group", { name: "已选建筑" })).toContainText(
+    "正式测试楼",
+  );
+  await expect(
+    page.locator("[data-campus-map-provider-building-selection]"),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "确认正式测试楼作为所属建筑" })
+    .click();
+  await page
+    .getByRole("group", { name: "设施类型" })
+    .getByText("打印服务", { exact: true })
+    .click();
+  await page.getByRole("button", { name: "发布设施" }).click();
+
+  await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
+  const placeId = new URL(page.url()).searchParams.get("id");
+  expect(placeId).not.toBeNull();
+  await expect(page.getByRole("status")).toContainText(
+    "已添加到 正式测试楼 · 建筑内",
+  );
+  await expect
+    .poll(() => readPublishedBuildingId(placeId!))
+    .toBe(browseIds.building);
 });

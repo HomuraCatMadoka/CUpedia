@@ -359,6 +359,7 @@ describe("AmapCanonicalBrowseLayer", () => {
       {
         providerObjectId: "B0FFF2MN12",
         name: "科学馆北座高锟楼",
+        providerPosition: asAmapPosition([114.20801, 22.41966]),
       },
     ]);
     expect(intents).toEqual([]);

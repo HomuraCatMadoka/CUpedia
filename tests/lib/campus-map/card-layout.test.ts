@@ -10,7 +10,7 @@ describe("Campus Map card layout policy", () => {
     [{ kind: "location-selection" } as const, "min(192px, 42dvh)"],
     [{ kind: "placing" } as const, "min(336px, 48dvh)"],
     [{ kind: "edit" } as const, "100dvh"],
-    [{ kind: "transient-hotspot" } as const, "120px"],
+    [{ kind: "transient-hotspot" } as const, "min(184px, 52dvh)"],
     [{ kind: "empty-building" } as const, "208px"],
     [{ kind: "place" } as const, "min(264px, 35dvh)"],
     [{ kind: "building" } as const, "min(352px, 44dvh)"],

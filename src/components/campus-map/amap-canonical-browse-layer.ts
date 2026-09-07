@@ -55,6 +55,7 @@ interface ProviderMapLike {
 interface ProviderMapEvent {
   id?: string;
   name?: string;
+  lnglat?: ProviderLngLat;
 }
 
 interface ProviderNamespace<ProviderMap extends ProviderMapLike> {
@@ -85,7 +86,11 @@ export interface AmapCanonicalBrowseLayerInput<
   map: ProviderMap;
   provider: ProviderNamespace<ProviderMap>;
   onIntent(intent: CampusMapCanonicalBrowseIntent): void;
-  onHotspot(hotspot: CampusMapProviderHotspotInput): void;
+  onHotspot(
+    hotspot: CampusMapProviderHotspotInput & {
+      providerPosition: CampusMapAmapPosition | null;
+    },
+  ): void;
 }
 
 export interface AmapCanonicalBrowseRenderInput {
@@ -275,6 +280,11 @@ export class AmapCanonicalBrowseLayer<
       this.input.onHotspot({
         providerObjectId: event.id ?? null,
         name: event.name?.trim() || "高德地图地点",
+        providerPosition:
+          Number.isFinite(event.lnglat?.lng) &&
+          Number.isFinite(event.lnglat?.lat)
+            ? asAmapPosition([event.lnglat!.lng, event.lnglat!.lat])
+            : null,
       });
     });
   };
