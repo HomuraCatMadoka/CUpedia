@@ -16,6 +16,7 @@ import {
 import {
   CAMPUS_MAP_EDIT_SCHEMA,
   campusMapFactNameError,
+  type CampusMapEditFieldKey,
 } from "@/lib/campus-map/edit-schema";
 import {
   campusMapFactFieldLabel,
@@ -29,7 +30,11 @@ import {
 } from "@/lib/campus-map/building-display";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
-import { CAMPUS_MAP_PIN_TYPES_V1 } from "@/lib/campus-map/controlled-values";
+import {
+  CAMPUS_MAP_PIN_TYPES_V1,
+  CAMPUS_MAP_PUBLIC_PLACE_TYPES,
+} from "@/lib/campus-map/controlled-values";
+import { CAMPUS_MAP_OFFICIAL_ACTION_MAX_COUNT } from "@/lib/campus-map/official-action";
 import { PlacePhotoEditor } from "@/components/campus-map/place-photo-editor";
 
 interface CampusMapEditSheetProps {
@@ -52,13 +57,16 @@ const primaryClass =
 const secondaryClass =
   "min-h-11 touch-manipulation rounded-xl border border-black/15 bg-white px-4 text-sm font-semibold hover:bg-neutral-50 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none";
 const displayOptions = CAMPUS_MAP_DISPLAY_REGISTRY.options;
-const visibleEditorPlaceTypes = new Set<string>(CAMPUS_MAP_PIN_TYPES_V1);
-const visibleEditorDetailFields = new Set([
+const visibleEditorDetailFields = new Set<CampusMapEditFieldKey>([
   "regularHours",
+  "officialActions",
+  "visitNote",
   "capabilities",
   "gender",
   "wheelchairAccess",
 ]);
+const officialActionSafeTargets =
+  "安全的 https:// 网页、tel: 电话或 mailto: 电邮";
 
 function today(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -88,6 +96,11 @@ function messageForError(code: string): string {
     "photo-not-ready": "照片已过期或仍在处理，请移除后重新上传。",
     "photo-not-owned": "这张照片不能用于当前修改，请移除后重新上传。",
     "photo-place-mismatch": "这张照片已属于另一个地点，请重新上传。",
+    "invalid-official-actions": "一个地点最多可以填写 8 个官方入口。",
+    "invalid-official-action-label": "请为每个官方入口填写简短、清楚的名称。",
+    "unsafe-official-action-url": `官方入口只接受${officialActionSafeTargets}。`,
+    "duplicate-official-action": "同一个官方入口不能重复填写。",
+    "invalid-visit-note": "到访提示不能只填空格，内容也不能太长。",
   };
   return messages[code] ?? "服务器暂时无法接受这项资料，请稍后重试。";
 }
@@ -438,8 +451,9 @@ function conflictValue(
       return regularHoursConflictValue(fact);
     case "officialActions":
       return (
-        (fact.officialActions ?? []).map((action) => action.label).join("、") ||
-        "未填写"
+        (fact.officialActions ?? [])
+          .map((action) => `${action.label}（${action.url}）`)
+          .join("、") || "未填写"
       );
     case "visitNote":
       return fact.visitNote?.trim() || "未填写";
@@ -481,6 +495,8 @@ export function CampusMapEditSheet({
   const fact = draft.fact;
   const detailsHaveContent =
     fact.regularHours != null ||
+    fact.officialActions.length > 0 ||
+    fact.visitNote != null ||
     fact.capabilities.length > 0 ||
     fact.gender != null ||
     fact.wheelchairAccess != null;
@@ -516,6 +532,15 @@ export function CampusMapEditSheet({
       ...(locationDisplay !== undefined ? { locationDisplay } : {}),
     });
   };
+  const changeOfficialAction = (
+    index: number,
+    patch: Partial<(typeof fact.officialActions)[number]>,
+  ) =>
+    changeFact({
+      officialActions: fact.officialActions.map((action, actionIndex) =>
+        actionIndex === index ? { ...action, ...patch } : action,
+      ),
+    });
   const applicableFields = new Set(
     schemaPlaceDefinition?.applicableFields ?? [],
   );
@@ -526,7 +551,9 @@ export function CampusMapEditSheet({
     );
   const detailValidationTarget =
     typeof session.localError === "string" &&
-    visibleEditorDetailFields.has(session.localError) &&
+    visibleEditorDetailFields.has(
+      session.localError as CampusMapEditFieldKey,
+    ) &&
     schemaPlaceDefinition?.applicableFields.some(
       (field) => field === session.localError,
     );
@@ -575,6 +602,14 @@ export function CampusMapEditSheet({
   const addIndoorLocation = draft.mode === "add" && indoorSelected;
   const formTitle = draft.mode === "add" ? "新增设施" : "修改设施";
   const weeklySchedule = fact.regularHours;
+  const visiblePlaceTypes =
+    draft.mode === "edit"
+      ? CAMPUS_MAP_PUBLIC_PLACE_TYPES
+      : CAMPUS_MAP_PIN_TYPES_V1;
+  const visiblePlaceTypePresets = CAMPUS_MAP_EDIT_SCHEMA.presets.filter(
+    (item) =>
+      visiblePlaceTypes.some((placeType) => placeType === item.placeType),
+  );
   const conflictKey =
     session.status === "conflict" && session.conflict?.kind === "current"
       ? `${session.draft.idempotencyKey}:${session.conflict.currentRevisionId}`
@@ -1331,38 +1366,39 @@ export function CampusMapEditSheet({
     >
       <legend className="mb-1.5 text-sm font-medium">设施类型</legend>
       <div className="grid grid-cols-3 gap-1.5 md:gap-2">
-        {CAMPUS_MAP_EDIT_SCHEMA.presets
-          .filter((item) => visibleEditorPlaceTypes.has(item.placeType))
-          .map((item) => (
-            <label
-              key={item.placeType}
-              className={cn(
-                "flex min-h-11 w-full cursor-pointer touch-manipulation items-center justify-center rounded-xl border px-1 text-center text-xs font-semibold transition-colors active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 motion-reduce:transform-none sm:text-sm md:px-2",
-                fact.placeType === item.placeType
-                  ? "border-[#176346] bg-[#e4f1eb] text-[#174b38]"
-                  : "border-black/15 bg-white text-neutral-700 hover:bg-neutral-50",
-              )}
-            >
-              <input
-                type="radio"
-                name={`${fieldPrefix}-pin-type`}
-                value={item.placeType}
-                checked={fact.placeType === item.placeType}
-                className="sr-only"
-                data-edit-field={
-                  fact.placeType === item.placeType ? "placeType" : undefined
-                }
-                onChange={() =>
-                  onEvent({
-                    type: "CHANGE_PLACE_TYPE",
-                    placeType: item.placeType,
-                    ...freshAttempt(),
-                  })
-                }
-              />
-              {campusMapPlaceTypeLabel(item.placeType)}
-            </label>
-          ))}
+        {visiblePlaceTypePresets.map((item, index) => (
+          <label
+            key={item.placeType}
+            className={cn(
+              "flex min-h-11 w-full cursor-pointer touch-manipulation items-center justify-center rounded-xl border px-1 text-center text-xs font-semibold transition-colors active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 motion-reduce:transform-none sm:text-sm md:px-2",
+              index === visiblePlaceTypePresets.length - 1 &&
+                visiblePlaceTypePresets.length % 3 === 1 &&
+                "col-span-3",
+              fact.placeType === item.placeType
+                ? "border-[#176346] bg-[#e4f1eb] text-[#174b38]"
+                : "border-black/15 bg-white text-neutral-700 hover:bg-neutral-50",
+            )}
+          >
+            <input
+              type="radio"
+              name={`${fieldPrefix}-pin-type`}
+              value={item.placeType}
+              checked={fact.placeType === item.placeType}
+              className="sr-only"
+              data-edit-field={
+                fact.placeType === item.placeType ? "placeType" : undefined
+              }
+              onChange={() =>
+                onEvent({
+                  type: "CHANGE_PLACE_TYPE",
+                  placeType: item.placeType,
+                  ...freshAttempt(),
+                })
+              }
+            />
+            {campusMapPlaceTypeLabel(item.placeType)}
+          </label>
+        ))}
       </div>
     </fieldset>
   );
@@ -1755,7 +1791,7 @@ export function CampusMapEditSheet({
                 <span className="min-w-0">
                   <span className="block text-sm font-medium">更多信息</span>
                   <span className="mt-0.5 block text-xs text-neutral-500">
-                    开放时间及类型资料
+                    通常开放时间、官方入口与到访提示
                   </span>
                 </span>
                 <ChevronDownIcon
@@ -2062,6 +2098,165 @@ export function CampusMapEditSheet({
                         </p>
                       ) : null}
                     </div>
+                  ) : null}
+                  {applicableFields.has("officialActions") ? (
+                    <fieldset
+                      className="mt-4 border-t border-black/10 pt-4"
+                      data-edit-field="officialActions"
+                      tabIndex={-1}
+                      aria-invalid={
+                        session.localError === "officialActions" || undefined
+                      }
+                      aria-describedby={`${fieldPrefix}-official-actions-help${
+                        session.localError === "officialActions"
+                          ? ` ${fieldPrefix}-official-actions-error`
+                          : ""
+                      }`}
+                    >
+                      <legend className="text-sm font-medium">
+                        {campusMapFactFieldLabel("officialActions")}
+                      </legend>
+                      <p
+                        id={`${fieldPrefix}-official-actions-help`}
+                        className="mt-1 text-xs leading-5 text-neutral-600"
+                      >
+                        填写可核对的官网、电话或电邮；目标须为
+                        {officialActionSafeTargets}。
+                      </p>
+                      {fact.officialActions.length > 0 ? (
+                        <div className="mt-3 space-y-2">
+                          {fact.officialActions.map((action, index) => (
+                            <div
+                              key={index}
+                              className="grid gap-2 rounded-lg bg-neutral-50 p-3"
+                            >
+                              <label className="text-xs">
+                                显示名称
+                                <input
+                                  type="text"
+                                  className={fieldClass}
+                                  aria-label={`官方入口 ${index + 1} 显示名称`}
+                                  value={action.label}
+                                  placeholder="例如：官网资料"
+                                  onChange={(event) =>
+                                    changeOfficialAction(index, {
+                                      label: event.target.value,
+                                    })
+                                  }
+                                />
+                              </label>
+                              <label className="text-xs">
+                                链接或联系方式
+                                <input
+                                  type="text"
+                                  className={fieldClass}
+                                  aria-label={`官方入口 ${index + 1} 链接或联系方式`}
+                                  value={action.url}
+                                  placeholder="https://…、tel:… 或 mailto:…"
+                                  onChange={(event) =>
+                                    changeOfficialAction(index, {
+                                      url: event.target.value,
+                                    })
+                                  }
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                className={secondaryClass}
+                                aria-label={`移除官方入口 ${index + 1}`}
+                                onClick={() =>
+                                  changeFact({
+                                    officialActions:
+                                      fact.officialActions.filter(
+                                        (_, itemIndex) => itemIndex !== index,
+                                      ),
+                                  })
+                                }
+                              >
+                                移除入口
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        className={cn(
+                          secondaryClass,
+                          "mt-3 disabled:cursor-not-allowed disabled:opacity-45",
+                        )}
+                        disabled={
+                          fact.officialActions.length >=
+                          CAMPUS_MAP_OFFICIAL_ACTION_MAX_COUNT
+                        }
+                        onClick={() =>
+                          changeFact({
+                            officialActions: [
+                              ...fact.officialActions,
+                              { label: "", url: "" },
+                            ],
+                          })
+                        }
+                      >
+                        添加官方入口
+                      </button>
+                      {session.localError === "officialActions" ? (
+                        <p
+                          id={`${fieldPrefix}-official-actions-error`}
+                          className="mt-1 text-xs text-red-700"
+                        >
+                          每个入口都要有名称，并使用
+                          {officialActionSafeTargets}。
+                        </p>
+                      ) : null}
+                    </fieldset>
+                  ) : null}
+                  {applicableFields.has("visitNote") ? (
+                    <label
+                      className="mt-4 block border-t border-black/10 pt-4 text-sm font-medium"
+                      htmlFor={`${fieldPrefix}-visit-note`}
+                    >
+                      {campusMapFactFieldLabel("visitNote")}
+                      <span
+                        id={`${fieldPrefix}-visit-note-help`}
+                        className="mt-1 block text-xs leading-5 font-normal text-neutral-600"
+                      >
+                        简短说明收费、付款或登记等到访须知。
+                      </span>
+                      <textarea
+                        id={`${fieldPrefix}-visit-note`}
+                        rows={3}
+                        className={cn(fieldClass, "py-2")}
+                        data-edit-field="visitNote"
+                        aria-label={campusMapFactFieldLabel("visitNote")}
+                        aria-invalid={
+                          session.localError === "visitNote" || undefined
+                        }
+                        aria-describedby={`${fieldPrefix}-visit-note-help${
+                          session.localError === "visitNote"
+                            ? ` ${fieldPrefix}-visit-note-error`
+                            : ""
+                        }`}
+                        value={fact.visitNote ?? ""}
+                        placeholder="例如：只接受八达通付款。"
+                        onChange={(event) =>
+                          changeFact({
+                            visitNote:
+                              event.target.value === ""
+                                ? null
+                                : event.target.value,
+                          })
+                        }
+                      />
+                      {session.localError === "visitNote" ? (
+                        <span
+                          id={`${fieldPrefix}-visit-note-error`}
+                          className="mt-1 block text-xs font-normal text-red-700"
+                        >
+                          请删除空白内容，或缩短提示（中文字最多约 166 个）。
+                        </span>
+                      ) : null}
+                    </label>
                   ) : null}
                 </fieldset>
               ) : null}

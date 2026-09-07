@@ -163,7 +163,7 @@ Changeset 中原子修改多个 Place。服务端按 command kind 校验该基�
 
 1. A 与 B 都从 `r17` 开始；
 2. A 发布楼层修改，Current revision 成为 `r18`，并更新 active Current fact 投影；
-3. B 发布开放对象修改并携带 `baseRevisionId=r17`；
+3. B 发布到访提示修改并携带 `baseRevisionId=r17`；
 4. B 的整个 Changeset 返回 conflict，不产生 `r19`；
 5. B 基于 `r18` 复核后再发布。
 
@@ -213,10 +213,11 @@ Browse
   常驻名称并提高图面层级。点选或搜索先形成不发布的 Building 候选，用户看到名称并确认后才带入同一个
   Add session。地图加载失败时仍可搜索或退出。距离、地图中心和 provider 名称都不能推断 containment。
 - Building 卡片 Add 固定 Building，只允许楼层保持当前值、改选或设为未知；全局 Add 选定 Building
-  后，“更改位置”返回地图选择，而不是打开长 Building 下拉框。类别入口在整个过程保留 Pin type。
-- Add 表单只显示位置、可选楼层、设施类型和发布。名称采用 Pin type 的 canonical 默认名且不在 Add
-  暴露输入；照片、开放对象、凭证、预约、开放时间和临时状态不作为新增门槛，typed 值保持 unknown。
-  这些详情与自定义名称可以在发布后的 Edit 中补充。普通贡献者界面仍不显示“资料依据”自由文本。
+  后，“更改位置”返回地图选择，而不是打开长 Building 下拉框。类别入口在整个过程保留 Place type。
+- Add 表单只显示位置、可选楼层、设施类型和发布。名称采用 Place type 的 canonical 默认名且不在 Add
+  暴露输入；照片、通常开放时间、官方入口和到访提示不作为新增门槛，未知值保持缺失。
+  这些详情与自定义名称可以在发布后的 Edit 中补充。V2 不采集开放对象、凭证要求、预约要求或
+  实时状态；普通贡献者界面仍不显示“资料依据”自由文本。
 - 用户明确点击“选择室外位置”后，center pin 与键盘路径先更新可恢复、provider-neutral 的 WGS84 placement
   candidate。candidate 本身不是 Current fact，也不单独产生 dirty；两条路径都经同一
   `CONFIRM_POSITION` transition 锁定 position、CRS 和诚实 precision。锁定后地图手势不能改写
@@ -232,20 +233,22 @@ Browse
 - 定位卡始终把六位 WGS84 坐标作为主确认信息；高德行政区/道路地址只作为带归属的次级参考，
   不能取代坐标。若候选点距现有 CUpedia Building 原型锚点不超过 50 米，可显示“建筑名附近”帮助
   用户辨认，但这只是 presentation，不自动产生 Building containment 或精确位置事实。
-- Add 新建的是饮水点、洗手间、打印服务等独立 Place。schema 的 preset 同时提供 `pinType` 和
+- Add 新建的是饮水点、洗手间、打印服务等独立 Place。schema 的 preset 同时提供 `placeType` 和
   `defaultName`；Add 随设施类型同步 canonical 默认名，Edit 始终保留并允许修改已有名称。只有用户
   明确选择 canonical Building/Floor 后才形成 containment；building-only 明确表示楼层未知，不能
   复制 Building anchor 作为设施点。
 - 移动端 Building 选择与 `placing` 只显示定位所需内容，保留约一半地图；`editing` 在 390px 与 720px 高度下至少
   保留 35% 地图。地图根容器不得用大于视口的最小高度制造整页滚动，Sheet 主操作始终留在视口
   内；字段内容可在 Sheet 内滚动。地点类型使用自适应网格，不能把最后一个选项单独挤到窄行。
-- Edit 绑定不可变 `placeId + baseRevisionId`；初始载入不 dirty，只有事实或位置变化才启用发布。
-- preset schema 继续驱动默认值、适用字段、公开标签和本地基础校验；Edit 界面暴露名称、设施类型、
-  三种位置断言及现有受控访问条件，并明确说明 `unknown` 不等于无限制。服务器结果仍是最终校验来源。
+- Place 卡 Edit 按稳定 `placeId` 载入 Current revision、位置与完整 V2 事实，并绑定不可变
+  `placeId + baseRevisionId`；不要求重选建筑，初始载入不 dirty，只有事实或位置变化才启用发布。
+- preset schema 继续驱动默认值、适用字段、公开标签和本地基础校验；Edit 界面暴露名称、公开地点类型、
+  三种位置断言、通常开放时间、官方入口和到访提示。官方入口只接受 `https://`、`tel:` 或
+  `mailto:` 目标；缺失资料不等于无限制或当前开放，服务器结果仍是最终校验来源。
 - typed draft/diff 自动生成 Changeset comment 与安全 source summary；MVP 固定
   `reviewRequested: false`。若用户没有显式来源，纯 transition 在发布时加入 `kind=other` 的
-  “地图提交” provenance，记录提交日期、typed client reference 及“提交名称、位置、类型与结构化
-  访问条件、没有独立资料来源”的 limitation；不得伪装成现场观察或高德官方资料。
+  “地图提交” provenance，记录提交日期、typed client reference 及“提交名称、位置、类型与可选
+  运营资料、没有独立资料来源”的 limitation；不得伪装成现场观察或高德官方资料。
 - warning 只消费服务器签发的 code/fingerprint；确认使用新 publish attempt，相关输入变化会清除
   acknowledgement。认证返回不自动发布；transient retry 沿用幂等键；conflict 不自动合并。
 - 每个编辑任务只有一个 React session owner。搜索结果、marker、地点卡、类别空态和明确的
