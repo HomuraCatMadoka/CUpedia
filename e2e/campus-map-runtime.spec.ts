@@ -1,4 +1,4 @@
-// refs #646, #649, #799, #838, #878, #880
+// refs #646, #649, #799, #838, #878, #880, #888
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { loginWithPassword } from "./helpers/auth";
@@ -642,6 +642,16 @@ test("mapped and unmapped AMap hotspots keep canonical and transient cards separ
     page.getByRole("heading", { name: "未映射高德参考点" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "新增设施" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "饮水点", pressed: false }).click();
+  await expect(page).toHaveURL(/scene=category&id=water&snap=peek$/);
+  await expect(page.getByRole("heading", { name: "饮水点" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /正式测试饮水点.*正式测试楼/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "未映射高德参考点" }),
+  ).toHaveCount(0);
 });
 
 test("three peek/full rounds and ResizeObserver callbacks do not accumulate camera drift", async ({
