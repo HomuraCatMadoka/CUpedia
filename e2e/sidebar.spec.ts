@@ -18,8 +18,8 @@ import {
  * ref #316 — mobile has one Header-owned entry into an accessible page-tree
  *   Drawer. The old collapsed rail never occupies content width, while desktop
  *   collapse-preference behaviour remains unchanged.
- * ref #317 — touch intent prefetches once and slow navigation identifies its
- *   pending target without closing the Drawer before the route commits.
+ * ref #317/#892 — slow touch navigation identifies its pending target without
+ *   closing the Drawer before the route commits, without speculative prefetch.
  */
 
 const EXPAND = { name: "展开导航" } as const;
@@ -410,16 +410,11 @@ test.describe("#317 mobile Wiki navigation feedback", () => {
     await pendingTarget.click({ force: true, noWaitAfter: true });
     await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.gettingStarted));
     await expect(drawer).toBeHidden();
-    // Next.js intentionally disables router prefetching in development. Keep
-    // the request-level assertion for the production E2E path; the dev-server
-    // path still verifies delayed feedback, click blocking, and route commit.
-    if (process.env.E2E_SERVER_MODE !== "dev") {
-      expect(
-        targetRequests.filter(
-          (request) => request.segmentPrefetch === "/_tree",
-        ),
-      ).toHaveLength(1);
-    }
+    expect(
+      targetRequests.filter(
+        (request) => request.isPrefetch || request.segmentPrefetch,
+      ),
+    ).toEqual([]);
     expect(
       targetRequests.filter((request) => !request.isPrefetch),
     ).toHaveLength(1);
