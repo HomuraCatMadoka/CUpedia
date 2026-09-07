@@ -27,7 +27,7 @@ CUpedia 现有十个限界上下文。本文件是上下文清单和关系的唯
 - **通知 → 权限与用户管理**：每条通知归属于唯一 User，只有该 User 能读取或改变阅读状态。
 - **校园交通 → 校园地图**：校园交通拥有运营 Stop 与服务事实，只引用校园地图经复核的稳定 Place ID；地图不能反向改写线路、站序或班次。
 - **校园地图 → 权限与用户管理**：Current facts 与公开追溯资料的可见性不因查看者身份改变；消耗高德配额的 runtime、config 和 provider search 只向登录用户开放。
-- **校园地图 ↔ 地图供应商**：Campus Map 保存供应商无关的 canonical Building / Place 身份与 WGS84 室外事实；高德底图热点提供浏览态命中对象，预加载的显式映射把其外部 ID 翻译为 canonical 卡片。外部 ID 不进入 canonical scene、URL 或事实；无映射热点只显示瞬时参考卡。
+- **校园地图 ↔ 地图供应商**：Campus Map 保存供应商无关的 canonical Building / Place 身份与 WGS84 室外事实；高德底图热点提供命中对象，预加载的显式映射把其外部 ID 翻译为 canonical 卡片或新增设施时的 Building 候选。外部 ID 不进入 canonical scene、URL、草稿或事实；无映射热点只显示瞬时参考卡，该卡可以启动“先确认本站建筑”的新增任务。
 - **校园地图 ↔ 评论与评分**：评论和评分引用 canonical `placeId`，但不属于地点事实或其来源/修订历史。
 - **产品更新 → 权限与用户管理**：产品更新公开读取，只有 Admin 能编写与发布。
 - **产品更新 ↔ 公告**：产品更新记录已经上线的变化且不自动通知；公告承载需要及时知道或行动的消息。
@@ -45,7 +45,7 @@ CUpedia 现有十个限界上下文。本文件是上下文清单和关系的唯
   [ADR 0035](./docs/adr/0035-campus-map-direct-changesets.md) 和
   [ADR 0036](./docs/adr/0036-model-campus-map-place-feedback-as-one-current-submission.md)；
   高德热点与 canonical 卡片的交互边界见
-  [ADR 0038](./docs/adr/0038-canonical-campus-map-browse-targets.md)，精简后的 V2 运营事实见
+  [ADR 0041](./docs/adr/0041-unify-amap-building-selection.md)，精简后的 V2 运营事实见
   [ADR 0040](./docs/adr/0040-campus-map-minimal-place-facts-v2.md)
 
 完整决策清单见 [ADR 索引](./docs/adr/README.md)。

@@ -314,17 +314,12 @@ for (const scenario of [
     await expect(
       page.getByRole("heading", { name: "设施在哪里？" }),
     ).toBeVisible();
-    const buildingPicker = page.getByRole("button", {
-      name: "选择QA 814 测试楼作为所属建筑",
-    });
-    await expect(buildingPicker).toContainText("QA 814 测试楼");
-    const buildingPickerBox = await buildingPicker.boundingBox();
-    expect(buildingPickerBox).not.toBeNull();
-    expect(buildingPickerBox!.height).toBeGreaterThanOrEqual(44);
-    expect(buildingPickerBox!.width).toBeGreaterThanOrEqual(44);
-    await buildingPicker.focus();
-    await expect(buildingPicker).toBeFocused();
-    await buildingPicker.press(
+    await page.getByRole("textbox", { name: "搜索建筑" }).fill("QA 814 测试楼");
+    const buildingResult = page.locator(`[data-search-result="${buildingId}"]`);
+    await expect(buildingResult).toContainText("QA 814 测试楼");
+    await buildingResult.focus();
+    await expect(buildingResult).toBeFocused();
+    await buildingResult.press(
       scenario.kind === "building" ? "Enter" : "Space",
     );
     const confirmBuilding = page.getByRole("button", {
