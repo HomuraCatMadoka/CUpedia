@@ -1,4 +1,4 @@
-// ref #646, #649, #814, #838, #864, #880, #888
+// ref #646, #649, #814, #838, #864, #880, #888, #889
 import { expect, test, type Page } from "@playwright/test";
 import { loginWithPassword } from "./helpers/auth";
 import { installFakeCampusMapAmap } from "./helpers/campus-map-amap";
@@ -304,8 +304,13 @@ test("Campus Map Add offers the preserved official Building directory", async ({
   // Provisioning preserves migration-owned buildings. Empty-directory behavior
   // is covered with an explicitly empty projection in the component tests.
   await expect(page.getByText("当前没有已收录建筑。")).toHaveCount(0);
+  await expect(page.locator("[data-campus-map-building-picker]")).toHaveCount(
+    0,
+  );
+  const buildingSearch = page.getByRole("textbox", { name: "搜索建筑" });
+  await buildingSearch.fill("科学馆");
   await expect(
-    page.getByRole("button", { name: /选择.+作为所属建筑/ }).first(),
+    page.getByRole("button", { name: /科学馆/ }).first(),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "选择室外位置" }),
@@ -319,41 +324,29 @@ test("Campus Map Add offers the preserved official Building directory", async ({
   await expect(page.getByRole("combobox", { name: "建筑" })).toHaveCount(0);
 });
 
-test("Campus Map Add keeps touch Building choices readable without hover", async ({
+test("Campus Map Add keeps the touch directory fallback readable without duplicate markers", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/campus-map");
   await page.getByRole("button", { name: "新增设施" }).click();
 
-  const marker = page.locator("[data-campus-map-building-picker]").nth(8);
-  await expect(marker).toHaveAttribute("data-building-priority", "default");
-  await expect(marker.locator("span").first()).toHaveClass(/size-3/u);
-  const accessibleName = await marker.getAttribute("aria-label");
-  expect(accessibleName).toMatch(/^选择.+作为所属建筑$/u);
-  const buildingName = accessibleName!.replace(/^选择|作为所属建筑$/gu, "");
-
-  await page.getByRole("textbox", { name: "搜索建筑" }).fill(buildingName);
-  await expect(marker).toHaveAttribute("data-building-priority", "search");
-  await expect(marker.locator("span").last()).toHaveClass(/opacity-100/u);
-  const markerBox = await marker.boundingBox();
-  expect(markerBox).not.toBeNull();
-  expect(markerBox!.width).toBeGreaterThanOrEqual(44);
-  expect(markerBox!.height).toBeGreaterThanOrEqual(44);
-  await marker.click();
-
-  const selectedMarker = page.locator(
-    '[data-campus-map-building-picker][data-building-priority="selected"]',
+  await expect(page.locator("[data-campus-map-building-picker]")).toHaveCount(
+    0,
   );
-  await expect(selectedMarker).toHaveAttribute("aria-pressed", "true");
-  await expect(selectedMarker.locator("span").last()).toHaveClass(
-    /opacity-100/u,
-  );
+  await page.getByRole("textbox", { name: "搜索建筑" }).fill("科学馆");
+  const result = page.getByRole("button", { name: /科学馆/ }).first();
+  await expect(result).toBeVisible();
+  const resultBox = await result.boundingBox();
+  expect(resultBox).not.toBeNull();
+  expect(resultBox!.height).toBeGreaterThanOrEqual(44);
+  await result.click();
+
   await expect(page.getByRole("group", { name: "已选建筑" })).toContainText(
-    buildingName,
+    "科学馆",
   );
   const confirm = page.getByRole("button", {
-    name: `确认${buildingName}作为所属建筑`,
+    name: "确认科学馆作为所属建筑",
   });
   await expect(confirm).toBeVisible();
 

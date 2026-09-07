@@ -98,8 +98,9 @@ _Avoid_: 把发布者等同核对者；用已核对暗示易变状态仍然实�
 不是服务器申请或公共事实。
 _Avoid_: Application；待审核地点；把草稿 marker 放进其他用户的地图
 
-**设施新增入口（Facility Add entry）**: 全局入口先让用户明确选择并确认带锚点的 canonical
-Building；Building 卡片入口固定带入该 Building 与当前 Floor；类别入口额外带入 Place type。只有用户
+**设施新增入口（Facility Add entry）**: 全局入口先让用户明确选择并确认 canonical Building；
+Building 卡片入口固定带入该 Building 与当前 Floor；类别入口额外带入 Place type。没有供应商映射的
+Building 仍可通过本站目录搜索选择。只有用户
 明确选择“这是室外设施”时，才进入 center pin / WGS84 选点。Add 使用 Place type 的 canonical 默认名，
 只要求确认位置、可选楼层、地点类型与发布；其他可选事实保持未填写，名称与详情留给后续 Edit。
 入口来源与未确认的 Building 候选属于草稿交互上下文，不是可发布事实；入口自动带入的值是任务初始
@@ -215,7 +216,9 @@ _Avoid_: 把直接发布称为批准；把 Review request 当可见性状态；�
 _Avoid_: 供应商 ID 作主键；名称模糊命中后静默关联；每次点击再请求服务器；异步卡片升级
 
 **供应商热点（Provider hotspot）**: 高德底图已绘制、可点击的瞬时对象；它只负责告诉产品用户
-点中了哪个高德对象。`providerObjectId` 是映射输入，不是 CUpedia 身份；名称与坐标只用于显示。
+点中了哪个高德对象。浏览时，精确映射的 Building 热点打开 canonical Building 卡；新增设施的选建筑
+阶段，同一热点暂存同一 Building 候选并等待用户确认。热点点击坐标只能承载本次选中反馈，不覆盖
+Building 锚点，也不是设施位置。`providerObjectId` 是映射输入，不是 CUpedia 身份；名称与坐标只用于显示。
 _Avoid_: 把高德卡片当公开事实；用名称或距离猜 canonical 实体；把热点写入 URL
 
 **Canonical 地图目标（Canonical map target）**: 浏览地图上可选择的 Building 或 Place 表现；
@@ -223,9 +226,10 @@ _Avoid_: 把高德卡片当公开事实；用名称或距离猜 canonical 实体
 ID 打开正式卡片、URL 与添加设施等动作。
 _Avoid_: 让 provider ID 进入 scene；正式卡片继续依赖 provider 名称或坐标
 
-**瞬时供应商卡（Transient provider card）**: 热点没有映射，或映射预加载失败时显示的轻量参考卡；
-它不进入 scene/history，不提供 canonical 动作，关闭后即消失。
-_Avoid_: 将其保存为 Place；显示添加设施；后台查询后无提示地升级成另一张卡
+**瞬时供应商卡（Transient provider card）**: 热点没有映射、映射目标不可用，或映射预加载失败时
+显示的轻量参考卡；它不进入 scene/history，关闭后即消失。参考卡可以启动新增设施任务，但必须先由
+用户搜索并确认本站 Building，不能直接发布、推断归属或自动创建 provider mapping。
+_Avoid_: 将其保存为 Place；把参考卡直接当 Building 新增设施；后台查询后无提示地升级成另一张卡
 
 **供应商位置参考（Provider location reference）**: 编辑室外位置时，地图供应商对当前坐标返回的
 瞬时地址或附近 POI 文案；它帮助人辨认位置，但不是可选择实体，也不进入公开事实。

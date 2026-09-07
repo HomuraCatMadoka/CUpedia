@@ -32,7 +32,6 @@ import {
   knownCampusMapBrowseCategory as knownBrowseCategory,
 } from "@/components/campus-map/browse-card-presentation";
 import { AmapCanonicalBrowseLayer } from "@/components/campus-map/amap-canonical-browse-layer";
-import { AmapBuildingPickerRuntime } from "@/components/campus-map/amap-building-picker-runtime";
 import { CampusMapEditSheet } from "@/components/campus-map/edit-sheet";
 import { CampusMapPlaceCardContent } from "@/components/campus-map/place-card-content";
 import { useCampusMapEditSessionOwner } from "@/components/campus-map/use-campus-map-edit-session-owner";
@@ -665,6 +664,7 @@ export function CampusMapRuntime({
   const [locationBuildingCandidate, setLocationBuildingCandidate] = useState<{
     sessionKey: string;
     buildingId: string;
+    providerPosition: CampusMapAmapPosition | null;
   } | null>(null);
   const buildings = browseProjection.buildings;
   const places = browseProjection.places;
@@ -684,6 +684,9 @@ export function CampusMapRuntime({
   }, [buildings, places]);
   const editSessionActiveRef = useRef(false);
   const editSessionPlacingRef = useRef(false);
+  const editSessionLocationSelectionRef = useRef<{
+    sessionKey: string;
+  } | null>(null);
   const [centerPosition, setCenterPosition] = useState<CampusMapWgs84Position>(
     () => asWgs84Position(CAMPUS_CENTER),
   );
@@ -733,7 +736,6 @@ export function CampusMapRuntime({
   const panelRef = useRef<HTMLElement | null>(null);
   const canonicalBrowseLayerRef =
     useRef<AmapCanonicalBrowseLayer<AMapMap> | null>(null);
-  const buildingPickerRuntimeRef = useRef(new AmapBuildingPickerRuntime());
   const cameraGateRef = useRef(new CameraRequestGate());
   const pendingDriverCameraRef = useRef<{
     command: CampusMapDriverCameraCommand;
@@ -783,7 +785,6 @@ export function CampusMapRuntime({
     mapGestureCleanupRef.current = null;
     canonicalBrowseLayerRef.current?.destroy();
     canonicalBrowseLayerRef.current = null;
-    buildingPickerRuntimeRef.current.destroy();
     mapRef.current?.destroy();
     mapRef.current = null;
     coordinateResolverRef.current = null;
@@ -1563,10 +1564,15 @@ export function CampusMapRuntime({
       wgs84Position,
     };
   }, []);
+  const clearTransientHotspot = useCallback(() => {
+    selectedTransientHotspotRef.current = null;
+    setSelectedTransientHotspot(null);
+  }, []);
   const startGlobalFacilityAdd = useCallback(() => {
+    clearTransientHotspot();
     cancelPendingUserLocation();
     startFacilityAdd({ kind: "global" });
-  }, [cancelPendingUserLocation, startFacilityAdd]);
+  }, [cancelPendingUserLocation, clearTransientHotspot, startFacilityAdd]);
   const startFacilityForSelectedBuilding = useCallback(() => {
     if (!selectedBuilding) return;
     cancelPendingUserLocation();
@@ -1602,15 +1608,17 @@ export function CampusMapRuntime({
     return () => window.clearTimeout(timeout);
   }, [publishNotice]);
   const editSessionIdempotencyKey = editSession?.draft.idempotencyKey ?? null;
-  const activeLocationBuildingCandidateId =
+  const activeLocationBuildingCandidate =
     locationSelectionActive &&
     locationBuildingCandidate?.sessionKey === editSessionIdempotencyKey &&
     buildings.some(
       (building) =>
         building.buildingId === locationBuildingCandidate.buildingId,
     )
-      ? locationBuildingCandidate.buildingId
+      ? locationBuildingCandidate
       : null;
+  const activeLocationBuildingCandidateId =
+    activeLocationBuildingCandidate?.buildingId ?? null;
   const placementCandidate =
     editSession?.status === "placing"
       ? editSession.draft.placementCandidate
@@ -1689,7 +1697,11 @@ export function CampusMapRuntime({
   useEffect(() => {
     editSessionActiveRef.current = Boolean(editSession);
     editSessionPlacingRef.current = editSession?.status === "placing";
-  }, [editSession]);
+    editSessionLocationSelectionRef.current =
+      locationSelectionActive && editSessionIdempotencyKey
+        ? { sessionKey: editSessionIdempotencyKey }
+        : null;
+  }, [editSession, editSessionIdempotencyKey, locationSelectionActive]);
 
   useEffect(() => {
     if (editSession?.status !== "placing") {
@@ -1794,11 +1806,6 @@ export function CampusMapRuntime({
     };
   }, [locationSelectionActive, state.mapFilter.query]);
 
-  const clearTransientHotspot = useCallback(() => {
-    selectedTransientHotspotRef.current = null;
-    setSelectedTransientHotspot(null);
-  }, []);
-
   const selectBuilding = useCallback(
     (building: Building, source: "map" | "search" = "map") => {
       clearTransientHotspot();
@@ -1812,11 +1819,17 @@ export function CampusMapRuntime({
   );
 
   const stageLocationBuilding = useCallback(
-    (building: Building, source: "map" | "search" = "map") => {
-      if (!locationSelectionActive || !editSessionIdempotencyKey) return;
+    (
+      building: Building,
+      source: "map" | "search" = "map",
+      providerPosition: CampusMapAmapPosition | null = null,
+    ) => {
+      const locationSelection = editSessionLocationSelectionRef.current;
+      if (!locationSelection) return;
       setLocationBuildingCandidate({
-        sessionKey: editSessionIdempotencyKey,
+        sessionKey: locationSelection.sessionKey,
         buildingId: building.buildingId,
+        providerPosition,
       });
       setQueryDraft("");
       if (source === "search") {
@@ -1827,7 +1840,7 @@ export function CampusMapRuntime({
         }
       }
     },
-    [editSessionIdempotencyKey, locationSelectionActive, positionFor],
+    [positionFor],
   );
 
   const handleEditSheetEvent = useCallback(
@@ -1989,12 +2002,22 @@ export function CampusMapRuntime({
       map,
       provider: AMap,
       onHotspot: (hotspot) => {
-        if (editSessionActiveRef.current) return;
         const target = resolveCampusMapProviderHotspot(
           projectionStore.getSnapshot().projection,
           initialAmapHotspotMappings,
           hotspot,
         );
+        if (editSessionLocationSelectionRef.current) {
+          if (target.kind === "building") {
+            stageLocationBuilding(
+              target.building,
+              "map",
+              hotspot.providerPosition,
+            );
+          }
+          return;
+        }
+        if (editSessionActiveRef.current) return;
         if (target.kind === "building") {
           selectBuilding(target.building);
           return;
@@ -2169,6 +2192,7 @@ export function CampusMapRuntime({
     projectionStore,
     selectBuilding,
     selectFacility,
+    stageLocationBuilding,
   ]);
 
   useEffect(() => {
@@ -2385,54 +2409,24 @@ export function CampusMapRuntime({
     selectedTransientHotspot,
   ]);
 
-  const highlightedLocationBuildingIds = useMemo(
-    () =>
-      locationSelectionActive
-        ? searchResults.flatMap((result) =>
-            result.kind === "building" ? [result.building.buildingId] : [],
-          )
-        : [],
-    [locationSelectionActive, searchResults],
-  );
-
   useEffect(() => {
     const map = mapRef.current;
     const provider = window.AMap;
-    if (
-      editSession?.status !== "selecting-location" ||
-      !mapReady ||
-      coordinateVersion === 0 ||
-      !provider ||
-      !map
-    ) {
-      buildingPickerRuntimeRef.current.destroy();
-      return;
-    }
-    buildingPickerRuntimeRef.current.sync({
-      map,
-      provider,
-      projection: browseProjection,
-      providerPositions: amapPositionsRef.current,
-      scope: editSession.draft.idempotencyKey,
-      highlightedBuildingIds: highlightedLocationBuildingIds,
-      selectedBuildingId: activeLocationBuildingCandidateId,
-      claimProviderTarget: (action) => action(),
-      selectBuilding: (buildingId) => {
-        const building = buildingsRef.current.find(
-          (candidate) => candidate.buildingId === buildingId,
-        );
-        if (building) stageLocationBuilding(building);
-      },
+    const position = activeLocationBuildingCandidate?.providerPosition;
+    if (!mapReady || !provider || !map || !position) return;
+    const content =
+      '<span data-campus-map-provider-building-selection aria-hidden="true" class="pointer-events-none grid size-11 place-items-center rounded-full"><span class="size-8 rounded-full border-[3px] border-white bg-[#176346]/20 shadow-[0_0_0_3px_rgba(23,99,70,.75)]"></span></span>';
+    const marker = new provider.Marker({
+      position: new provider.LngLat(position[0], position[1]),
+      content,
+      anchor: "center",
+      zIndex: 280,
     });
-  }, [
-    activeLocationBuildingCandidateId,
-    browseProjection,
-    coordinateVersion,
-    editSession,
-    highlightedLocationBuildingIds,
-    mapReady,
-    stageLocationBuilding,
-  ]);
+    marker.setContent(content);
+    marker.setzIndex(280);
+    map.add(marker);
+    return () => map.remove([marker]);
+  }, [activeLocationBuildingCandidate, mapReady]);
 
   useEffect(
     () => () => {
@@ -2441,7 +2435,6 @@ export function CampusMapRuntime({
       mapGestureCleanupRef.current = null;
       canonicalBrowseLayerRef.current?.destroy();
       canonicalBrowseLayerRef.current = null;
-      buildingPickerRuntimeRef.current.destroy();
       mapRef.current?.destroy();
       mapRef.current = null;
     },
@@ -3176,7 +3169,7 @@ export function CampusMapRuntime({
         ) : selectedTransientHotspot ? (
           <div
             id="campus-map-panel-content"
-            className="flex h-full items-start gap-3 p-4 pb-[max(1rem,var(--campus-map-safe-area-bottom))] md:h-auto md:p-5"
+            className="flex h-full items-start gap-3 overflow-y-auto p-4 pb-[max(1rem,var(--campus-map-safe-area-bottom))] md:h-auto md:p-5"
           >
             <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#e7f1ec] text-[#174b38]">
               <MapPinIcon aria-hidden="true" className="size-5" />
@@ -3191,6 +3184,13 @@ export function CampusMapRuntime({
                 {selectedTransientHotspot.name}
               </h2>
               <p className="mt-1 text-sm text-neutral-500">高德地图地点</p>
+              <button
+                type="button"
+                className="mt-3 min-h-11 rounded-xl bg-[#174b38] px-3 text-sm font-semibold text-white hover:bg-[#123d2e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
+                onClick={startGlobalFacilityAdd}
+              >
+                选择所属建筑后添加
+              </button>
             </div>
             <button
               type="button"

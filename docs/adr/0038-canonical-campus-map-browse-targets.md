@@ -1,6 +1,6 @@
 # ADR 0038：用高德热点命中 canonical Campus Map 卡片
 
-状态：Accepted
+状态：Partially superseded by ADR 0041
 
 ## 决议
 
