@@ -1,4 +1,4 @@
-// ref #646, #649, #814, #838, #864, #880
+// ref #646, #649, #814, #838, #864, #880, #888
 import { expect, test, type Page } from "@playwright/test";
 import { loginWithPassword } from "./helpers/auth";
 import { installFakeCampusMapAmap } from "./helpers/campus-map-amap";
@@ -21,6 +21,111 @@ async function startOutdoorFacilityAdd(page: Page) {
   await usePosition.click();
   await expect(page.getByRole("heading", { name: "新增设施" })).toBeVisible();
 }
+
+test("Campus Map keeps mobile keyboard controls readable through viewport resize", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/campus-map");
+
+  const viewport = await page
+    .locator('meta[name="viewport"]')
+    .getAttribute("content");
+  expect(viewport).toContain("width=device-width");
+  expect(viewport).not.toContain("maximum-scale");
+  expect(viewport).not.toContain("user-scalable=no");
+
+  const mapSearch = page.getByRole("textbox", { name: "搜索建筑或地点" });
+  await expect(mapSearch).toHaveCSS("font-size", "16px");
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(mapSearch).toHaveCSS("font-size", "16px");
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await page.getByRole("button", { name: "课室", exact: true }).click();
+  const categoryHeading = page.getByRole("heading", { name: "课室" });
+  const closeCategory = page.getByRole("button", { name: "关闭课室列表" });
+  await mapSearch.focus();
+  await page.setViewportSize({ width: 390, height: 390 });
+  await expect(mapSearch).toBeInViewport();
+  await expect(categoryHeading).toBeInViewport();
+  await expect(closeCategory).toBeInViewport();
+  await expect(page.locator("#amap-campus-canvas")).toHaveCSS(
+    "height",
+    "390px",
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(mapSearch).toBeInViewport();
+  await expect(categoryHeading).toBeInViewport();
+  await expect(closeCategory).toBeInViewport();
+  await closeCategory.click();
+
+  await page.getByRole("button", { name: "新增设施" }).click();
+  const buildingSearch = page.getByRole("textbox", { name: "搜索建筑" });
+  await expect(buildingSearch).toHaveCSS("font-size", "16px");
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(buildingSearch).toHaveCSS("font-size", "16px");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await buildingSearch.focus();
+  await page.setViewportSize({ width: 390, height: 390 });
+  await expect(buildingSearch).toBeInViewport();
+  await expect(
+    page.getByRole("heading", { name: "设施在哪里？" }),
+  ).toBeInViewport();
+  await expect(
+    page.getByRole("button", { name: "选择室外位置" }),
+  ).toBeInViewport();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(buildingSearch).toBeInViewport();
+  await expect(
+    page.getByRole("button", { name: "选择室外位置" }),
+  ).toBeInViewport();
+
+  await page.getByRole("button", { name: "选择室外位置" }).click();
+  await page.getByRole("button", { name: "输入坐标" }).click();
+  await expect(page.getByRole("textbox", { name: "经度（WGS84）" })).toHaveCSS(
+    "font-size",
+    "16px",
+  );
+  await expect(page.getByRole("textbox", { name: "纬度（WGS84）" })).toHaveCSS(
+    "font-size",
+    "16px",
+  );
+});
+
+test("Campus Map keeps every Add form text control at least 16px on mobile", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.goto("/campus-map");
+  await startOutdoorFacilityAdd(page);
+
+  const undersizedControls = await page
+    .getByRole("dialog", { name: "新增设施" })
+    .locator(
+      'input:not([type="button"]):not([type="checkbox"]):not([type="file"]):not([type="hidden"]):not([type="image"]):not([type="radio"]):not([type="range"]):not([type="reset"]):not([type="submit"]), select, textarea',
+    )
+    .evaluateAll((controls) =>
+      controls.flatMap((control) => {
+        const element = control as HTMLInputElement;
+        if (element.disabled || element.getClientRects().length === 0)
+          return [];
+        const fontSize = Number.parseFloat(getComputedStyle(element).fontSize);
+        return fontSize < 16
+          ? [
+              {
+                name:
+                  element.getAttribute("aria-label") ??
+                  element.getAttribute("name") ??
+                  element.tagName.toLowerCase(),
+                fontSize,
+              },
+            ]
+          : [];
+      }),
+    );
+
+  expect(undersizedControls).toEqual([]);
+});
 
 test("Campus Map editing uses a full-screen task surface in a 720×844 viewport", async ({
   page,

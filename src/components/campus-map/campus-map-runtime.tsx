@@ -1794,16 +1794,21 @@ export function CampusMapRuntime({
     };
   }, [locationSelectionActive, state.mapFilter.query]);
 
+  const clearTransientHotspot = useCallback(() => {
+    selectedTransientHotspotRef.current = null;
+    setSelectedTransientHotspot(null);
+  }, []);
+
   const selectBuilding = useCallback(
     (building: Building, source: "map" | "search" = "map") => {
-      setSelectedTransientHotspot(null);
+      clearTransientHotspot();
       dispatch({
         type: "OPEN_BUILDING",
         buildingId: building.buildingId,
         source,
       });
     },
-    [dispatch],
+    [clearTransientHotspot, dispatch],
   );
 
   const stageLocationBuilding = useCallback(
@@ -1843,7 +1848,7 @@ export function CampusMapRuntime({
           scrollTop: listResultsRef.current?.scrollTop ?? 0,
         };
       }
-      setSelectedTransientHotspot(null);
+      clearTransientHotspot();
       dispatch({
         type: "OPEN_PLACE",
         placeId: facility.placeId,
@@ -1855,7 +1860,7 @@ export function CampusMapRuntime({
               : "building",
       });
     },
-    [dispatch, driver, sceneCatalog],
+    [clearTransientHotspot, dispatch, driver, sceneCatalog],
   );
 
   useEffect(() => {
@@ -1914,12 +1919,11 @@ export function CampusMapRuntime({
   const closeSelection = useCallback(() => {
     cancelPendingUserLocation();
     if (selectedTransientHotspotRef.current) {
-      selectedTransientHotspotRef.current = null;
-      setSelectedTransientHotspot(null);
+      clearTransientHotspot();
       return;
     }
     dispatch({ type: "DISMISS" });
-  }, [cancelPendingUserLocation, dispatch]);
+  }, [cancelPendingUserLocation, clearTransientHotspot, dispatch]);
 
   const navigateEntityBack = useCallback(() => {
     cancelPendingUserLocation();
@@ -1936,8 +1940,7 @@ export function CampusMapRuntime({
       }
       if (selectedTransientHotspot) {
         event.preventDefault();
-        selectedTransientHotspotRef.current = null;
-        setSelectedTransientHotspot(null);
+        clearTransientHotspot();
         return;
       }
       const currentSnapshot = driver.getSnapshot();
@@ -1950,6 +1953,7 @@ export function CampusMapRuntime({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     closeSelection,
+    clearTransientHotspot,
     dispatchEditEvent,
     driver,
     editSession,
@@ -2773,7 +2777,7 @@ export function CampusMapRuntime({
                   dispatch({ type: "SEARCH", query });
                 }
               }}
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
+              className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-neutral-500"
               placeholder={
                 locationSelectionActive ? "搜索建筑…" : "搜索建筑或地点…"
               }
@@ -2981,6 +2985,7 @@ export function CampusMapRuntime({
                     : "border-black/10 bg-white text-neutral-700 hover:bg-neutral-50",
                 )}
                 onClick={() => {
+                  clearTransientHotspot();
                   if (
                     session.mode === "browse" &&
                     session.scene.kind === "category-results" &&

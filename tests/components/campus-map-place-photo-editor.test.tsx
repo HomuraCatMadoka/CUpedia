@@ -89,6 +89,20 @@ describe("PlacePhotoEditor (#818)", () => {
     expect(screen.getByText("已达到 3 张上限")).toBeTruthy();
   });
 
+  it("keeps the photo role selector at a mobile-safe font size", () => {
+    render(
+      <PlacePhotoEditor
+        placeType="toilet"
+        photos={[{ assetId, role: "entrance" }]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("combobox", { name: "第 1 张照片内容" }).className,
+    ).toContain("text-base");
+  });
+
   it("lets the user reorder photos so the first thumbnail stays the cover", () => {
     const photos = [
       {

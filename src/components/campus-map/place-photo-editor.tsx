@@ -195,7 +195,7 @@ export function PlacePhotoEditor({
               <label className="mt-1 block text-xs">
                 <span className="sr-only">第 {index + 1} 张照片内容</span>
                 <select
-                  className="min-h-10 w-full rounded-lg border border-black/15 bg-white px-2"
+                  className="min-h-10 w-full rounded-lg border border-black/15 bg-white px-2 text-base"
                   value={photo.role}
                   disabled={disabled || uploading}
                   onChange={(event) =>

@@ -396,6 +396,19 @@ async function openCanonicalBuildingHotspot(
   });
 }
 
+async function renderUnmappedHotspot() {
+  const rendered = await renderWithRuntime();
+  await act(async () => {
+    rendered.map.emit("hotspotclick", {
+      id: "unreviewed-poi",
+      name: "尚未收录地点",
+      lnglat: { lng: 114.20801, lat: 22.41966 },
+    });
+  });
+  await screen.findByRole("heading", { name: "尚未收录地点" });
+  return rendered;
+}
+
 describe("Campus Map AMap runtime effects", () => {
   it("shows a canonical Building selection before opening the Add form", async () => {
     const { runtime } = await renderWithRuntime({
@@ -699,6 +712,57 @@ describe("Campus Map AMap runtime effects", () => {
     await act(async () => map.emit("click", {}));
     await runtime.flushAnimationFrames();
 
+    expect(screen.queryByRole("heading", { name: "尚未收录地点" })).toBeNull();
+  });
+
+  it("replaces an unmapped AMap hotspot with the selected facility category on the first click", async () => {
+    await renderUnmappedHotspot();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "洗手间", pressed: false }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "洗手间" }),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: "洗手间", pressed: true }),
+    ).not.toBeNull();
+    expect(screen.queryByRole("heading", { name: "尚未收录地点" })).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "课室", pressed: false }),
+    );
+    expect(await screen.findByRole("heading", { name: "课室" })).not.toBeNull();
+    expect(screen.getByText("暂无地点")).not.toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "饮水点", pressed: false }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "饮水点" }),
+    ).not.toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "饮水点", pressed: true }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "饮水点" })).toBeNull(),
+    );
+    expect(screen.queryByRole("heading", { name: "尚未收录地点" })).toBeNull();
+  });
+
+  it("replaces an unmapped AMap hotspot when a search result opens", async () => {
+    await renderUnmappedHotspot();
+    fireEvent.change(screen.getByPlaceholderText("搜索建筑或地点…"), {
+      target: { value: "科学馆" },
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /科学馆/u }));
+
+    expect(
+      await screen.findByRole("heading", { name: "科学馆" }),
+    ).not.toBeNull();
+    expect(screen.queryByText("高德地图地点")).toBeNull();
     expect(screen.queryByRole("heading", { name: "尚未收录地点" })).toBeNull();
   });
 

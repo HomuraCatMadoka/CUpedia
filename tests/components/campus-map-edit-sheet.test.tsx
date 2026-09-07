@@ -162,10 +162,11 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(buildingGroup).toBeTruthy();
     expect(screen.getByRole("heading", { name: "新增设施" })).toBeTruthy();
     expect(within(buildingGroup).getByText("科学馆")).toBeTruthy();
-    expect(
-      (screen.getByRole("combobox", { name: "楼层" }) as HTMLSelectElement)
-        .value,
-    ).toBe(floorId);
+    const floor = screen.getByRole("combobox", {
+      name: "楼层",
+    }) as HTMLSelectElement;
+    expect(floor.value).toBe(floorId);
+    expect(floor.className).toContain("text-base");
     expect(within(buildingGroup).queryByText(/已从建筑卡片带入/)).toBeNull();
     expect(screen.queryByRole("combobox", { name: "建筑" })).toBeNull();
     expect(
@@ -571,11 +572,15 @@ describe("Campus Map single-page edit Sheet", () => {
     const actionLabel = screen.getByRole("textbox", {
       name: "官方入口 1 显示名称",
     });
+    const actionTarget = screen.getByRole("textbox", {
+      name: "官方入口 1 链接或联系方式",
+    });
+    const visitNote = screen.getByRole("textbox", { name: "到访提示" });
     expect((actionLabel as HTMLInputElement).value).toBe("现有官网");
-    expect(
-      (screen.getByRole("textbox", { name: "到访提示" }) as HTMLTextAreaElement)
-        .value,
-    ).toBe("请先在地下登记。");
+    expect((visitNote as HTMLTextAreaElement).value).toBe("请先在地下登记。");
+    for (const field of [actionLabel, actionTarget, visitNote]) {
+      expect(field.className).toContain("text-base");
+    }
 
     fireEvent.change(actionLabel, { target: { value: "预约页面" } });
     expect(onEvent).toHaveBeenLastCalledWith(
@@ -593,7 +598,7 @@ describe("Campus Map single-page edit Sheet", () => {
       }),
     );
 
-    fireEvent.change(screen.getByRole("textbox", { name: "到访提示" }), {
+    fireEvent.change(visitNote, {
       target: { value: "只接受八达通。" },
     });
     expect(onEvent).toHaveBeenLastCalledWith(
@@ -1741,14 +1746,18 @@ describe("Campus Map single-page edit Sheet", () => {
     const useCoordinates = screen.getByRole("button", {
       name: "使用输入坐标",
     }) as HTMLButtonElement;
-    fireEvent.change(screen.getByRole("textbox", { name: "经度（WGS84）" }), {
+    const longitude = screen.getByRole("textbox", { name: "经度（WGS84）" });
+    const latitude = screen.getByRole("textbox", { name: "纬度（WGS84）" });
+    expect(longitude.className).toContain("text-base");
+    expect(latitude.className).toContain("text-base");
+    fireEvent.change(longitude, {
       target: { value: "" },
     });
     expect(useCoordinates.disabled).toBe(true);
-    fireEvent.change(screen.getByRole("textbox", { name: "经度（WGS84）" }), {
+    fireEvent.change(longitude, {
       target: { value: "114.2" },
     });
-    fireEvent.change(screen.getByRole("textbox", { name: "纬度（WGS84）" }), {
+    fireEvent.change(latitude, {
       target: { value: "   " },
     });
     expect(useCoordinates.disabled).toBe(true);

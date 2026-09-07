@@ -678,6 +678,8 @@ describe("CampusMapRuntime", () => {
     expect(search.getAttribute("placeholder")).toBe("搜索建筑或地点…");
     expect(search.getAttribute("name")).toBe("campus-map-search");
     expect(search.getAttribute("autocomplete")).toBe("off");
+    expect(search.className).toContain("text-base");
+    expect(search.className).not.toContain("md:text-sm");
   });
 
   it("uses plain language when search has no results", async () => {
@@ -2219,6 +2221,9 @@ describe("CampusMapRuntime", () => {
     expect(
       await screen.findByRole("heading", { name: "设施在哪里？" }),
     ).toBeTruthy();
+    const buildingSearch = screen.getByRole("textbox", { name: "搜索建筑" });
+    expect(buildingSearch.className).toContain("text-base");
+    expect(buildingSearch.className).not.toContain("md:text-sm");
     expect(
       screen.queryByRole("textbox", { name: "设施名称或编号" }),
     ).toBeNull();
