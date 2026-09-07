@@ -219,6 +219,23 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
         );
       }
       await client.query(
+        `delete from campus_map_floor_provenance
+          where provenance_id in (
+            select id from campus_map_provenance_sources
+             where source_ref like 'test:campus-map-publish:%'
+          )`,
+      );
+      await client.query(
+        `delete from campus_map_floor_provenance
+          where floor_id in (
+            select id from campus_map_floors
+             where display_label ilike 'Issue 890 %'
+          )`,
+      );
+      await client.query(
+        "delete from campus_map_floors where display_label ilike 'Issue 890 %'",
+      );
+      await client.query(
         "delete from campus_map_provenance_sources where source_ref like 'test:campus-map-publish:%'",
       );
       await client.query(
@@ -425,6 +442,41 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     }
   });
 
+  it("enforces normalized Floor labels within one Building but not across Buildings", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      await client.query(
+        `insert into campus_map_floors (id, building_id, display_label, sort_order)
+         values ($1, $2, 'Issue 890 Constraint', 90)`,
+        [randomUUID(), "00000000-0000-4000-8000-000000000804"],
+      );
+      await client.query("savepoint duplicate_floor");
+      await expect(
+        client.query(
+          `insert into campus_map_floors (id, building_id, display_label, sort_order)
+           values ($1, $2, 'issue 890 constraint', 91)`,
+          [randomUUID(), "00000000-0000-4000-8000-000000000804"],
+        ),
+      ).rejects.toMatchObject({
+        code: "23505",
+        constraint: "campus_map_floors_building_normalized_label_uq",
+      });
+      await client.query("rollback to savepoint duplicate_floor");
+
+      await expect(
+        client.query(
+          `insert into campus_map_floors (id, building_id, display_label, sort_order)
+           values ($1, $2, 'issue 890 constraint', 90)`,
+          [randomUUID(), "00000000-0000-4000-8000-000000000802"],
+        ),
+      ).resolves.toMatchObject({ rowCount: 1 });
+    } finally {
+      await client.query("rollback");
+      client.release();
+    }
+  });
+
   it("requires an authenticated actor from trusted server context", async () => {
     await expect(
       publishCampusMapChangeset(createCommand(), {
@@ -469,6 +521,236 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       clientIp: "203.0.113.2",
     });
     expect(retried).toEqual(published);
+  });
+
+  it("atomically creates or reuses one normalized Floor under the selected Building", async () => {
+    const [firstActorId, secondActorId, thirdActorId] = await Promise.all([
+      createActor(),
+      createActor(),
+      createActor(),
+    ]);
+    const first = createCommand();
+    const second = createCommand();
+    for (const [index, command] of [first, second].entries()) {
+      const change = command.changes[0];
+      if (change.operation !== "create") throw new Error("bad fixture");
+      change.fact.name = `Issue 890 并发设施 ${index + 1}`;
+      change.fact.buildingId = "00000000-0000-4000-8000-000000000804";
+      change.requestedFloor = {
+        displayLabel: index === 0 ? " Issue 890 LG1 " : "issue 890 lg1",
+      };
+    }
+
+    const [firstResult, secondResult] = await Promise.all([
+      publishCampusMapChangeset(first, {
+        actorId: firstActorId,
+        clientIp: "203.0.113.71",
+      }),
+      publishCampusMapChangeset(second, {
+        actorId: secondActorId,
+        clientIp: "203.0.113.72",
+      }),
+    ]);
+    expect(firstResult).toMatchObject({ status: "published" });
+    expect(secondResult).toMatchObject({ status: "published" });
+    if (
+      firstResult.status !== "published" ||
+      secondResult.status !== "published"
+    ) {
+      throw new Error("requested Floor publish failed");
+    }
+
+    const places = await pool.query<{
+      placeId: string;
+      floorId: string;
+      displayLabel: string;
+    }>(
+      `select fact.place_id as "placeId",
+              fact.floor_id as "floorId",
+              floor.display_label as "displayLabel"
+         from campus_map_current_facts fact
+         join campus_map_floors floor
+           on floor.building_id = fact.building_id
+          and floor.id = fact.floor_id
+        where fact.place_id = any($1::uuid[])
+        order by fact.place_id`,
+      [[firstResult.changes[0].placeId, secondResult.changes[0].placeId]],
+    );
+    expect(places.rows).toHaveLength(2);
+    expect(new Set(places.rows.map((row) => row.floorId)).size).toBe(1);
+    expect(places.rows[0]!.displayLabel.toLowerCase()).toBe("issue 890 lg1");
+
+    const floorId = places.rows[0]!.floorId;
+    const provenance = await pool.query<{ count: string }>(
+      `select count(distinct provenance_id)::text as count
+         from campus_map_floor_provenance
+        where floor_id = $1`,
+      [floorId],
+    );
+    expect(Number(provenance.rows[0]?.count)).toBe(2);
+
+    await expect(
+      publishCampusMapChangeset(first, {
+        actorId: firstActorId,
+        clientIp: "203.0.113.71",
+      }),
+    ).resolves.toEqual(firstResult);
+
+    const otherBuilding = createCommand();
+    const otherBuildingChange = otherBuilding.changes[0];
+    if (otherBuildingChange.operation !== "create") {
+      throw new Error("bad fixture");
+    }
+    otherBuildingChange.fact.name = "Issue 890 另一栋楼设施";
+    otherBuildingChange.requestedFloor = {
+      displayLabel: "ISSUE 890 LG1",
+    };
+    const otherResult = await publishCampusMapChangeset(otherBuilding, {
+      actorId: thirdActorId,
+      clientIp: "203.0.113.73",
+    });
+    expect(otherResult).toMatchObject({ status: "published" });
+    if (otherResult.status !== "published") throw new Error("publish failed");
+    const otherPlace = await pool.query<{ floorId: string }>(
+      `select floor_id as "floorId"
+         from campus_map_current_facts
+        where place_id = $1`,
+      [otherResult.changes[0].placeId],
+    );
+    expect(otherPlace.rows[0]?.floorId).not.toBe(floorId);
+  });
+
+  it("does not attach provider candidates as evidence for a requested Floor", async () => {
+    const actorId = await createActor();
+    const command = createCommand();
+    const change = command.changes[0];
+    if (change.operation !== "create") throw new Error("bad fixture");
+    change.fact.name = "Issue 890 楼层来源边界设施";
+    change.fact.buildingId = "00000000-0000-4000-8000-000000000804";
+    change.requestedFloor = {
+      displayLabel: "Issue 890 provenance boundary",
+    };
+    change.sources = [
+      {
+        ...structuredClone(change.sources[0]!),
+        kind: "provider-candidate",
+        ref: `test:campus-map-publish:${randomUUID()}`,
+      },
+      change.sources[0]!,
+    ];
+
+    const result = await publishCampusMapChangeset(command, {
+      actorId,
+      clientIp: "203.0.113.78",
+    });
+    expect(result).toMatchObject({ status: "published" });
+    if (result.status !== "published") throw new Error("publish failed");
+
+    const floorSources = await pool.query<{ sourceKind: string }>(
+      `select source.source_kind as "sourceKind"
+         from campus_map_current_facts fact
+         join campus_map_floor_provenance link on link.floor_id = fact.floor_id
+         join campus_map_provenance_sources source on source.id = link.provenance_id
+        where fact.place_id = $1
+        order by source.source_kind`,
+      [result.changes[0].placeId],
+    );
+    expect(floorSources.rows).toEqual([{ sourceKind: "field-observation" }]);
+  });
+
+  it("reuses an existing Floor when a stale directory submits the same normalized label", async () => {
+    const actorId = await createActor();
+    const command = createCommand();
+    const change = command.changes[0];
+    if (change.operation !== "create") throw new Error("bad fixture");
+    change.fact.name = "Issue 890 已有楼层设施";
+    change.requestedFloor = { displayLabel: " g/f " };
+
+    const result = await publishCampusMapChangeset(command, {
+      actorId,
+      clientIp: "203.0.113.74",
+    });
+    expect(result).toMatchObject({ status: "published" });
+    if (result.status !== "published") throw new Error("publish failed");
+    await expect(
+      getCampusMapCurrentPlace(result.changes[0].placeId),
+    ).resolves.toMatchObject({
+      location: {
+        kind: "floor",
+        building: { id: "00000000-0000-4000-8000-000000000802" },
+        floor: {
+          id: "00000000-0000-4000-8000-000000000803",
+          displayLabel: "G/F",
+        },
+      },
+    });
+  });
+
+  it("rolls back a newly requested Floor when the Place publish fails", async () => {
+    const actorId = await createActor();
+    const command = createCommand();
+    const change = command.changes[0];
+    if (change.operation !== "create") throw new Error("bad fixture");
+    change.fact.name = "Issue 890 回滚设施";
+    change.fact.buildingId = "00000000-0000-4000-8000-000000000804";
+    change.requestedFloor = { displayLabel: "Issue 890 rollback floor" };
+
+    await pool.query(
+      `create function campus_map_issue_890_publish_failure() returns trigger
+       language plpgsql as $$
+       begin
+         if new.name = 'Issue 890 回滚设施' then
+           raise exception 'forced issue 890 publish failure';
+         end if;
+         return new;
+       end
+       $$`,
+    );
+    await pool.query(
+      `create trigger campus_map_issue_890_publish_failure_trigger
+       before insert on campus_map_fact_revisions
+       for each row execute function campus_map_issue_890_publish_failure()`,
+    );
+    let failed;
+    try {
+      failed = await publishCampusMapChangeset(command, {
+        actorId,
+        clientIp: "203.0.113.75",
+      });
+    } finally {
+      await pool.query(
+        "drop trigger campus_map_issue_890_publish_failure_trigger on campus_map_fact_revisions",
+      );
+      await pool.query("drop function campus_map_issue_890_publish_failure() ");
+    }
+
+    expect(failed).toEqual({
+      status: "temporarily-unavailable",
+      code: "publish-unavailable",
+      retryable: true,
+    });
+    const afterFailure = await pool.query<{ count: string }>(
+      `select count(*)::text as count
+         from campus_map_floors
+        where building_id = $1
+          and lower(btrim(display_label)) = 'issue 890 rollback floor'`,
+      ["00000000-0000-4000-8000-000000000804"],
+    );
+    expect(Number(afterFailure.rows[0]?.count)).toBe(0);
+
+    const retried = await publishCampusMapChangeset(command, {
+      actorId,
+      clientIp: "203.0.113.75",
+    });
+    expect(retried).toMatchObject({ status: "published" });
+    const afterRetry = await pool.query<{ count: string }>(
+      `select count(*)::text as count
+         from campus_map_floors
+        where building_id = $1
+          and lower(btrim(display_label)) = 'issue 890 rollback floor'`,
+      ["00000000-0000-4000-8000-000000000804"],
+    );
+    expect(Number(afterRetry.rows[0]?.count)).toBe(1);
   });
 
   it("replays a completed admin bulk result after the actor role changes", async () => {

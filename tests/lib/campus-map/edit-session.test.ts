@@ -647,6 +647,101 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
+  it("publishes a user-confirmed missing Floor intent and clears it after changing Building", () => {
+    const buildingId = "50000000-0000-4000-8000-000000000001";
+    const otherBuildingId = "50000000-0000-4000-8000-000000000002";
+    const started = transitionCampusMapEdit(null, {
+      type: "START_FACILITY_ADD",
+      idempotencyKey: firstKey,
+      entry: {
+        kind: "building",
+        locationDisplay: {
+          buildingId,
+          buildingName: "科学馆",
+          floorId: null,
+          floorLabel: null,
+        },
+      },
+    }).session!;
+    const missing = transitionCampusMapEdit(started, {
+      type: "START_MISSING_FLOOR",
+    }).session!;
+    const typed = transitionCampusMapEdit(missing, {
+      type: "CHANGE_MISSING_FLOOR_LABEL",
+      displayLabel: "  LG1  ",
+    }).session!;
+
+    const unconfirmed = transitionCampusMapEdit(typed, {
+      type: "REQUEST_PUBLISH",
+      accessedOn: "2026-08-26",
+    });
+    expect(unconfirmed.session).toMatchObject({
+      status: "editing",
+      localError: "floorLabel",
+      draft: {
+        missingFloor: { displayLabel: "  LG1  ", confirmed: false },
+      },
+    });
+
+    const confirmed = transitionCampusMapEdit(typed, {
+      type: "CONFIRM_MISSING_FLOOR",
+    }).session!;
+    expect(confirmed.draft.missingFloor).toEqual({
+      displayLabel: "LG1",
+      confirmed: true,
+    });
+    const publishing = transitionCampusMapEdit(confirmed, {
+      type: "REQUEST_PUBLISH",
+      accessedOn: "2026-08-26",
+    });
+    expect(publishing.commands).toContainEqual({
+      kind: "publish",
+      command: expect.objectContaining({
+        changes: [
+          expect.objectContaining({
+            operation: "create",
+            requestedFloor: { displayLabel: "LG1" },
+            fact: expect.objectContaining({
+              buildingId,
+              floorId: null,
+              location: { kind: "building" },
+            }),
+          }),
+        ],
+      }),
+    });
+    const failed = transitionCampusMapEdit(publishing.session, {
+      type: "PUBLISH_RESULT",
+      idempotencyKey: firstKey,
+      result: {
+        status: "temporarily-unavailable",
+        code: "publish-unavailable",
+        retryable: true,
+      },
+    });
+    expect(failed.session).toMatchObject({
+      status: "temporarily-unavailable",
+      draft: { missingFloor: { displayLabel: "LG1", confirmed: true } },
+    });
+
+    const changedBuilding = transitionCampusMapEdit(confirmed, {
+      type: "CHANGE_FACT",
+      fact: {
+        ...confirmed.draft.fact,
+        buildingId: otherBuildingId,
+        floorId: null,
+        location: { kind: "building" },
+      },
+      locationDisplay: {
+        buildingId: otherBuildingId,
+        buildingName: "大学图书馆",
+        floorId: null,
+        floorLabel: null,
+      },
+    });
+    expect(changedBuilding.session?.draft.missingFloor).toBeNull();
+  });
+
   it("maps every editable V2 operating fact into the canonical publish fact", () => {
     const edited = transitionCampusMapEdit(editSession(), {
       type: "CHANGE_FACT",
@@ -1013,7 +1108,7 @@ describe("Campus Map edit session transition", () => {
     }).session;
     const encoded = encodeCampusMapEditSnapshot(changed!);
 
-    expect(CAMPUS_MAP_EDIT_SNAPSHOT_VERSION).toBe(9);
+    expect(CAMPUS_MAP_EDIT_SNAPSHOT_VERSION).toBe(10);
     expect(JSON.parse(encoded)).toMatchObject({
       version: CAMPUS_MAP_EDIT_SNAPSHOT_VERSION,
       session: { draft: { placeId, baseRevisionId } },

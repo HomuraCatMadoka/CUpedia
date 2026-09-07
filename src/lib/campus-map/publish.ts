@@ -1,11 +1,13 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   campusMapBuildings,
   campusMapCurrentFacts,
   campusMapFactRevisions,
+  campusMapFloorLabelIdentitySql,
+  campusMapFloorProvenance,
   campusMapFloors,
   campusMapPlacePhotoAssets,
   campusMapProvenanceSources,
@@ -51,6 +53,10 @@ import {
   validateSource,
 } from "@/lib/campus-map/publish-command";
 import { canonicalizeCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
+import {
+  isCampusMapFloorEvidenceSource,
+  normalizeCampusMapFloorLabel,
+} from "@/lib/campus-map/floor-label";
 import type {
   CampusMapPublishChange,
   CampusMapPublishCommand,
@@ -1413,6 +1419,31 @@ async function publishCampusMapChangesetInternal(
         } as const;
       }
 
+      const currentAppendFactByChange = new Map<
+        CampusMapPublishChange,
+        CampusMapAppendFact | null
+      >();
+      for (const change of command.changes) {
+        const current =
+          change.operation === "create"
+            ? null
+            : (lockedByPlace.get(change.placeId) ?? null);
+        const currentV2Fact = current
+          ? toCampusMapRepublishableFact({
+              kind: "stored",
+              factSchemaVersion: current.factSchemaVersion,
+              fact: current.fact,
+            })
+          : null;
+        if (currentV2Fact && !currentV2Fact.ok) {
+          return governanceValidationFailure("revision-fact-unavailable");
+        }
+        currentAppendFactByChange.set(
+          change,
+          currentV2Fact ? toAppendFact(currentV2Fact.fact) : null,
+        );
+      }
+
       const appendProvenanceSources = sourceIdentities.sources.map(
         ({ source }) => toAppendProvenanceSource(source),
       );
@@ -1518,24 +1549,18 @@ async function publishCampusMapChangesetInternal(
         return replayPublishRequest(racedRequest, requestFingerprint);
       }
 
+      await materializeRequestedFloors(
+        transaction,
+        command,
+        provenanceIdByIdentity,
+      );
+
       for (const change of command.changes) {
         const current =
           change.operation === "create"
             ? null
             : (lockedByPlace.get(change.placeId) ?? null);
-        const currentV2Fact = current
-          ? toCampusMapRepublishableFact({
-              kind: "stored",
-              factSchemaVersion: current.factSchemaVersion,
-              fact: current.fact,
-            })
-          : null;
-        if (currentV2Fact && !currentV2Fact.ok) {
-          return governanceValidationFailure("revision-fact-unavailable");
-        }
-        const currentAppendFact = currentV2Fact
-          ? toAppendFact(currentV2Fact.fact)
-          : null;
+        const currentAppendFact = currentAppendFactByChange.get(change) ?? null;
         const submittedProvenanceIds = change.sources.map((source) => {
           const provenanceId = provenanceIdByIdentity.get(
             sourceIdentity(source),
@@ -1552,7 +1577,7 @@ async function publishCampusMapChangesetInternal(
             !retireFactPlaceIds.has(change.placeId))
         ) {
           if (!currentAppendFact) {
-            return governanceValidationFailure("revision-fact-unavailable");
+            throw new Error("Campus Map current fact was not prepared");
           }
           fact = currentAppendFact;
         } else {
@@ -1835,6 +1860,102 @@ async function acquireTransactionAdvisoryLock(
   await transaction.execute(
     sql`select pg_advisory_xact_lock(${lockKey.toString()}::bigint)`,
   );
+}
+
+async function materializeRequestedFloors(
+  transaction: DatabaseTransaction,
+  command: CampusMapPublishCommand,
+  provenanceIdByIdentity: ReadonlyMap<string, string>,
+): Promise<void> {
+  const requestedChanges = command.changes.filter(
+    (
+      change,
+    ): change is Extract<CampusMapPublishChange, { operation: "create" }> =>
+      change.operation === "create" && change.requestedFloor !== undefined,
+  );
+  if (requestedChanges.length === 0) return;
+  if (command.kind !== "single" || requestedChanges.length !== 1) {
+    throw new Error("Campus Map requested Floor command was not validated");
+  }
+
+  const change = requestedChanges[0]!;
+  const requestedFloor = change.requestedFloor;
+  if (!requestedFloor) {
+    throw new Error("Campus Map requested Floor command was not validated");
+  }
+  const buildingId = change.fact.buildingId!;
+  await acquireTransactionAdvisoryLock(
+    transaction,
+    `floor-directory\u0000${buildingId}`,
+  );
+
+  const displayLabel = normalizeCampusMapFloorLabel(
+    requestedFloor.displayLabel,
+  );
+  const findExisting = async () => {
+    const [floor] = await transaction
+      .select({ id: campusMapFloors.id })
+      .from(campusMapFloors)
+      .where(
+        and(
+          eq(campusMapFloors.buildingId, buildingId),
+          eq(
+            campusMapFloorLabelIdentitySql(campusMapFloors.displayLabel),
+            campusMapFloorLabelIdentitySql(displayLabel),
+          ),
+        ),
+      )
+      .limit(1);
+    return floor ?? null;
+  };
+
+  let floor = await findExisting();
+  if (!floor) {
+    const [lastFloor] = await transaction
+      .select({ sortOrder: campusMapFloors.sortOrder })
+      .from(campusMapFloors)
+      .where(eq(campusMapFloors.buildingId, buildingId))
+      .orderBy(desc(campusMapFloors.sortOrder), desc(campusMapFloors.id))
+      .limit(1);
+    const [inserted] = await transaction
+      .insert(campusMapFloors)
+      .values({
+        id: randomUUID(),
+        buildingId,
+        displayLabel,
+        sortOrder: (lastFloor?.sortOrder ?? -1) + 1,
+      })
+      .onConflictDoNothing()
+      .returning({ id: campusMapFloors.id });
+    floor = inserted ?? (await findExisting());
+  }
+  if (!floor) {
+    throw new Error("Campus Map requested Floor was not resolved");
+  }
+
+  const provenanceIds = change.sources
+    .filter(isCampusMapFloorEvidenceSource)
+    .map((source) => {
+      const provenanceId = provenanceIdByIdentity.get(sourceIdentity(source));
+      if (!provenanceId) {
+        throw new Error("Campus Map Floor provenance was not resolved");
+      }
+      return provenanceId;
+    });
+  if (provenanceIds.length > 0) {
+    await transaction
+      .insert(campusMapFloorProvenance)
+      .values(
+        [...new Set(provenanceIds)].map((provenanceId) => ({
+          floorId: floor!.id,
+          provenanceId,
+        })),
+      )
+      .onConflictDoNothing();
+  }
+
+  change.fact.floorId = floor.id;
+  change.fact.location = { kind: "floor" };
 }
 
 async function normalizeAndLockPublishWarningDomains(

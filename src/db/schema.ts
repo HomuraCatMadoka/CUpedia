@@ -18,7 +18,7 @@ import {
   foreignKey,
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import { relations, sql, type SQL } from "drizzle-orm";
+import { relations, sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import {
   PRODUCT_UPDATE_AREAS,
   PRODUCT_UPDATE_TYPES,
@@ -63,6 +63,7 @@ import {
   campusMapPlaceTypesForFactFieldV2,
   type CampusMapFactFieldKeyV2,
 } from "@/lib/campus-map/place-type-contract";
+import { CAMPUS_MAP_FLOOR_LABEL_TRIM_CHARACTERS } from "@/lib/campus-map/floor-label";
 
 export { CAMPUS_MAP_FACT_FIELD_KEYS_V2 };
 export type { CampusMapFactFieldKeyV2 };
@@ -2502,6 +2503,25 @@ export const campusMapBuildings = pgTable(
   ],
 ).enableRLS();
 
+const campusMapFloorLabelTrimCharactersSql = sql.raw(
+  `U&'${[...CAMPUS_MAP_FLOOR_LABEL_TRIM_CHARACTERS]
+    .map(
+      (character) =>
+        `\\${character.codePointAt(0)!.toString(16).padStart(4, "0")}`,
+    )
+    .join("")}'`,
+);
+
+export function campusMapFloorLabelTrimSql(label: SQLWrapper | string): SQL {
+  return sql`btrim(${label}, ${campusMapFloorLabelTrimCharactersSql})`;
+}
+
+export function campusMapFloorLabelIdentitySql(
+  label: SQLWrapper | string,
+): SQL {
+  return sql`lower(${campusMapFloorLabelTrimSql(label)})`;
+}
+
 export const campusMapFloors = pgTable(
   "campus_map_floors",
   {
@@ -2523,9 +2543,17 @@ export const campusMapFloors = pgTable(
       table.buildingId,
       table.id,
     ),
+    uniqueIndex("campus_map_floors_building_normalized_label_uq").on(
+      table.buildingId,
+      campusMapFloorLabelIdentitySql(table.displayLabel),
+    ),
     index("campus_map_floors_building_sort_idx").on(
       table.buildingId,
       table.sortOrder,
+    ),
+    check(
+      "campus_map_floors_display_label_check",
+      sql`${campusMapFloorLabelTrimSql(table.displayLabel)} = ${table.displayLabel} and ${table.displayLabel} <> '' and octet_length(${table.displayLabel}) <= 64`,
     ),
   ],
 ).enableRLS();

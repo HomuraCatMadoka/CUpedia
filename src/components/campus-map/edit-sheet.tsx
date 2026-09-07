@@ -18,6 +18,7 @@ import {
   campusMapFactNameError,
   type CampusMapEditFieldKey,
 } from "@/lib/campus-map/edit-schema";
+import { campusMapFloorLabelError } from "@/lib/campus-map/floor-label";
 import {
   campusMapFactFieldLabel,
   campusMapPlaceTypeLabel,
@@ -67,6 +68,7 @@ const visibleEditorDetailFields = new Set<CampusMapEditFieldKey>([
 ]);
 const officialActionSafeTargets =
   "安全的 https:// 网页、tel: 电话或 mailto: 电邮";
+const ADD_MISSING_FLOOR_VALUE = "__add-missing-floor";
 
 function today(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -86,6 +88,11 @@ function messageForError(code: string): string {
     "fact-name-too-long": "名称过长，请缩短后重试。",
     "source-required": "发布资料不完整，请重试。",
     "invalid-location": "位置资料不完整，请修改位置。",
+    "floor-label-required": "请填写实际楼层标签。",
+    "floor-label-invalid": "楼层标签含有无法保存的字符。",
+    "floor-label-too-long": "楼层标签过长，请缩短后重试。",
+    "invalid-requested-floor": "楼层标签资料不完整，请重新填写。",
+    "invalid-requested-floor-location": "所属建筑已改变，请重新确认楼层。",
     "base-revision-conflict": "地点资料已被其他人更新，请刷新后重试。",
     "invalid-place-id": "这个地点暂时无法发布，请返回地图后重试。",
     "photo-limit-exceeded": "一个地点最多保留 3 张照片。",
@@ -573,6 +580,10 @@ export function CampusMapEditSheet({
   const selectedFloors = [...(selectedBuilding?.floors ?? [])].sort(
     (left, right) => left.sortOrder - right.sortOrder,
   );
+  const missingFloor = draft.missingFloor;
+  const missingFloorLabelError = missingFloor
+    ? campusMapFloorLabelError(missingFloor.displayLabel)
+    : null;
   const buildingDisplay = useMemo(
     () => projectCampusMapBuildingDisplay(buildings),
     [buildings],
@@ -892,46 +903,129 @@ export function CampusMapEditSheet({
   }
 
   const floorField = (
-    <label className="text-sm" htmlFor={`${fieldPrefix}-floor`}>
-      {campusMapFactFieldLabel("floorId")}
-      <select
-        id={`${fieldPrefix}-floor`}
-        name="campus-map-floor"
-        className={fieldClass}
-        disabled={!selectedBuilding}
-        value={fact.floorId ?? ""}
-        onChange={(event) => {
-          if (!selectedBuilding) return;
-          const floor = selectedFloors.find(
-            (candidate) => candidate.floorId === event.target.value,
-          );
-          changeFact(
-            {
-              buildingId: selectedBuilding.buildingId,
-              floorId: floor?.floorId ?? null,
-              location: floor ? { kind: "floor" } : { kind: "building" },
-            },
-            {
-              buildingId: selectedBuilding.buildingId,
-              buildingName:
-                campusMapBuildingDisplayFor(
-                  buildingDisplay,
-                  selectedBuilding.buildingId,
-                )?.label ?? selectedBuilding.name,
-              floorId: floor?.floorId ?? null,
-              floorLabel: floor?.displayLabel ?? null,
-            },
-          );
-        }}
-      >
-        <option value="">未指定楼层</option>
-        {selectedFloors.map((floor) => (
-          <option key={floor.floorId} value={floor.floorId}>
-            {floor.displayLabel}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div>
+      <label className="text-sm" htmlFor={`${fieldPrefix}-floor`}>
+        {campusMapFactFieldLabel("floorId")}
+        <select
+          id={`${fieldPrefix}-floor`}
+          name="campus-map-floor"
+          className={fieldClass}
+          disabled={!selectedBuilding}
+          value={missingFloor ? ADD_MISSING_FLOOR_VALUE : (fact.floorId ?? "")}
+          onChange={(event) => {
+            if (!selectedBuilding) return;
+            if (event.target.value === ADD_MISSING_FLOOR_VALUE) {
+              onEvent({ type: "START_MISSING_FLOOR", ...freshAttempt() });
+              return;
+            }
+            if (missingFloor && event.target.value === "") {
+              onEvent({ type: "CANCEL_MISSING_FLOOR", ...freshAttempt() });
+              return;
+            }
+            const floor = selectedFloors.find(
+              (candidate) => candidate.floorId === event.target.value,
+            );
+            changeFact(
+              {
+                buildingId: selectedBuilding.buildingId,
+                floorId: floor?.floorId ?? null,
+                location: floor ? { kind: "floor" } : { kind: "building" },
+              },
+              {
+                buildingId: selectedBuilding.buildingId,
+                buildingName:
+                  campusMapBuildingDisplayFor(
+                    buildingDisplay,
+                    selectedBuilding.buildingId,
+                  )?.label ?? selectedBuilding.name,
+                floorId: floor?.floorId ?? null,
+                floorLabel: floor?.displayLabel ?? null,
+              },
+            );
+          }}
+        >
+          <option value="">未指定楼层</option>
+          {selectedFloors.map((floor) => (
+            <option key={floor.floorId} value={floor.floorId}>
+              {floor.displayLabel}
+            </option>
+          ))}
+          {draft.mode === "add" ? (
+            <option value={ADD_MISSING_FLOOR_VALUE}>添加缺失楼层…</option>
+          ) : null}
+        </select>
+      </label>
+      {selectedBuilding && selectedFloors.length === 0 && !missingFloor ? (
+        <p className="mt-1 text-xs leading-5 text-neutral-600" role="status">
+          这栋建筑尚未收录楼层。可以保留“未指定楼层”，或添加你已确认的实际楼层。
+        </p>
+      ) : null}
+      {missingFloor ? (
+        <div className="mt-3 rounded-lg border border-[#176346]/15 bg-white p-3">
+          <label
+            className="text-sm font-medium"
+            htmlFor={`${fieldPrefix}-missing-floor-label`}
+          >
+            实际楼层标签
+            <input
+              id={`${fieldPrefix}-missing-floor-label`}
+              name="campus-map-missing-floor-label"
+              type="text"
+              autoComplete="off"
+              autoFocus
+              className={fieldClass}
+              value={missingFloor.displayLabel}
+              placeholder="例如 G、LG1、1/F"
+              aria-invalid={session.localError === "floorLabel" || undefined}
+              onChange={(event) =>
+                onEvent({
+                  type: "CHANGE_MISSING_FLOOR_LABEL",
+                  displayLabel: event.target.value,
+                  ...freshAttempt(),
+                })
+              }
+            />
+          </label>
+          <p className="mt-1 text-xs leading-5 text-neutral-600">
+            只填写你已确认的真实标签。发布时系统会在这栋建筑下建立或复用楼层记录；这不代表官方或已审核资料。
+          </p>
+          {session.localError === "floorLabel" ||
+          (missingFloor.displayLabel !== "" && missingFloorLabelError) ? (
+            <p className="mt-1 text-xs text-red-700" role="alert">
+              {messageForError(
+                missingFloorLabelError ?? "floor-label-required",
+              )}
+            </p>
+          ) : null}
+          {missingFloor.confirmed ? (
+            <p
+              className="mt-2 text-xs font-semibold text-[#176346]"
+              role="status"
+            >
+              已确认楼层标签：{missingFloor.displayLabel}
+            </p>
+          ) : (
+            <button
+              type="button"
+              className={cn(primaryClass, "mt-3")}
+              disabled={missingFloorLabelError !== null}
+              onClick={() => onEvent({ type: "CONFIRM_MISSING_FLOOR" })}
+            >
+              确认此楼层
+            </button>
+          )}
+          <button
+            type="button"
+            className={cn(secondaryClass, "mt-2 w-full")}
+            onClick={() =>
+              onEvent({ type: "CANCEL_MISSING_FLOOR", ...freshAttempt() })
+            }
+          >
+            改为未指定楼层
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 
   const buildingFields = (
