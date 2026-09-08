@@ -3,6 +3,7 @@ import {
   DeleteBucketCommand,
   DeleteObjectCommand,
   HeadBucketCommand,
+  ListBucketsCommand,
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { describe, expect, it, vi } from "vitest";
@@ -74,10 +75,7 @@ describe("createPrivateBucket", () => {
   it("creates a new bucket and proves that anonymous object reads fail", async () => {
     const send = vi
       .fn<StorageClient["send"]>()
-      .mockRejectedValueOnce({
-        name: "NotFound",
-        $metadata: { httpStatusCode: 404 },
-      })
+      .mockResolvedValueOnce({ Buckets: [{ Name: "public-assets" }] })
       .mockResolvedValue({});
     const anonymousGet = vi.fn().mockResolvedValue({ status: 403 });
 
@@ -89,7 +87,7 @@ describe("createPrivateBucket", () => {
         anonymousGet,
       ),
     ).resolves.toEqual({ anonymousStatus: 403 });
-    expect(send.mock.calls[0]?.[0]).toBeInstanceOf(HeadBucketCommand);
+    expect(send.mock.calls[0]?.[0]).toBeInstanceOf(ListBucketsCommand);
     expect(send.mock.calls[1]?.[0]).toBeInstanceOf(CreateBucketCommand);
     expect(send.mock.calls[2]?.[0]).toBeInstanceOf(PutObjectCommand);
     expect(send.mock.calls[3]?.[0]).toBeInstanceOf(DeleteObjectCommand);
@@ -102,7 +100,9 @@ describe("createPrivateBucket", () => {
   });
 
   it("refuses to reuse an existing bucket", async () => {
-    const send = vi.fn<StorageClient["send"]>().mockResolvedValue({});
+    const send = vi
+      .fn<StorageClient["send"]>()
+      .mockResolvedValue({ Buckets: [{ Name: "private-assets" }] });
     const anonymousGet = vi.fn();
 
     await expect(
@@ -114,7 +114,7 @@ describe("createPrivateBucket", () => {
       ),
     ).rejects.toThrow("Refusing to reuse an existing bucket");
     expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0]?.[0]).toBeInstanceOf(HeadBucketCommand);
+    expect(send.mock.calls[0]?.[0]).toBeInstanceOf(ListBucketsCommand);
     expect(anonymousGet).not.toHaveBeenCalled();
   });
 
@@ -139,7 +139,7 @@ describe("createPrivateBucket", () => {
   it("removes the probe and fresh bucket when anonymous reads succeed", async () => {
     const send = vi
       .fn<StorageClient["send"]>()
-      .mockRejectedValueOnce({ name: "NotFound" })
+      .mockResolvedValueOnce({ Buckets: [] })
       .mockResolvedValue({});
 
     await expect(

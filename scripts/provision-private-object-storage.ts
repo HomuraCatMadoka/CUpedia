@@ -3,6 +3,7 @@ import {
   DeleteBucketCommand,
   DeleteObjectCommand,
   HeadBucketCommand,
+  ListBucketsCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -16,6 +17,7 @@ type StorageCommand =
   | DeleteBucketCommand
   | DeleteObjectCommand
   | HeadBucketCommand
+  | ListBucketsCommand
   | PutObjectCommand;
 
 export type StorageClient = {
@@ -98,14 +100,20 @@ export function summarizeStorageError(error: unknown): string {
   return details.length > 0 ? `${message} (${details.join(", ")})` : message;
 }
 
-function isMissingBucket(error: unknown) {
-  const { name, status } = errorDetails(error);
-  return status === 404 || name === "NotFound" || name === "NoSuchBucket";
-}
-
 function privateObjectUrl(endpoint: string, bucket: string, key: string) {
   const baseUrl = endpoint.replace(/\/$/, "");
   return `${baseUrl}/${encodeURIComponent(bucket)}/${encodeURIComponent(key)}`;
+}
+
+function bucketNames(response: unknown) {
+  if (!response || typeof response !== "object") {
+    throw new Error("Object storage returned an invalid bucket list");
+  }
+  const buckets = (response as { Buckets?: Array<{ Name?: string }> }).Buckets;
+  if (!Array.isArray(buckets)) return [];
+  return buckets.flatMap((bucket) =>
+    typeof bucket.Name === "string" ? [bucket.Name] : [],
+  );
 }
 
 export async function createPrivateBucket(
@@ -114,16 +122,10 @@ export async function createPrivateBucket(
   endpoint: string,
   anonymousGet: (url: string) => Promise<{ status: number }>,
 ) {
-  let bucketExists = true;
-
-  try {
-    await client.send(new HeadBucketCommand({ Bucket: privateBucket }));
-  } catch (error) {
-    if (!isMissingBucket(error)) throw error;
-    bucketExists = false;
-  }
-
-  if (bucketExists) {
+  const existingBuckets = bucketNames(
+    await client.send(new ListBucketsCommand({})),
+  );
+  if (existingBuckets.includes(privateBucket)) {
     throw new Error(
       "Refusing to reuse an existing bucket because its anonymous access cannot be proven through the S3 API",
     );
@@ -203,6 +205,7 @@ export async function main(environment: ProvisioningEnvironment = process.env) {
       if (command instanceof DeleteBucketCommand) return s3.send(command);
       if (command instanceof DeleteObjectCommand) return s3.send(command);
       if (command instanceof HeadBucketCommand) return s3.send(command);
+      if (command instanceof ListBucketsCommand) return s3.send(command);
       if (command instanceof PutObjectCommand) return s3.send(command);
       throw new Error("Unsupported object-storage command");
     },
