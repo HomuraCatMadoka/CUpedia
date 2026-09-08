@@ -1,4 +1,4 @@
-name: Create private object storage bucket
+name: Verify private object storage bucket
 
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   provision:
-    name: Create and verify private bucket
+    name: Verify private bucket access
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Create and verify new private bucket
+      - name: Verify existing private bucket
         env:
           MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
           MINIO_PORT: ${{ secrets.MINIO_PORT }}
@@ -51,4 +51,5 @@ jobs:
           MINIO_BUCKET: ${{ secrets.MINIO_BUCKET }}
           MINIO_PRIVATE_BUCKET: ${{ inputs.private_bucket }}
           PROVISION_PRIVATE_BUCKET_CONFIRM: ${{ inputs.confirmation }}
+          VERIFY_EXISTING_PRIVATE_BUCKET: "1"
         run: pnpm storage:create-private

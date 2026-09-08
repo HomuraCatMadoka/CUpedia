@@ -2,6 +2,7 @@ import {
   CreateBucketCommand,
   DeleteBucketCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadBucketCommand,
   ListBucketsCommand,
   PutObjectCommand,
@@ -199,6 +200,63 @@ export async function main(environment: ProvisioningEnvironment = process.env) {
     },
     forcePathStyle: true,
   });
+
+  if (environment.VERIFY_EXISTING_PRIVATE_BUCKET === "1") {
+    const probeKey = `.cupedia-private-probe-${randomUUID()}`;
+    const marker = `CUpedia private bucket access probe ${randomUUID()}`;
+    let probeCreated = false;
+
+    try {
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: config.privateBucket,
+          Key: probeKey,
+          Body: marker,
+          ContentType: "text/plain",
+        }),
+      );
+      probeCreated = true;
+      const stored = await s3.send(
+        new GetObjectCommand({
+          Bucket: config.privateBucket,
+          Key: probeKey,
+        }),
+      );
+      if ((await stored.Body?.transformToString()) !== marker) {
+        throw new Error(
+          "Authorized private-bucket read returned wrong content",
+        );
+      }
+      const anonymousResponse = await fetch(
+        privateObjectUrl(config.endpoint, config.privateBucket, probeKey),
+        { method: "GET", redirect: "manual", cache: "no-store" },
+      );
+      if (
+        anonymousResponse.status !== 401 &&
+        anonymousResponse.status !== 403
+      ) {
+        throw new Error(
+          `Anonymous private-bucket probe returned unexpected HTTP ${anonymousResponse.status}`,
+        );
+      }
+      console.log("Verified authorized private object write and read.");
+      console.log(
+        `Verified that anonymous object reads are denied (HTTP ${anonymousResponse.status}).`,
+      );
+    } finally {
+      if (probeCreated) {
+        await s3.send(
+          new DeleteObjectCommand({
+            Bucket: config.privateBucket,
+            Key: probeKey,
+          }),
+        );
+        console.log("Deleted private object access probe.");
+      }
+    }
+    return;
+  }
+
   const client: StorageClient = {
     send: (command) => {
       if (command instanceof CreateBucketCommand) return s3.send(command);
