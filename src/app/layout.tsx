@@ -6,6 +6,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "CUpedia",
   description: "你的中大百科全书",
+  icons: {
+    icon: "/icons/cupedia.png",
+    apple: "/icons/cupedia.png",
+  },
 };
 
 export const viewport: Viewport = {
