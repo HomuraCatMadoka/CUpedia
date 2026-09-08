@@ -40,7 +40,8 @@
     "wiki-links:repair": "node --import tsx scripts/wiki-links-integrity.ts --repair",
     "campus-bus:train-model": "node --import tsx scripts/cuhk-bus-train-model.ts",
     "campus-bus:check-official-sources": "node --import tsx scripts/cuhk-bus-check-official-sources.ts",
-    "qa:campus-map-provider-mappings": "node --import tsx scripts/campus-map-provider-mapping-qa.ts"
+    "qa:campus-map-provider-mappings": "node --import tsx scripts/campus-map-provider-mapping-qa.ts",
+    "storage:create-private": "node --import tsx scripts/provision-private-object-storage.ts"
   },
   "dependencies": {
     "@ariakit/react": "^0.4.28",
