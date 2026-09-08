@@ -83,6 +83,21 @@ function errorDetails(error: unknown) {
   };
 }
 
+export function summarizeStorageError(error: unknown): string {
+  if (error instanceof AggregateError) {
+    const nested = error.errors.map(summarizeStorageError).join("; ");
+    return `${error.message}: ${nested}`;
+  }
+
+  const { name, status } = errorDetails(error);
+  const message = error instanceof Error ? error.message : "Unknown error";
+  const details = [
+    name && name !== message ? `type=${name}` : undefined,
+    status ? `http=${status}` : undefined,
+  ].filter(Boolean);
+  return details.length > 0 ? `${message} (${details.join(", ")})` : message;
+}
+
 function isMissingBucket(error: unknown) {
   const { name, status } = errorDetails(error);
   return status === 404 || name === "NotFound" || name === "NoSuchBucket";
@@ -213,7 +228,7 @@ export async function main(environment: ProvisioningEnvironment = process.env) {
 const entrypoint = process.argv[1];
 if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
   void main().catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : error);
+    console.error(summarizeStorageError(error));
     process.exitCode = 1;
   });
 }

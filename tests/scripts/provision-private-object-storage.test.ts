@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createPrivateBucket,
   readProvisioningConfig,
+  summarizeStorageError,
   type StorageClient,
 } from "../../scripts/provision-private-object-storage";
 
@@ -52,6 +53,19 @@ describe("readProvisioningConfig", () => {
       }),
     ).toThrow(
       "PROVISION_PRIVATE_BUCKET_CONFIRM must exactly match MINIO_PRIVATE_BUCKET",
+    );
+  });
+});
+
+describe("summarizeStorageError", () => {
+  it("reports only the safe error type and HTTP status", () => {
+    const error = Object.assign(new Error("UnknownError"), {
+      name: "AccessDenied",
+      $metadata: { httpStatusCode: 403 },
+    });
+
+    expect(summarizeStorageError(error)).toBe(
+      "UnknownError (type=AccessDenied, http=403)",
     );
   });
 });
