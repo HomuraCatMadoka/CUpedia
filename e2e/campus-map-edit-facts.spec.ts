@@ -276,21 +276,12 @@ for (const scenario of [
     const buildingCard = page.getByRole("region", {
       name: scenario.buildingName,
     });
-    if (scenario.viewport.width < 768) {
-      const floorSelect = buildingCard.getByRole("combobox", {
-        name: "切换楼层",
-      });
-      await expect(
-        floorSelect.getByRole("option", { name: scenario.floorLabel }),
-      ).toHaveCount(1);
-    } else {
-      await expect(
-        buildingCard.getByRole("button", {
-          name: scenario.floorLabel,
-          exact: true,
-        }),
-      ).toBeVisible();
-    }
+    const floorSelect = buildingCard.getByRole("combobox", {
+      name: "切换楼层",
+    });
+    await expect(
+      floorSelect.getByRole("option", { name: scenario.floorLabel }),
+    ).toHaveCount(1);
     await expect(buildingCard).toContainText("饮水点");
 
     const stored = await withClient((client) =>
