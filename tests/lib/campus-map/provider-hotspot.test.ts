@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   resolveCampusMapProviderHotspot,
+  suggestCampusMapHotspotBuildings,
   type CampusMapProviderHotspotInput,
 } from "@/lib/campus-map/provider-hotspot";
 import type { CampusMapProviderMappingProjection } from "@/lib/campus-map/provider-mapping-domain";
@@ -72,6 +73,7 @@ describe("resolveCampusMapProviderHotspot", () => {
     ).toEqual({
       kind: "transient",
       name: "高德地点名称",
+      providerObjectId: "unmapped-id",
     });
   });
 
@@ -101,6 +103,28 @@ describe("resolveCampusMapProviderHotspot", () => {
     ).toEqual({
       kind: "transient",
       name: "高德地点名称",
+      providerObjectId: null,
     });
   });
+});
+
+it("suggests a named building without resolving an unverified hotspot as its identity", () => {
+  expect(
+    suggestCampusMapHotspotBuildings(projection.buildings, building.name),
+  ).toContain(building);
+  expect(
+    suggestCampusMapHotspotBuildings(projection.buildings, "没有此建筑"),
+  ).toEqual([]);
+  expect(
+    resolveCampusMapProviderHotspot(projection, [], {
+      providerObjectId: "unknown",
+      name: building.name,
+    }).kind,
+  ).toBe("transient");
+});
+
+it("does not offer a complex as the building for a similarly named wing", () => {
+  expect(
+    suggestCampusMapHotspotBuildings([building], `${building.name}东座`),
+  ).toEqual([]);
 });

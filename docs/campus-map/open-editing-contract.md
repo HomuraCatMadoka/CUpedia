@@ -198,8 +198,7 @@ Changeset 投影。相同 key 重试必须返回最初的成功结果，不能�
 
 ```text
 Browse
- ├─ 全局 / 类别 Add → 地图上选择 canonical Building ───────────┐
- │                 └─ 明确选择“选择室外位置” → center pin ──────────────┤
+ ├─ 全局 / 类别 Add → 地图或搜索选择 canonical Building ──────┐
  ├─ Building 卡片 Add → 固定 Building / 当前 Floor ────────────┤
  └─ Place card → Edit ─────────────────────────────────────────┤
                                                                ↓
@@ -208,23 +207,21 @@ Browse
 
 - `Browse`、`Select Place` 与 `Add Point` 是互斥模式；MVP 不展示 Line、Area 或 Relation。
 - Add 与 Edit 共用同一 session 与 Sheet shell，不增加多步骤 wizard。全局与类别 Add 先显示紧凑的
-  地图选 Building 状态；地图上的临时按钮只来自 CUpedia canonical Building 锚点，provider hotspot
-  不参与 Building 选择。普通 Building 使用小型视觉点但保留完整点击范围；搜索命中与当前候选显示
-  常驻名称并提高图面层级。点选或搜索先形成不发布的 Building 候选，用户看到名称并确认后才带入同一个
-  Add session。地图加载失败时仍可搜索或退出。距离、地图中心和 provider 名称都不能推断 containment。
+  地图选 Building 状态；用户点选 CUpedia Building 标记、已有明确映射的 provider hotspot 或搜索结果后，
+  直接带入同一个 Add session。未映射的 provider hotspot 只提供建筑目录搜索和缺失建筑反馈，不能建立
+  containment。地图加载失败时仍可搜索或退出。距离、地图中心和 provider 名称都不能推断 containment。
 - Building 卡片 Add 固定 Building，只允许楼层保持当前值、改选或设为未知；全局 Add 选定 Building
   后，“更改位置”返回地图选择，而不是打开长 Building 下拉框。类别入口在整个过程保留 Place type。
-- Add 表单只显示位置、可选楼层、设施类型和发布。名称采用 Place type 的 canonical 默认名且不在 Add
-  暴露输入；照片、通常开放时间、官方入口和到访提示不作为新增门槛，未知值保持缺失。
-  这些详情与自定义名称可以在发布后的 Edit 中补充。V2 不采集开放对象、凭证要求、预约要求或
-  实时状态；普通贡献者界面仍不显示“资料依据”自由文本。
-- 用户明确点击“选择室外位置”后，center pin 与键盘路径先更新可恢复、provider-neutral 的 WGS84 placement
-  candidate。candidate 本身不是 Current fact，也不单独产生 dirty；两条路径都经同一
-  `CONFIRM_POSITION` transition 锁定 position、CRS 和诚实 precision。锁定后地图手势不能改写
-  位置，除非用户明确选择重新定位。
-- `placing` 只通过 center pin、拖图和键盘坐标确定位置。高德底图地点不作为可点击产品目标；
-  这样编辑与浏览共用同一个 canonical-only 交互边界，也不会把供应商名称或 ID 混入 draft、
-  来源、`placeId` 或其他 canonical fact。
+- Building 卡片在各视口使用同一个楼层选择器，并直接列出当前筛选下的全部设施；长列表在卡内滚动，
+  不要求点击“查看全部”。搜索到尚未收录的完整课室编号时，从建议 Building 新增会直接带入课室类型和编号。
+- Add 表单显示位置、可选楼层、设施类型下拉框和发布。课室填写 `MMW 501` 这类完整编号；洗手间选择
+  男女厕或性别友好洗手间；公共空间可选是否需要拍校园卡。所有设施可选填备注。照片、通常
+  开放时间和官方入口不作为新增门槛，未知值保持缺失。打印地点不采集打印、扫描与复印能力。
+  其他详情与自定义名称可以在发布后的 Edit 中补充。V2 不采集开放对象、通用凭证要求、预约要求或
+  实时状态；公共空间的拍卡要求作为简短到访提示保存。普通贡献者界面仍不显示“资料依据”自由文本。
+- Add 只建立建筑内设施，不提供室外或坐标入口。已有室外 Place 在 Edit 中修改位置时，`placing` 仍通过
+  center pin、拖图和键盘坐标更新可恢复、provider-neutral 的 WGS84 candidate；高德名称、地址和 POI ID
+  不写入 draft、来源、`placeId` 或其他 canonical fact。
 - 移动地图时 center pin 提起，`moveend` 后由小型 AMap Geocoder boundary 提供带归属
   的瞬时地址/附近 POI 参考。高德同时返回校园容器与多个具体 POI 时，只显示带可用距离、距图钉
   不超过 30 米且最近的具体 POI；更远的“附近”结果不能冒充图钉位置。没有可信具体 POI 或查询
@@ -233,11 +230,12 @@ Browse
 - 定位卡始终把六位 WGS84 坐标作为主确认信息；高德行政区/道路地址只作为带归属的次级参考，
   不能取代坐标。若候选点距现有 CUpedia Building 原型锚点不超过 50 米，可显示“建筑名附近”帮助
   用户辨认，但这只是 presentation，不自动产生 Building containment 或精确位置事实。
-- Add 新建的是饮水点、洗手间、打印服务等独立 Place。schema 的 preset 同时提供 `placeType` 和
+- Add 新建的是饮水点、洗手间、公共空间、课室等独立 Place。打印服务已退出新增入口，已有地点继续
+  保留查看和修改能力。schema 的 preset 同时提供 `placeType` 和
   `defaultName`；Add 随设施类型同步 canonical 默认名，Edit 始终保留并允许修改已有名称。只有用户
   明确选择 canonical Building/Floor 后才形成 containment；building-only 明确表示楼层未知，不能
   复制 Building anchor 作为设施点。
-- 移动端 Building 选择与 `placing` 只显示定位所需内容，保留约一半地图；`editing` 在 390px 与 720px 高度下至少
+- 移动端 Building 选择与已有室外地点的 `placing` 只显示定位所需内容，保留约一半地图；`editing` 在 390px 与 720px 高度下至少
   保留 35% 地图。地图根容器不得用大于视口的最小高度制造整页滚动，Sheet 主操作始终留在视口
   内；字段内容可在 Sheet 内滚动。地点类型使用自适应网格，不能把最后一个选项单独挤到窄行。
 - Place 卡 Edit 按稳定 `placeId` 载入 Current revision、位置与完整 V2 事实，并绑定不可变

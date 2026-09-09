@@ -1,3 +1,4 @@
+import { campusMapFloorDisplayLabel } from "@/lib/campus-map/floor-label";
 import {
   DropletsIcon,
   DumbbellIcon,
@@ -59,7 +60,7 @@ export function campusMapPlaceLocationLabel(place: CampusMapBrowsePlace) {
     case "building":
       return "建筑内";
     case "floor":
-      return place.location.floor.displayLabel;
+      return campusMapFloorDisplayLabel(place.location.floor.displayLabel);
   }
 }
 
@@ -67,7 +68,7 @@ export function campusMapFloorLabel(
   floorId: string | null,
   displayLabel?: string | null,
 ) {
-  if (displayLabel) return displayLabel;
+  if (displayLabel) return campusMapFloorDisplayLabel(displayLabel);
   if (!floorId) return "建筑内";
   return floorId.endsWith("/F") ? floorId : `${floorId}/F`;
 }
@@ -93,7 +94,7 @@ export function CampusMapFacilityResultButton({
   location: string;
   summary: string;
   coverPhoto?: CampusMapPlacePhotoView | null;
-  variant: "category" | "building" | "preview";
+  variant: "category" | "building";
   onSelect: () => void;
 }) {
   const style = campusMapPlaceTypeStyle(facility.placeType);
@@ -101,23 +102,13 @@ export function CampusMapFacilityResultButton({
   const showsIcon = variant === "building";
   return (
     <button
-      data-building-preview={
-        variant === "preview" ? facility.placeId : undefined
-      }
       data-return-result={facility.placeId}
       type="button"
-      aria-label={
-        variant === "preview"
-          ? `查看设施：${facility.name}，${location}`
-          : undefined
-      }
       className={cn(
         "flex w-full items-center text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]",
         showsIcon
           ? "min-h-20 gap-3 py-3"
-          : variant === "preview"
-            ? "min-h-14 border-b border-black/8 py-1"
-            : "min-h-20 gap-3 border-b border-black/8 py-2",
+          : "min-h-20 gap-3 border-b border-black/8 py-2",
       )}
       onClick={onSelect}
     >

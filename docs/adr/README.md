@@ -46,6 +46,9 @@ Architectural decision records (ADRs) explain why CUpedia accepted a durable bou
 - [0040: Keep Campus Map V2 operating facts minimal](0040-campus-map-minimal-place-facts-v2.md)
 - [0041: Unify AMap Building selection across browse and Add](0041-unify-amap-building-selection.md)
 
+- [0042: Select Campus Map facility locations directly](0042-campus-map-direct-location-selection.md)
+- [0043: Limit Campus Map ratings to toilets](0043-limit-campus-map-ratings-to-toilets.md)
+
 ## Maintain the index
 
 This index was introduced with a one-time repair of three legacy number collisions. From this baseline onward, assign the next unused number when adding a decision. Add the record and this index in the same change. Preserve the number and content of a committed ADR; record a replacement in a new ADR and mark the older record as superseded.

@@ -189,6 +189,7 @@ export async function installFakeCampusMapAmap(page: Page) {
         this.setZoomAndCenterCount += 1;
         this.zoom = zoom;
         this.center = this.normalizeLngLat(center);
+        queueMicrotask(() => this.emit("moveend", {}));
       }
 
       lngLatToContainer(position: FakeLngLat | readonly [number, number]) {
@@ -218,8 +219,15 @@ export async function installFakeCampusMapAmap(page: Page) {
       panTo(center: FakeLngLat | readonly [number, number]) {
         this.panToCount += 1;
         this.center = this.normalizeLngLat(center);
+        queueMicrotask(() => this.emit("moveend", {}));
       }
-      panBy() {}
+      panBy(x: number, y: number) {
+        this.center = new FakeLngLat(
+          this.center.lng - x / this.pixelsPerDegree,
+          this.center.lat + y / this.pixelsPerDegree,
+        );
+        queueMicrotask(() => this.emit("moveend", {}));
+      }
       setBounds() {}
       zoomIn() {
         this.zoom += 1;

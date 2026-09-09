@@ -176,6 +176,11 @@ test.beforeAll(async () => {
        values ($1, $2, '1/F', 1)`,
       [floorId, buildingId],
     );
+    await client.query(
+      `insert into campus_map_floors (building_id, display_label, sort_order)
+      values ($1, 'LG1', -1), ($2, '2/F', 2)`,
+      [emptyFloorBuildingId, mobileEmptyFloorBuildingId],
+    );
   });
 });
 
@@ -202,10 +207,10 @@ for (const scenario of [
     viewport: { width: 390, height: 844 },
     buildingId: mobileEmptyFloorBuildingId,
     buildingName: "QA 890 移动空楼层测试楼",
-    floorLabel: "G",
+    floorLabel: "2/F",
   },
 ] as const) {
-  test(`adds a confirmed missing Floor from a Building card on ${scenario.viewportName}`, async ({
+  test(`selects a builtin Floor from a Building card on ${scenario.viewportName}`, async ({
     page,
   }) => {
     await page.setViewportSize(scenario.viewport);
@@ -222,23 +227,25 @@ for (const scenario of [
         name: new RegExp(`在${scenario.buildingName}新增(?:第一处)?设施`, "u"),
       })
       .click();
-    await expect(page.getByText(/这栋建筑尚未收录楼层/)).toBeVisible();
+    await page
+      .getByRole("combobox", { name: "设施类型" })
+      .selectOption("water");
+    await expect(
+      page.getByRole("option", { name: "添加缺失楼层…" }),
+    ).toHaveCount(0);
     await page
       .getByRole("combobox", { name: "楼层" })
-      .selectOption({ label: "添加缺失楼层…" });
-    await page
-      .getByRole("textbox", { name: "实际楼层标签" })
-      .fill(scenario.floorLabel);
-    await page.getByRole("button", { name: "确认此楼层" }).click();
-    await expect(
-      page.getByText(`已确认楼层标签：${scenario.floorLabel}`),
-    ).toBeVisible();
+      .selectOption({ label: scenario.floorLabel });
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
       ),
     ).toBe(true);
-    await page.getByRole("button", { name: "发布设施" }).click();
+    await page
+      .getByRole("button", {
+        name: "发布设施",
+      })
+      .click();
 
     await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
     const stablePlaceId = new URL(page.url()).searchParams.get("id");
@@ -252,6 +259,8 @@ for (const scenario of [
     ).toBeVisible();
 
     await page.getByRole("button", { name: "建议修改" }).click();
+    await expect(page.getByRole("combobox", { name: "建筑" })).toHaveCount(0);
+    await page.getByRole("button", { name: "修改位置" }).click();
     await expect(page.getByRole("combobox", { name: "建筑" })).toHaveValue(
       scenario.buildingId,
     );
@@ -267,12 +276,12 @@ for (const scenario of [
     const buildingCard = page.getByRole("region", {
       name: scenario.buildingName,
     });
+    const floorSelect = buildingCard.getByRole("combobox", {
+      name: "切换楼层",
+    });
     await expect(
-      buildingCard.getByRole("button", {
-        name: scenario.floorLabel,
-        exact: true,
-      }),
-    ).toBeVisible();
+      floorSelect.getByRole("option", { name: scenario.floorLabel }),
+    ).toHaveCount(1);
     await expect(buildingCard).toContainText("饮水点");
 
     const stored = await withClient((client) =>
@@ -301,8 +310,8 @@ for (const scenario of [
   {
     kind: "floor",
     name: fixtureNames[1],
-    pinType: "printer",
-    defaultName: "打印站",
+    pinType: "common-space",
+    defaultName: "公共空间",
   },
 ] as const) {
   test(`publishes minimal ${scenario.kind} Add facts, then completes details in Edit`, async ({
@@ -318,7 +327,9 @@ for (const scenario of [
     await expect(
       page.getByRole("heading", { name: "设施在哪里？" }),
     ).toBeVisible();
-    await page.getByRole("textbox", { name: "搜索建筑" }).fill("QA 814 测试楼");
+    await page
+      .getByRole("searchbox", { name: "搜索建筑" })
+      .fill("QA 814 测试楼");
     const buildingResult = page.locator(`[data-search-result="${buildingId}"]`);
     await expect(buildingResult).toContainText("QA 814 测试楼");
     await buildingResult.focus();
@@ -326,20 +337,14 @@ for (const scenario of [
     await buildingResult.press(
       scenario.kind === "building" ? "Enter" : "Space",
     );
-    const confirmBuilding = page.getByRole("button", {
-      name: "确认QA 814 测试楼作为所属建筑",
-    });
-    await expect(confirmBuilding).toBeFocused();
-    await confirmBuilding.press("Enter");
+
     await expect(page.getByRole("heading", { name: "新增设施" })).toBeVisible();
     await expect(
       page.getByText("QA 814 测试楼", { exact: true }),
     ).toBeVisible();
-    const pinType = page.getByRole("radio", {
-      name: scenario.pinType === "water" ? "饮水点" : "打印服务",
-    });
-    await pinType.check({ force: true });
-    await expect(pinType).toBeChecked();
+    const placeType = page.getByRole("combobox", { name: "设施类型" });
+    await placeType.selectOption(scenario.pinType);
+    await expect(placeType).toHaveValue(scenario.pinType);
     if (scenario.kind === "floor") {
       await page.getByRole("combobox", { name: "楼层" }).selectOption(floorId);
     }
@@ -349,7 +354,11 @@ for (const scenario of [
     await expect(page.getByRole("button", { name: "更多信息" })).toHaveCount(0);
     await expect(page.getByRole("combobox", { name: "建筑" })).toHaveCount(0);
 
-    await page.getByRole("button", { name: "发布设施" }).click();
+    await page
+      .getByRole("button", {
+        name: "发布设施",
+      })
+      .click();
     await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
     const stablePlaceId = new URL(page.url()).searchParams.get("id");
     expect(stablePlaceId).not.toBeNull();
@@ -384,7 +393,7 @@ for (const scenario of [
       ).toBeVisible();
     }
     await officialActionTarget.fill(officialActionUrl);
-    await page.getByRole("textbox", { name: "到访提示" }).fill(visitNote);
+    await page.getByRole("textbox", { name: "备注" }).fill(visitNote);
 
     await page.getByRole("button", { name: "发布修改" }).click();
     await expect(page).toHaveURL(
@@ -432,10 +441,11 @@ for (const scenario of [
         name: "官方入口 1 链接或联系方式",
       }),
     ).toHaveValue(officialActionUrl);
-    await expect(page.getByRole("textbox", { name: "到访提示" })).toHaveValue(
+    await expect(page.getByRole("textbox", { name: "备注" })).toHaveValue(
       visitNote,
     );
 
+    await page.getByRole("button", { name: "修改位置" }).click();
     await expect(page.getByRole("radio", { name: "建筑内" })).toBeChecked();
     await expect(page.getByRole("combobox", { name: "建筑" })).toHaveValue(
       buildingId,
@@ -455,7 +465,7 @@ for (const scenario of [
     );
     await concurrentPage.getByRole("button", { name: "建议修改" }).click();
     await concurrentPage
-      .getByRole("textbox", { name: "到访提示" })
+      .getByRole("textbox", { name: "备注" })
       .fill(latestVisitNote);
     await concurrentPage.getByRole("button", { name: "发布修改" }).click();
     await expect(
@@ -463,18 +473,18 @@ for (const scenario of [
     ).toBeVisible();
     await concurrentPage.close();
 
-    await page.getByRole("textbox", { name: "到访提示" }).fill(staleVisitNote);
+    await page.getByRole("textbox", { name: "备注" }).fill(staleVisitNote);
     await page.getByRole("button", { name: "发布修改" }).click();
     await expect(page.getByText("这处地点刚刚被其他人更新")).toBeVisible();
     await expect(page.getByText(`我的：${staleVisitNote}`)).toBeVisible();
     await expect(page.getByText(`最新：${latestVisitNote}`)).toBeVisible();
-    await expect(page.getByRole("textbox", { name: "到访提示" })).toHaveValue(
+    await expect(page.getByRole("textbox", { name: "备注" })).toHaveValue(
       staleVisitNote,
     );
     await page.getByRole("button", { name: "采用最新资料" }).click();
 
     await page
-      .getByRole("textbox", { name: "到访提示" })
+      .getByRole("textbox", { name: "备注" })
       .fill("QA 881 不应发布的取消草稿。");
     await page.getByRole("button", { name: "关闭地图编辑" }).click();
     await expect(
@@ -485,13 +495,14 @@ for (const scenario of [
       page.getByRole("heading", { name: scenario.name }),
     ).toBeVisible();
     await page.getByRole("button", { name: "建议修改" }).click();
-    await expect(page.getByRole("textbox", { name: "到访提示" })).toHaveValue(
+    await expect(page.getByRole("textbox", { name: "备注" })).toHaveValue(
       latestVisitNote,
     );
 
     await page
       .getByRole("textbox", { name: "设施名称或编号" })
       .fill(updatedFixtureName);
+    await page.getByRole("button", { name: "修改位置" }).click();
     await page.getByRole("combobox", { name: "楼层" }).selectOption(floorId);
     await page.getByRole("combobox", { name: "通常开放时间" }).selectOption("");
     await page.getByRole("button", { name: "发布修改" }).click();
@@ -518,6 +529,7 @@ for (const scenario of [
     await expect(
       page.getByRole("textbox", { name: "设施名称或编号" }),
     ).toHaveValue(updatedFixtureName);
+    await page.getByRole("button", { name: "修改位置" }).click();
     await expect(page.getByRole("radio", { name: "建筑内" })).toBeChecked();
     await expect(page.getByRole("combobox", { name: "建筑" })).toHaveValue(
       buildingId,
@@ -546,7 +558,7 @@ test("Building-card Add inherits its Building, exits cleanly, and rejects an ine
   });
   await addFromBuildingCard.click();
   await expect(page.getByRole("heading", { name: "新增设施" })).toBeVisible();
-  await expect(page.getByRole("group", { name: "所属建筑" })).toContainText(
+  await expect(page.getByRole("group", { name: "位置" })).toContainText(
     "QA 814 测试楼",
   );
   await expect(page.getByRole("combobox", { name: "建筑" })).toHaveCount(0);
@@ -559,13 +571,31 @@ test("Building-card Add inherits its Building, exits cleanly, and rejects an ine
   ).toBeVisible();
 
   await addFromBuildingCard.click();
-  await page.getByRole("radio", { name: "课室" }).check({ force: true });
-  await page.getByRole("button", { name: "发布设施" }).click();
+  await page
+    .getByRole("combobox", { name: "设施类型" })
+    .selectOption("classroom");
+  const classroomName = page.getByRole("textbox", {
+    name: "课室编号",
+  });
+  await expect(classroomName).toHaveValue("");
+  await page
+    .getByRole("button", {
+      name: "发布设施",
+    })
+    .click();
+  await expect(classroomName).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByText("请填写课室编号。")).toBeVisible();
+  await classroomName.fill("MMW 501");
+  await page
+    .getByRole("button", {
+      name: "发布设施",
+    })
+    .click();
   await expect(page).toHaveURL(/scene=place&id=[0-9a-f-]+&snap=peek$/);
   const stablePlaceId = new URL(page.url()).searchParams.get("id");
   expect(stablePlaceId).not.toBeNull();
   if (!stablePlaceId) throw new Error("missing stable Place id");
-  await expect(page.getByRole("heading", { name: "课室" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "MMW 501" })).toBeVisible();
   const beforeDeniedPublish = await readCurrentFact(stablePlaceId);
 
   await withClient((client) =>
@@ -579,7 +609,7 @@ test("Building-card Add inherits its Building, exits cleanly, and rejects an ine
     );
     await page.getByRole("button", { name: "建议修改" }).click();
     await page.getByRole("button", { name: "更多信息" }).click();
-    const ineligibleDraft = page.getByRole("textbox", { name: "到访提示" });
+    const ineligibleDraft = page.getByRole("textbox", { name: "备注" });
     await ineligibleDraft.fill("QA 881 资料未完成用户的草稿。");
     await page.getByRole("button", { name: "发布修改" }).click();
     await expect(

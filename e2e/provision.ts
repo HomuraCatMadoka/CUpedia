@@ -8,6 +8,12 @@ const campusMapBuildingSourceRef =
   "cuhk-campus-map:buildings:20161006:sha256:3307c3936e3b8a787607c0c708454f52c2f5767e49f2a6e3062e949b5ce12cda";
 const campusMapMigrationProviderSourceRefs = [
   "amap:poi:B0J2RXUQB6:hotspotclick:2026-08-26",
+  "amap:poi:B0FFF0ABIJ:hotspot:2026-09-08",
+] as const;
+const campusMapReferenceMigrationFiles = [
+  "0128_campus_map_known_building_floors.sql",
+  "0129_campus_map_known_floor_order.sql",
+  "0130_campus_map_cheng_ming_hotspot.sql",
 ] as const;
 
 /**
@@ -42,6 +48,7 @@ async function main() {
       stdio: "inherit",
     },
   );
+  await restoreCampusMapReferenceRows(url, root);
   for (const cacheDir of [
     path.join(distDir, "cache", "fetch-cache"),
     path.join(distDir, "dev", "cache", "fetch-cache"),
@@ -60,6 +67,35 @@ async function main() {
     ],
     { cwd: root, stdio: "inherit" },
   );
+}
+
+// A reused local E2E database may have applied these data migrations before
+// resetData learned to preserve their rows. Replaying the idempotent inserts
+// repairs that one-time gap before the next snapshot-and-restore cycle.
+async function restoreCampusMapReferenceRows(
+  connectionUrl: string,
+  projectRoot: string,
+) {
+  const client = new Client({ connectionString: connectionUrl });
+  await client.connect();
+  try {
+    await client.query("begin");
+    await client.query("set local session_replication_role = replica");
+    for (const filename of campusMapReferenceMigrationFiles) {
+      await client.query(
+        readFileSync(
+          path.join(projectRoot, "src", "db", "migrations", filename),
+          "utf8",
+        ),
+      );
+    }
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    await client.end();
+  }
 }
 
 function requireEnv(key: string): string {
@@ -142,12 +178,20 @@ async function resetData(connectionUrl: string) {
               and (
                     source.source_ref = $1
                  or source.source_ref like $1 || ':building:%'
+                 or source.source_ref = any($3::text[])
               )
           ) or (
                   source.source_kind = 'provider-candidate'
               and source.source_ref = any($2::text[])
           )`,
-        [campusMapBuildingSourceRef, campusMapMigrationProviderSourceRefs],
+        [
+          campusMapBuildingSourceRef,
+          campusMapMigrationProviderSourceRefs,
+          [
+            "cuhk-osa:accessible-toilets-upper:cheng-ming",
+            "cuhk-art-museum:visitor-amenities:floors",
+          ],
+        ],
       );
       await client.query(
         `create temporary table e2e_campus_map_reference_buildings
@@ -172,6 +216,22 @@ async function resetData(connectionUrl: string) {
            join e2e_campus_map_reference_provenance source
              on source.id = link.provenance_id`,
       );
+      await client.query(`
+        create temporary table e2e_campus_map_reference_floors on commit drop as
+        select distinct floor.* from campus_map_floors floor
+        join campus_map_floor_provenance link on link.floor_id = floor.id
+        join e2e_campus_map_reference_provenance source on source.id = link.provenance_id
+        join e2e_campus_map_reference_buildings building on building.id = floor.building_id;
+        create temporary table e2e_campus_map_reference_floor_links on commit drop as
+        select link.* from campus_map_floor_provenance link
+        join e2e_campus_map_reference_floors floor on floor.id = link.floor_id
+        join e2e_campus_map_reference_provenance source on source.id = link.provenance_id;
+        create temporary table e2e_campus_map_reference_mappings on commit drop as
+        select mapping.* from campus_map_provider_mappings mapping
+        join e2e_campus_map_reference_buildings building on building.id = mapping.building_id
+        join e2e_campus_map_reference_provenance source on source.id = mapping.provenance_id
+        where mapping.target_kind = 'building';
+      `);
       // Do not use CASCADE here: campus_map_fact_schemas.created_by references
       // users, so PostgreSQL would also truncate the schema table even though
       // it is absent from `tables`. All other public tables are included in
@@ -190,6 +250,11 @@ async function resetData(connectionUrl: string) {
         `insert into campus_map_building_provenance
          select * from e2e_campus_map_reference_building_links`,
       );
+      await client.query(`
+        insert into campus_map_floors select * from e2e_campus_map_reference_floors;
+        insert into campus_map_floor_provenance select * from e2e_campus_map_reference_floor_links;
+        insert into campus_map_provider_mappings select * from e2e_campus_map_reference_mappings;
+      `);
       await client.query(
         `delete from users
           where id not in (

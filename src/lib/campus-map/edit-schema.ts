@@ -111,7 +111,7 @@ const EDIT_PRESET_NAMES = [
   { placeType: "toilet", defaultName: "洗手间" },
   { placeType: "printer", defaultName: "打印站" },
   { placeType: "common-space", defaultName: "公共空间" },
-  { placeType: "classroom", defaultName: "课室" },
+  { placeType: "classroom", defaultName: "" },
   { placeType: "sports-facility", defaultName: "体育设施" },
   { placeType: "health-service", defaultName: "医疗服务" },
   { placeType: "vending-machine", defaultName: "自动售卖机" },

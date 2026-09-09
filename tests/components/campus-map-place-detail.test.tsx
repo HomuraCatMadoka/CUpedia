@@ -144,16 +144,18 @@ describe("Campus Map Place detail (#816, #825)", () => {
         fact={fact}
         retirementReason={null}
         mapHref={`/campus-map?v=1&scene=place&id=${placeId}&snap=peek`}
-        building={{ name: "联合书院图书馆", floorLabel: "1/F" }}
+        building={{ name: "联合书院图书馆", floorLabel: "1" }}
         isAdmin={false}
       />,
     );
 
     expect(screen.getByRole("heading", { name: fact.name })).toBeTruthy();
-    expect(screen.getByText("地图已收录", { exact: true })).toBeTruthy();
+    expect(screen.queryByText("地图已收录", { exact: true })).toBeNull();
     expect(screen.queryByText("使用中", { exact: true })).toBeNull();
     expect(screen.getByText("饮水点")).toBeTruthy();
-    expect(screen.getByText("联合书院图书馆 · 1/F")).toBeTruthy();
+    expect(screen.getByText("联合书院图书馆 · 1 楼")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "清洁度评价" })).toBeNull();
+    expect(document.body.textContent).not.toContain("公开编辑流程");
     expect(screen.getByText("中大成员")).toBeTruthy();
     expect(screen.getByText("校园卡")).toBeTruthy();
     expect(screen.getByText("周一、周二 08:30–22:00")).toBeTruthy();
@@ -166,6 +168,31 @@ describe("Campus Map Place detail (#816, #825)", () => {
     expect(screen.queryByText(placeId)).toBeNull();
     expect(document.body.textContent).not.toMatch(/Revision|Changeset/);
     expect(screen.queryByRole("button", { name: "停用地点" })).toBeNull();
+  });
+
+  it("offers a compact cleanliness review only for washrooms", () => {
+    render(
+      <CampusMapPlaceDetail
+        placeId={placeId}
+        head={{
+          revisionId,
+          status: "active",
+          visibility: "public",
+          mergedIntoPlaceId: null,
+          name: "联合书院图书馆洗手间",
+        }}
+        fact={{ ...fact, name: "联合书院图书馆洗手间", pinType: "toilet" }}
+        retirementReason={null}
+        mapHref="/campus-map?v=1"
+        building={{ name: "联合书院图书馆", floorLabel: "1/F" }}
+        isAdmin={false}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "清洁度评价" })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "清洁度（必填）" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "评价清洁度" }));
+    expect(screen.getByRole("group", { name: "清洁度（必填）" })).toBeTruthy();
   });
 
   it("renders a V2 health-service card with reviewed booking actions first", () => {
@@ -314,7 +341,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
       />,
     );
 
-    expect(screen.getByText("地图已收录", { exact: true })).toBeTruthy();
+    expect(screen.queryByText("地图已收录", { exact: true })).toBeNull();
     expect(screen.getByText("暂时关闭", { exact: true })).toBeTruthy();
     expect(screen.queryByText("使用中", { exact: true })).toBeNull();
   });
@@ -553,7 +580,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
           mergedIntoPlaceId: null,
           name: fact.name,
         }}
-        fact={fact}
+        fact={{ ...fact, name: "联合书院图书馆洗手间", pinType: "toilet" }}
         retirementReason={null}
         mapHref={mapListReturnPath}
         building={{ name: "联合书院图书馆", floorLabel: "1/F" }}
@@ -596,7 +623,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
     );
 
     expect(
-      screen.getByLabelText(/平均 4.3 分，共 12 个评分、8 条文字评价/),
+      screen.getByLabelText(/平均清洁度 4.3 分，共 12 个评分、8 条文字评价/),
     ).toBeTruthy();
     expect(screen.getByText(longReview).className).toContain("break-words");
     expect(
@@ -616,7 +643,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
     ).toBe(true);
 
     fireEvent.click(screen.getByText("5 星"));
-    fireEvent.change(screen.getByLabelText("评价（选填）"), {
+    fireEvent.change(screen.getByLabelText("补充说明（选填）"), {
       target: { value: "更新后的体验" },
     });
     fireEvent.click(screen.getByRole("button", { name: "更新我的评价" }));
@@ -670,7 +697,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
     });
     await waitFor(() => expect(screen.getByText("评价已更新。")).toBeTruthy());
     expect(
-      screen.getByLabelText("平均 5.0 分，共 1 个评分、1 条文字评价"),
+      screen.getByLabelText("平均清洁度 5.0 分，共 1 个评分、1 条文字评价"),
     ).toBeTruthy();
     expect(
       within(screen.getByRole("listitem")).getByText("更新后的体验"),
@@ -707,7 +734,7 @@ describe("Campus Map Place detail (#816, #825)", () => {
       reviewsAfter: "opaque-current-page",
     });
     expect(screen.queryByRole("listitem")).toBeNull();
-    expect(screen.getByText("暂无评分", { exact: true })).toBeTruthy();
+    expect(screen.getByText("暂无清洁度评分", { exact: true })).toBeTruthy();
     expect(
       screen.getByText("你的评价已被管理员隐藏。", { exact: false }),
     ).toBeTruthy();

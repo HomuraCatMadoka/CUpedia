@@ -8,6 +8,7 @@ import {
   encodeCampusMapEditSnapshot,
   isCampusMapEditDirty,
   transitionCampusMapEdit,
+  resumeCampusMapBuildingAdd,
   type CampusMapEditEvent,
   type CampusMapEditSession,
 } from "@/lib/campus-map/edit-session";
@@ -184,6 +185,7 @@ describe("Campus Map edit session transition", () => {
       idempotencyKey: firstKey,
       entry: {
         kind: "building",
+        placeType: "water",
         locationDisplay: {
           buildingId: "50000000-0000-4000-8000-000000000001",
           buildingName: "科学馆",
@@ -225,6 +227,37 @@ describe("Campus Map edit session transition", () => {
         accessedOn: "2026-08-26",
       }).commands,
     ).toContainEqual(expect.objectContaining({ kind: "publish" }));
+  });
+
+  it("carries a classroom search term into a building Add", () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_FACILITY_ADD",
+      idempotencyKey: firstKey,
+      entry: {
+        kind: "building",
+        name: "  MMW 501  ",
+        placeType: "classroom",
+        locationDisplay: {
+          buildingId: "50000000-0000-4000-8000-000000000001",
+          buildingName: "蒙民伟楼",
+          floorId: null,
+          floorLabel: null,
+        },
+      },
+    });
+
+    expect(started.session).toMatchObject({
+      status: "editing",
+      draft: {
+        placeTypePending: false,
+        fact: {
+          name: "MMW 501",
+          placeType: "classroom",
+          buildingId: "50000000-0000-4000-8000-000000000001",
+        },
+      },
+    });
+    expect(isCampusMapEditDirty(started.session)).toBe(false);
   });
 
   it("enters center-pin placement only through the explicit outdoor branch", () => {
@@ -276,10 +309,42 @@ describe("Campus Map edit session transition", () => {
       status: "selecting-location",
       draft: {
         entrySource: "global",
-        fact: { placeType: "classroom", name: "课室" },
+        fact: { placeType: "classroom", name: "" },
       },
     });
     expect(isCampusMapEditDirty(started.session)).toBe(false);
+  });
+
+  it("requires a classroom number or name before publishing", () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_FACILITY_ADD",
+      idempotencyKey: firstKey,
+      entry: {
+        kind: "building",
+        placeType: "classroom",
+        locationDisplay: {
+          buildingId: "50000000-0000-4000-8000-000000000001",
+          buildingName: "科学馆",
+          floorId: "60000000-0000-4000-8000-000000000001",
+          floorLabel: "1/F",
+        },
+      },
+    });
+
+    expect(started.session?.draft.fact.name).toBe("");
+    expect(
+      transitionCampusMapEdit(started.session, {
+        type: "REQUEST_PUBLISH",
+        accessedOn: "2026-08-26",
+      }),
+    ).toMatchObject({
+      session: { status: "editing", localError: "name" },
+      commands: [
+        { kind: "persist-snapshot" },
+        { kind: "focus", target: "name" },
+        { kind: "announce", message: "请填写课室编号" },
+      ],
+    });
   });
 
   it("accepts an Add intent once and locks a keyboard-confirmed WGS84 point", () => {
@@ -582,6 +647,37 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
+  it("keeps a common-space location when its generated card note no longer applies", () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_FACILITY_ADD",
+      idempotencyKey: firstKey,
+      entry: {
+        kind: "building",
+        placeType: "common-space",
+        locationDisplay: {
+          buildingId: "50000000-0000-4000-8000-000000000001",
+          buildingName: "科学馆",
+          floorId: null,
+          floorLabel: null,
+        },
+      },
+    }).session!;
+    const noted = transitionCampusMapEdit(started, {
+      type: "CHANGE_FACT",
+      fact: {
+        ...started.draft.fact,
+        visitNote: "需要拍校园卡进入；五楼东翼",
+      },
+    }).session!;
+
+    const changed = transitionCampusMapEdit(noted, {
+      type: "CHANGE_PLACE_TYPE",
+      placeType: "water",
+    }).session!;
+
+    expect(changed.draft.fact.visitNote).toBe("五楼东翼");
+  });
+
   it("keeps an explicitly selected canonical Building or Floor label with the fact", () => {
     const buildingId = "50000000-0000-4000-8000-000000000001";
     const floorId = "60000000-0000-4000-8000-000000000001";
@@ -655,6 +751,7 @@ describe("Campus Map edit session transition", () => {
       idempotencyKey: firstKey,
       entry: {
         kind: "building",
+        placeType: "water",
         locationDisplay: {
           buildingId,
           buildingName: "科学馆",
@@ -3010,4 +3107,206 @@ describe("Campus Map edit session transition", () => {
       reason: "invalid-snapshot",
     });
   });
+});
+
+describe("facility location changes", () => {
+  const building = {
+    buildingId: "library",
+    buildingName: "图书馆",
+    floorId: "1f",
+    floorLabel: "1F",
+  };
+  const start = () =>
+    transitionCampusMapEdit(null, {
+      type: "START_FACILITY_ADD",
+      idempotencyKey: firstKey,
+      entry: {
+        kind: "building",
+        locationDisplay: building,
+        placeType: "water",
+      },
+    }).session!;
+
+  it("keeps the committed location while choosing outdoors and returning", () => {
+    const original = start();
+    const selecting = transitionCampusMapEdit(original, {
+      type: "START_LOCATION_SELECTION",
+    });
+    expect(selecting.accepted).toBe(true);
+    const placing = transitionCampusMapEdit(selecting.session, {
+      type: "START_OUTDOOR_PLACEMENT",
+    }).session!;
+    expect(placing.draft.fact).toEqual(original.draft.fact);
+    const returned = transitionCampusMapEdit(placing, {
+      type: "CANCEL_LOCATION_SELECTION",
+    }).session!;
+    expect(returned.status).toBe("editing");
+    expect(returned.draft.fact).toEqual(original.draft.fact);
+    expect(isCampusMapEditDirty(returned)).toBe(false);
+  });
+
+  it("recenters a retained outdoor location when outdoor selection restarts", () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey: firstKey,
+    }).session;
+    const positioned = transitionCampusMapEdit(started, {
+      type: "CONFIRM_POSITION",
+      position: {
+        longitude: 114.2078,
+        latitude: 22.4188,
+        crs: "wgs84",
+        precision: "approximate",
+        method: "pointer",
+      },
+    }).session;
+    const selecting = transitionCampusMapEdit(positioned, {
+      type: "START_LOCATION_SELECTION",
+    }).session;
+
+    const placing = transitionCampusMapEdit(selecting, {
+      type: "START_OUTDOOR_PLACEMENT",
+    });
+
+    expect(placing.commands).toContainEqual({
+      kind: "camera",
+      intent: "recenter-placement",
+      position: [114.2078, 22.4188],
+      precision: "approximate",
+    });
+  });
+
+  it("preserves the floor for the same building and clears it for a different building", () => {
+    const selecting = transitionCampusMapEdit(start(), {
+      type: "START_LOCATION_SELECTION",
+    }).session!;
+    const same = transitionCampusMapEdit(selecting, {
+      type: "SELECT_BUILDING_LOCATION",
+      locationDisplay: { ...building, floorId: null, floorLabel: null },
+    }).session!;
+    expect(same.draft.fact.floorId).toBe("1f");
+    const different = transitionCampusMapEdit(selecting, {
+      type: "SELECT_BUILDING_LOCATION",
+      locationDisplay: {
+        ...building,
+        buildingId: "gym",
+        floorId: null,
+        floorLabel: null,
+      },
+    }).session!;
+    expect(different.draft.fact.floorId).toBeNull();
+    expect(different.draft.fact.placeType).toBe("water");
+  });
+});
+
+describe("Add intent and location continuity", () => {
+  it("requires a type choice and preserves it through snapshot restoration", () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_FACILITY_ADD",
+      idempotencyKey: firstKey,
+      entry: {
+        kind: "building",
+        locationDisplay: {
+          buildingId: "science",
+          buildingName: "科学馆",
+          floorId: null,
+          floorLabel: null,
+        },
+      },
+    }).session!;
+    expect(started.draft.placeTypePending).toBe(true);
+    const attempt = transitionCampusMapEdit(started, {
+      type: "REQUEST_PUBLISH",
+      requiredFields: [],
+      accessedOn: "2026-09-08",
+    });
+    expect(attempt.session?.localError).toBe("placeType");
+    expect(attempt.commands.some((command) => command.kind === "publish")).toBe(
+      false,
+    );
+    const chosen = transitionCampusMapEdit(started, {
+      type: "CHANGE_PLACE_TYPE",
+      placeType: "water",
+    }).session!;
+    expect(chosen.draft.placeTypePending).toBe(false);
+    expect(chosen.draft.fact.name).not.toBe("");
+    expect(
+      decodeCampusMapEditSnapshot(encodeCampusMapEditSnapshot(chosen)),
+    ).toEqual({ status: "restored", session: chosen });
+  });
+  it("aligns the retained building with the pin every time outdoor placement starts", () => {
+    let session = transitionCampusMapEdit(null, {
+      type: "START_FACILITY_ADD",
+      idempotencyKey: firstKey,
+      entry: { kind: "global" },
+    }).session!;
+    const selected = transitionCampusMapEdit(session, {
+      type: "SELECT_BUILDING_LOCATION",
+      locationDisplay: {
+        buildingId: "science",
+        buildingName: "科学馆",
+        floorId: null,
+        floorLabel: null,
+      },
+    });
+    expect(selected.commands).toContainEqual({
+      kind: "camera",
+      intent: "recenter-building",
+      buildingId: "science",
+    });
+    session = selected.session!;
+    for (let i = 0; i < 2; i++) {
+      session = transitionCampusMapEdit(session, {
+        type: "START_LOCATION_SELECTION",
+      }).session!;
+      const placing = transitionCampusMapEdit(session, {
+        type: "START_OUTDOOR_PLACEMENT",
+      });
+      expect(placing.commands).toContainEqual({
+        kind: "camera",
+        intent: "recenter-building",
+        buildingId: "science",
+        placement: true,
+      });
+      session = transitionCampusMapEdit(placing.session, {
+        type: "CANCEL_LOCATION_SELECTION",
+      }).session!;
+      expect(session.draft.fact.buildingId).toBe("science");
+    }
+  });
+});
+
+it("resumes old outdoor Add through building selection while keeping facility content", () => {
+  const session: CampusMapEditSession = {
+    status: "editing",
+    draft: createCampusMapEditDraft({
+      mode: "add",
+      idempotencyKey: firstKey,
+      fact,
+      sources: [source],
+    }),
+  };
+  const resumed = resumeCampusMapBuildingAdd(session);
+  expect(resumed.status).toBe("selecting-location");
+  expect(resumed.draft.fact.name).toBe(fact.name);
+  expect(resumed.draft.fact.location).toBeNull();
+  expect(resumed.draft.sources).toEqual([source]);
+  expect(
+    resumeCampusMapBuildingAdd({ ...session, status: "publishing" }),
+  ).toEqual({ ...session, status: "publishing" });
+  expect(resumeCampusMapBuildingAdd(editSession())).toEqual(editSession());
+});
+it("drops an unfinished custom floor without losing the selected building", () => {
+  const session: CampusMapEditSession = {
+    status: "editing",
+    draft: createCampusMapEditDraft({
+      mode: "add",
+      idempotencyKey: firstKey,
+      fact: { ...fact, buildingId: placeId, location: { kind: "building" } },
+    }),
+  };
+  session.draft.missingFloor = { displayLabel: "4", confirmed: true };
+  const resumed = resumeCampusMapBuildingAdd(session);
+  expect(resumed.draft.missingFloor).toBeNull();
+  expect(resumed.draft.fact.buildingId).toBe(placeId);
 });

@@ -1,6 +1,6 @@
 # ADR 0041：统一浏览与新增设施的高德 Building 选择
 
-状态：Accepted
+状态：Partially superseded by [ADR 0042](0042-campus-map-direct-location-selection.md)（新增设施二次确认部分）
 
 取代 ADR 0038 中“热点只服务浏览”和“瞬时供应商卡不提供新增入口”的部分。ADR 0038 的精确映射、
 供应商无关身份、页面内预加载和无映射安全降级边界继续有效。

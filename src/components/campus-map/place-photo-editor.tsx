@@ -88,7 +88,6 @@ export function PlacePhotoEditor({
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const recommendedRoles = ROLE_PROMPTS[placeType];
 
   async function upload(files: File[]) {
     const remaining = CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT - photos.length;
@@ -160,11 +159,9 @@ export function PlacePhotoEditor({
       tabIndex={-1}
       className="rounded-xl border border-black/10 p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
     >
-      <legend className="px-1 text-sm font-medium">地点照片（可选）</legend>
+      <legend className="px-1 text-sm font-medium">照片（选填）</legend>
       <p className="text-xs leading-5 text-neutral-600">
-        最多 3 张。建议拍：
-        {recommendedRoles.map(campusMapPlacePhotoRoleLabel).join("、")}。
-        请避开可识别的人脸、证件和私人信息。
+        最多 3 张，避免拍到人脸、证件或私人信息。
       </p>
 
       {photos.length > 0 ? (

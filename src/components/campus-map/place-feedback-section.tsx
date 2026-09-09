@@ -58,6 +58,7 @@ export function PlaceFeedbackSection({
     current: CampusMapPlaceFeedbackPage;
   } | null>(null);
   const [sectionMessage, setSectionMessage] = useState<string | null>(null);
+  const [formExpanded, setFormExpanded] = useState(Boolean(viewerFeedback));
   const [viewerFeedbackOverride, setViewerFeedbackOverride] = useState<{
     base: CampusMapPlaceFeedbackView | null;
     current: CampusMapPlaceFeedbackView | null;
@@ -80,22 +81,17 @@ export function PlaceFeedbackSection({
       aria-labelledby="place-feedback-title"
     >
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-        <div>
-          <h2 id="place-feedback-title" className="text-lg font-semibold">
-            评分与评价
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            分享真实的到访体验；地点资料修改仍走独立的公开编辑流程。
-          </p>
-        </div>
+        <h2 id="place-feedback-title" className="text-lg font-semibold">
+          清洁度评价
+        </h2>
         {summary.averageRating === null ? (
           <p className="text-sm font-semibold text-muted-foreground">
-            暂无评分
+            暂无清洁度评分
           </p>
         ) : (
           <p
             className="inline-flex items-center gap-2 text-sm"
-            aria-label={`平均 ${summary.averageRating.toFixed(1)} 分，共 ${summary.ratingCount} 个评分、${summary.reviewCount} 条文字评价`}
+            aria-label={`平均清洁度 ${summary.averageRating.toFixed(1)} 分，共 ${summary.ratingCount} 个评分、${summary.reviewCount} 条文字评价`}
           >
             <StarIcon
               aria-hidden="true"
@@ -113,46 +109,58 @@ export function PlaceFeedbackSection({
 
       <div className="mt-5">
         {viewerCanWrite || readOnly ? (
-          <PlaceFeedbackForm
-            key={`${placeId}:${viewerFeedback?.id ?? "new"}:${viewerFeedback?.version ?? 0}:${viewerFeedback?.visibility ?? "none"}:${readOnly ? "read-only" : "write"}`}
-            placeId={placeId}
-            initialFeedback={viewerFeedback}
-            readOnly={readOnly}
-            reviewsAfter={reviewsAfter}
-            hiddenFeedbackId={
-              currentViewerFeedback?.visibility === "hidden"
-                ? currentViewerFeedback.id
-                : null
-            }
-            onViewerFeedbackChange={(nextFeedback) =>
-              setViewerFeedbackOverride({
-                base: viewerFeedback,
-                current: nextFeedback,
-              })
-            }
-            onSnapshot={(nextSnapshot) => {
-              applySnapshot(nextSnapshot);
-              setSectionMessage(null);
-            }}
-          />
+          readOnly || formExpanded || currentViewerFeedback ? (
+            <div id="place-feedback-form">
+              <PlaceFeedbackForm
+                key={`${placeId}:${viewerFeedback?.id ?? "new"}:${viewerFeedback?.version ?? 0}:${viewerFeedback?.visibility ?? "none"}:${readOnly ? "read-only" : "write"}`}
+                placeId={placeId}
+                initialFeedback={viewerFeedback}
+                readOnly={readOnly}
+                reviewsAfter={reviewsAfter}
+                hiddenFeedbackId={
+                  currentViewerFeedback?.visibility === "hidden"
+                    ? currentViewerFeedback.id
+                    : null
+                }
+                onViewerFeedbackChange={(nextFeedback) =>
+                  setViewerFeedbackOverride({
+                    base: viewerFeedback,
+                    current: nextFeedback,
+                  })
+                }
+                onSnapshot={(nextSnapshot) => {
+                  applySnapshot(nextSnapshot);
+                  setSectionMessage(null);
+                }}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              aria-expanded={formExpanded}
+              aria-controls="place-feedback-form"
+              className="inline-flex min-h-11 touch-manipulation items-center rounded-xl bg-emerald-800 px-4 text-sm font-semibold text-white hover:bg-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+              onClick={() => setFormExpanded(true)}
+            >
+              评价清洁度
+            </button>
+          )
         ) : (
           <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
-            公开评分和评价可直接阅读。
             <Link
               href={`/login?callbackUrl=${encodeURIComponent(
                 placeFeedbackHref({ placeId, mapListReturnPath }),
               )}`}
-              className="ml-1 font-semibold text-foreground underline underline-offset-4"
+              className="font-semibold text-foreground underline underline-offset-4"
             >
-              登录后评分或写评价
+              登录后评价清洁度
             </Link>
-            。
           </p>
         )}
       </div>
 
       <div className="mt-7">
-        <h3 className="font-semibold">公开评价</h3>
+        <h3 className="font-semibold">大家的评价</h3>
         {snapshot.page.items.length > 0 ? (
           <ol className="mt-3 grid gap-3">
             {snapshot.page.items.map((item) => (
@@ -206,7 +214,7 @@ export function PlaceFeedbackSection({
           </ol>
         ) : (
           <p className="mt-3 rounded-xl bg-muted px-4 py-5 text-sm text-muted-foreground">
-            还没有公开文字评价。你可以只评分，也可以写下第一条体验。
+            还没有评价。
           </p>
         )}
         <nav aria-label="评价分页" className="mt-4 flex flex-wrap gap-3">

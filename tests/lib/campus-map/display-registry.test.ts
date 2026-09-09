@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   CAMPUS_MAP_CAPABILITIES,
-  CAMPUS_MAP_PIN_TYPES_V1,
   CAMPUS_MAP_PLACE_TYPES,
   CAMPUS_MAP_PROVENANCE_KINDS,
   CAMPUS_MAP_TEMPORARY_STATUSES,
@@ -44,11 +43,15 @@ describe("Campus Map display registry", () => {
 
   it("provides one vocabulary for fields, place types, and controlled values", () => {
     expect(campusMapFactFieldLabel("placeType")).toBe("地点类型");
+    expect(campusMapFactFieldLabel("gender")).toBe("洗手间类别");
     expect(campusMapPlaceTypeLabel("printer")).toBe("打印服务");
     expect(campusMapDisplayOptionLabel("audience", "cuhk-member")).toBe(
       "中大成员",
     );
     expect(campusMapDisplayOptionLabel("gender", "unknown")).toBe("未知");
+    expect(campusMapDisplayOptionLabel("gender", "all-gender")).toBe(
+      "性别友好洗手间",
+    );
     expect(campusMapDisplayOptionLabel("wheelchairAccess", "unknown")).toBe(
       "未知",
     );
@@ -63,16 +66,15 @@ describe("Campus Map display registry", () => {
     );
   });
 
-  it("keeps the unchanged public browse UI on its legacy categories", () => {
+  it("keeps retired printing services out of browse categories", () => {
     expect(CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories).toEqual([
       "water",
       "toilet",
-      "printer",
       "common-space",
       "classroom",
     ]);
-    expect(new Set(CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories)).toEqual(
-      new Set(CAMPUS_MAP_PIN_TYPES_V1),
+    expect(CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories).not.toContain(
+      "printer",
     );
 
     for (const file of [

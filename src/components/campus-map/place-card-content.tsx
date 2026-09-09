@@ -5,10 +5,12 @@ export function CampusMapPlaceCardContent({
   card,
   className,
   showLocation = true,
+  compact = false,
 }: {
   card: CampusMapPlaceCardProjection;
   className?: string;
   showLocation?: boolean;
+  compact?: boolean;
 }) {
   const hasMoreInformation =
     card.detailFacts.length > 0 ||
@@ -86,7 +88,7 @@ export function CampusMapPlaceCardContent({
         </div>
       ) : null}
 
-      {hasMoreInformation ? (
+      {!compact && hasMoreInformation ? (
         <details className="rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm">
           <summary className="min-h-8 cursor-pointer font-semibold text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]">
             查看其他已知资料与来源

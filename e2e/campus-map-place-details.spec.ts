@@ -19,7 +19,6 @@ const ids = {
 
 const placeName = "范克廉楼地下饮水点";
 const mapPlaceUrl = `/campus-map?v=1&scene=place&id=${ids.place}&snap=peek`;
-const eligibleFeedbackEmail = "issue-817-feedback@cuhk.edu.hk";
 
 async function withDatabase(
   action: (client: Client) => Promise<void>,
@@ -251,27 +250,8 @@ async function loginAsUser(page: Page) {
   await loginWithPassword(page, "user@test.com", "password123");
 }
 
-async function makeFeedbackUserEligible() {
-  await withDatabase(async (client) => {
-    await client.query(
-      "update users set email = $1 where email = 'user@test.com'",
-      [eligibleFeedbackEmail],
-    );
-  });
-}
-
-async function restoreFeedbackUserEmail() {
-  await withDatabase(async (client) => {
-    await client.query(
-      "update users set email = 'user@test.com' where email = $1",
-      [eligibleFeedbackEmail],
-    );
-  });
-}
-
 test.describe.serial("Campus Map Place details and admin lifecycle", () => {
   test.beforeEach(resetPlaceFixture);
-  test.afterEach(restoreFeedbackUserEmail);
   test.afterAll(cleanupPlaceFixture);
 
   for (const viewport of [
@@ -290,9 +270,9 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
       await expect(
         detail.getByRole("heading", { name: placeName }),
       ).toBeVisible();
-      await expect(
-        detail.getByText("地图已收录", { exact: true }),
-      ).toBeVisible();
+      await expect(detail.getByText("地图已收录", { exact: true })).toHaveCount(
+        0,
+      );
       await expect(detail.getByText("饮水点", { exact: true })).toBeVisible();
       await expect(detail.getByText("室外 · 精确位置")).toBeVisible();
       await expect(detail.getByText("可通行", { exact: true })).toBeVisible();
@@ -319,9 +299,9 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
       await expect(
         detail.getByRole("heading", { name: placeName }),
       ).toBeVisible();
-      await expect(
-        detail.getByText("地图已收录", { exact: true }),
-      ).toBeVisible();
+      await expect(detail.getByText("地图已收录", { exact: true })).toHaveCount(
+        0,
+      );
     });
   }
 
@@ -333,7 +313,7 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await page.goto(mapPlaceUrl);
 
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
-    const details = page.getByRole("link", { name: "查看完整详情" });
+    const details = page.getByRole("link", { name: "详情与记录" });
     await expect(details).toHaveAttribute(
       "href",
       `/campus-map/places/${ids.place}`,
@@ -347,13 +327,18 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await expect(page).toHaveURL(new RegExp(`scene=place&id=${ids.place}`));
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
 
-    await page.getByRole("link", { name: "查看完整详情" }).click();
-    await page.getByRole("link", { name: "返回地图" }).click();
+    await page.getByRole("link", { name: "详情与记录" }).click();
+    const returnToRestoredPlace = page.getByRole("link", { name: "返回地图" });
+    await expect(returnToRestoredPlace).toHaveAttribute(
+      "href",
+      new RegExp(`scene=place&id=${ids.place}`),
+    );
+    await returnToRestoredPlace.click();
     await expect(page).toHaveURL(new RegExp(`scene=place&id=${ids.place}`));
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
   });
 
-  test("a user adds a Place photo and publishes feedback without attaching the photo to the review", async ({
+  test("a user adds a Place photo without seeing an unrelated rating form", async ({
     page,
   }) => {
     test.slow();
@@ -361,7 +346,6 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await installFakeCampusMapAmap(page);
     await page.goto("/login");
     await loginAsUser(page);
-    await makeFeedbackUserEligible();
     await page.goto(mapPlaceUrl);
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
     await page.getByRole("button", { name: "建议修改" }).click();
@@ -385,7 +369,7 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await page.getByRole("button", { name: "发布修改" }).click();
     await expect(page).toHaveURL(new RegExp(`scene=place&id=${ids.place}`));
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
-    await page.getByRole("link", { name: "查看完整详情" }).click();
+    await page.getByRole("link", { name: "详情与记录" }).click();
     const detail = page.locator("#main-content");
     await expect(
       detail.getByRole("heading", { name: placeName }),
@@ -400,24 +384,12 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await expect(page.getByAltText("入口照片")).toBeVisible();
     await page.keyboard.press("Escape");
 
-    await expect(detail.getByText("暂无评分", { exact: true })).toBeVisible();
-    await detail.getByText("5 星", { exact: true }).click();
-    await expect(detail.getByRole("radio", { name: "5 星" })).toBeChecked();
-    await detail
-      .getByRole("textbox", { name: "评价（选填）" })
-      .fill("位置很好找，饮水机运作正常。长句也应当安全换行而不撑破页面。");
-    await detail.getByRole("button", { name: "发布评价" }).click();
-
     await expect(
-      detail.getByLabel("平均 5.0 分，共 1 个评分、1 条文字评价"),
-    ).toBeVisible();
+      detail.getByRole("heading", { name: "清洁度评价" }),
+    ).toHaveCount(0);
     await expect(
-      detail
-        .getByRole("listitem")
-        .getByText(
-          "位置很好找，饮水机运作正常。长句也应当安全换行而不撑破页面。",
-        ),
-    ).toBeVisible();
+      detail.getByRole("button", { name: "评价清洁度" }),
+    ).toHaveCount(0);
     await detail.getByRole("link", { name: "返回地图" }).click();
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
     await page.getByRole("button", { name: "饮水点", exact: true }).click();
@@ -427,7 +399,8 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
       .filter({ hasText: placeName });
     await expect(result).toBeVisible();
     await expect(result).toContainText("室外位置");
-    await expect(result).toContainText("5.0 分 · 1 个评分 · 1 条评价");
+    await expect(result).not.toContainText("评分");
+    await expect(result).not.toContainText("评价");
     const cover = result.locator('img[src*="place-photos"]');
     await expect(cover).toBeVisible();
     await expect(cover).toHaveAttribute("alt", "");
@@ -545,7 +518,7 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await page.getByRole("button", { name: "确认恢复：恢复原因" }).click();
     await expect(
       page.locator("#main-content").getByText("地图已收录", { exact: true }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(
       page.getByRole("heading", { name: "这个地点已停用" }),
     ).toHaveCount(0);

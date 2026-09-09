@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 function feedbackError(code: string) {
   switch (code) {
     case "invalid-rating":
-      return "请选择 1 至 5 星。";
+      return "请选择清洁度评分。";
     case "content-too-long":
       return "评价内容过长，请缩短后再试。";
     case "sensitive-content":
@@ -188,8 +188,8 @@ export function PlaceFeedbackForm({
         disabled={pending}
         aria-describedby={error ? errorId : undefined}
       >
-        <legend className="text-sm font-semibold">评分（必填）</legend>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <legend className="text-sm font-semibold">清洁度（必填）</legend>
+        <div className="mt-2 grid grid-cols-5 gap-2">
           {[1, 2, 3, 4, 5].map((value) => (
             <span key={value}>
               <input
@@ -209,7 +209,7 @@ export function PlaceFeedbackForm({
               <label
                 htmlFor={`${id}-${value}`}
                 className={cn(
-                  "inline-flex min-h-11 min-w-12 touch-manipulation cursor-pointer items-center justify-center gap-1 rounded-xl border px-2 text-sm font-semibold peer-focus-visible:ring-2 peer-focus-visible:ring-amber-600 peer-focus-visible:ring-offset-2",
+                  "inline-flex min-h-11 min-w-0 touch-manipulation cursor-pointer items-center justify-center gap-1 rounded-xl border px-1 text-sm font-semibold peer-focus-visible:ring-2 peer-focus-visible:ring-amber-600 peer-focus-visible:ring-offset-2",
                   rating === value
                     ? "border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
                     : "hover:bg-muted",
@@ -232,7 +232,7 @@ export function PlaceFeedbackForm({
         className="grid gap-2 text-sm font-semibold"
         htmlFor={`${id}-content`}
       >
-        评价（选填）
+        补充说明（选填）
         <textarea
           ref={contentRef}
           id={`${id}-content`}
@@ -245,7 +245,7 @@ export function PlaceFeedbackForm({
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : `${id}-count`}
           className="min-h-28 resize-y rounded-xl border bg-background px-3 py-2 font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          placeholder="例如：空间是否安静、座位是否充足、怎样找到这里…"
+          placeholder="例如：地面干净，洗手液充足…"
           onChange={(event) => {
             setContent(event.target.value);
             setError(null);
