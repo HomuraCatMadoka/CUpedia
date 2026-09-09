@@ -69,3 +69,10 @@ export function isCampusMapFloorEvidenceSource(
 ): boolean {
   return source.kind !== "provider-candidate";
 }
+
+export function campusMapFloorDisplayLabel(label: string): string {
+  if (/^\d+$/.test(label)) return `${label} 楼`;
+  if (/^g$/i.test(label)) return `地下（${label}）`;
+  if (/^lg$/i.test(label)) return `低层地下（${label}）`;
+  return label;
+}

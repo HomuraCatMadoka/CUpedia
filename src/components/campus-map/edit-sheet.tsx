@@ -2,12 +2,23 @@
 
 import Link from "next/link";
 import { useId, useMemo, useState } from "react";
-import { Building2Icon, ChevronDownIcon, MapPinIcon } from "lucide-react";
+import { ChevronDownIcon, MapPinIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import type { CampusMapWgs84Position } from "@/lib/campus-map/amap-position";
 import type { AmapPlaceContextResult } from "@/lib/campus-map/amap-place-context";
-import type { CampusMapBrowseBuilding } from "@/lib/campus-map/browse-projection";
+import type {
+  CampusMapBrowseBuilding,
+  CampusMapBrowsePlace,
+} from "@/lib/campus-map/browse-projection";
 import {
+  CAMPUS_MAP_COMMON_SPACE_ACCESS_OPTIONS,
+  composeCampusMapCommonSpaceVisitNote,
+  parseCampusMapCommonSpaceVisitNote,
+  type CampusMapCommonSpaceAccess,
+} from "@/lib/campus-map/common-space-access";
+import {
+  campusMapEditHasUnreadablePlacementConflict,
   isCampusMapEditDirty,
   type CampusMapEditEvent,
   type CampusMapIndoorLocationDisplay,
@@ -18,7 +29,7 @@ import {
   campusMapFactNameError,
   type CampusMapEditFieldKey,
 } from "@/lib/campus-map/edit-schema";
-import { campusMapFloorLabelError } from "@/lib/campus-map/floor-label";
+import { campusMapFloorDisplayLabel } from "@/lib/campus-map/floor-label";
 import {
   campusMapFactFieldLabel,
   campusMapPlaceTypeLabel,
@@ -31,11 +42,12 @@ import {
 } from "@/lib/campus-map/building-display";
 import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
-import {
-  CAMPUS_MAP_PIN_TYPES_V1,
-  CAMPUS_MAP_PUBLIC_PLACE_TYPES,
-} from "@/lib/campus-map/controlled-values";
+import { CAMPUS_MAP_PUBLIC_PLACE_TYPES } from "@/lib/campus-map/controlled-values";
 import { CAMPUS_MAP_OFFICIAL_ACTION_MAX_COUNT } from "@/lib/campus-map/official-action";
+import {
+  FacilityLocationPicker,
+  type FacilityLocationReference,
+} from "@/components/campus-map/facility-location-picker";
 import { PlacePhotoEditor } from "@/components/campus-map/place-photo-editor";
 
 interface CampusMapEditSheetProps {
@@ -45,9 +57,15 @@ interface CampusMapEditSheetProps {
   placeContext?: AmapPlaceContextResult | { status: "loading" } | null;
   factSchema?: CampusMapFactSchema | null;
   buildings?: readonly CampusMapBrowseBuilding[];
+  facilities?: readonly CampusMapBrowsePlace[];
   buildingDirectoryStatus?: "ready" | "refreshing" | "error";
-  locationBuildingCandidateId?: string | null;
+  locationReference?: FacilityLocationReference | null;
   onRetryBuildings?(): void;
+  feedbackOpen?: boolean;
+  feedbackPositionMoving?: boolean;
+  onFeedbackOpen?(open: boolean): void;
+  onPickPosition?(): CampusMapWgs84Position | null;
+  onNudgePosition?(direction: "north" | "south" | "east" | "west"): void;
   onEvent(event: CampusMapEditEvent): void;
 }
 
@@ -62,13 +80,11 @@ const visibleEditorDetailFields = new Set<CampusMapEditFieldKey>([
   "regularHours",
   "officialActions",
   "visitNote",
-  "capabilities",
   "gender",
   "wheelchairAccess",
 ]);
 const officialActionSafeTargets =
   "安全的 https:// 网页、tel: 电话或 mailto: 电邮";
-const ADD_MISSING_FLOOR_VALUE = "__add-missing-floor";
 
 function today(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -107,7 +123,7 @@ function messageForError(code: string): string {
     "invalid-official-action-label": "请为每个官方入口填写简短、清楚的名称。",
     "unsafe-official-action-url": `官方入口只接受${officialActionSafeTargets}。`,
     "duplicate-official-action": "同一个官方入口不能重复填写。",
-    "invalid-visit-note": "到访提示不能只填空格，内容也不能太长。",
+    "invalid-visit-note": "备注不能为空且不能过长。",
   };
   return messages[code] ?? "服务器暂时无法接受这项资料，请稍后重试。";
 }
@@ -133,35 +149,6 @@ function matchingDisplay(
   return display;
 }
 
-function placementIsReadable(
-  fact: CampusMapEditSession["draft"]["fact"],
-  display?: CampusMapIndoorLocationDisplay | null,
-): boolean {
-  if (fact.location?.kind === "outdoor-point") return true;
-  if (fact.location?.kind !== "building" && fact.location?.kind !== "floor") {
-    return false;
-  }
-  if (matchingDisplay(fact, display)) return true;
-  return false;
-}
-
-function hasUnreadablePlacementConflict(
-  session: CampusMapEditSession,
-): boolean {
-  if (session.conflict?.kind !== "current") return false;
-  const mine = session.draft.fact;
-  const latest = session.conflict.currentFact;
-  const placementChanged =
-    mine.buildingId !== latest.buildingId ||
-    mine.floorId !== latest.floorId ||
-    JSON.stringify(mine.location) !== JSON.stringify(latest.location);
-  return (
-    placementChanged &&
-    (!placementIsReadable(mine, session.draft.locationDisplay) ||
-      !placementIsReadable(latest, session.conflict.currentLocationDisplay))
-  );
-}
-
 function describeLocation(
   fact: CampusMapEditSession["draft"]["fact"],
   display?: CampusMapIndoorLocationDisplay | null,
@@ -181,7 +168,7 @@ function describeLocation(
     : canonicalDisplay?.buildingName;
   if (fact.location.kind === "floor") {
     if (buildingName && canonicalDisplay?.floorLabel) {
-      return `${buildingName} · ${canonicalDisplay.floorLabel}`;
+      return `${buildingName} · ${campusMapFloorDisplayLabel(canonicalDisplay.floorLabel)}`;
     }
     return "建筑内楼层";
   }
@@ -194,9 +181,7 @@ function describeLocationSummary(
   buildingDisplay?: CampusMapBuildingDisplayProjection,
 ): string {
   if (fact.location?.kind === "outdoor-point") {
-    return `WGS84 · ${
-      fact.location.precision === "precise" ? "精确位置" : "约略位置"
-    }`;
+    return "室外位置";
   }
   return describeLocation(fact, display, buildingDisplay);
 }
@@ -320,18 +305,15 @@ function conflictFields(session: CampusMapEditSession): ConflictChoice[] {
   const current = session.conflict.currentFact;
   const presetChoices: ConflictChoice[] =
     session.draft.fact.placeType === current.placeType
-      ? [
-          {
-            key: "capabilities",
-            label: campusMapFactFieldLabel("capabilities"),
-            fields: ["capabilities"],
-          },
-          {
-            key: "gender",
-            label: campusMapFactFieldLabel("gender"),
-            fields: ["gender"],
-          },
-        ]
+      ? session.draft.fact.placeType === "toilet"
+        ? [
+            {
+              key: "gender",
+              label: campusMapFactFieldLabel("gender"),
+              fields: ["gender"],
+            },
+          ]
+        : []
       : [
           {
             key: "preset",
@@ -394,21 +376,18 @@ function optionLabel(
   return options.find((option) => option.value === value)?.label ?? value;
 }
 
+function toiletCategoryLabel(
+  gender: CampusMapPublishFactInput["gender"],
+): string {
+  return gender === "all-gender" ? "性别友好洗手间" : "男女厕";
+}
+
 function presetConflictValue(
   fact: CampusMapEditSession["draft"]["fact"],
 ): string {
   const label = campusMapPlaceTypeLabel(fact.placeType);
-  if (fact.placeType === "printer") {
-    const capabilities = fact.capabilities.map((capability) =>
-      optionLabel(displayOptions.capabilities, capability),
-    );
-    return `${label} · 服务：${capabilities.join("、") || "未填写"}`;
-  }
   if (fact.placeType === "toilet") {
-    return `${label} · 性别：${optionLabel(
-      displayOptions.gender,
-      fact.gender,
-    )}`;
+    return `${label} · 洗手间类别：${toiletCategoryLabel(fact.gender)}`;
   }
   return label;
 }
@@ -448,7 +427,7 @@ function conflictValue(
           .join("、") || "未填写"
       );
     case "gender":
-      return optionLabel(displayOptions.gender, fact.gender);
+      return toiletCategoryLabel(fact.gender);
     case "wheelchairAccess":
       return optionLabel(
         displayOptions.wheelchairAccess,
@@ -480,9 +459,15 @@ export function CampusMapEditSheet({
   placeContext = null,
   factSchema,
   buildings = [],
+  facilities = [],
   buildingDirectoryStatus = "ready",
-  locationBuildingCandidateId = null,
+  locationReference = null,
   onRetryBuildings,
+  feedbackOpen = false,
+  feedbackPositionMoving = false,
+  onFeedbackOpen,
+  onPickPosition,
+  onNudgePosition,
   onEvent,
 }: CampusMapEditSheetProps) {
   const fieldPrefix = useId();
@@ -504,7 +489,6 @@ export function CampusMapEditSheet({
     fact.regularHours != null ||
     fact.officialActions.length > 0 ||
     fact.visitNote != null ||
-    fact.capabilities.length > 0 ||
     fact.gender != null ||
     fact.wheelchairAccess != null;
   const detailsDisclosureKey = draft.idempotencyKey;
@@ -518,6 +502,18 @@ export function CampusMapEditSheet({
       : detailsHaveContent;
   const setDetailsDisclosureExpanded = (expanded: boolean) =>
     setDetailsDisclosure({ key: detailsDisclosureKey, expanded });
+  const locationDisclosureKey = draft.idempotencyKey;
+  const [locationDisclosure, setLocationDisclosure] = useState({
+    key: locationDisclosureKey,
+    expanded: false,
+  });
+  const locationEditorExpanded =
+    draft.mode === "edit" &&
+    (draft.locationIntent === "indoor" ||
+      (locationDisclosure.key === locationDisclosureKey &&
+        locationDisclosure.expanded));
+  const setLocationEditorExpanded = (expanded: boolean) =>
+    setLocationDisclosure({ key: locationDisclosureKey, expanded });
   const schemaPlaceDefinition =
     factSchema?.version === 2
       ? factSchema.definition.placeTypes[fact.placeType]
@@ -566,7 +562,8 @@ export function CampusMapEditSheet({
     );
   const detailsPanelExpanded = detailsExpanded || detailValidationTarget;
   const buildingLocationRequired =
-    draft.mode === "add" && draft.entrySource === "building";
+    draft.mode === "add" &&
+    (fact.location?.kind === "building" || fact.location?.kind === "floor");
   const indoorSelected =
     buildingLocationRequired ||
     draft.locationIntent === "indoor" ||
@@ -581,24 +578,11 @@ export function CampusMapEditSheet({
     (left, right) => left.sortOrder - right.sortOrder,
   );
   const missingFloor = draft.missingFloor;
-  const missingFloorLabelError = missingFloor
-    ? campusMapFloorLabelError(missingFloor.displayLabel)
-    : null;
+
   const buildingDisplay = useMemo(
     () => projectCampusMapBuildingDisplay(buildings),
     [buildings],
   );
-  const locationBuildingCandidate = locationBuildingCandidateId
-    ? buildings.find(
-        (building) => building.buildingId === locationBuildingCandidateId,
-      )
-    : null;
-  const locationBuildingCandidateLabel = locationBuildingCandidate
-    ? (campusMapBuildingDisplayFor(
-        buildingDisplay,
-        locationBuildingCandidate.buildingId,
-      )?.label ?? locationBuildingCandidate.name)
-    : null;
   const selectedBuildingQualifier = selectedBuilding
     ? (campusMapBuildingDisplayFor(buildingDisplay, selectedBuilding.buildingId)
         ?.qualifier ?? null)
@@ -615,8 +599,11 @@ export function CampusMapEditSheet({
   const weeklySchedule = fact.regularHours;
   const visiblePlaceTypes =
     draft.mode === "edit"
-      ? CAMPUS_MAP_PUBLIC_PLACE_TYPES
-      : CAMPUS_MAP_PIN_TYPES_V1;
+      ? CAMPUS_MAP_PUBLIC_PLACE_TYPES.filter(
+          (placeType) =>
+            placeType !== "printer" || fact.placeType === "printer",
+        )
+      : CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories;
   const visiblePlaceTypePresets = CAMPUS_MAP_EDIT_SCHEMA.presets.filter(
     (item) =>
       visiblePlaceTypes.some((placeType) => placeType === item.placeType),
@@ -630,14 +617,39 @@ export function CampusMapEditSheet({
   const serverNameError = session.serverErrors?.find((error) =>
     (error.anchor.field ?? "").includes("name"),
   );
+  const showsNameField =
+    draft.mode === "edit" ||
+    (draft.mode === "add" &&
+      !draft.placeTypePending &&
+      fact.placeType === "classroom");
+  const nameErrorCode =
+    serverNameError?.code ??
+    campusMapFactNameError(fact.name) ??
+    "fact-name-required";
   const nameErrorMessage =
     session.localError === "name"
-      ? messageForError(
-          serverNameError?.code ??
-            campusMapFactNameError(fact.name) ??
-            "fact-name-required",
-        )
+      ? fact.placeType === "classroom" && nameErrorCode === "fact-name-required"
+        ? "请填写课室编号。"
+        : messageForError(nameErrorCode)
       : null;
+  const matchingFacilities = useMemo(() => {
+    if (draft.mode !== "add" || draft.placeTypePending || !fact.buildingId) {
+      return [];
+    }
+    return facilities.filter(
+      (facility) =>
+        facility.buildingId === fact.buildingId &&
+        facility.placeType === fact.placeType &&
+        (!fact.floorId || facility.floorId === fact.floorId),
+    );
+  }, [
+    draft.mode,
+    draft.placeTypePending,
+    facilities,
+    fact.buildingId,
+    fact.floorId,
+    fact.placeType,
+  ]);
 
   if (session.status === "published" && session.receipt) {
     return null;
@@ -732,7 +744,13 @@ export function CampusMapEditSheet({
 
   const isSelectingLocation = session.status === "selecting-location";
   const isPlacing = session.status === "placing";
+  const canKeepLocation =
+    draft.mode === "add" &&
+    !feedbackOpen &&
+    (isSelectingLocation || isPlacing) &&
+    Boolean(fact.location);
   const showFixedFooter =
+    canKeepLocation ||
     isPlacing ||
     session.status === "editing" ||
     session.status === "publishing";
@@ -769,7 +787,10 @@ export function CampusMapEditSheet({
       : nearbyPlacementLabel
         ? `附近建筑：${nearbyPlacementLabel.replace(/附近$/u, "")}`
         : null;
-  const placementDescription = describeOutdoorPosition(placementPosition);
+  const placementDescription =
+    draft.mode === "add"
+      ? "拖动地图，让图钉对准设施"
+      : describeOutdoorPosition(placementPosition);
   const placementReference = resolvedContext
     ? resolvedContext.address
       ? `高德地图参考：${resolvedContext.address}`
@@ -792,82 +813,86 @@ export function CampusMapEditSheet({
     resolvedContext.label !== "地图中心位置"
       ? resolvedContext.label
       : null;
-  const coordinateEntry = isPlacing ? (
-    <div
-      className={cn(
-        showCoordinateEntry
-          ? "rounded-xl border border-black/10 bg-white px-3 py-2"
-          : "-mt-2",
-      )}
-    >
-      <button
-        type="button"
-        aria-expanded={showCoordinateEntry}
-        aria-controls={`${fieldPrefix}-coordinate-entry`}
+  const coordinateEntry =
+    isPlacing && draft.mode === "edit" ? (
+      <div
         className={cn(
-          "flex min-h-11 touch-manipulation items-center rounded-lg text-left text-sm font-semibold text-[#176346] hover:bg-[#edf5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]",
-          showCoordinateEntry ? "w-full" : "w-auto px-2",
+          showCoordinateEntry
+            ? "rounded-xl border border-black/10 bg-white px-3 py-2"
+            : "-mt-2",
         )}
-        onClick={() => setShowCoordinateEntry((current) => !current)}
       >
-        {showCoordinateEntry ? "收起坐标输入" : "输入坐标"}
-      </button>
-      {showCoordinateEntry ? (
-        <fieldset id={`${fieldPrefix}-coordinate-entry`} className="pb-2">
-          <legend className="sr-only">输入坐标定位</legend>
-          <p className="mb-3 text-xs leading-5 text-neutral-600">
-            无法操作地图时，可以直接输入 WGS84 坐标。
-          </p>
-          <label className="block text-sm" htmlFor={`${fieldPrefix}-longitude`}>
-            经度（WGS84）
-            <input
-              id={`${fieldPrefix}-longitude`}
-              name="campus-map-longitude"
-              autoComplete="off"
-              className={fieldClass}
-              inputMode="decimal"
-              value={keyboardLongitude}
-              onChange={(event) => setKeyboardLongitude(event.target.value)}
-            />
-          </label>
-          <label
-            className="mt-3 block text-sm"
-            htmlFor={`${fieldPrefix}-latitude`}
-          >
-            纬度（WGS84）
-            <input
-              id={`${fieldPrefix}-latitude`}
-              name="campus-map-latitude"
-              autoComplete="off"
-              className={fieldClass}
-              inputMode="decimal"
-              value={keyboardLatitude}
-              onChange={(event) => setKeyboardLatitude(event.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            disabled={!keyboardValid}
-            className={cn(primaryClass, "mt-3")}
-            onClick={() =>
-              onEvent({
-                type: "CONFIRM_POSITION",
-                position: {
-                  longitude: keyboardLongitudeNumber,
-                  latitude: keyboardLatitudeNumber,
-                  crs: "wgs84",
-                  precision: "approximate",
-                  method: "keyboard",
-                },
-              })
-            }
-          >
-            使用输入坐标
-          </button>
-        </fieldset>
-      ) : null}
-    </div>
-  ) : null;
+        <button
+          type="button"
+          aria-expanded={showCoordinateEntry}
+          aria-controls={`${fieldPrefix}-coordinate-entry`}
+          className={cn(
+            "flex min-h-11 touch-manipulation items-center rounded-lg text-left text-sm font-semibold text-[#176346] hover:bg-[#edf5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]",
+            showCoordinateEntry ? "w-full" : "w-auto px-2",
+          )}
+          onClick={() => setShowCoordinateEntry((current) => !current)}
+        >
+          {showCoordinateEntry ? "收起坐标输入" : "输入坐标"}
+        </button>
+        {showCoordinateEntry ? (
+          <fieldset id={`${fieldPrefix}-coordinate-entry`} className="pb-2">
+            <legend className="sr-only">输入坐标定位</legend>
+            <p className="mb-3 text-xs leading-5 text-neutral-600">
+              无法操作地图时，可以直接输入 WGS84 坐标。
+            </p>
+            <label
+              className="block text-sm"
+              htmlFor={`${fieldPrefix}-longitude`}
+            >
+              经度（WGS84）
+              <input
+                id={`${fieldPrefix}-longitude`}
+                name="campus-map-longitude"
+                autoComplete="off"
+                className={fieldClass}
+                inputMode="decimal"
+                value={keyboardLongitude}
+                onChange={(event) => setKeyboardLongitude(event.target.value)}
+              />
+            </label>
+            <label
+              className="mt-3 block text-sm"
+              htmlFor={`${fieldPrefix}-latitude`}
+            >
+              纬度（WGS84）
+              <input
+                id={`${fieldPrefix}-latitude`}
+                name="campus-map-latitude"
+                autoComplete="off"
+                className={fieldClass}
+                inputMode="decimal"
+                value={keyboardLatitude}
+                onChange={(event) => setKeyboardLatitude(event.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              disabled={!keyboardValid}
+              className={cn(primaryClass, "mt-3")}
+              onClick={() =>
+                onEvent({
+                  type: "CONFIRM_POSITION",
+                  position: {
+                    longitude: keyboardLongitudeNumber,
+                    latitude: keyboardLatitudeNumber,
+                    crs: "wgs84",
+                    precision: "approximate",
+                    method: "keyboard",
+                  },
+                })
+              }
+            >
+              使用输入坐标
+            </button>
+          </fieldset>
+        ) : null}
+      </div>
+    ) : null;
 
   if (session.status === "confirm-discard") {
     return (
@@ -910,18 +935,12 @@ export function CampusMapEditSheet({
           id={`${fieldPrefix}-floor`}
           name="campus-map-floor"
           className={fieldClass}
-          disabled={!selectedBuilding}
-          value={missingFloor ? ADD_MISSING_FLOOR_VALUE : (fact.floorId ?? "")}
+          disabled={!selectedBuilding || selectedFloors.length === 0}
+          value={fact.floorId ?? ""}
           onChange={(event) => {
             if (!selectedBuilding) return;
-            if (event.target.value === ADD_MISSING_FLOOR_VALUE) {
-              onEvent({ type: "START_MISSING_FLOOR", ...freshAttempt() });
-              return;
-            }
-            if (missingFloor && event.target.value === "") {
+            if (missingFloor)
               onEvent({ type: "CANCEL_MISSING_FLOOR", ...freshAttempt() });
-              return;
-            }
             const floor = selectedFloors.find(
               (candidate) => candidate.floorId === event.target.value,
             );
@@ -944,86 +963,16 @@ export function CampusMapEditSheet({
             );
           }}
         >
-          <option value="">未指定楼层</option>
+          <option value="">不确定</option>
           {selectedFloors.map((floor) => (
             <option key={floor.floorId} value={floor.floorId}>
-              {floor.displayLabel}
+              {campusMapFloorDisplayLabel(floor.displayLabel)}
             </option>
           ))}
-          {draft.mode === "add" ? (
-            <option value={ADD_MISSING_FLOOR_VALUE}>添加缺失楼层…</option>
-          ) : null}
         </select>
       </label>
-      {selectedBuilding && selectedFloors.length === 0 && !missingFloor ? (
-        <p className="mt-1 text-xs leading-5 text-neutral-600" role="status">
-          这栋建筑尚未收录楼层。可以保留“未指定楼层”，或添加你已确认的实际楼层。
-        </p>
-      ) : null}
-      {missingFloor ? (
-        <div className="mt-3 rounded-lg border border-[#176346]/15 bg-white p-3">
-          <label
-            className="text-sm font-medium"
-            htmlFor={`${fieldPrefix}-missing-floor-label`}
-          >
-            实际楼层标签
-            <input
-              id={`${fieldPrefix}-missing-floor-label`}
-              name="campus-map-missing-floor-label"
-              type="text"
-              autoComplete="off"
-              autoFocus
-              className={fieldClass}
-              value={missingFloor.displayLabel}
-              placeholder="例如 G、LG1、1/F"
-              aria-invalid={session.localError === "floorLabel" || undefined}
-              onChange={(event) =>
-                onEvent({
-                  type: "CHANGE_MISSING_FLOOR_LABEL",
-                  displayLabel: event.target.value,
-                  ...freshAttempt(),
-                })
-              }
-            />
-          </label>
-          <p className="mt-1 text-xs leading-5 text-neutral-600">
-            只填写你已确认的真实标签。发布时系统会在这栋建筑下建立或复用楼层记录；这不代表官方或已审核资料。
-          </p>
-          {session.localError === "floorLabel" ||
-          (missingFloor.displayLabel !== "" && missingFloorLabelError) ? (
-            <p className="mt-1 text-xs text-red-700" role="alert">
-              {messageForError(
-                missingFloorLabelError ?? "floor-label-required",
-              )}
-            </p>
-          ) : null}
-          {missingFloor.confirmed ? (
-            <p
-              className="mt-2 text-xs font-semibold text-[#176346]"
-              role="status"
-            >
-              已确认楼层标签：{missingFloor.displayLabel}
-            </p>
-          ) : (
-            <button
-              type="button"
-              className={cn(primaryClass, "mt-3")}
-              disabled={missingFloorLabelError !== null}
-              onClick={() => onEvent({ type: "CONFIRM_MISSING_FLOOR" })}
-            >
-              确认此楼层
-            </button>
-          )}
-          <button
-            type="button"
-            className={cn(secondaryClass, "mt-2 w-full")}
-            onClick={() =>
-              onEvent({ type: "CANCEL_MISSING_FLOOR", ...freshAttempt() })
-            }
-          >
-            改为未指定楼层
-          </button>
-        </div>
+      {selectedBuilding && selectedFloors.length === 0 ? (
+        <p className="mt-1 text-xs text-neutral-500">暂无楼层资料</p>
       ) : null}
     </div>
   );
@@ -1250,7 +1199,7 @@ export function CampusMapEditSheet({
       const locationLabelsUnavailable =
         conflict?.kind === "unavailable"
           ? conflict.reason === "location-labels"
-          : hasUnreadablePlacementConflict(session);
+          : campusMapEditHasUnreadablePlacementConflict(session);
       if (
         !conflict ||
         conflict.kind === "unavailable" ||
@@ -1453,74 +1402,231 @@ export function CampusMapEditSheet({
   }
 
   const facilityTypeField = (
-    <fieldset
-      data-edit-field="placeType"
-      tabIndex={-1}
-      className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
-    >
+    <fieldset className="min-w-0">
       <legend className="mb-1.5 text-sm font-medium">设施类型</legend>
-      <div className="grid grid-cols-3 gap-1.5 md:gap-2">
-        {visiblePlaceTypePresets.map((item, index) => (
-          <label
-            key={item.placeType}
-            className={cn(
-              "flex min-h-11 w-full cursor-pointer touch-manipulation items-center justify-center rounded-xl border px-1 text-center text-xs font-semibold transition-colors active:translate-y-px focus-within:outline-none focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 motion-reduce:transform-none sm:text-sm md:px-2",
-              index === visiblePlaceTypePresets.length - 1 &&
-                visiblePlaceTypePresets.length % 3 === 1 &&
-                "col-span-3",
-              fact.placeType === item.placeType
-                ? "border-[#176346] bg-[#e4f1eb] text-[#174b38]"
-                : "border-black/15 bg-white text-neutral-700 hover:bg-neutral-50",
-            )}
-          >
-            <input
-              type="radio"
-              name={`${fieldPrefix}-pin-type`}
-              value={item.placeType}
-              checked={fact.placeType === item.placeType}
-              className="sr-only"
-              data-edit-field={
-                fact.placeType === item.placeType ? "placeType" : undefined
-              }
-              onChange={() =>
-                onEvent({
-                  type: "CHANGE_PLACE_TYPE",
-                  placeType: item.placeType,
-                  ...freshAttempt(),
-                })
-              }
-            />
+      <select
+        id={`${fieldPrefix}-place-type`}
+        name="campus-map-place-type"
+        data-edit-field="placeType"
+        aria-label="设施类型"
+        className={cn(fieldClass, "mt-0")}
+        required
+        value={draft.placeTypePending ? "" : fact.placeType}
+        aria-invalid={session.localError === "placeType" || undefined}
+        aria-describedby={
+          session.localError === "placeType"
+            ? `${fieldPrefix}-place-type-error`
+            : undefined
+        }
+        onChange={(event) =>
+          onEvent({
+            type: "CHANGE_PLACE_TYPE",
+            placeType: event.target
+              .value as CampusMapPublishFactInput["placeType"],
+            ...freshAttempt(),
+          })
+        }
+      >
+        <option value="" disabled>
+          请选择设施类型
+        </option>
+        {visiblePlaceTypePresets.map((item) => (
+          <option key={item.placeType} value={item.placeType}>
             {campusMapPlaceTypeLabel(item.placeType)}
-          </label>
+          </option>
         ))}
-      </div>
+      </select>
+      {session.localError === "placeType" ? (
+        <p
+          id={`${fieldPrefix}-place-type-error`}
+          className="mt-1 text-xs text-red-700"
+          role="alert"
+        >
+          请选择设施类型。
+        </p>
+      ) : null}
     </fieldset>
   );
+  const nameField = (
+    <label
+      className="block text-sm font-medium"
+      htmlFor={`${fieldPrefix}-name`}
+    >
+      {draft.mode === "add" ? "课室编号" : "设施名称或编号"}
+      <input
+        id={`${fieldPrefix}-name`}
+        name="campus-map-place-name"
+        type="text"
+        autoComplete="off"
+        required
+        placeholder={draft.mode === "add" ? "例如：MMW 501" : undefined}
+        data-edit-field="name"
+        aria-invalid={nameErrorMessage ? true : undefined}
+        aria-describedby={
+          nameErrorMessage ? `${fieldPrefix}-name-error` : undefined
+        }
+        className={fieldClass}
+        value={fact.name}
+        onChange={(event) => changeFact({ name: event.target.value })}
+      />
+      {nameErrorMessage ? (
+        <span
+          id={`${fieldPrefix}-name-error`}
+          className="mt-1 block text-xs text-red-700"
+        >
+          {nameErrorMessage}
+        </span>
+      ) : null}
+    </label>
+  );
+  const toiletTypeField =
+    draft.mode === "add" &&
+    !draft.placeTypePending &&
+    fact.placeType === "toilet" ? (
+      <label
+        className="block text-sm font-medium"
+        htmlFor={`${fieldPrefix}-gender`}
+      >
+        洗手间类别
+        <select
+          id={`${fieldPrefix}-gender`}
+          name="campus-map-gender"
+          data-edit-field="gender"
+          className={fieldClass}
+          value={fact.gender === "all-gender" ? "all-gender" : ""}
+          onChange={(event) =>
+            changeFact({
+              gender: event.target.value === "all-gender" ? "all-gender" : null,
+            })
+          }
+        >
+          <option value="">男女厕</option>
+          <option value="all-gender">性别友好洗手间</option>
+        </select>
+      </label>
+    ) : null;
+  const commonSpaceVisitNote = parseCampusMapCommonSpaceVisitNote(
+    fact.visitNote,
+  );
+  const commonSpaceAccessField =
+    draft.mode === "add" &&
+    !draft.placeTypePending &&
+    fact.placeType === "common-space" ? (
+      <label
+        className="block text-sm font-medium"
+        htmlFor={`${fieldPrefix}-common-space-access`}
+      >
+        进入方式（选填）
+        <select
+          id={`${fieldPrefix}-common-space-access`}
+          name="campus-map-common-space-access"
+          className={fieldClass}
+          value={commonSpaceVisitNote.access ?? ""}
+          onChange={(event) =>
+            changeFact({
+              visitNote: composeCampusMapCommonSpaceVisitNote(
+                (event.target.value as CampusMapCommonSpaceAccess) || null,
+                commonSpaceVisitNote.note,
+              ),
+            })
+          }
+        >
+          <option value="">暂不填写</option>
+          {CAMPUS_MAP_COMMON_SPACE_ACCESS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    ) : null;
+  const addVisitNoteField =
+    draft.mode === "add" && !draft.placeTypePending ? (
+      <label
+        className="block text-sm font-medium"
+        htmlFor={`${fieldPrefix}-visit-note`}
+      >
+        备注（选填）
+        <input
+          id={`${fieldPrefix}-visit-note`}
+          name="campus-map-visit-note"
+          type="text"
+          autoComplete="off"
+          data-edit-field="visitNote"
+          aria-invalid={session.localError === "visitNote" || undefined}
+          aria-describedby={
+            session.localError === "visitNote"
+              ? `${fieldPrefix}-visit-note-error`
+              : undefined
+          }
+          className={fieldClass}
+          value={
+            fact.placeType === "common-space"
+              ? commonSpaceVisitNote.note
+              : (fact.visitNote ?? "")
+          }
+          placeholder="例如：电梯旁、东翼走廊"
+          onChange={(event) =>
+            changeFact({
+              visitNote:
+                fact.placeType === "common-space"
+                  ? composeCampusMapCommonSpaceVisitNote(
+                      commonSpaceVisitNote.access,
+                      event.target.value,
+                    )
+                  : event.target.value || null,
+            })
+          }
+        />
+        {session.localError === "visitNote" ? (
+          <span
+            id={`${fieldPrefix}-visit-note-error`}
+            className="mt-1 block text-xs font-normal text-red-700"
+          >
+            请缩短备注。
+          </span>
+        ) : null}
+      </label>
+    ) : null;
+  const matchingFacilityNote =
+    matchingFacilities.length > 0
+      ? `${fact.floorId ? "本层" : "本建筑"}已有 ${matchingFacilities.length} 处${campusMapPlaceTypeLabel(fact.placeType)}`
+      : null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b px-4 pt-[max(14px,env(safe-area-inset-top))] pb-3 md:px-5 md:py-4">
+    <div
+      className={cn(
+        "flex h-full min-h-0 flex-col",
+        draft.mode === "add" &&
+          !isSelectingLocation &&
+          !isPlacing &&
+          "h-auto max-h-[82dvh] md:max-h-[calc(100dvh-32px)]",
+      )}
+    >
+      <div className="border-b px-4 pt-[max(14px,env(safe-area-inset-top))] pb-3 md:px-5 md:py-4 [@media(max-height:500px)]:py-2">
         <h2
           id="campus-map-panel-title"
           tabIndex={-1}
           className="mr-10 max-w-[calc(100%-2.5rem)] text-lg font-semibold text-balance focus-visible:border-l-2 focus-visible:border-[#176346] focus-visible:pl-2 focus-visible:outline-none md:text-xl"
         >
           {isSelectingLocation
-            ? "设施在哪里？"
+            ? feedbackOpen
+              ? "反馈缺失建筑"
+              : "设施在哪里？"
             : isPlacing
               ? draft.mode === "add"
                 ? "选择设施位置"
                 : "修改设施位置"
               : formTitle}
         </h2>
-        {isSelectingLocation ? (
-          <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm">
+        {isSelectingLocation && !feedbackOpen ? (
+          <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm [@media(max-height:500px)]:hidden">
             {buildingDirectoryStatus === "ready" && buildings.length === 0
               ? "当前没有已收录建筑。"
-              : "点选地图上的建筑，或在上方搜索建筑。"}
+              : "点击地图上的建筑，或搜索名称。"}
           </p>
         ) : isPlacing ? (
-          <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm">
+          <p className="mt-0.5 text-xs leading-5 text-neutral-600 md:mt-1 md:text-sm [@media(max-height:500px)]:hidden">
             {draft.mode === "add"
               ? "拖动地图或轻点地点名称，选择设施位置。"
               : "拖动地图或轻点地点名称，选择新的设施位置。"}
@@ -1530,7 +1636,7 @@ export function CampusMapEditSheet({
       <div
         className={cn(
           "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 md:px-5",
-          isSelectingLocation
+          isSelectingLocation || isPlacing
             ? "space-y-2 py-2 pb-3 md:py-3"
             : "space-y-4 py-4 pb-8 md:py-4",
         )}
@@ -1550,7 +1656,9 @@ export function CampusMapEditSheet({
             ))}
           </div>
         ) : null}
-        {!session.serverErrors?.length && nameErrorMessage ? (
+        {!session.serverErrors?.length &&
+        nameErrorMessage &&
+        !showsNameField ? (
           <div
             className="rounded-xl bg-red-50 p-3 text-sm text-red-900"
             role="alert"
@@ -1581,45 +1689,15 @@ export function CampusMapEditSheet({
                 ) : null}
               </div>
             ) : null}
-            {locationBuildingCandidate && locationBuildingCandidateLabel ? (
-              <div
-                role="group"
-                aria-label="已选建筑"
-                aria-live="polite"
-                className="flex min-h-11 items-center gap-3"
-              >
-                <strong className="min-w-0 flex-1 text-sm leading-5 text-neutral-900">
-                  {locationBuildingCandidateLabel}
-                </strong>
-                <button
-                  key={locationBuildingCandidate.buildingId}
-                  autoFocus
-                  type="button"
-                  aria-label={`确认${locationBuildingCandidateLabel}作为所属建筑`}
-                  className="min-h-11 shrink-0 rounded-lg bg-[#174b38] px-3 text-sm font-semibold whitespace-nowrap text-white hover:bg-[#123d2e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
-                  onClick={() =>
-                    onEvent({
-                      type: "SELECT_BUILDING_LOCATION",
-                      locationDisplay: {
-                        buildingId: locationBuildingCandidate.buildingId,
-                        buildingName: locationBuildingCandidateLabel,
-                        floorId: null,
-                        floorLabel: null,
-                      },
-                    })
-                  }
-                >
-                  确认
-                </button>
-              </div>
-            ) : null}
-            <button
-              type="button"
-              className="inline-flex min-h-11 items-center justify-self-start rounded-lg text-sm font-semibold text-[#176346] underline decoration-[#176346]/35 underline-offset-4 hover:decoration-[#176346] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
-              onClick={() => onEvent({ type: "START_OUTDOOR_PLACEMENT" })}
-            >
-              选择室外位置
-            </button>
+            <FacilityLocationPicker
+              buildings={buildings}
+              reference={locationReference}
+              onFeedbackOpen={onFeedbackOpen}
+              onPickPosition={onPickPosition}
+              livePosition={centerPosition}
+              positionMoving={feedbackPositionMoving}
+              onEvent={onEvent}
+            />
           </div>
         ) : isPlacing ? (
           <div className="rounded-xl bg-[#edf5f1] px-3 py-2.5 text-sm">
@@ -1640,16 +1718,41 @@ export function CampusMapEditSheet({
                     {placementLabel}
                   </p>
                 ) : null}
-                {placementReference ? (
+                {draft.mode === "edit" && placementReference ? (
                   <p
                     className="mt-0.5 text-xs text-neutral-500"
                     aria-live="polite"
                   >
-                    {placementReference}
+                    {draft.mode === "edit" ? placementReference : null}
                   </p>
                 ) : null}
               </div>
             </div>
+          </div>
+        ) : null}
+        {isPlacing && onNudgePosition ? (
+          <div
+            role="group"
+            aria-label="微调地图位置"
+            className="flex flex-wrap gap-1"
+          >
+            {(
+              [
+                ["north", "向北"],
+                ["south", "向南"],
+                ["west", "向西"],
+                ["east", "向东"],
+              ] as const
+            ).map(([direction, label]) => (
+              <button
+                type="button"
+                key={direction}
+                className={secondaryClass}
+                onClick={() => onNudgePosition(direction)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         ) : null}
         {coordinateEntry}
@@ -1657,37 +1760,7 @@ export function CampusMapEditSheet({
           hidden={isPlacing || isSelectingLocation}
           className="space-y-3 md:space-y-4"
         >
-          {draft.mode === "edit" ? (
-            <label
-              className="block text-sm font-medium"
-              htmlFor={`${fieldPrefix}-name`}
-            >
-              设施名称或编号
-              <input
-                id={`${fieldPrefix}-name`}
-                name="campus-map-place-name"
-                type="text"
-                autoComplete="off"
-                required
-                data-edit-field="name"
-                aria-invalid={nameErrorMessage ? true : undefined}
-                aria-describedby={
-                  nameErrorMessage ? `${fieldPrefix}-name-error` : undefined
-                }
-                className={fieldClass}
-                value={fact.name}
-                onChange={(event) => changeFact({ name: event.target.value })}
-              />
-              {nameErrorMessage ? (
-                <span
-                  id={`${fieldPrefix}-name-error`}
-                  className="mt-1 block text-xs text-red-700"
-                >
-                  {nameErrorMessage}
-                </span>
-              ) : null}
-            </label>
-          ) : null}
+          {draft.mode === "edit" ? nameField : null}
 
           {draft.mode === "edit" ? facilityTypeField : null}
 
@@ -1710,33 +1783,32 @@ export function CampusMapEditSheet({
             <fieldset
               data-edit-field="location"
               tabIndex={-1}
-              className="rounded-xl border border-[#176346]/10 bg-[#edf5f1] p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+              className="border-b border-black/10 pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
             >
-              <legend className="px-1 text-sm font-semibold">所属建筑</legend>
-              <div className="flex min-h-11 items-center gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/80 text-[#176346] ring-1 ring-[#176346]/10">
-                  <Building2Icon aria-hidden="true" className="size-5" />
+              <legend className="text-sm font-semibold">位置</legend>
+              <div className="mt-1 flex min-h-11 items-center gap-3">
+                <span className="w-10 shrink-0 text-sm text-neutral-500">
+                  建筑
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold leading-5">
-                    <span className="truncate">
-                      {selectedBuilding?.name ??
-                        draft.locationDisplay?.buildingName ??
-                        "建筑资料不可用"}
-                    </span>
-                    {selectedBuildingQualifier ? (
-                      <span
-                        title={selectedBuildingQualifier}
-                        className="max-w-[42%] shrink-0 truncate rounded bg-white/80 px-1.5 py-0.5 text-[11px] font-medium text-neutral-600 ring-1 ring-black/5"
-                      >
-                        {selectedBuildingQualifier}
-                      </span>
-                    ) : null}
+                <span className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-semibold leading-5">
+                  <span className="truncate">
+                    {selectedBuilding?.name ??
+                      draft.locationDisplay?.buildingName ??
+                      "建筑资料不可用"}
                   </span>
+                  {selectedBuildingQualifier ? (
+                    <span
+                      title={selectedBuildingQualifier}
+                      className="max-w-[42%] shrink-0 truncate rounded bg-white/80 px-1.5 py-0.5 text-[11px] font-medium text-neutral-600 ring-1 ring-black/5"
+                    >
+                      {selectedBuildingQualifier}
+                    </span>
+                  ) : null}
                 </span>
-                {draft.entrySource === "global" ? (
+                {draft.mode === "add" ? (
                   <button
                     type="button"
+                    data-edit-field="change-location"
                     className="min-h-11 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
                     onClick={() =>
                       onEvent({
@@ -1745,11 +1817,11 @@ export function CampusMapEditSheet({
                       })
                     }
                   >
-                    更改位置
+                    更换
                   </button>
                 ) : null}
               </div>
-              <div className="mt-3">{floorField}</div>
+              <div className="pl-0">{floorField}</div>
             </fieldset>
           ) : (
             <fieldset
@@ -1783,7 +1855,9 @@ export function CampusMapEditSheet({
                           buildingDisplay,
                         )}
                   </p>
-                  {!isPendingIndoorLocation && lockedProviderCandidate ? (
+                  {draft.mode === "edit" &&
+                  !isPendingIndoorLocation &&
+                  lockedProviderCandidate ? (
                     <p className="mt-0.5 flex min-w-0 gap-1 text-xs text-neutral-500">
                       <span className="shrink-0">高德候选：</span>
                       <span className="min-w-0 break-words">
@@ -1794,23 +1868,39 @@ export function CampusMapEditSheet({
                 </div>
                 <button
                   type="button"
+                  data-edit-field="change-location"
+                  aria-expanded={
+                    draft.mode === "edit" ? locationEditorExpanded : undefined
+                  }
+                  aria-controls={
+                    draft.mode === "edit"
+                      ? `${fieldPrefix}-location-editor`
+                      : undefined
+                  }
                   className="min-h-11 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
                   onClick={() => {
-                    onEvent(
-                      draft.mode === "add"
-                        ? {
-                            type: "START_LOCATION_SELECTION",
-                            ...freshAttempt(),
-                          }
-                        : { type: "START_REPOSITION", ...freshAttempt() },
-                    );
+                    if (draft.mode === "add") {
+                      onEvent({
+                        type: "START_LOCATION_SELECTION",
+                        ...freshAttempt(),
+                      });
+                    } else {
+                      setLocationEditorExpanded(!locationEditorExpanded);
+                    }
                   }}
                 >
-                  {draft.mode === "add" ? "更改位置" : "修改位置"}
+                  {draft.mode === "add"
+                    ? "更改位置"
+                    : locationEditorExpanded
+                      ? "完成"
+                      : "修改位置"}
                 </button>
               </div>
-              {draft.mode === "edit" ? (
-                <div className="mt-3 border-t border-[#176346]/15 pt-3">
+              {draft.mode === "edit" && locationEditorExpanded ? (
+                <div
+                  id={`${fieldPrefix}-location-editor`}
+                  className="mt-3 border-t border-[#176346]/15 pt-3"
+                >
                   <p className="mb-2 text-sm font-medium">位置类型</p>
                   <div className="grid grid-cols-2 gap-2">
                     <label
@@ -1860,15 +1950,52 @@ export function CampusMapEditSheet({
                       建筑内
                     </label>
                   </div>
+                  {!indoorSelected ? (
+                    <button
+                      type="button"
+                      className={cn(secondaryClass, "mt-2 w-full")}
+                      onClick={() =>
+                        onEvent({
+                          type: "START_REPOSITION",
+                          ...freshAttempt(),
+                        })
+                      }
+                    >
+                      在地图上重新定位
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
-              {draft.mode === "edit" && indoorSelected ? (
+              {draft.mode === "edit" &&
+              locationEditorExpanded &&
+              indoorSelected ? (
                 <div className="mt-3">{buildingFields}</div>
               ) : null}
             </fieldset>
           )}
 
           {draft.mode === "add" ? facilityTypeField : null}
+
+          {draft.mode === "add" && matchingFacilityNote ? (
+            <p
+              role="status"
+              className="rounded-xl bg-neutral-100 px-3 py-2.5 text-sm leading-5 text-neutral-700"
+            >
+              {matchingFacilityNote}
+            </p>
+          ) : null}
+
+          {toiletTypeField}
+
+          {commonSpaceAccessField}
+
+          {draft.mode === "add" &&
+          !draft.placeTypePending &&
+          fact.placeType === "classroom"
+            ? nameField
+            : null}
+
+          {addVisitNoteField}
 
           {showsDetailFields ? (
             <div>
@@ -1885,7 +2012,7 @@ export function CampusMapEditSheet({
                 <span className="min-w-0">
                   <span className="block text-sm font-medium">更多信息</span>
                   <span className="mt-0.5 block text-xs text-neutral-500">
-                    通常开放时间、官方入口与到访提示
+                    通常开放时间、官方入口与备注
                   </span>
                 </span>
                 <ChevronDownIcon
@@ -1918,56 +2045,22 @@ export function CampusMapEditSheet({
                           name="campus-map-gender"
                           data-edit-field="gender"
                           className={fieldClass}
-                          value={fact.gender ?? ""}
+                          value={
+                            fact.gender === "all-gender" ? "all-gender" : ""
+                          }
                           onChange={(event) =>
                             changeFact({
                               gender:
-                                (event.target
-                                  .value as CampusMapPublishFactInput["gender"]) ||
-                                null,
+                                event.target.value === "all-gender"
+                                  ? "all-gender"
+                                  : null,
                             })
                           }
                         >
-                          <option value="">未填写</option>
-                          {displayOptions.gender.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
+                          <option value="">男女厕</option>
+                          <option value="all-gender">性别友好洗手间</option>
                         </select>
                       </label>
-                    ) : null}
-                    {applicableFields.has("capabilities") ? (
-                      <fieldset data-edit-field="capabilities">
-                        <legend className="text-sm">
-                          {campusMapFactFieldLabel("capabilities")}
-                        </legend>
-                        <div className="mt-1 grid grid-cols-3 gap-2">
-                          {displayOptions.capabilities.map((option) => (
-                            <label
-                              key={option.value}
-                              className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 px-3 text-sm"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={fact.capabilities.includes(
-                                  option.value,
-                                )}
-                                onChange={(event) =>
-                                  changeFact({
-                                    capabilities: event.target.checked
-                                      ? [...fact.capabilities, option.value]
-                                      : fact.capabilities.filter(
-                                          (value) => value !== option.value,
-                                        ),
-                                  })
-                                }
-                              />
-                              {option.label}
-                            </label>
-                          ))}
-                        </div>
-                      </fieldset>
                     ) : null}
                     {applicableFields.has("wheelchairAccess") ? (
                       <label
@@ -2315,7 +2408,7 @@ export function CampusMapEditSheet({
                         id={`${fieldPrefix}-visit-note-help`}
                         className="mt-1 block text-xs leading-5 font-normal text-neutral-600"
                       >
-                        简短说明收费、付款或登记等到访须知。
+                        可填写位置、付款或登记等补充信息。
                       </span>
                       <textarea
                         id={`${fieldPrefix}-visit-note`}
@@ -2332,7 +2425,7 @@ export function CampusMapEditSheet({
                             : ""
                         }`}
                         value={fact.visitNote ?? ""}
-                        placeholder="例如：只接受八达通付款。"
+                        placeholder="例如：电梯旁，只接受八达通付款。"
                         onChange={(event) =>
                           changeFact({
                             visitNote:
@@ -2347,7 +2440,7 @@ export function CampusMapEditSheet({
                           id={`${fieldPrefix}-visit-note-error`}
                           className="mt-1 block text-xs font-normal text-red-700"
                         >
-                          请删除空白内容，或缩短提示（中文字最多约 166 个）。
+                          请删除空白内容，或缩短备注（中文字最多约 166 个）。
                         </span>
                       ) : null}
                     </label>
@@ -2359,49 +2452,69 @@ export function CampusMapEditSheet({
         </div>
       </div>
       {showFixedFooter ? (
-        <div className="shrink-0 border-t bg-white px-4 pt-4 pb-[max(16px,env(safe-area-inset-bottom))] md:rounded-b-2xl md:pb-4">
-          <button
-            type="button"
-            className={primaryClass}
-            disabled={
-              isPlacing
-                ? placementPending
-                : session.status !== "editing" ||
-                  (draft.mode === "edit" && !isCampusMapEditDirty(session)) ||
-                  schemaUnavailable ||
-                  buildingDirectoryBlocked ||
-                  photoUploadPending
-            }
-            onClick={() => {
-              if (!isPlacing && requiredBuildingMissing) {
-                onEvent({ type: "REPORT_LOCAL_ERROR", field: "buildingId" });
-                return;
-              }
-              onEvent(
-                isPlacing
-                  ? { type: "CONFIRM_POSITION", position: placementPosition }
-                  : {
-                      type: "REQUEST_PUBLISH",
-                      accessedOn: today(),
-                      ...(serverRequiredFields
-                        ? { requiredFields: serverRequiredFields }
-                        : {}),
-                    },
-              );
-            }}
-          >
-            {isPlacing
-              ? placementPending
-                ? "正在确定位置…"
-                : "使用此位置"
-              : session.status === "publishing"
-                ? "正在发布…"
-                : photoUploadPending
-                  ? "正在处理图片…"
-                  : draft.mode === "add"
-                    ? "发布设施"
-                    : "发布修改"}
-          </button>
+        <div className="flex shrink-0 gap-2 border-t bg-white px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] md:rounded-b-2xl">
+          {canKeepLocation ? (
+            <button
+              type="button"
+              className={cn(secondaryClass, "shrink-0 whitespace-nowrap")}
+              onClick={() => onEvent({ type: "CANCEL_LOCATION_SELECTION" })}
+            >
+              取消重选
+            </button>
+          ) : null}
+          {!isSelectingLocation ? (
+            <>
+              <button
+                type="button"
+                className={primaryClass}
+                disabled={
+                  isPlacing
+                    ? placementPending
+                    : session.status !== "editing" ||
+                      (draft.mode === "edit" &&
+                        !isCampusMapEditDirty(session)) ||
+                      schemaUnavailable ||
+                      buildingDirectoryBlocked ||
+                      photoUploadPending
+                }
+                onClick={() => {
+                  if (!isPlacing && requiredBuildingMissing) {
+                    onEvent({
+                      type: "REPORT_LOCAL_ERROR",
+                      field: "buildingId",
+                    });
+                    return;
+                  }
+                  onEvent(
+                    isPlacing
+                      ? {
+                          type: "CONFIRM_POSITION",
+                          position: placementPosition,
+                        }
+                      : {
+                          type: "REQUEST_PUBLISH",
+                          accessedOn: today(),
+                          ...(serverRequiredFields
+                            ? { requiredFields: serverRequiredFields }
+                            : {}),
+                        },
+                  );
+                }}
+              >
+                {isPlacing
+                  ? placementPending
+                    ? "正在确定位置…"
+                    : "使用此位置"
+                  : session.status === "publishing"
+                    ? "正在发布…"
+                    : photoUploadPending
+                      ? "正在处理图片…"
+                      : draft.mode === "add"
+                        ? "发布设施"
+                        : "发布修改"}
+              </button>
+            </>
+          ) : null}
         </div>
       ) : null}
     </div>

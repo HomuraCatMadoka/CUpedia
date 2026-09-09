@@ -11,6 +11,7 @@ import {
   CAMPUS_MAP_DISPLAY_REGISTRY,
 } from "@/lib/campus-map/display-registry";
 import { isCampusMapPublicPlaceType } from "@/lib/campus-map/controlled-values";
+import { campusMapFloorDisplayLabel } from "@/lib/campus-map/floor-label";
 import type {
   CampusMapHistoricalFact,
   CampusMapHistoricalFactV1,
@@ -54,7 +55,7 @@ function locationLabel(
   }
   if (!building) return "建筑资料暂不可用";
   return fact.locationKind === "floor" && building.floorLabel
-    ? `${building.name} · ${building.floorLabel}`
+    ? `${building.name} · ${campusMapFloorDisplayLabel(building.floorLabel)}`
     : building.name;
 }
 
@@ -67,6 +68,12 @@ function FactRow({ label, value }: { label: string; value: string }) {
       <dd className="mt-1 text-sm font-medium leading-6">{value}</dd>
     </div>
   );
+}
+
+function supportsPlaceFeedback(fact: CampusMapHistoricalFact) {
+  return fact.factSchemaVersion === 1
+    ? fact.pinType === "toilet"
+    : fact.placeType === "toilet";
 }
 
 export function CampusMapPlaceDetail({
@@ -96,12 +103,7 @@ export function CampusMapPlaceDetail({
   reviewsAfter?: string | null;
   photos?: CampusMapPlacePhotoView[];
 }) {
-  const statusLabel =
-    head.status === "active"
-      ? "地图已收录"
-      : head.status === "retired"
-        ? "地图已停用"
-        : "地图已合并";
+  const statusLabel = head.status === "retired" ? "地图已停用" : "地图已合并";
   const feedbackView: CampusMapPlaceFeedbackPage = feedback ?? {
     placeStatus: head.status,
     summary: {
@@ -124,35 +126,33 @@ export function CampusMapPlaceDetail({
           locationLabel: locationLabel(presentedFact, building),
         })
       : null;
+  const feedbackEnabled = Boolean(
+    presentedFact && supportsPlaceFeedback(presentedFact),
+  );
 
   return (
     <main className="w-full min-w-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_oklab,var(--color-emerald-500)_10%,transparent),transparent_42%)] px-4 py-8 sm:px-6 lg:py-12">
       <div className="mx-auto grid w-full max-w-4xl gap-6">
         <header>
-          <p className="text-xs font-bold tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
-            校园地图 · 地点详情
-          </p>
-          <div className="mt-2 flex flex-col items-start justify-between gap-4 sm:flex-row">
+          <Link
+            href={mapHref}
+            prefetch={false}
+            aria-label="返回地图"
+            className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-emerald-200 dark:hover:bg-emerald-950/40"
+          >
+            ← 返回地图
+          </Link>
+          <div className="mt-3 flex flex-col items-start justify-between gap-4 sm:flex-row">
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
                 {head.name ?? "地点资料不可用"}
               </h1>
-              <span
-                className={
-                  head.status === "active"
-                    ? "mt-3 inline-flex rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
-                    : "mt-3 inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200"
-                }
-              >
-                {statusLabel}
-              </span>
+              {head.status !== "active" ? (
+                <span className="mt-3 inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                  {statusLabel}
+                </span>
+              ) : null}
             </div>
-            <Link
-              href={mapHref}
-              className="inline-flex min-h-11 items-center rounded-xl border bg-background px-4 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              返回地图
-            </Link>
           </div>
         </header>
 
@@ -283,15 +283,17 @@ export function CampusMapPlaceDetail({
           </section>
         )}
 
-        <PlaceFeedbackSection
-          placeId={placeId}
-          feedback={feedbackView}
-          viewerFeedback={viewerFeedback}
-          viewerCanWrite={viewerCanWrite}
-          isAdmin={isAdmin}
-          reviewsAfter={reviewsAfter}
-          mapListReturnPath={mapListReturnPath}
-        />
+        {feedbackEnabled ? (
+          <PlaceFeedbackSection
+            placeId={placeId}
+            feedback={feedbackView}
+            viewerFeedback={viewerFeedback}
+            viewerCanWrite={viewerCanWrite}
+            isAdmin={isAdmin}
+            reviewsAfter={reviewsAfter}
+            mapListReturnPath={mapListReturnPath}
+          />
+        ) : null}
 
         <div>
           <Link

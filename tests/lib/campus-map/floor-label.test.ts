@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CAMPUS_MAP_FLOOR_LABEL_TRIM_CHARACTERS,
   campusMapFloorLabelError,
+  campusMapFloorDisplayLabel,
   isCampusMapFloorEvidenceSource,
   normalizeCampusMapFloorLabel,
 } from "@/lib/campus-map/floor-label";
@@ -35,4 +36,11 @@ describe("Campus Map Floor labels", () => {
     );
     expect(campusMapFloorLabelError("1/F")).toBeNull();
   });
+});
+
+it("formats numeric floors without changing their saved identity", () => {
+  expect(campusMapFloorDisplayLabel("2")).toBe("2 楼");
+  expect(campusMapFloorDisplayLabel("G")).toBe("地下（G）");
+  expect(campusMapFloorDisplayLabel("LG1")).toBe("LG1");
+  expect(campusMapFloorDisplayLabel("1/F")).toBe("1/F");
 });

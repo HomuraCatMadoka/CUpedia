@@ -85,7 +85,7 @@ describe("PlacePhotoEditor (#818)", () => {
         onChange={vi.fn()}
       />,
     );
-    expect(screen.getByText(/避开可识别的人脸/u)).toBeTruthy();
+    expect(screen.getByText(/避免拍到人脸/u)).toBeTruthy();
     expect(screen.getByText("已达到 3 张上限")).toBeTruthy();
   });
 

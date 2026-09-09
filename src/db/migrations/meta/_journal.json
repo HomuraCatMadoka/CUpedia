@@ -897,6 +897,27 @@
       "when": 1788766795313,
       "tag": "0127_campus-map-floor-label-identity",
       "breakpoints": true
+    },
+    {
+      "idx": 128,
+      "version": "7",
+      "when": 1788858168515,
+      "tag": "0128_campus_map_known_building_floors",
+      "breakpoints": true
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1788858401265,
+      "tag": "0129_campus_map_known_floor_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1788859096946,
+      "tag": "0130_campus_map_cheng_ming_hotspot",
+      "breakpoints": true
     }
   ]
 }

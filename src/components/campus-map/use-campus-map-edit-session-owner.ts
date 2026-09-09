@@ -9,6 +9,7 @@ import {
 } from "@/lib/campus-map/edit-actions";
 import {
   decodeCampusMapEditSnapshot,
+  resumeCampusMapBuildingAdd,
   deriveCampusMapPublishCommand,
   encodeCampusMapEditSnapshot,
   isCampusMapEditDirty,
@@ -227,6 +228,29 @@ export function useCampusMapEditSessionOwner({
       sessionRef.current = transition.session;
       setSession(transition.session);
 
+      const cameraCommand = transition.commands.find(
+        (command) => command.kind === "camera",
+      );
+      const deferCameraUntilFocus = Boolean(
+        cameraCommand &&
+        transition.commands.some((command) => command.kind === "focus"),
+      );
+      const applyCameraCommand = () => {
+        if (!cameraCommand) return;
+        if (cameraCommand.intent === "recenter-building") {
+          driver.recenterEditBuilding(
+            cameraCommand.buildingId,
+            cameraCommand.placement,
+          );
+        } else {
+          driver.recenterEditPosition(
+            cameraCommand.position,
+            "reposition",
+            cameraCommand.precision,
+          );
+        }
+      };
+
       for (const command of transition.commands) {
         if (command.kind === "persist-snapshot" && transition.session) {
           window.sessionStorage.setItem(
@@ -251,11 +275,7 @@ export function useCampusMapEditSessionOwner({
             dispatch({ type: "CANCEL_TASK" });
           }
         } else if (command.kind === "camera") {
-          driver.recenterEditPosition(
-            command.position,
-            "reposition",
-            command.precision,
-          );
+          if (!deferCameraUntilFocus) applyCameraCommand();
         } else if (command.kind === "focus") {
           const intentToken = driver.getIntentToken();
           window.setTimeout(() => {
@@ -271,6 +291,7 @@ export function useCampusMapEditSessionOwner({
             } else {
               driver.focusEditField(command.target);
             }
+            if (deferCameraUntilFocus) applyCameraCommand();
           }, 0);
         } else if (command.kind === "announce") {
           const intentToken = driver.getIntentToken();
@@ -489,11 +510,18 @@ export function useCampusMapEditSessionOwner({
       );
       return;
     }
-    const next =
+    const authenticated =
       restored.session.status === "authentication-required"
         ? transitionCampusMapEdit(restored.session, { type: "AUTH_RETURNED" })
             .session
         : restored.session;
+    const next = authenticated
+      ? resumeCampusMapBuildingAdd(authenticated)
+      : authenticated;
+    if (next !== authenticated)
+      queueMicrotask(() =>
+        setRestoreNotice("已保留设施资料，请从建筑目录选择位置与楼层。"),
+      );
     const revealRestoredSession = () => {
       sessionRef.current = next;
       if (next !== restored.session) {

@@ -73,12 +73,18 @@ describe("formal Campus Map route", () => {
     ).rejects.toThrow("CAMPUS_MAP_PROJECTION_UNAVAILABLE");
   });
 
-  it("loads all visible card summaries through one batch read", async () => {
+  it("loads rating summaries only for visible washrooms", async () => {
     const projection = {
       ...EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
       places: [
-        { placeId: "00000000-0000-4000-8000-000000008171" },
-        { placeId: "00000000-0000-4000-8000-000000008172" },
+        {
+          placeId: "00000000-0000-4000-8000-000000008171",
+          placeType: "toilet",
+        },
+        {
+          placeId: "00000000-0000-4000-8000-000000008172",
+          placeType: "water",
+        },
       ],
     };
     mocks.loadProjection.mockResolvedValueOnce(projection);
@@ -95,7 +101,6 @@ describe("formal Campus Map route", () => {
     expect(mocks.getFeedbackSummaries).toHaveBeenCalledOnce();
     expect(mocks.getFeedbackSummaries).toHaveBeenCalledWith([
       "00000000-0000-4000-8000-000000008171",
-      "00000000-0000-4000-8000-000000008172",
     ]);
     expect(element.props.initialFeedbackSummaries).toEqual({
       "00000000-0000-4000-8000-000000008171": {

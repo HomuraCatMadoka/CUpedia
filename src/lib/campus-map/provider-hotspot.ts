@@ -16,6 +16,7 @@ export type CampusMapProviderHotspotResolution =
   | {
       kind: "transient";
       name: string;
+      providerObjectId: string | null;
     };
 
 /**
@@ -49,5 +50,28 @@ export function resolveCampusMapProviderHotspot(
   return {
     kind: "transient",
     name: hotspot.name.trim() || "高德地图地点",
+    providerObjectId: hotspot.providerObjectId,
   };
+}
+
+/** Suggestions require a separate user choice; they never establish a provider mapping. */
+export function suggestCampusMapHotspotBuildings(
+  buildings: readonly CampusMapBrowseBuilding[],
+  name: string,
+): CampusMapBrowseBuilding[] {
+  const normalize = (value: string) =>
+    value.normalize("NFKC").replace(/\s+/g, "").toLocaleLowerCase();
+  const query = normalize(name);
+  if (!query) return [];
+  return buildings
+    .filter((building) =>
+      [building.name, building.englishName, ...building.aliases].some(
+        (label) => {
+          if (!label) return false;
+          const candidate = normalize(label);
+          return candidate.length >= 2 && candidate === query;
+        },
+      ),
+    )
+    .slice(0, 3);
 }

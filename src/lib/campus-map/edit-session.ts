@@ -9,6 +9,7 @@ import type {
 import type { CampusMapPublishReceiptOutcome } from "@/lib/campus-map/publish-receipt-consumer";
 import { CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES } from "@/lib/campus-map/publish-contract";
 import { isCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
+import { removeCampusMapCommonSpaceAccessFromVisitNote } from "@/lib/campus-map/common-space-access";
 import {
   CAMPUS_MAP_EDIT_SCHEMA,
   firstInvalidCampusMapEditField,
@@ -59,11 +60,13 @@ export interface CampusMapIndoorLocationDisplay {
 export type CampusMapFacilityAddEntry =
   | {
       kind: "global";
+      name?: string;
       placeType?: CampusMapPublishFactInput["placeType"];
     }
   | {
       kind: "building";
       locationDisplay: CampusMapIndoorLocationDisplay;
+      name?: string;
       placeType?: CampusMapPublishFactInput["placeType"];
     };
 
@@ -87,6 +90,8 @@ export interface CampusMapEditDraft {
   baseRevisionId: string | null;
   idempotencyKey: string;
   fact: CampusMapEditFact;
+  /** New Add drafts require an explicit type choice unless the entry supplied it. */
+  placeTypePending?: boolean;
   sources: CampusMapPublishSourceInput[];
   photos: CampusMapEditPhoto[];
   /** The task's initial fact. Null is accepted only for restored legacy Add drafts. */
@@ -180,6 +185,12 @@ export type CampusMapEditCommand =
       position: readonly [longitude: number, latitude: number];
       precision: OutdoorPoint["precision"];
     }
+  | {
+      kind: "camera";
+      intent: "recenter-building";
+      buildingId: string;
+      placement?: boolean;
+    }
   | { kind: "persist-snapshot" }
   | { kind: "clear-snapshot" }
   | { kind: "discard-place-photos"; assetIds: string[] }
@@ -220,6 +231,7 @@ export type CampusMapEditEvent =
       type: "SELECT_BUILDING_LOCATION";
       locationDisplay: CampusMapIndoorLocationDisplay;
     }
+  | { type: "CANCEL_LOCATION_SELECTION" }
   | { type: "START_OUTDOOR_PLACEMENT" }
   | { type: "START_LOCATION_SELECTION"; idempotencyKey?: string }
   | { type: "START_REPOSITION"; idempotencyKey?: string }
@@ -334,24 +346,6 @@ function minimalAddFact(
     buildingId: fact.buildingId,
     floorId: fact.floorId,
     location: clone(fact.location),
-  };
-}
-
-function clearDraftLocation(draft: CampusMapEditDraft): CampusMapEditDraft {
-  return {
-    ...draft,
-    fact: {
-      ...draft.fact,
-      buildingId: null,
-      floorId: null,
-      location: null,
-    },
-    placementCandidate: null,
-    placementMethod: null,
-    locationIntent: null,
-    locationDisplay: null,
-    missingFloor: null,
-    warningAcknowledgements: [],
   };
 }
 
@@ -480,6 +474,19 @@ function hasUnreadablePlacementConflict(
     !samePlacement(draft.fact, currentFact) &&
     (!placementIsReadable(draft.fact, draft.locationDisplay) ||
       !placementIsReadable(currentFact, currentDisplay))
+  );
+}
+
+export function campusMapEditHasUnreadablePlacementConflict(
+  session: CampusMapEditSession,
+): boolean {
+  return (
+    session.conflict?.kind === "current" &&
+    hasUnreadablePlacementConflict(
+      session.draft,
+      session.conflict.currentFact,
+      session.conflict.currentLocationDisplay,
+    )
   );
 }
 
@@ -658,10 +665,12 @@ function publishTransition(
   const buildingLocationMissing =
     draft.mode === "add" &&
     draft.entrySource === "building" &&
+    draft.fact.location?.kind !== "outdoor-point" &&
     (!draft.fact.buildingId ||
       (draft.fact.location?.kind !== "building" &&
         draft.fact.location?.kind !== "floor"));
   const error =
+    (draft.placeTypePending ? "placeType" : null) ??
     (buildingLocationMissing ? "buildingId" : null) ??
     (draft.missingFloor !== null &&
     (!draft.missingFloor.confirmed ||
@@ -685,7 +694,9 @@ function publishTransition(
               ? "请选择建筑"
               : error === "floorLabel"
                 ? "请填写并确认实际楼层标签"
-                : "请先完成必填资料",
+                : error === "name" && draft.fact.placeType === "classroom"
+                  ? "请填写课室编号"
+                  : "请先完成必填资料",
         },
       ],
     };
@@ -746,10 +757,14 @@ export function transitionCampusMapEdit(
     const preset = CAMPUS_MAP_EDIT_SCHEMA.presets.find(
       (candidate) => candidate.placeType === placeType,
     );
+    const requestedName = event.entry.name?.trim();
+    const initialName = requestedName
+      ? requestedName
+      : (preset?.defaultName ?? DEFAULT_FACT.name);
     const indoorFact: CampusMapPublishFactInput | null = locationDisplay
       ? {
           ...clone(DEFAULT_FACT),
-          name: preset?.defaultName ?? DEFAULT_FACT.name,
+          name: initialName,
           placeType,
           buildingId: locationDisplay.buildingId,
           floorId: locationDisplay.floorId,
@@ -760,7 +775,7 @@ export function transitionCampusMapEdit(
       : null;
     const initialFact: CampusMapEditDraft["fact"] = indoorFact ?? {
       ...clone(DEFAULT_FACT),
-      name: preset?.defaultName ?? DEFAULT_FACT.name,
+      name: initialName,
       placeType,
     };
     const seededDraft = createCampusMapEditDraft({
@@ -770,6 +785,11 @@ export function transitionCampusMapEdit(
       locationDisplay,
       entrySource: event.entry.kind,
     });
+    seededDraft.placeTypePending = event.entry.placeType === undefined;
+    if (seededDraft.placeTypePending) {
+      seededDraft.fact.name = "";
+      seededDraft.baselineFact = clone(seededDraft.fact);
+    }
     const next: CampusMapEditSession = {
       status:
         event.entry.kind === "building" ? "editing" : "selecting-location",
@@ -880,6 +900,7 @@ export function transitionCampusMapEdit(
     session.status === "selecting-location" &&
     event.type !== "SELECT_BUILDING_LOCATION" &&
     event.type !== "START_OUTDOOR_PLACEMENT" &&
+    event.type !== "CANCEL_LOCATION_SELECTION" &&
     event.type !== "REQUEST_CLOSE"
   ) {
     return rejected(session);
@@ -896,15 +917,57 @@ export function transitionCampusMapEdit(
     });
   }
 
+  if (event.type === "CANCEL_LOCATION_SELECTION") {
+    if (
+      session.draft.mode !== "add" ||
+      !session.draft.fact.location ||
+      (session.status !== "placing" && session.status !== "selecting-location")
+    )
+      return rejected(session);
+    const retainedLocation = session.draft.fact.location;
+    const restoreCamera: CampusMapEditCommand | null =
+      retainedLocation.kind === "outdoor-point"
+        ? {
+            kind: "camera",
+            intent: "recenter-placement",
+            position: [retainedLocation.longitude, retainedLocation.latitude],
+            precision: retainedLocation.precision,
+          }
+        : session.draft.fact.buildingId
+          ? {
+              kind: "camera",
+              intent: "recenter-building",
+              buildingId: session.draft.fact.buildingId,
+            }
+          : null;
+    return {
+      accepted: true,
+      session: {
+        status: "editing",
+        draft: { ...session.draft, placementCandidate: null },
+      },
+      commands: [
+        { kind: "persist-snapshot" },
+        { kind: "focus", target: "change-location" },
+        ...(restoreCamera ? [restoreCamera] : []),
+      ],
+    };
+  }
+
   if (event.type === "SELECT_BUILDING_LOCATION") {
     if (
       session.status !== "selecting-location" ||
-      session.draft.mode !== "add" ||
-      session.draft.entrySource !== "global"
+      session.draft.mode !== "add"
     ) {
       return rejected(session);
     }
-    const locationDisplay = clone(event.locationDisplay);
+    const sameBuilding =
+      session.draft.fact.buildingId === event.locationDisplay.buildingId;
+    const locationDisplay = clone(
+      sameBuilding && session.draft.locationDisplay
+        ? session.draft.locationDisplay
+        : event.locationDisplay,
+    );
     const next: CampusMapEditSession = {
       status: "editing",
       draft: {
@@ -921,7 +984,7 @@ export function transitionCampusMapEdit(
         placementMethod: null,
         locationIntent: null,
         locationDisplay,
-        missingFloor: null,
+        missingFloor: sameBuilding ? session.draft.missingFloor : null,
         warningAcknowledgements: [],
       },
     };
@@ -930,10 +993,15 @@ export function transitionCampusMapEdit(
       session: next,
       commands: [
         { kind: "persist-snapshot" },
+        {
+          kind: "camera",
+          intent: "recenter-building",
+          buildingId: locationDisplay.buildingId,
+        },
         { kind: "focus", target: "form-heading" },
         {
           kind: "announce",
-          message: `已选择${locationDisplay.buildingName}，请确认设施类型`,
+          message: `已选择${locationDisplay.buildingName}`,
         },
       ],
     };
@@ -942,19 +1010,44 @@ export function transitionCampusMapEdit(
   if (event.type === "START_OUTDOOR_PLACEMENT") {
     if (
       session.status !== "selecting-location" ||
-      session.draft.mode !== "add" ||
-      session.draft.entrySource !== "global"
+      session.draft.mode !== "add"
     ) {
       return rejected(session);
     }
+    const retainedOutdoorLocation =
+      session.draft.fact.location?.kind === "outdoor-point"
+        ? session.draft.fact.location
+        : null;
     return {
       accepted: true,
       session: {
         status: "placing",
-        draft: clearDraftLocation(session.draft),
+        draft: { ...session.draft, placementCandidate: null },
       },
       commands: [
         { kind: "persist-snapshot" },
+        ...(retainedOutdoorLocation
+          ? [
+              {
+                kind: "camera" as const,
+                intent: "recenter-placement" as const,
+                position: [
+                  retainedOutdoorLocation.longitude,
+                  retainedOutdoorLocation.latitude,
+                ] as const,
+                precision: retainedOutdoorLocation.precision,
+              },
+            ]
+          : session.draft.fact.buildingId
+            ? [
+                {
+                  kind: "camera" as const,
+                  intent: "recenter-building" as const,
+                  buildingId: session.draft.fact.buildingId,
+                  placement: true,
+                },
+              ]
+            : []),
         { kind: "announce", message: "移动地图以选择室外设施位置" },
       ],
     };
@@ -963,10 +1056,8 @@ export function transitionCampusMapEdit(
   if (event.type === "START_LOCATION_SELECTION") {
     if (
       session.status === "selecting-location" ||
-      session.status === "placing" ||
       session.status === "confirm-discard" ||
-      session.draft.mode !== "add" ||
-      session.draft.entrySource !== "global"
+      session.draft.mode !== "add"
     ) {
       return rejected(session);
     }
@@ -976,7 +1067,7 @@ export function transitionCampusMapEdit(
       accepted: true,
       session: {
         status: "selecting-location",
-        draft: clearDraftLocation(attemptDraft),
+        draft: { ...attemptDraft, placementCandidate: null },
       },
       commands: [
         { kind: "persist-snapshot" },
@@ -1014,7 +1105,7 @@ export function transitionCampusMapEdit(
       commands: [
         { kind: "persist-snapshot" },
         { kind: "focus", target: "form-heading" },
-        { kind: "announce", message: "位置已锁定，请填写地点资料" },
+        { kind: "announce", message: "已选择位置" },
       ],
     };
   }
@@ -1247,8 +1338,18 @@ export function transitionCampusMapEdit(
       gender: campusMapFactFieldAppliesV2(event.placeType, "gender")
         ? session.draft.fact.gender
         : null,
+      visitNote:
+        session.draft.fact.placeType === "common-space" &&
+        event.placeType !== "common-space"
+          ? removeCampusMapCommonSpaceAccessFromVisitNote(
+              session.draft.fact.visitNote,
+            )
+          : session.draft.fact.visitNote,
     };
-    return transitionFactChange(session, fact, event.idempotencyKey);
+    const result = transitionFactChange(session, fact, event.idempotencyKey);
+    if (result.accepted && result.session)
+      result.session.draft.placeTypePending = false;
+    return result;
   }
   if (event.type === "CHANGE_SOURCES") {
     const attemptDraft = draftForPayloadChange(session, event.idempotencyKey);
@@ -2500,4 +2601,42 @@ export function decodeCampusMapEditSnapshot(
     session.conflict = { kind: "unavailable", reason: "location-labels" };
   }
   return { status: "restored", session };
+}
+
+/** Keep unfinished legacy Add content, but resume through the current building directory. */
+export function resumeCampusMapBuildingAdd(
+  session: CampusMapEditSession,
+): CampusMapEditSession {
+  if (
+    session.draft.mode !== "add" ||
+    !["editing", "placing", "selecting-location", "confirm-discard"].includes(
+      session.status,
+    )
+  )
+    return session;
+  const outdoor =
+    session.draft.fact.location?.kind === "outdoor-point" ||
+    session.status === "placing";
+  if (!outdoor && !session.draft.missingFloor) return session;
+  return {
+    status: outdoor ? "selecting-location" : "editing",
+    draft: {
+      ...session.draft,
+      missingFloor: null,
+      ...(outdoor
+        ? {
+            fact: {
+              ...session.draft.fact,
+              location: null,
+              buildingId: null,
+              floorId: null,
+            },
+            locationDisplay: null,
+            placementCandidate: null,
+            placementMethod: null,
+            locationIntent: "indoor" as const,
+          }
+        : {}),
+    },
+  };
 }

@@ -6,6 +6,8 @@ status: accepted
 
 > 部分由 ADR 0037 取代：仅“未来照片附件沿用 feedback ID”的预告失效；本 ADR 的评分、
 > 评价、可见性和治理决议继续有效。
+>
+> 产品适用范围由 ADR 0043 收窄为洗手间清洁度评价；既有存储与治理规则继续有效。
 
 Campus Map 需要公开的地点口碑，但主观体验不能进入 canonical Place fact。每个符合资格的
 User 因此只在一个 Place 上维护一份当前 Place feedback：必填 1–5 整数星级，可选一段有界

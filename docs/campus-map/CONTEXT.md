@@ -26,15 +26,17 @@ _Avoid_: Facility identity；类别聚合；以名称、距离或 `(buildingId, 
 
 **地点类型（Place type）**: Place 用于搜索与筛选的宽分类；当前 key 为 `toilet`、`water`、
 `printer`、`common-space`、`classroom`、`sports-facility`、`health-service`，并预留
-`vending-machine`。名称说明“具体是什么”，Place type 只回答“属于哪一大类”。
+`vending-machine`。`printer` 只用于兼容已有地点，不再出现在筛选或新增入口。名称说明“具体是什么”，
+Place type 只回答“属于哪一大类”。
 _Avoid_: Pin type；图标身份；scene category；用显示文案作 key；为游泳池、牙科或单个地点各建一种类型
 
-**能力（Capability）**: 只有确实需要独立筛选的服务能力；当前仅供打印地点记录 `print`、
-`scan`、`copy`。一个多功能服务位置仍是一个 Place。
+**能力（Capability）**: 只有确实需要独立筛选的服务能力；已有打印地点可保留 `print`、`scan`、
+`copy`，当前用户界面不再采集这组细分。一个多功能服务位置仍是一个 Place。
 _Avoid_: 每项能力复制一个 Place
 
 **地点属性（Place facet）**: 与 Place type 正交、只在适用时记录的受控事实；当前为厕所的
-`gender: male | female | all-gender` 和地点的 `wheelchairAccess: yes | limited | no`。
+`gender: all-gender` 和地点的 `wheelchairAccess: yes | limited | no`。男女厕是新增时的默认
+呈现，不额外保存性别属性；`male`、`female` 只用于兼容已有地点与历史版本，不再作为新增选项。
 字段缺失表示尚未掌握，不能自动当成任一受控值。
 _Avoid_: 用图钉类型或自由文本隐含性别与无障碍
 
@@ -99,18 +101,23 @@ _Avoid_: 把发布者等同核对者；用已核对暗示易变状态仍然实�
 不是服务器申请或公共事实。
 _Avoid_: Application；待审核地点；把草稿 marker 放进其他用户的地图
 
-**设施新增入口（Facility Add entry）**: 全局入口先让用户明确选择并确认 canonical Building；
-Building 卡片入口固定带入该 Building 与当前 Floor；类别入口额外带入 Place type。没有供应商映射的
-Building 仍可通过本站目录搜索选择。只有用户
-明确选择“这是室外设施”时，才进入 center pin / WGS84 选点。Add 使用 Place type 的 canonical 默认名，
-只要求确认位置、可选楼层、地点类型与发布；其他可选事实保持未填写，名称与详情留给后续 Edit。
-楼层目录缺项时，用户可以明确填写并确认真实显示标签；服务端在设施发布事务内按 Building 与规范化标签
-建立或复用 Floor，并把设施事实保存为 Building + stable `floorId`。用户也可以保留 Floor 未知的
-Building-only 断言。新增 Floor 沿用本次地图提交的诚实来源，不自动成为官方或已审核事实。
-入口来源与未确认的 Building 候选属于草稿交互上下文，不是可发布事实；入口自动带入的值是任务初始
+**设施新增入口（Facility Add entry）**: 全局入口由用户点选 canonical Building 后进入填写；
+Building 卡片入口带入该 Building 与当前 Floor；类别入口额外带入 Place type。没有供应商映射的
+Building 仍可通过本站目录搜索选择。新增只支持建筑内设施，不展示室外或坐标入口。
+Add 通常使用 Place type 的 canonical 默认名，只要求建筑、可选的已有楼层、地点类型与发布；
+课室没有可辨认的通用名称，须填写 `MMW 501` 这类完整课室编号。洗手间只区分“男女厕”和
+“性别友好洗手间”。公共空间可选填“无需拍卡”或“需要拍校园卡”，并与备注一起保存为简短的
+到访提示；所有设施都可选填备注，其他名称与详情留给后续 Edit。打印地点不再让用户区分打印、
+扫描与复印能力，已有资料仍可正常显示。
+选择类型后，表单提示同一 Building、同一 Floor 已收录的同类型设施，帮助用户发现可能重复；
+该提示不作唯一约束，另一处真实设施仍可发布。
+楼层是建筑目录资料，由有来源的目录维护；资料缺失时可留空，不在新增设施表单中创建楼层。
+已有室外地点仍保留查看和修改能力。未完成的旧室外新增草稿保留其他资料，恢复时重新选择建筑。
+更改位置时，原位置与楼层保留到新位置被选定；重选同一 Building 保留 Floor。
+入口来源与待选位置属于草稿交互上下文，不是可发布事实；入口自动带入的值是任务初始
 状态，用户未修改时关闭任务无需确认放弃。
-_Avoid_: 用长目录下拉框寻找建筑；根据地图中心、距离或 provider POI 推断 Building；在 Add 强迫填写
-名称、照片或运营资料；根据当前选中卡片悄悄改变全局“新增设施”的含义；为所有 Building 预生成通用
+_Avoid_: 用长目录下拉框寻找建筑；根据地图中心、距离或 provider POI 推断 Building；在 Add 要求所有
+设施填写自定义名称、照片或运营资料；根据当前选中卡片悄悄改变全局“新增设施”的含义；为所有 Building 预生成通用
 Floor；从房间号、高德 POI 或未经确认的楼层别名推断或合并 Floor
 
 **变更集（Changeset）**: 一次用户任务原子发布的一组 Place 变化及其作者、说明、来源摘要
@@ -172,8 +179,9 @@ _Avoid_: 用通用 audit log 替代；改写旧裁决；没有 decision ref 的�
 Notes 或两者的管理员裁决；撤销只追加裁决和撤销 metadata，既有公开事实与署名保持不变。
 _Avoid_: 全站账号删除；抹除旧署名；只在页面加载时检查一次
 
-**地点反馈（Place feedback）**: 符合资格的 User 对一个 Place 维护的一份当前主观体验，包含
-必填的 1–5 整数星级和可选评价文字；它引用稳定 `placeId`，但不属于 Place fact 或其修订历史。
+**地点反馈（Place feedback）**: 符合资格的 User 对一个洗手间 Place 维护的一份当前清洁度体验，
+包含必填的 1–5 整数星级和可选评价文字；它引用稳定 `placeId`，但不属于 Place fact 或其修订
+历史。其他设施使用事实纠错或 Map Note，不展示评分入口与聚合。
 _Avoid_: Map Note；Fact revision；一个用户在同一 Place 的多条并行评价；匿名反馈
 
 **反馈隐藏（Feedback hide）**: 管理员让整份 Place feedback 退出公开读取和评分聚合的治理状态；
@@ -222,7 +230,7 @@ _Avoid_: 供应商 ID 作主键；名称模糊命中后静默关联；每次点�
 
 **供应商热点（Provider hotspot）**: 高德底图已绘制、可点击的瞬时对象；它只负责告诉产品用户
 点中了哪个高德对象。浏览时，精确映射的 Building 热点打开 canonical Building 卡；新增设施的选建筑
-阶段，同一热点暂存同一 Building 候选并等待用户确认。热点点击坐标只能承载本次选中反馈，不覆盖
+阶段，同一热点直接选择同一 Building 并进入设施表单。热点点击坐标只能承载本次选中反馈，不覆盖
 Building 锚点，也不是设施位置。`providerObjectId` 是映射输入，不是 CUpedia 身份；名称与坐标只用于显示。
 _Avoid_: 把高德卡片当公开事实；用名称或距离猜 canonical 实体；把热点写入 URL
 
@@ -233,7 +241,8 @@ _Avoid_: 让 provider ID 进入 scene；正式卡片继续依赖 provider 名称
 
 **瞬时供应商卡（Transient provider card）**: 热点没有映射、映射目标不可用，或映射预加载失败时
 显示的轻量参考卡；它不进入 scene/history，关闭后即消失。参考卡可以启动新增设施任务，但必须先由
-用户搜索并确认本站 Building，不能直接发布、推断归属或自动创建 provider mapping。
+用户选择本站 Building，不能直接发布、推断归属或自动创建 provider mapping。
+缺失建筑可携名称和明确选定的位置提交 Map Note，反馈本身不创建 Building 或 Place。
 _Avoid_: 将其保存为 Place；把参考卡直接当 Building 新增设施；后台查询后无提示地升级成另一张卡
 
 **供应商位置参考（Provider location reference）**: 编辑室外位置时，地图供应商对当前坐标返回的

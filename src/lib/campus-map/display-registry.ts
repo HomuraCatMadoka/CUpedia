@@ -59,9 +59,9 @@ const capabilityLabels = {
 } satisfies LabelRecord<typeof CAMPUS_MAP_CAPABILITIES>;
 
 const genderLabels = {
-  male: "男",
-  female: "女",
-  "all-gender": "全性别",
+  male: "男厕",
+  female: "女厕",
+  "all-gender": "性别友好洗手间",
   unknown: "未知",
 } satisfies LabelRecord<typeof CAMPUS_MAP_GENDERS>;
 
@@ -125,7 +125,6 @@ const accessScheduleLabels = {
 const browseCategories = [
   "water",
   "toilet",
-  "printer",
   "common-space",
   "classroom",
 ] as const satisfies readonly (typeof CAMPUS_MAP_PIN_TYPES_V1)[number][];
@@ -149,9 +148,9 @@ export const CAMPUS_MAP_DISPLAY_REGISTRY = {
     regularHours: { label: "通常开放时间" },
     temporaryStatus: { label: "临时状态" },
     officialActions: { label: "官方入口" },
-    visitNote: { label: "到访提示" },
+    visitNote: { label: "备注" },
     capabilities: { label: "服务能力" },
-    gender: { label: "性别属性" },
+    gender: { label: "洗手间类别" },
     wheelchairAccess: { label: "无障碍通行" },
     audience: { label: "开放对象" },
     credentialRequirement: { label: "凭证要求" },

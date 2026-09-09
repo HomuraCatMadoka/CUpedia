@@ -42,8 +42,11 @@ export default async function CampusMapPage({ searchParams }: PageProps) {
     ],
   );
   const placeIds = browseProjection.places.map((place) => place.placeId);
+  const ratedPlaceIds = browseProjection.places
+    .filter((place) => place.placeType === "toilet")
+    .map((place) => place.placeId);
   const [feedbackSummaries, placeCovers] = await Promise.all([
-    getCampusMapPlaceFeedbackSummaries(placeIds),
+    getCampusMapPlaceFeedbackSummaries(ratedPlaceIds),
     getCampusMapCurrentPlaceCoverViews(placeIds),
   ]);
   return (
