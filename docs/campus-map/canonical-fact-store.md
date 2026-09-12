@@ -52,6 +52,18 @@ provider mappings nor consumes AMap data; the existing mapping registry remains
 the separate owner of AMap-to-canonical bindings. The importer is not a second
 fact writer, crawler, scheduler, or direct-database shortcut.
 
+The one-time [official facility import](official-facility-import.md) expands the
+same boundary with a fetched, hash-protected review manifest. Fetching never
+opens the database. Publishing requires explicit human approval, prevalidates
+the complete manifest, then sends deterministic canary and RES chunks of at
+most 25 changes through `publishCampusMapChangeset`. Stable official source
+identities and a database advisory lock make an interrupted run resumable
+without creating a second Place. Migration `0131` first establishes the 67
+canonical Floors explicitly named by the reviewed RES and OSA evidence. The
+import then assigns a Place only when its source states one single Floor;
+capacity, seat type, missing Floors, and multi-floor room assignments remain
+review evidence rather than inferred facts.
+
 `src/lib/campus-map/fact-store-transaction.ts` is an internal storage mechanism
 behind that seam. One Changeset command locks stable Place rows in canonical ID
 order, validates every base revision, resolves immutable provenance identities,
