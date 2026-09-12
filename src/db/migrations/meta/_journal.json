@@ -918,6 +918,13 @@
       "when": 1788859096946,
       "tag": "0130_campus_map_cheng_ming_hotspot",
       "breakpoints": true
+    },
+    {
+      "idx": 131,
+      "version": "7",
+      "when": 1788978494733,
+      "tag": "0131_campus_map_official_facility_floors",
+      "breakpoints": true
     }
   ]
 }
