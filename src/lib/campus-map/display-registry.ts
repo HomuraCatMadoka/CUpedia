@@ -123,11 +123,13 @@ const accessScheduleLabels = {
 } satisfies LabelRecord<typeof accessScheduleKinds>;
 
 const browseCategories = [
+  "classroom",
+  "common-space",
   "water",
   "toilet",
-  "common-space",
-  "classroom",
 ] as const satisfies readonly (typeof CAMPUS_MAP_PIN_TYPES_V1)[number][];
+
+const moreBrowseCategories = ["sports-facility", "health-service"] as const;
 
 type LegacyCampusMapFactField =
   | "pinType"
@@ -166,6 +168,7 @@ export const CAMPUS_MAP_DISPLAY_REGISTRY = {
   placeTypes,
   pinTypes,
   browseCategories,
+  moreBrowseCategories,
   options: {
     capabilities: options(CAMPUS_MAP_CAPABILITIES, capabilityLabels),
     gender: options(CAMPUS_MAP_V2_GENDERS, genderLabels),
