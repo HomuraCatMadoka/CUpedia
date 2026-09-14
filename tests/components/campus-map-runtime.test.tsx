@@ -643,6 +643,37 @@ describe("CampusMapRuntime", () => {
     ).not.toBeNull();
   });
 
+  it("keeps focus on the first newly revealed match when browsing all (#909)", async () => {
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={createCampusMapSearchDirectoryFixture()}
+      />,
+    );
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
+    fireEvent.change(search, { target: { value: "YIA" } });
+    const browseAll = await screen.findByRole("button", { name: /浏览全部/ });
+    expect(screen.queryByRole("button", { name: /^YIA 407/ })).toBeNull();
+    fireEvent.keyDown(search, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(browseAll);
+    fireEvent.click(browseAll);
+    const firstNewResult = await screen.findByRole("button", {
+      name: /^YIA 407/,
+    });
+    expect(document.activeElement).toBe(firstNewResult);
+    fireEvent.keyDown(firstNewResult, { key: "ArrowDown" });
+    const nextResult = screen.getByRole("button", { name: /^YIA 408/ });
+    expect(document.activeElement).toBe(nextResult);
+    fireEvent.keyDown(nextResult, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(firstNewResult);
+    fireEvent.click(firstNewResult);
+    await screen.findByRole("heading", { name: "YIA 407" });
+    fireEvent.keyDown(window, { key: "Escape" });
+    const restoredResult = await screen.findByRole("button", {
+      name: /^YIA 407/,
+    });
+    await waitFor(() => expect(document.activeElement).toBe(restoredResult));
+  });
+
   it("restores expanded search scroll/focus and resets it on new queries (#909)", async () => {
     render(
       <CampusMapRuntime

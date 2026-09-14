@@ -687,6 +687,7 @@ export function CampusMapRuntime({
   const pendingSearchFocusRef = useRef<{
     resultId: string;
     token: number;
+    preventScroll: boolean;
   } | null>(null);
   const [locationReference, setLocationReference] =
     useState<FacilityLocationReference | null>(null);
@@ -1431,6 +1432,7 @@ export function CampusMapRuntime({
                   pendingSearchFocusRef.current = {
                     resultId: focus.resultId,
                     token: context.token,
+                    preventScroll: true,
                   };
                   setBrowseAllSearchQuery(current.scene.query);
                 } else {
@@ -1541,7 +1543,7 @@ export function CampusMapRuntime({
       document.querySelectorAll<HTMLElement>("[data-search-result]"),
     ).find((candidate) => candidate.dataset.searchResult === pending.resultId);
     if (result) {
-      result.focus({ preventScroll: true });
+      result.focus({ preventScroll: pending.preventScroll });
     } else {
       searchInputRef.current?.focus({ preventScroll: true });
     }
@@ -3152,7 +3154,21 @@ export function CampusMapRuntime({
                   type="button"
                   data-search-browse-all
                   className="min-h-11 w-full border-t border-black/10 px-4 py-3 text-left text-sm font-medium text-[#176346] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346] dark:border-white/15 dark:text-emerald-300 dark:focus-visible:ring-emerald-300"
-                  onClick={() => setBrowseAllSearchQuery(activeSearchQuery)}
+                  onClick={() => {
+                    const nextResult =
+                      searchResults[visibleSearchResults.length];
+                    if (nextResult) {
+                      pendingSearchFocusRef.current = {
+                        resultId:
+                          nextResult.kind === "building"
+                            ? nextResult.building.buildingId
+                            : nextResult.place.placeId,
+                        token: driver.getSnapshot().transitionToken,
+                        preventScroll: false,
+                      };
+                    }
+                    setBrowseAllSearchQuery(activeSearchQuery);
+                  }}
                 >
                   浏览全部 {searchResults.length} 个匹配
                 </button>
