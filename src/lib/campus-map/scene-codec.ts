@@ -109,10 +109,17 @@ export function decodeCampusMapHistoryMetadata(
     if (snapshot.version !== CAMPUS_MAP_SCENE_CODEC_VERSION) {
       return historyFallback("unsupported-version");
     }
-    const allowedKeys = ["campusMapScene", "version", "depth"];
+    const metadataKeys = ["campusMapScene", "version", "depth"];
+    // Next.js appends its routing state to native history entries. It carries
+    // no Campus Map authority; only our own versioned metadata is decoded.
+    const allowedKeys = [
+      ...metadataKeys,
+      "__NA",
+      "__PRIVATE_NEXTJS_INTERNALS_TREE",
+    ];
     const keys = Object.keys(snapshot);
     if (
-      keys.length !== allowedKeys.length ||
+      metadataKeys.some((key) => !Object.hasOwn(snapshot, key)) ||
       keys.some((key) => !allowedKeys.includes(key)) ||
       !Number.isInteger(snapshot.depth) ||
       (snapshot.depth as number) < 0

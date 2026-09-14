@@ -94,6 +94,53 @@ function harness(initialSearch = "?v=1", clearStartEffects = true) {
 }
 
 describe("CampusMapSceneDriver", () => {
+  it("restores directory scroll on repeated Back/Forward and clears it when the same entry changes (#909)", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "science",
+      source: "search",
+    });
+    runtime.driver.dispatch({ type: "SET_BUILDING_FLOOR", floorId: "1" });
+    runtime.driver.rememberResultsScroll(240);
+    const directory = {
+      search: runtime.search,
+      state: {
+        ...(runtime.history.state as object),
+        __NA: true,
+        __PRIVATE_NEXTJS_INTERNALS_TREE: { tree: "framework-owned" },
+      },
+    };
+    runtime.driver.dispatch({
+      type: "OPEN_PLACE",
+      placeId: "fountain",
+      source: "building",
+    });
+    const place = {
+      search: runtime.search,
+      state: {
+        ...(runtime.history.state as object),
+        __NA: true,
+        __PRIVATE_NEXTJS_INTERNALS_TREE: { tree: "framework-owned" },
+      },
+    };
+    for (let index = 0; index < 2; index++) {
+      runtime.driver.restore(directory.search, directory.state);
+      expect(runtime.driver.getResultsScrollTop()).toBe(240);
+      runtime.driver.restore(place.search, place.state);
+      expect(runtime.driver.getResultsScrollTop()).toBeNull();
+    }
+    runtime.driver.restore(directory.search, directory.state);
+    runtime.driver.dispatch({ type: "SET_BUILDING_FLOOR", floorId: "G" });
+    expect(runtime.driver.getResultsScrollTop()).toBeNull();
+    runtime.driver.dispatch({ type: "SET_BUILDING_FLOOR", floorId: "1" });
+    expect(runtime.driver.getResultsScrollTop()).toBeNull();
+    runtime.driver.dispatch({ type: "SEARCH", query: "science" });
+    runtime.driver.rememberResultsScroll(100);
+    runtime.driver.dispatch({ type: "SEARCH", query: "library" });
+    runtime.driver.dispatch({ type: "SEARCH", query: "science" });
+    expect(runtime.driver.getResultsScrollTop()).toBeNull();
+  });
   it("projects a deep link through one complete start transition", () => {
     const runtime = harness("?v=1&scene=place&id=fountain&snap=peek", false);
 

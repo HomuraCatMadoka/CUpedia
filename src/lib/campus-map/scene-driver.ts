@@ -159,6 +159,10 @@ export class CampusMapSceneDriver {
   } | null = null;
   private snapshot: CampusMapDriverSnapshot;
   private readonly listeners = new Set<() => void>();
+  private readonly resultsScrollByDepth = new Map<
+    number,
+    { url: string; scrollTop: number }
+  >();
   private readonly returnTargetsByDepth = new Map<
     number,
     CampusMapSession | null
@@ -181,6 +185,29 @@ export class CampusMapSceneDriver {
   getSnapshot = () => this.snapshot;
 
   getIntentToken = () => this.intentVersion;
+
+  rememberResultsScroll(scrollTop: number) {
+    if (!Number.isFinite(scrollTop)) return;
+    const session = this.snapshot.session;
+    if (
+      session.mode !== "browse" ||
+      !["search-results", "category-results", "building"].includes(
+        session.scene.kind,
+      )
+    )
+      return;
+    this.resultsScrollByDepth.set(this.currentDepth, {
+      url: this.urlFor(this.snapshot.session),
+      scrollTop: Math.max(0, scrollTop),
+    });
+  }
+
+  getResultsScrollTop() {
+    const saved = this.resultsScrollByDepth.get(this.currentDepth);
+    return saved?.url === this.urlFor(this.snapshot.session)
+      ? saved.scrollTop
+      : null;
+  }
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -496,6 +523,15 @@ export class CampusMapSceneDriver {
       history === "push" || history === "back-or-push"
         ? this.currentDepth + 1
         : this.currentDepth;
+    const nextUrl = this.urlFor(session);
+    if (this.resultsScrollByDepth.get(nextDepth)?.url !== nextUrl) {
+      this.resultsScrollByDepth.delete(nextDepth);
+    }
+    if (history === "push" || history === "back-or-push") {
+      for (const depth of this.resultsScrollByDepth.keys()) {
+        if (depth >= nextDepth) this.resultsScrollByDepth.delete(depth);
+      }
+    }
     this.currentDepth = nextDepth;
     this.snapshot = {
       session,

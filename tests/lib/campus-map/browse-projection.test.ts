@@ -8,6 +8,7 @@ import {
   searchCampusMapBrowse,
 } from "@/lib/campus-map/browse-projection";
 import type { CampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
+import { createCampusMapSearchDirectoryFixture } from "../../helpers/campus-map-search-directory";
 
 const BUILDING_ID = "10000000-0000-4000-8000-000000000001";
 const FLOOR_ID = "20000000-0000-4000-8000-000000000001";
@@ -76,6 +77,44 @@ function outdoorPlace(
 }
 
 describe("Campus Map browse projection (#647)", () => {
+  it("ranks sourced exact Building code/name/aliases before partial rooms, and exact rooms first (#909)", () => {
+    const projection = createCampusMapSearchDirectoryFixture();
+    for (const query of [
+      "YIA",
+      "C39a",
+      "康本国际学术园",
+      "康本國際學術園",
+      "Yasumoto International Academic Park",
+    ]) {
+      expect(searchCampusMapBrowse(projection, query)[0]).toMatchObject({
+        kind: "building",
+        match: "exact-building",
+      });
+    }
+    expect(searchCampusMapBrowse(projection, "YIA 201")[0]).toMatchObject({
+      kind: "place",
+      match: "exact-name",
+      place: { name: "YIA 201" },
+    });
+    expect(searchCampusMapBrowse(projection, "unverified YIA alias")).toEqual(
+      [],
+    );
+    const reversed = {
+      ...projection,
+      buildings: [...projection.buildings].reverse(),
+      places: [...projection.places].reverse(),
+    };
+    expect(searchCampusMapBrowse(reversed, "YI")).toEqual(
+      searchCampusMapBrowse(projection, "YI"),
+    );
+    expect(
+      searchCampusMapBrowse(projection, "YIA 4")
+        .flatMap((result) =>
+          result.kind === "place" ? [result.place.name] : [],
+        )
+        .slice(0, 11),
+    ).toEqual(Array.from({ length: 11 }, (_, index) => `YIA ${401 + index}`));
+  });
   it("returns an empty browse model when there are no public Current facts", () => {
     expect(projectCampusMapBrowse({ buildings: [], places: [] })).toEqual({
       buildings: [],

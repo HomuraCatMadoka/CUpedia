@@ -100,6 +100,11 @@ import type {
 } from "@/lib/campus-map/publish-contract";
 import { installAmapRuntime } from "../helpers/amap-runtime";
 import { createCampusMapBrowseFixture } from "../helpers/campus-map-browse-projection";
+import {
+  createCampusMapSearchDirectoryFixture,
+  YIA_BUILDING_ID,
+  YIA_FLOOR_FOUR_ID,
+} from "../helpers/campus-map-search-directory";
 
 function CampusMapRuntime(props: ComponentProps<typeof CampusMapRuntimeView>) {
   return (
@@ -605,6 +610,156 @@ function representativeV2Projection({
 }
 
 describe("CampusMapRuntime", () => {
+  it("bounds labeled suggestions, supports arrow keys, and preserves exact room Enter (#909)", async () => {
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={createCampusMapSearchDirectoryFixture()}
+      />,
+    );
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
+    fireEvent.change(search, { target: { value: "YIA" } });
+    const building = await screen.findByRole("button", {
+      name: /康本国际学术园.*Yasumoto/,
+    });
+    expect(screen.getByRole("heading", { name: "建筑" })).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "地点" })).not.toBeNull();
+    const results = document.querySelector(
+      '[data-campus-map-results="search"]',
+    )!;
+    expect(results.querySelectorAll("[data-search-result]")).toHaveLength(8);
+    expect(screen.getByRole("button", { name: /浏览全部/ })).not.toBeNull();
+    fireEvent.keyDown(search, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(building);
+    fireEvent.keyDown(building, { key: "ArrowDown" });
+    expect(document.activeElement?.textContent).toContain("YIA 201");
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(building);
+    fireEvent.keyDown(building, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(search);
+    fireEvent.change(search, { target: { value: "YIA 201" } });
+    fireEvent.submit(search.closest("form")!);
+    expect(
+      await screen.findByRole("heading", { name: "YIA 201" }),
+    ).not.toBeNull();
+  });
+
+  it("restores expanded search scroll/focus and resets it on new queries (#909)", async () => {
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={createCampusMapSearchDirectoryFixture()}
+      />,
+    );
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
+    fireEvent.change(search, { target: { value: "YIA" } });
+    fireEvent.click(await screen.findByRole("button", { name: /浏览全部/ }));
+    const result = await screen.findByRole("button", { name: /YIA LT9/ });
+    const list = document.querySelector<HTMLElement>(
+      '[data-campus-map-results="search"]',
+    )!;
+    list.scrollTop = 196;
+    fireEvent.click(result);
+    await screen.findByRole("heading", { name: "YIA LT9" });
+    fireEvent.click(screen.getByRole("button", { name: "关闭地点详情" }));
+    const restored = await screen.findByRole("button", { name: /YIA LT9/ });
+    await waitFor(() => expect(document.activeElement).toBe(restored));
+    expect(
+      document.querySelector<HTMLElement>('[data-campus-map-results="search"]')
+        ?.scrollTop,
+    ).toBe(196);
+    fireEvent.click(restored);
+    await screen.findByRole("heading", { name: "YIA LT9" });
+    fireEvent.click(screen.getByRole("button", { name: "返回搜索结果" }));
+    await screen.findByRole("button", { name: /YIA LT9/ });
+    fireEvent.change(search, { target: { value: "YI" } });
+    expect(document.querySelectorAll("[data-search-result]")).toHaveLength(8);
+    act(() => window.history.forward());
+    await screen.findByRole(
+      "heading",
+      { name: "YIA LT9" },
+      { timeout: 10_000 },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "返回搜索结果" }));
+    const matchingReturn = await screen.findByRole(
+      "button",
+      { name: /YIA LT9/ },
+      { timeout: 10_000 },
+    );
+    await waitFor(() => expect(document.activeElement).toBe(matchingReturn), {
+      timeout: 10_000,
+    });
+    expect((search as HTMLInputElement).value).toBe("YI");
+    fireEvent.change(search, { target: { value: "YIA 4" } });
+    expect(document.querySelectorAll("[data-search-result]")).toHaveLength(8);
+    expect(
+      document.querySelector<HTMLElement>('[data-campus-map-results="search"]')
+        ?.scrollTop,
+    ).toBe(0);
+    act(() => window.history.forward());
+    await screen.findByRole(
+      "heading",
+      { name: "YIA LT9" },
+      { timeout: 10_000 },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "返回搜索结果" }));
+    await waitFor(() => expect(document.activeElement).toBe(search), {
+      timeout: 10_000,
+    });
+    expect((search as HTMLInputElement).value).toBe("YIA 4");
+    expect(document.querySelectorAll("[data-search-result]")).toHaveLength(8);
+    expect(screen.queryByRole("heading", { name: "YIA LT9" })).toBeNull();
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect((search as HTMLInputElement).value).toBe(""));
+  });
+
+  it("returns from YIA 406 to the actual floor, scroll and focused room across Back/Forward (#909)", async () => {
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={createCampusMapSearchDirectoryFixture()}
+      />,
+    );
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
+    fireEvent.change(search, { target: { value: "YIA" } });
+    fireEvent.click(
+      await screen.findByRole("button", { name: /康本国际学术园.*Yasumoto/ }),
+    );
+    const floor = screen.getByRole("combobox", { name: "切换楼层" });
+    fireEvent.change(floor, { target: { value: YIA_FLOOR_FOUR_ID } });
+    expect(window.location.search).toContain(`id=${YIA_BUILDING_ID}`);
+    const directoryList = document.querySelector<HTMLElement>(
+      '[data-campus-map-results="building"]',
+    )!;
+    expect(
+      Array.from(directoryList.querySelectorAll("[data-return-result]")).map(
+        (row) => row.textContent,
+      ),
+    ).toEqual(
+      Array.from({ length: 11 }, (_, index) => `YIA ${401 + index}课室`),
+    );
+    directoryList.scrollTop = 160;
+    fireEvent.click(screen.getByRole("button", { name: /^YIA 406/ }));
+    await screen.findByRole("heading", { name: "YIA 406" });
+    for (let index = 0; index < 2; index++) {
+      fireEvent.click(screen.getByRole("button", { name: "返回建筑" }));
+      const room = await screen.findByRole("button", { name: /^YIA 406/ });
+      await waitFor(() => expect(document.activeElement).toBe(room));
+      expect(
+        (
+          screen.getByRole("combobox", {
+            name: "切换楼层",
+          }) as HTMLSelectElement
+        ).value,
+      ).toBe(YIA_FLOOR_FOUR_ID);
+      expect(
+        document.querySelector<HTMLElement>(
+          '[data-campus-map-results="building"]',
+        )?.scrollTop,
+      ).toBe(160);
+      if (index === 0) {
+        act(() => window.history.forward());
+        await screen.findByRole("heading", { name: "YIA 406" });
+      }
+    }
+  });
   it("renders ordinary category results without an unrelated rating summary or repeated category", async () => {
     const placeId = "71000000-0000-4000-8000-000000000002";
     render(
@@ -2973,7 +3128,12 @@ describe("CampusMapRuntime", () => {
     expect(document.activeElement).toBe(floor);
     expect(floor.value).toBe("LG");
 
-    fireEvent.click(screen.getByRole("button", { name: /^洗手间科学馆/ }));
+    fireEvent.click(
+      within(screen.getByRole("region", { name: "科学馆" })).getByRole(
+        "button",
+        { name: /^洗手间/ },
+      ),
+    );
     await screen.findByRole("heading", { name: "洗手间" });
     expect(push).toHaveBeenCalledTimes(2);
     expect(window.location.search).toContain(
@@ -2985,7 +3145,12 @@ describe("CampusMapRuntime", () => {
   it("uses browser history for facility back and hydrates the building", async () => {
     render(<CampusMapRuntime initialSearch={window.location.search} />);
     await selectScienceCentre();
-    fireEvent.click(screen.getByRole("button", { name: /^洗手间科学馆/ }));
+    fireEvent.click(
+      within(screen.getByRole("region", { name: "科学馆" })).getByRole(
+        "button",
+        { name: /^洗手间/ },
+      ),
+    );
     await screen.findByRole("heading", { name: "洗手间" });
 
     fireEvent.click(screen.getByRole("button", { name: "返回建筑" }));
