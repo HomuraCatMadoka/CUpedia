@@ -135,8 +135,10 @@ export function CampusMapFacilityResultButton({
         </strong>
         <span
           className={cn(
-            "mt-0.5 block break-words text-xs text-neutral-600",
-            variant === "category" && "dark:text-neutral-300",
+            "mt-0.5 block break-words text-neutral-600",
+            variant === "category"
+              ? "text-[13px] leading-5 dark:text-neutral-300"
+              : "text-xs",
           )}
         >
           {location}
@@ -144,8 +146,10 @@ export function CampusMapFacilityResultButton({
         {summary ? (
           <span
             className={cn(
-              "mt-0.5 block break-words text-xs text-neutral-500",
-              variant === "category" && "dark:text-neutral-400",
+              "mt-0.5 block break-words text-neutral-500",
+              variant === "category"
+                ? "text-[13px] leading-5 dark:text-neutral-400"
+                : "text-xs",
             )}
           >
             {summary}

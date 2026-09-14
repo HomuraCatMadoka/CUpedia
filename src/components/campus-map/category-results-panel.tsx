@@ -103,7 +103,7 @@ export function CampusMapCategoryResultsPanel({
           tabIndex={-1}
           aria-label={style.label}
           aria-describedby="campus-map-category-count"
-          className="-ml-2 min-w-0 flex-1 break-words pl-2 text-xl font-medium focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346] dark:focus-visible:shadow-[inset_3px_0_0_#34d399]"
+          className="-ml-2 min-w-0 flex-1 break-words pl-2 text-[22px] font-medium focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346] dark:focus-visible:shadow-[inset_3px_0_0_#34d399]"
         >
           {style.label}
           {facilities.length > 0 ? (
@@ -127,7 +127,7 @@ export function CampusMapCategoryResultsPanel({
       </div>
       {category === "classroom" && facilities.length > 0 ? (
         <div className="shrink-0 px-5 pt-3">
-          <p className="text-xs leading-5 text-neutral-600 dark:text-neutral-300">
+          <p className="text-[13px] leading-5 text-neutral-600 dark:text-neutral-300">
             全校园课室 · 按建筑、已知楼层与课室编号排列
           </p>
           {expanded && classroomGroups.length > 1 ? (
