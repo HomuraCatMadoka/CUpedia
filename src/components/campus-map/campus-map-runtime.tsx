@@ -1454,6 +1454,8 @@ export function CampusMapRuntime({
     ? (buildingById.get(selectedFacility.buildingId) ?? null)
     : buildingFor(state.selection, buildings);
   const activeCategory = knownBrowseCategory(state.mapFilter.category);
+  const categoryPanelActive =
+    session.mode === "browse" && session.scene.kind === "category-results";
   const selectedMarkerPlaceId = selectedFacility?.placeId ?? null;
   const selectedFacilityBackLabel = selectedFacility
     ? facilityBackLabel(driverSnapshot.returnTo)
@@ -2740,7 +2742,7 @@ export function CampusMapRuntime({
     };
   }
   const mobilePanelHeight =
-    activeCategory && state.sheet.snap === "full"
+    categoryPanelActive && state.sheet.snap === "full"
       ? "min(640px, 72dvh)"
       : campusMapMobilePanelHeight(mobilePanelLayout);
   const mobileMapOcclusion = panelHidden
@@ -3158,8 +3160,7 @@ export function CampusMapRuntime({
         className={cn(
           "absolute z-30 overflow-hidden overscroll-contain border-black/10 bg-white shadow-[0_12px_40px_rgba(23,33,28,.24)]",
           "h-[var(--campus-map-panel-height)]",
-          activeCategory &&
-            !selectedFacility &&
+          categoryPanelActive &&
             "dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-100",
           editSession &&
             editSession.status !== "selecting-location" &&
