@@ -136,7 +136,10 @@ export function CampusMapCategoryResultsPanel({
               defaultValue=""
               className="mt-2 min-h-11 w-full min-w-0 rounded-xl border border-black/15 bg-white px-3 text-sm dark:border-white/20 dark:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
               onChange={(event) => {
-                const heading = document.getElementById(event.target.value);
+                const heading = document.getElementById(
+                  event.currentTarget.value,
+                );
+                event.currentTarget.value = "";
                 heading?.scrollIntoView({
                   block: "start",
                   behavior: "instant",

@@ -3488,9 +3488,18 @@ describe("CampusMapRuntime", () => {
       name: `SC ${index + 1}`,
       placeType: "classroom" as const,
     }));
+    const commonSpaces = rooms.slice(0, 9).map((room, index) => ({
+      ...room,
+      placeId: room.placeId.replace("91000000", "92000000"),
+      name: `公共空间 ${index + 1}`,
+      placeType: "common-space" as const,
+    }));
     render(
       <CampusMapRuntime
-        initialBrowseProjection={{ ...fixture, places: rooms }}
+        initialBrowseProjection={{
+          ...fixture,
+          places: [...rooms, ...commonSpaces],
+        }}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "课室" }));
@@ -3523,6 +3532,11 @@ describe("CampusMapRuntime", () => {
     expect(document.querySelectorAll("[data-return-result]")).toHaveLength(8);
     fireEvent.click(screen.getByRole("button", { name: "公共空间" }));
     expect(window.location.search).toContain("id=common-space&snap=peek");
+    expect(
+      screen
+        .getByRole("button", { name: /^公共空间 1/ })
+        .closest("[data-campus-map-results]")?.scrollTop,
+    ).toBe(0);
   });
 
   it("discovers health and sports through More and restores a health Place to its category", async () => {

@@ -3307,6 +3307,7 @@ export function CampusMapRuntime({
           !selectedFacility &&
           activeCategoryStyle ? (
           <CampusMapCategoryResultsPanel
+            key={activeCategoryStyle.id}
             category={activeCategoryStyle.id}
             facilities={categoryFacilities}
             buildings={buildingById}

@@ -2,7 +2,7 @@
 
 import { ChevronDownIcon } from "lucide-react";
 import type { Ref } from "react";
-import { CAMPUS_MAP_CATEGORIES } from "@/components/campus-map/browse-card-presentation";
+import { campusMapPlaceTypeStyle } from "@/components/campus-map/browse-card-presentation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,13 +10,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { CampusMapPublicPlaceType } from "@/lib/campus-map/place-type-contract";
+import { CAMPUS_MAP_DISPLAY_REGISTRY } from "@/lib/campus-map/display-registry";
 import { cn } from "@/lib/utils";
 
-const moreCategories = CAMPUS_MAP_CATEGORIES.filter(
-  ({ id }) => id === "sports-facility" || id === "health-service",
+const moreCategories = CAMPUS_MAP_DISPLAY_REGISTRY.moreBrowseCategories.map(
+  campusMapPlaceTypeStyle,
 );
-const primaryCategories = CAMPUS_MAP_CATEGORIES.filter(
-  (category) => !moreCategories.includes(category),
+const primaryCategories = CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories.map(
+  campusMapPlaceTypeStyle,
 );
 
 export function CampusMapCategoryFilters({
