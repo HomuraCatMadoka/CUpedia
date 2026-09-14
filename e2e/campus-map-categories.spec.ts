@@ -37,6 +37,73 @@ const classroomCount = manifest.entries.filter(
 const yiaBuilding = manifest.entries.find(
   ({ fact }) => fact?.name === "YIA 201",
 )!.fact!.buildingId!;
+const fixtureSources = manifest.entries
+  .filter(({ decision }) => decision.status === "publish")
+  .map(({ sourceRef }) => sourceRef);
+let fixtureOwnsSources = false;
+let fixtureFloorIds: string[] = [];
+
+async function cleanupImportedFixture() {
+  if (!fixtureOwnsSources) return;
+  assertSafeE2eDatabase(process.env.DATABASE_URL!);
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query("begin");
+    // Match the existing E2E cleanup seam: only this fixture's rows are removed.
+    await client.query("set local session_replication_role = replica");
+    const records = await client.query<{
+      place_id: string;
+      revision_id: string;
+      changeset_id: string;
+      provenance_id: string;
+    }>(
+      `select revision.place_id, revision.id revision_id,
+              revision.changeset_id, source.id provenance_id
+         from campus_map_fact_revisions revision
+         join campus_map_revision_provenance link on link.revision_id = revision.id
+         join campus_map_provenance_sources source on source.id = link.provenance_id
+        where source.source_kind = 'official' and source.source_ref = any($1::text[])`,
+      [fixtureSources],
+    );
+    const placeIds = [...new Set(records.rows.map((row) => row.place_id))];
+    const revisionIds = [
+      ...new Set(records.rows.map((row) => row.revision_id)),
+    ];
+    const changesetIds = [
+      ...new Set(records.rows.map((row) => row.changeset_id)),
+    ];
+    const provenanceIds = [
+      ...new Set(records.rows.map((row) => row.provenance_id)),
+    ];
+    for (const [table, column, ids] of [
+      ["campus_map_publish_requests", "changeset_id", changesetIds],
+      ["campus_map_current_facts", "place_id", placeIds],
+      ["campus_map_current_revisions", "place_id", placeIds],
+      ["campus_map_revision_photos", "revision_id", revisionIds],
+      ["campus_map_revision_visibility", "revision_id", revisionIds],
+      ["campus_map_revision_provenance", "revision_id", revisionIds],
+      ["campus_map_fact_revisions", "id", revisionIds],
+      ["campus_map_place_changes", "place_id", placeIds],
+      ["campus_map_changesets", "id", changesetIds],
+      ["campus_map_places", "id", placeIds],
+      ["campus_map_provenance_sources", "id", provenanceIds],
+      ["campus_map_floor_provenance", "floor_id", fixtureFloorIds],
+      ["campus_map_floors", "id", fixtureFloorIds],
+    ] as const) {
+      await client.query(
+        `delete from ${table} where ${column} = any($1::uuid[])`,
+        [ids],
+      );
+    }
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    await client.end();
+  }
+}
 
 test.describe
   .serial("Campus Map category discovery and imported-scale browsing (#910)", () => {
@@ -47,6 +114,18 @@ test.describe
     await client.connect();
     let actorId: string;
     try {
+      const existing = await client.query(
+        "select id from campus_map_provenance_sources where source_kind = 'official' and source_ref = any($1::text[])",
+        [fixtureSources],
+      );
+      expect(
+        existing.rows,
+        "The isolated database must not already contain this imported fixture",
+      ).toHaveLength(0);
+      fixtureOwnsSources = true;
+      const previousFloors = await client.query<{ id: string }>(
+        "select id from campus_map_floors",
+      );
       // Provisioning preserves the older floor fixtures; replay this idempotent
       // reference migration for the imported-scale fixture in this isolated DB.
       await client.query(
@@ -55,6 +134,11 @@ test.describe
           "utf8",
         ),
       );
+      const addedFloors = await client.query<{ id: string }>(
+        "select id from campus_map_floors where not (id = any($1::uuid[]))",
+        [previousFloors.rows.map(({ id }) => id)],
+      );
+      fixtureFloorIds = addedFloors.rows.map(({ id }) => id);
       actorId = (
         await client.query<{ id: string }>(
           "select id from users where email = $1",
@@ -85,6 +169,7 @@ test.describe
         process.env.CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT = previousBurstLimit;
     }
   });
+  test.afterAll(cleanupImportedFixture);
 
   for (const viewport of [
     { width: 1280, height: 800 },

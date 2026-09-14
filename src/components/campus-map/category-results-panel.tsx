@@ -14,6 +14,7 @@ import {
 } from "@/lib/campus-map/category-directory";
 import type { CampusMapPublicPlaceType } from "@/lib/campus-map/place-type-contract";
 import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
+import { CAMPUS_MAP_DISPLAY_REGISTRY } from "@/lib/campus-map/display-registry";
 
 export function CampusMapCategoryResultsPanel({
   category,
@@ -52,6 +53,9 @@ export function CampusMapCategoryResultsPanel({
   onSwitchCategory: () => void;
 }) {
   const style = campusMapPlaceTypeStyle(category);
+  const canAdd = CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories.some(
+    (placeType) => placeType === category,
+  );
   const classroomGroups = useMemo(
     () =>
       category === "classroom"
@@ -210,13 +214,15 @@ export function CampusMapCategoryResultsPanel({
               >
                 切换分类
               </button>
-              <button
-                type="button"
-                className="min-h-11 rounded-full bg-[#174b38] px-4 font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-                onClick={onAdd}
-              >
-                新增{style.label}
-              </button>
+              {canAdd ? (
+                <button
+                  type="button"
+                  className="min-h-11 rounded-full bg-[#174b38] px-4 font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                  onClick={onAdd}
+                >
+                  新增{style.label}
+                </button>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -239,7 +245,7 @@ export function CampusMapCategoryResultsPanel({
           </button>
         </div>
       ) : null}
-      {facilities.length ? (
+      {facilities.length && canAdd ? (
         <button
           type="button"
           className="mx-5 mt-2 mb-[max(0.75rem,var(--campus-map-safe-area-bottom))] flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full px-3 text-sm font-medium text-[#176346] hover:bg-neutral-100 dark:text-emerald-300 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
