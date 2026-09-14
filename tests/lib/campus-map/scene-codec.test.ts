@@ -4,6 +4,7 @@ import {
   decodeCampusMapUrl,
   decodeCampusMapHistoryMetadata,
   encodeCampusMapPlaceHref,
+  encodeCampusMapPlaceEditHref,
   encodeCampusMapUrl,
   encodeCampusMapHistoryMetadata,
   normalizeCampusMapUrlSession,
@@ -88,6 +89,39 @@ describe("Campus Map versioned scene codec", () => {
         visibility: "redacted",
       }),
     ).toBe("/campus-map?v=1");
+  });
+
+  it("opens an active public Place's existing edit task from the detail page", () => {
+    const href = encodeCampusMapPlaceEditHref("courtyardWater", {
+      status: "active",
+      visibility: "public",
+    });
+    expect(href).not.toBeNull();
+    expect(
+      decodeCampusMapUrl(
+        new URL(href!, "https://campus-map.local").search,
+        catalog,
+      ),
+    ).toEqual({
+      status: "decoded",
+      session: {
+        mode: "task",
+        task: { kind: "edit", placeId: "courtyardWater" },
+      },
+    });
+    for (const head of [
+      { status: "retired", visibility: "public" },
+      { status: "merged", visibility: "public" },
+      { status: "active", visibility: "redacted" },
+    ] as const) {
+      expect(encodeCampusMapPlaceEditHref("courtyardWater", head)).toBeNull();
+    }
+    expect(
+      encodeCampusMapPlaceEditHref(" courtyardWater ", {
+        status: "active",
+        visibility: "public",
+      }),
+    ).toBeNull();
   });
 
   it("accepts only internal result-list return paths", () => {

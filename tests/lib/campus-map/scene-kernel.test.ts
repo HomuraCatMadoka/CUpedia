@@ -544,6 +544,29 @@ describe("Campus Map canonical scene transition", () => {
     expect(cancelled.commands.history).toBe("back-or-push");
   });
 
+  it.each(["fountain", "courtyardWater"])(
+    "keeps %s selected when cancelling a directly opened edit",
+    (placeId) => {
+      const cancelled = transitionCampusMapSession(
+        { mode: "task", task: { kind: "edit", placeId } },
+        { type: "CANCEL_TASK" },
+        catalog,
+      );
+      expect(cancelled).toEqual({
+        status: "accepted",
+        session: {
+          mode: "browse",
+          scene: { kind: "place", placeId, snap: "peek" },
+        },
+        commands: {
+          history: "back-or-push",
+          camera: { kind: "cancel" },
+          focus: { kind: "heading" },
+        },
+      });
+    },
+  );
+
   it("accepts scene-specific SET_SNAP and SET_BUILDING_FLOOR events only", () => {
     const building = transitionCampusMapSession(
       EMPTY_CAMPUS_MAP_SCENE_SESSION,
@@ -1231,7 +1254,7 @@ describe("Campus Map canonical scene transition", () => {
     verify(
       "task",
       cancelTask,
-      accepted(sources.building, {
+      accepted(sources.place, {
         history: "back-or-push",
         camera: { kind: "cancel" },
         focus: { kind: "heading" },

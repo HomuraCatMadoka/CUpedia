@@ -7,7 +7,57 @@ import { projectCampusMapPlaceCard } from "@/lib/campus-map/place-card";
 
 afterEach(cleanup);
 describe("Campus Map visit information (#908)", () => {
-  it("keeps known accessibility facts visible on the full detail page and collapses them only in a map card", () => {
+  it("shows visitor facts and useful contact details without map-card maintenance metadata", () => {
+    const card = projectCampusMapPlaceCard({
+      placeType: "health-service",
+      locationLabel: "大学保健处",
+      visitNote: "登记时须出示个人身份证明。",
+      regularHours: {
+        timezone: "Asia/Hong_Kong",
+        intervals: [{ days: ["mon"], opensAt: "08:45", closesAt: "13:00" }],
+      },
+      officialActions: [
+        { label: "网上预约", url: "https://booking.umso.cuhk.edu.hk/" },
+        { label: "电话预约", url: "tel:+85239436439" },
+      ],
+      capabilities: [],
+      gender: null,
+      wheelchairAccess: "limited",
+      observedAt: "2026-09-02",
+      verifiedAt: "2026-09-03",
+      provenance: [
+        {
+          kind: "official",
+          accessedOn: "2026-09-03",
+          observedAt: null,
+          hasLocationEvidence: true,
+        },
+      ],
+    });
+    const view = render(
+      <CampusMapPlaceCardContent card={card} presentation="map" />,
+    );
+    expect(screen.getByText(card.visitNote!)).toBeTruthy();
+    const accessibility = card.detailFacts.find(
+      (fact) => fact.key === "wheelchairAccess",
+    )!;
+    expect(screen.getByText(accessibility.value).closest("details")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "网上预约" }).getAttribute("href"),
+    ).toBe("https://booking.umso.cuhk.edu.hk/");
+    expect(screen.getByText("电话 +85239436439")).toBeTruthy();
+    expect(screen.queryByText("booking.umso.cuhk.edu.hk")).toBeNull();
+    expect(document.body.textContent).not.toMatch(
+      /资料来源|核对于|资料观察于|含位置依据|香港时间/u,
+    );
+    view.rerender(<CampusMapPlaceCardContent card={card} />);
+    expect(
+      screen.getByText("资料来源与核对时间").closest("details")?.open,
+    ).toBe(false);
+    expect(screen.getByText("booking.umso.cuhk.edu.hk")).toBeTruthy();
+    expect(screen.getByText("核对于 2026-09-03")).toBeTruthy();
+  });
+  it("keeps known accessibility facts visible in both detail and map presentations", () => {
     const card = projectCampusMapPlaceCard({
       placeType: "water",
       locationLabel: "室外 · 精确位置",
@@ -30,7 +80,7 @@ describe("Campus Map visit information (#908)", () => {
         presentation="map"
       />,
     );
-    expect(screen.getByText("可通行").closest("details")?.open).toBe(false);
+    expect(screen.getByText("可通行").closest("details")).toBeNull();
   });
   it("makes a stored restriction readable before the neutral booking link", () => {
     const card = projectCampusMapPlaceCard({

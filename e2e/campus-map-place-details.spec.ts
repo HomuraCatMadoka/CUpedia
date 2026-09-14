@@ -6,6 +6,7 @@ import { Client } from "pg";
 
 import { loginWithPassword } from "./helpers/auth";
 import { installFakeCampusMapAmap } from "./helpers/campus-map-amap";
+import { openCampusMapPlaceEdit } from "./helpers/campus-map-place";
 import { deletePrivateObjects } from "@/lib/minio";
 
 const ids = {
@@ -280,6 +281,7 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
         0,
       );
       await expect(detail.getByText("校园卡", { exact: true })).toHaveCount(0);
+      await detail.getByText("更多操作", { exact: true }).click();
       await expect(
         detail.getByRole("link", { name: "查看编辑记录 / History" }),
       ).toHaveAttribute("href", `/campus-map/places/${ids.place}/history`);
@@ -313,7 +315,7 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await page.goto(mapPlaceUrl);
 
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
-    const details = page.getByRole("link", { name: "详情与记录" });
+    const details = page.getByRole("link", { name: "查看详情" });
     await expect(details).toHaveAttribute(
       "href",
       `/campus-map/places/${ids.place}`,
@@ -327,7 +329,7 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await expect(page).toHaveURL(new RegExp(`scene=place&id=${ids.place}`));
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
 
-    await page.getByRole("link", { name: "详情与记录" }).click();
+    await page.getByRole("link", { name: "查看详情" }).click();
     const returnToRestoredPlace = page.getByRole("link", { name: "返回地图" });
     await expect(returnToRestoredPlace).toHaveAttribute(
       "href",
@@ -348,7 +350,7 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await loginAsUser(page);
     await page.goto(mapPlaceUrl);
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
-    await page.getByRole("button", { name: "建议修改" }).click();
+    await openCampusMapPlaceEdit(page);
     await expect(page.getByRole("heading", { name: "修改设施" })).toBeVisible();
     await page
       .getByLabel("添加照片（0/3）")
@@ -369,7 +371,7 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await page.getByRole("button", { name: "发布修改" }).click();
     await expect(page).toHaveURL(new RegExp(`scene=place&id=${ids.place}`));
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
-    await page.getByRole("link", { name: "详情与记录" }).click();
+    await page.getByRole("link", { name: "查看详情" }).click();
     const detail = page.locator("#main-content");
     await expect(
       detail.getByRole("heading", { name: placeName }),

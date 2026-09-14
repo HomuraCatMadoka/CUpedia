@@ -405,14 +405,14 @@ test("search and marker open one canonical Place card", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "正式测试饮水点" }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: "详情与记录" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "查看详情" })).toHaveAttribute(
     "href",
     `/campus-map/places/${browseIds.place}`,
   );
 
   await expect(
     page.getByRole("button", { name: "返回", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
 
   await page.getByRole("button", { name: "关闭地点详情" }).click();
   await page.getByRole("button", { name: "饮水点" }).click();
@@ -458,7 +458,7 @@ test("mobile Place details return to the same search list and history position",
   const returnUrl = new URL(returnTo, page.url()).toString();
 
   await result.evaluate((element) => (element as HTMLButtonElement).click());
-  const details = page.getByRole("link", { name: "详情与记录" });
+  const details = page.getByRole("link", { name: "查看详情" });
   await expect(details).toHaveAttribute(
     "href",
     `/campus-map/places/${browseIds.place}?from=${encodeURIComponent(returnTo)}`,
@@ -959,8 +959,9 @@ test("cards remain usable across short phones, tablets, and desktop", async ({
       expect(searchBox!.x + searchBox!.width).toBeLessThanOrEqual(cardBox!.x);
       expect(filterBox!.x + filterBox!.width).toBeLessThanOrEqual(cardBox!.x);
     } else {
+      // Short cards fit their fixed 44px controls even above the 45% target.
       expect(cardBox!.height).toBeLessThanOrEqual(
-        Math.min(380, viewport.height * 0.45) + 1,
+        Math.min(380, viewport.height - 80) + 1,
       );
       await expect(card.getByRole("heading", { name: "G/F" })).toBeVisible();
       await expect(
@@ -1002,8 +1003,8 @@ test("cards remain usable across short phones, tablets, and desktop", async ({
       page.getByRole("heading", { name: "正式测试饮水点" }),
     ).toBeFocused();
     const suggestEdit = page.getByRole("button", { name: "建议修改" });
-    const placeDetails = page.getByRole("link", { name: "详情与记录" });
-    await expect(suggestEdit).toBeVisible();
+    const placeDetails = page.getByRole("link", { name: "查看详情" });
+    await expect(suggestEdit).toHaveCount(0);
     await expect(page.getByRole("button", { name: "查看建筑" })).toHaveCount(0);
     await expect(placeDetails).toBeVisible();
     if (viewport.width < 768) {
@@ -1033,7 +1034,6 @@ test("cards remain usable across short phones, tablets, and desktop", async ({
       page.getByRole("button", { name: "定位所属建筑" }),
       page.getByRole("button", { name: "分享", exact: true }),
       page.getByRole("button", { name: "关闭地点详情" }),
-      suggestEdit,
       placeDetails,
     ]) {
       const actionBox = await action.boundingBox();

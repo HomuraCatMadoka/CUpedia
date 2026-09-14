@@ -1591,7 +1591,6 @@ export function CampusMapRuntime({
     session: editSession,
     dispatchEvent: dispatchEditEvent,
     startFacilityAdd,
-    startEdit: startCanonicalEdit,
     announcement: editAnnouncement,
     restoreNotice: editRestoreNotice,
   } = useCampusMapEditSessionOwner({
@@ -1908,14 +1907,6 @@ export function CampusMapRuntime({
     placeContextResolverVersion,
   ]);
 
-  const startEdit = useCallback(
-    (facility: Place) => {
-      cancelPendingUserLocation();
-      void startCanonicalEdit(facility.placeId);
-    },
-    [cancelPendingUserLocation, startCanonicalEdit],
-  );
-
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
@@ -2086,6 +2077,11 @@ export function CampusMapRuntime({
       }
       const currentSnapshot = driver.getSnapshot();
       const current = currentSnapshot.session;
+      if (current.mode === "task" && current.task.kind === "edit") {
+        event.preventDefault();
+        dispatch({ type: "CANCEL_TASK" });
+        return;
+      }
       if (current.mode === "browse" && current.scene.kind !== "map") {
         closeSelection();
       }
@@ -2096,6 +2092,7 @@ export function CampusMapRuntime({
     closeSelection,
     clearTransientHotspot,
     dispatchEditEvent,
+    dispatch,
     driver,
     editSession,
     selectedTransientHotspot,
@@ -3640,15 +3637,20 @@ export function CampusMapRuntime({
                       aria-label="地点操作"
                       className="mt-3 flex flex-wrap items-center gap-x-3 border-t border-border/50 pt-1"
                     >
-                      <button
-                        type="button"
-                        aria-label={selectedFacilityBackLabel}
-                        className="-ml-2 inline-flex min-h-11 touch-manipulation items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        onClick={navigateEntityBack}
-                      >
-                        <ArrowLeftIcon aria-hidden="true" className="size-4" />
-                        返回
-                      </button>
+                      {selectedFacilityReturnTo ? (
+                        <button
+                          type="button"
+                          aria-label={selectedFacilityBackLabel}
+                          className="-ml-2 inline-flex min-h-11 touch-manipulation items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onClick={navigateEntityBack}
+                        >
+                          <ArrowLeftIcon
+                            aria-hidden="true"
+                            className="size-4"
+                          />
+                          {selectedFacilityBackLabel}
+                        </button>
+                      ) : null}
                       <a
                         href={selectedFacilityDetailHref}
                         onClick={(event) => {
@@ -3677,15 +3679,8 @@ export function CampusMapRuntime({
                         }}
                         className="flex min-h-11 touch-manipulation items-center rounded-lg px-2 text-sm font-medium text-[#235741] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-[#a9ddbc]"
                       >
-                        详情与记录
+                        查看详情
                       </a>
-                      <button
-                        type="button"
-                        className="ml-auto min-h-11 touch-manipulation rounded-lg px-2 text-sm font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        onClick={() => startEdit(selectedFacility)}
-                      >
-                        建议修改
-                      </button>
                     </div>
                   </div>
                 </div>

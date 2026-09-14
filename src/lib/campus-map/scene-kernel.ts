@@ -311,6 +311,24 @@ export function transitionCampusMapSession(
     if (session.mode !== "task") {
       return reject(session, "event-not-allowed");
     }
+    if (session.task.kind === "edit") {
+      return {
+        status: "accepted",
+        session: {
+          mode: "browse",
+          scene: {
+            kind: "place",
+            placeId: session.task.placeId,
+            snap: "peek",
+          },
+        },
+        commands: {
+          history: historyCommandFor("return"),
+          camera: { kind: "cancel" },
+          focus: { kind: "heading" },
+        },
+      };
+    }
     const anchor = current.contributionAnchor;
     return {
       status: "accepted",

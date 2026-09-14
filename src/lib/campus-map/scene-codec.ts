@@ -214,6 +214,27 @@ export function encodeCampusMapPlaceHref(
   return `/campus-map?${params.toString()}`;
 }
 
+export function encodeCampusMapPlaceEditHref(
+  placeId: string,
+  head: {
+    status: "active" | "retired" | "merged";
+    visibility: "public" | "redacted";
+  },
+): string | null {
+  if (
+    head.status !== "active" ||
+    head.visibility !== "public" ||
+    !isCanonicalCampusMapId(placeId)
+  ) {
+    return null;
+  }
+  const params = encodeNormalizedCampusMapUrl({
+    mode: "task",
+    task: { kind: "edit", placeId },
+  });
+  return `/campus-map?${params.toString()}`;
+}
+
 export function safeCampusMapListReturnPath(value: unknown): string | null {
   if (typeof value !== "string" || !value.startsWith("/campus-map?")) {
     return null;

@@ -23,38 +23,14 @@ export function CampusMapPlaceCardContent({
   compact?: boolean;
   presentation?: "detail" | "map";
 }) {
-  const visiblePrimaryFact =
-    presentation === "detail" &&
-    card.primaryFact &&
-    card.primaryFact.key !== "regularHours" &&
-    card.primaryFact.key !== "visitNote"
-      ? card.primaryFact
-      : null;
-  const secondaryFacts = [
-    presentation === "map" ? card.primaryFact : null,
-    ...card.detailFacts,
-  ].filter(
+  const visibleFacts = [card.primaryFact, ...card.detailFacts].filter(
     (fact) => fact && fact.key !== "regularHours" && fact.key !== "visitNote",
   );
   const hasMoreInformation =
-    secondaryFacts.length > 0 ||
-    card.verification.length > 0 ||
-    card.sources.length > 0;
+    card.verification.length > 0 || card.sources.length > 0;
 
   const supplementary = (
     <div className="space-y-4 text-sm">
-      {secondaryFacts.length > 0 ? (
-        <dl className="grid gap-3">
-          {secondaryFacts.map((fact) =>
-            fact ? (
-              <div key={fact.key}>
-                <dt className="text-xs text-muted-foreground">{fact.label}</dt>
-                <dd className="mt-1 leading-6">{fact.value}</dd>
-              </div>
-            ) : null,
-          )}
-        </dl>
-      ) : null}
       {card.verification.length > 0 ? (
         <ul className="space-y-1 text-xs leading-5 text-muted-foreground">
           {card.verification.map((item) => (
@@ -122,19 +98,25 @@ export function CampusMapPlaceCardContent({
                 {card.regularHours.summary}
               </p>
             )}
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              香港时间 · 每周通常安排
-            </p>
+            {presentation === "detail" ? (
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                香港时间 · 每周通常安排
+              </p>
+            ) : null}
           </div>
         </section>
       ) : null}
 
-      {visiblePrimaryFact ? (
-        <dl>
-          <dt className="text-xs text-muted-foreground">
-            {visiblePrimaryFact.label}
-          </dt>
-          <dd className="mt-1 text-sm leading-6">{visiblePrimaryFact.value}</dd>
+      {visibleFacts.length > 0 ? (
+        <dl className="grid gap-3">
+          {visibleFacts.map((fact) =>
+            fact ? (
+              <div key={fact.key}>
+                <dt className="text-xs text-muted-foreground">{fact.label}</dt>
+                <dd className="mt-1 text-sm leading-6">{fact.value}</dd>
+              </div>
+            ) : null,
+          )}
         </dl>
       ) : null}
 
@@ -163,9 +145,11 @@ export function CampusMapPlaceCardContent({
                   />
                   <span className="min-w-0 flex-1 break-words">
                     {action.label}
-                    <span className="block break-all text-xs leading-5 text-muted-foreground">
-                      {action.destination}
-                    </span>
+                    {presentation === "detail" || !opensNewTab ? (
+                      <span className="block break-all text-xs leading-5 text-muted-foreground">
+                        {action.destination}
+                      </span>
+                    ) : null}
                   </span>
                   {opensNewTab ? (
                     <ExternalLinkIcon
@@ -180,10 +164,10 @@ export function CampusMapPlaceCardContent({
         </section>
       ) : null}
 
-      {!compact && hasMoreInformation ? (
+      {presentation === "detail" && !compact && hasMoreInformation ? (
         <details className="border-t border-border/50 text-sm">
           <summary className="min-h-11 cursor-pointer rounded-lg py-3 text-[13px] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            查看其他已知资料与来源
+            资料来源与核对时间
           </summary>
           <div className="pb-3">{supplementary}</div>
         </details>
