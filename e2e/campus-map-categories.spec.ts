@@ -268,7 +268,8 @@ test.describe
     await more.press("Enter");
     await page.getByRole("menuitem", { name: "体育设施" }).press("End");
     await page.getByRole("menuitem", { name: "医疗服务" }).press("Enter");
-    const clinic = page.getByRole("button", {
+    const categoryList = page.locator('[data-campus-map-results="category"]');
+    const clinic = categoryList.getByRole("button", {
       name: /门诊（Outpatient Service）/,
     });
     await expect(clinic).toBeVisible();
@@ -286,7 +287,7 @@ test.describe
     ).toBeVisible();
     await more.click();
     await page.getByRole("menuitem", { name: "体育设施" }).click();
-    await page
+    await categoryList
       .getByRole("button", { name: /大学游泳池（University Swimming Pool）/ })
       .click();
     await expect(
