@@ -49,7 +49,7 @@ export function CampusMapCategoryFilters({
               data-category-filter={category.id}
               aria-pressed={active}
               className={cn(
-                "flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] md:text-sm",
+                "flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400 md:text-sm",
                 active
                   ? "border-[#176346] bg-[#176346] text-white"
                   : "border-black/10 bg-white text-neutral-700 hover:bg-neutral-50 dark:border-white/15 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800",
@@ -63,7 +63,7 @@ export function CampusMapCategoryFilters({
         })}
       </div>
       <DropdownMenu>
-        <DropdownMenuTrigger className="flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-black/10 bg-white px-3 text-[13px] font-medium text-neutral-700 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:border-white/15 dark:bg-neutral-900 dark:text-neutral-100">
+        <DropdownMenuTrigger className="flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-black/10 bg-white px-3 text-[13px] font-medium text-neutral-700 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400 dark:border-white/15 dark:bg-neutral-900 dark:text-neutral-100">
           更多
           <ChevronDownIcon aria-hidden="true" className="size-4" />
         </DropdownMenuTrigger>

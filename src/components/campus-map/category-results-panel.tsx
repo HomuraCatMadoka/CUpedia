@@ -103,7 +103,7 @@ export function CampusMapCategoryResultsPanel({
           tabIndex={-1}
           aria-label={style.label}
           aria-describedby="campus-map-category-count"
-          className="-ml-2 min-w-0 flex-1 break-words pl-2 text-xl font-medium focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346]"
+          className="-ml-2 min-w-0 flex-1 break-words pl-2 text-xl font-medium focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346] dark:focus-visible:shadow-[inset_3px_0_0_#34d399]"
         >
           {style.label}
           {facilities.length > 0 ? (
@@ -119,7 +119,7 @@ export function CampusMapCategoryResultsPanel({
         <button
           type="button"
           aria-label={`关闭${style.label}列表`}
-          className="grid size-11 shrink-0 place-items-center rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+          className="grid size-11 shrink-0 place-items-center rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
           onClick={onClose}
         >
           <XIcon aria-hidden="true" className="size-5" />
@@ -134,7 +134,7 @@ export function CampusMapCategoryResultsPanel({
             <select
               aria-label="查找建筑分组"
               defaultValue=""
-              className="mt-2 min-h-11 w-full min-w-0 rounded-xl border border-black/15 bg-white px-3 text-sm dark:border-white/20 dark:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+              className="mt-2 min-h-11 w-full min-w-0 rounded-xl border border-black/15 bg-white px-3 text-sm dark:border-white/20 dark:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
               onChange={(event) => {
                 const heading = document.getElementById(event.target.value);
                 heading?.scrollIntoView({
@@ -188,7 +188,7 @@ export function CampusMapCategoryResultsPanel({
                   <h3
                     id={`campus-map-category-building-${group.buildingId ?? "standalone"}`}
                     tabIndex={-1}
-                    className="pt-4 pb-1 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                    className="pt-4 pb-1 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
                   >
                     {groupLabel(group.building, group.buildingId)}
                     <span className="ml-2 text-xs font-normal text-neutral-500 dark:text-neutral-400">
@@ -209,7 +209,7 @@ export function CampusMapCategoryResultsPanel({
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
-                className="min-h-11 rounded-full border border-black/15 px-4 font-medium dark:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                className="min-h-11 rounded-full border border-black/15 px-4 font-medium dark:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
                 onClick={onSwitchCategory}
               >
                 切换分类
@@ -217,7 +217,7 @@ export function CampusMapCategoryResultsPanel({
               {canAdd ? (
                 <button
                   type="button"
-                  className="min-h-11 rounded-full bg-[#174b38] px-4 font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                  className="min-h-11 rounded-full bg-[#174b38] px-4 font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
                   onClick={onAdd}
                 >
                   新增{style.label}
@@ -238,7 +238,7 @@ export function CampusMapCategoryResultsPanel({
             type="button"
             aria-expanded={expanded}
             aria-controls="campus-map-category-results"
-            className="min-h-11 w-full rounded-full bg-[#174b38] px-4 text-sm font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
+            className="min-h-11 w-full rounded-full bg-[#174b38] px-4 text-sm font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
             onClick={() => onExpand(!expanded)}
           >
             {expanded ? "收起至预览" : `查看全部 ${facilities.length} 处设施`}
@@ -248,7 +248,7 @@ export function CampusMapCategoryResultsPanel({
       {facilities.length && canAdd ? (
         <button
           type="button"
-          className="mx-5 mt-2 mb-[max(0.75rem,var(--campus-map-safe-area-bottom))] flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full px-3 text-sm font-medium text-[#176346] hover:bg-neutral-100 dark:text-emerald-300 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+          className="mx-5 mt-2 mb-[max(0.75rem,var(--campus-map-safe-area-bottom))] flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full px-3 text-sm font-medium text-[#176346] hover:bg-neutral-100 dark:text-emerald-300 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
           onClick={onAdd}
         >
           <PlusIcon aria-hidden="true" className="size-4" />

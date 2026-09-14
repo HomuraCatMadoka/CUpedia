@@ -104,9 +104,9 @@ export function CampusMapFacilityResultButton({
       data-return-result={facility.placeId}
       type="button"
       className={cn(
-        "flex min-h-16 w-full items-center gap-3 py-2 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]",
+        "flex min-h-16 w-full items-center gap-3 py-2 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]",
         variant === "category" &&
-          "border-b border-black/8 dark:border-white/10",
+          "border-b border-black/8 dark:border-white/10 dark:hover:bg-neutral-800 dark:focus-visible:ring-emerald-400",
       )}
       onClick={onSelect}
     >
@@ -133,11 +133,21 @@ export function CampusMapFacilityResultButton({
         <strong className="block break-words text-sm font-medium [overflow-wrap:anywhere]">
           {facility.name}
         </strong>
-        <span className="mt-0.5 block break-words text-xs text-neutral-600 dark:text-neutral-300">
+        <span
+          className={cn(
+            "mt-0.5 block break-words text-xs text-neutral-600",
+            variant === "category" && "dark:text-neutral-300",
+          )}
+        >
           {location}
         </span>
         {summary ? (
-          <span className="mt-0.5 block break-words text-xs text-neutral-500 dark:text-neutral-400">
+          <span
+            className={cn(
+              "mt-0.5 block break-words text-xs text-neutral-500",
+              variant === "category" && "dark:text-neutral-400",
+            )}
+          >
             {summary}
           </span>
         ) : null}
