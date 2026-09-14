@@ -1,7 +1,13 @@
 "use client";
 
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
-import { useLayoutEffect, useRef, useState, type PointerEvent } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
 
 import {
   campusMapNearestBrowseSheetSnap,
@@ -11,11 +17,14 @@ import {
 export function CampusMapBrowseSheetControls({
   snap,
   onSnap,
+  children,
 }: {
   snap: CampusMapBrowseSheetSnap;
   onSnap: (snap: CampusMapBrowseSheetSnap) => void;
+  children?: ReactNode;
 }) {
   const controlsRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLButtonElement>(null);
   const activatedControlRef = useRef<HTMLButtonElement | null>(null);
   const dragRef = useRef<{
@@ -102,7 +111,9 @@ export function CampusMapBrowseSheetControls({
         `${bottomInset}px`,
       );
       setCanExpand(
-        total - controls.getBoundingClientRect().height >
+        total -
+          controls.getBoundingClientRect().height -
+          (footerRef.current?.getBoundingClientRect().height ?? 0) >
           Math.min(380, viewport * 0.45),
       );
     };
@@ -172,68 +183,78 @@ export function CampusMapBrowseSheetControls({
   }
 
   return (
-    <div
-      ref={controlsRef}
-      hidden={!canExpand}
-      className={
-        canExpand
-          ? "flex h-11 shrink-0 items-center justify-between px-5 md:hidden"
-          : "hidden"
-      }
-    >
-      <button
-        ref={handleRef}
-        type="button"
-        aria-label="拖动或点击展开卡片"
-        aria-controls="campus-map-card-details"
-        aria-expanded={snap !== "peek"}
-        className="grid h-11 w-16 touch-none place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        onClick={(event) => {
-          const suppress = suppressClickRef.current;
-          suppressClickRef.current = false;
-          if (suppress && event.detail !== 0) return;
-          onSnap(snap === "peek" ? "half" : snap === "half" ? "full" : "peek");
-        }}
-        onPointerDown={(event) => {
-          if (!event.isPrimary || event.button !== 0) return;
-          suppressClickRef.current = false;
-          const panel = controlsRef.current?.parentElement?.parentElement;
-          if (!panel) return;
-          dragRef.current = {
-            pointerId: event.pointerId,
-            y: event.clientY,
-            height: panel.getBoundingClientRect().height,
-            moved: false,
-          };
-          event.currentTarget.setPointerCapture(event.pointerId);
-        }}
-        onPointerMove={(event) => {
-          const drag = dragRef.current;
-          const panel = controlsRef.current?.parentElement?.parentElement;
-          if (!drag || drag.pointerId !== event.pointerId || !panel) return;
-          const delta = drag.y - event.clientY;
-          if (Math.abs(delta) < 6 && !drag.moved) return;
-          drag.moved = true;
-          const viewport = window.visualViewport?.height ?? window.innerHeight;
-          const core =
-            Number.parseFloat(
-              panel.style.getPropertyValue("--campus-map-browse-core-height"),
-            ) || 0;
-          panel.style.setProperty(
-            "--campus-map-drag-height",
-            `${Math.max(core, Math.min(viewport - 80, drag.height + delta))}px`,
-          );
-        }}
-        onPointerUp={(event) => finishDrag(event)}
-        onPointerCancel={(event) => finishDrag(event, true)}
-        onLostPointerCapture={(event) => finishDrag(event, true)}
+    <>
+      <div
+        ref={controlsRef}
+        hidden={!canExpand}
+        className={canExpand ? "relative h-6 shrink-0 md:hidden" : "hidden"}
       >
-        <span
-          aria-hidden="true"
-          className="h-1 w-10 rounded-full bg-muted-foreground/40"
-        />
-      </button>
-      <div className="flex items-center gap-1">
+        <button
+          ref={handleRef}
+          type="button"
+          aria-label="拖动或点击展开卡片"
+          aria-controls="campus-map-card-details"
+          aria-expanded={snap !== "peek"}
+          className="absolute top-0 left-1/2 flex h-11 w-16 -translate-x-1/2 touch-none justify-center rounded-full pt-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={(event) => {
+            const suppress = suppressClickRef.current;
+            suppressClickRef.current = false;
+            if (suppress && event.detail !== 0) return;
+            onSnap(
+              snap === "peek" ? "half" : snap === "half" ? "full" : "peek",
+            );
+          }}
+          onPointerDown={(event) => {
+            if (!event.isPrimary || event.button !== 0) return;
+            suppressClickRef.current = false;
+            const panel = controlsRef.current?.parentElement?.parentElement;
+            if (!panel) return;
+            dragRef.current = {
+              pointerId: event.pointerId,
+              y: event.clientY,
+              height: panel.getBoundingClientRect().height,
+              moved: false,
+            };
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            const drag = dragRef.current;
+            const panel = controlsRef.current?.parentElement?.parentElement;
+            if (!drag || drag.pointerId !== event.pointerId || !panel) return;
+            const delta = drag.y - event.clientY;
+            if (Math.abs(delta) < 6 && !drag.moved) return;
+            drag.moved = true;
+            const viewport =
+              window.visualViewport?.height ?? window.innerHeight;
+            const core =
+              Number.parseFloat(
+                panel.style.getPropertyValue("--campus-map-browse-core-height"),
+              ) || 0;
+            panel.style.setProperty(
+              "--campus-map-drag-height",
+              `${Math.max(core, Math.min(viewport - 80, drag.height + delta))}px`,
+            );
+          }}
+          onPointerUp={(event) => finishDrag(event)}
+          onPointerCancel={(event) => finishDrag(event, true)}
+          onLostPointerCapture={(event) => finishDrag(event, true)}
+        >
+          <span
+            aria-hidden="true"
+            className="h-1 w-8 rounded-full bg-[#bdc1c6] dark:bg-[#80868b]"
+          />
+        </button>
+      </div>
+      {children}
+      <div
+        ref={footerRef}
+        hidden={!canExpand}
+        className={
+          canExpand
+            ? "flex min-h-[50px] shrink-0 border-t border-border/50 px-5 md:hidden"
+            : "hidden"
+        }
+      >
         {snap !== "peek" ? (
           <button
             type="button"
@@ -242,10 +263,10 @@ export function CampusMapBrowseSheetControls({
             onClick={(event) =>
               changeSnap(snap === "full" ? "half" : "peek", event.currentTarget)
             }
-            className="inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-sm text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex min-h-11 flex-1 items-center justify-between gap-2 rounded-lg text-sm font-medium text-[#235741] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-[#a9ddbc]"
           >
-            <ChevronDownIcon aria-hidden="true" className="size-4" />
             收起
+            <ChevronDownIcon aria-hidden="true" className="size-4" />
           </button>
         ) : null}
         {snap !== "full" ? (
@@ -256,13 +277,13 @@ export function CampusMapBrowseSheetControls({
             onClick={(event) =>
               changeSnap(snap === "peek" ? "half" : "full", event.currentTarget)
             }
-            className="inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex min-h-11 flex-1 items-center justify-between gap-2 rounded-lg text-sm font-medium text-[#235741] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-[#a9ddbc]"
           >
-            <ChevronUpIcon aria-hidden="true" className="size-4" />
             {snap === "peek" ? "展开详情" : "完全展开"}
+            <ChevronUpIcon aria-hidden="true" className="size-4" />
           </button>
         ) : null}
       </div>
-    </div>
+    </>
   );
 }

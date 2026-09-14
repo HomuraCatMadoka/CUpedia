@@ -7,6 +7,31 @@ import { projectCampusMapPlaceCard } from "@/lib/campus-map/place-card";
 
 afterEach(cleanup);
 describe("Campus Map visit information (#908)", () => {
+  it("keeps known accessibility facts visible on the full detail page and collapses them only in a map card", () => {
+    const card = projectCampusMapPlaceCard({
+      placeType: "water",
+      locationLabel: "室外 · 精确位置",
+      visitNote: null,
+      officialActions: [],
+      regularHours: null,
+      capabilities: [],
+      gender: null,
+      wheelchairAccess: "yes",
+      observedAt: null,
+      verifiedAt: null,
+      provenance: [],
+    });
+    const view = render(<CampusMapPlaceCardContent card={card} />);
+    expect(screen.getByText("可通行").closest("details")).toBeNull();
+    view.rerender(
+      <CampusMapPlaceCardContent
+        card={card}
+        showLocation={false}
+        presentation="map"
+      />,
+    );
+    expect(screen.getByText("可通行").closest("details")?.open).toBe(false);
+  });
   it("makes a stored restriction readable before the neutral booking link", () => {
     const card = projectCampusMapPlaceCard({
       placeType: "common-space",

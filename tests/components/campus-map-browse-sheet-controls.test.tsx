@@ -89,11 +89,12 @@ function sheet() {
                 onSnap(next);
                 setSnap(next);
               }}
-            />
-            <header data-header>地点名称与固定操作</header>
-            <div id="campus-map-card-details" data-campus-map-card-scroll>
-              <div data-natural>详细信息</div>
-            </div>
+            >
+              <header data-header>地点名称与固定操作</header>
+              <div id="campus-map-card-details" data-campus-map-card-scroll>
+                <div data-natural>详细信息</div>
+              </div>
+            </CampusMapBrowseSheetControls>
           </div>
         </section>
       </main>

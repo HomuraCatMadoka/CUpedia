@@ -1121,6 +1121,7 @@ describe("CampusMapRuntime", () => {
     const actions = screen.getByRole("group", { name: "地点操作" });
     const controls = Array.from(actions.children) as HTMLElement[];
     expect(controls.map((control) => control.textContent)).toEqual([
+      "返回",
       "详情与记录",
       "建议修改",
     ]);
@@ -1128,9 +1129,9 @@ describe("CampusMapRuntime", () => {
       controls.every((control) => control.classList.contains("min-h-11")),
     ).toBe(true);
     expect(screen.queryByText("资料来源")).toBeNull();
-    expect(controls[1]?.classList.contains("text-muted-foreground")).toBe(true);
+    expect(controls[2]?.classList.contains("text-muted-foreground")).toBe(true);
     expect(
-      controls[1]?.className
+      controls[2]?.className
         .split(" ")
         .some((token) => /(?:^|:)(?:bg|border|text)-(?:red|rose)-/.test(token)),
     ).toBe(false);

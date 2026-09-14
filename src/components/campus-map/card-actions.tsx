@@ -47,15 +47,18 @@ export function CampusMapCardActions({
   }
 
   return (
-    <div className="shrink-0 border-b border-border px-5 pb-4">
+    <div className="shrink-0 px-5 pb-5">
       <div role="group" aria-label="地图操作" className="flex flex-wrap gap-2">
         {locateLabel ? (
           <button
             type="button"
             onClick={onLocate}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#174b38] px-4 text-sm font-medium text-white hover:bg-[#123d2e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:bg-emerald-300 dark:text-emerald-950 dark:hover:bg-emerald-200"
+            className="inline-flex min-h-11 items-center justify-center gap-[7px] rounded-full bg-[#235741] px-5 text-sm font-medium text-white hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:bg-[#b2dfc2] dark:text-[#143c28]"
           >
-            <LocateFixedIcon aria-hidden="true" className="size-4 shrink-0" />
+            <LocateFixedIcon
+              aria-hidden="true"
+              className="size-[17px] shrink-0"
+            />
             {locateLabel}
           </button>
         ) : null}
@@ -63,9 +66,9 @@ export function CampusMapCardActions({
           type="button"
           disabled={sharing}
           onClick={share}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-border px-4 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="inline-flex min-h-11 items-center justify-center gap-[7px] rounded-full border border-border px-[15px] text-sm font-medium text-[#235741] hover:bg-muted disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:text-[#a9ddbc]"
         >
-          <Share2Icon aria-hidden="true" className="size-4 shrink-0" />
+          <Share2Icon aria-hidden="true" className="size-[17px] shrink-0" />
           分享
         </button>
       </div>
