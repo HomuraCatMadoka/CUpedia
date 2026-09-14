@@ -719,15 +719,35 @@ describe("CampusMapRuntime", () => {
     const card = heading.closest("section");
     if (!card) throw new Error("expected the classroom Place card");
     expect(
-      within(card).getByText("课室", { exact: true, selector: "p" }),
+      within(card).getByText("课室 · 李卓敏基本医学大楼", { selector: "p" }),
     ).toBeTruthy();
-    expect(within(card).getByText("位置", { selector: "dt" })).toBeTruthy();
     expect(
-      within(card).getByText("李卓敏基本医学大楼", { selector: "dd" }),
+      within(card).getByRole("button", { name: "定位所属建筑" }),
     ).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "分享" })).toBeTruthy();
     expect(window.location.search).toContain(
       "scene=place&id=87900000-0000-4000-8000-000000000001",
     );
+  });
+
+  it("locates an indoor Place through its existing Building camera without changing selection, and respects reduced motion", async () => {
+    const amap = installAmapRuntime({ projectedPoint: { x: 1200, y: 300 } });
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={representativeV2Projection()}
+        initialSearch="?v=1&scene=place&id=87900000-0000-4000-8000-000000000001&snap=peek"
+      />,
+    );
+    await screen.findByRole("heading", { name: "BMS LT" });
+    await waitFor(() => expect(amap.maps).toHaveLength(1));
+    await amap.flushAnimationFrames();
+    amap.maps[0].panTo.mockClear();
+    const before = window.location.search;
+    fireEvent.click(screen.getByRole("button", { name: "定位所属建筑" }));
+    await amap.flushAnimationFrames();
+    expect(amap.maps[0].panTo).toHaveBeenCalledWith(expect.anything(), 0);
+    expect(window.location.search).toBe(before);
   });
 
   it("keeps a classroom-like Building fallback honest", async () => {
@@ -1108,7 +1128,7 @@ describe("CampusMapRuntime", () => {
       controls.every((control) => control.classList.contains("min-h-11")),
     ).toBe(true);
     expect(screen.queryByText("资料来源")).toBeNull();
-    expect(controls[1]?.classList.contains("text-neutral-700")).toBe(true);
+    expect(controls[1]?.classList.contains("text-muted-foreground")).toBe(true);
     expect(
       controls[1]?.className
         .split(" ")
@@ -3075,7 +3095,7 @@ describe("CampusMapRuntime", () => {
     expect(heading.parentElement?.textContent).toContain("大学图书馆 · G/F");
     await waitFor(() => {
       expect(window.location.search).toBe(
-        "?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=peek",
+        "?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=full",
       );
     });
   });
@@ -3335,7 +3355,7 @@ describe("CampusMapRuntime", () => {
     expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
     await waitFor(() =>
       expect(window.location.search).toBe(
-        "?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=peek",
+        "?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=full",
       ),
     );
     expect(screen.queryByText(/Current fact/i)).toBeNull();

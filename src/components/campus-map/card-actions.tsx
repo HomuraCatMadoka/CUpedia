@@ -1,0 +1,89 @@
+"use client";
+
+import { LocateFixedIcon, Share2Icon } from "lucide-react";
+import { useState } from "react";
+
+export function CampusMapCardActions({
+  name,
+  href,
+  locateLabel,
+  onLocate,
+}: {
+  name: string;
+  href: string;
+  locateLabel: string | null;
+  onLocate: () => void;
+}) {
+  const [status, setStatus] = useState("");
+  const [sharing, setSharing] = useState(false);
+
+  async function share() {
+    if (sharing) return;
+    setSharing(true);
+    setStatus("");
+    const url = new URL(href, window.location.origin).href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: name, url });
+        setStatus("分享完成");
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setStatus("链接已复制");
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "name" in error &&
+        error.name === "AbortError"
+      ) {
+        setStatus("已取消分享");
+      } else {
+        setStatus("分享失败，可打开稳定链接后复制地址");
+      }
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  return (
+    <div className="shrink-0 border-b border-border px-5 pb-4">
+      <div role="group" aria-label="地图操作" className="flex flex-wrap gap-2">
+        {locateLabel ? (
+          <button
+            type="button"
+            onClick={onLocate}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#174b38] px-4 text-sm font-medium text-white hover:bg-[#123d2e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:bg-emerald-300 dark:text-emerald-950 dark:hover:bg-emerald-200"
+          >
+            <LocateFixedIcon aria-hidden="true" className="size-4 shrink-0" />
+            {locateLabel}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          disabled={sharing}
+          onClick={share}
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-border px-4 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <Share2Icon aria-hidden="true" className="size-4 shrink-0" />
+          分享
+        </button>
+      </div>
+      <p
+        role={status ? "status" : undefined}
+        aria-live="polite"
+        className="text-xs leading-5 text-muted-foreground"
+      >
+        {status}
+        {status.startsWith("分享失败") ? (
+          <a
+            href={href}
+            className="ml-1 inline-flex min-h-11 items-center underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            稳定链接
+          </a>
+        ) : null}
+      </p>
+    </div>
+  );
+}

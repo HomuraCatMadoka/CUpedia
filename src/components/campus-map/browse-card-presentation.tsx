@@ -105,7 +105,7 @@ export function CampusMapFacilityResultButton({
       data-return-result={facility.placeId}
       type="button"
       className={cn(
-        "flex w-full items-center text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]",
+        "flex w-full items-center text-left text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
         showsIcon
           ? "min-h-20 gap-3 py-3"
           : "min-h-20 gap-3 border-b border-black/8 py-2",
@@ -142,10 +142,10 @@ export function CampusMapFacilityResultButton({
       ) : null}
       <span className="min-w-0 flex-1">
         <strong className="block truncate text-sm">{facility.name}</strong>
-        <span className="mt-0.5 block truncate text-xs text-neutral-600">
+        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
           {location}
         </span>
-        <span className="mt-0.5 block truncate text-xs text-neutral-500">
+        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
           {summary}
         </span>
       </span>

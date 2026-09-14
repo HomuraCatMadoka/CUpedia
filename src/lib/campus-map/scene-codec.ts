@@ -53,7 +53,9 @@ function hasRepeatedUrlKeys(params: URLSearchParams) {
 }
 
 function snap(value: string | null) {
-  return value === "peek" || value === "full" ? value : null;
+  return value === "peek" || value === "half" || value === "full"
+    ? value
+    : null;
 }
 
 function validSession(
@@ -386,7 +388,7 @@ export function decodeCampusMapUrl(
       sceneKind === "place"
         ? {
             mode: "browse",
-            scene: { kind: "place", placeId: id, snap: "peek" },
+            scene: { kind: "place", placeId: id, snap: panelSnap },
           }
         : {
             mode: "browse",

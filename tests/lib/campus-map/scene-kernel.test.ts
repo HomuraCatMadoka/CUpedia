@@ -791,7 +791,7 @@ describe("Campus Map canonical scene transition", () => {
     }
   });
 
-  it("restores a legacy full Place as the one canonical compact session", () => {
+  it("restores an expanded Place through the canonical scene owner", () => {
     const legacyFullPlace = {
       mode: "browse",
       scene: { kind: "place", placeId: "fountain", snap: "full" },
@@ -805,7 +805,7 @@ describe("Campus Map canonical scene transition", () => {
       ).session,
     ).toEqual({
       mode: "browse",
-      scene: { kind: "place", placeId: "fountain", snap: "peek" },
+      scene: { kind: "place", placeId: "fountain", snap: "full" },
     });
   });
 
@@ -1152,7 +1152,17 @@ describe("Campus Map canonical scene transition", () => {
         ),
       );
     }
-    verify("place", setSnap, rejected(sources.place));
+    verify(
+      "place",
+      setSnap,
+      accepted(
+        {
+          mode: "browse",
+          scene: { kind: "place", placeId: "fountain", snap: "full" },
+        },
+        { history: "replace", camera: null, focus: null },
+      ),
+    );
     verify("content", setSnap, accepted(sources.content, noCommands));
 
     const setFloor = { type: "SET_BUILDING_FLOOR", floorId: "4" } as const;

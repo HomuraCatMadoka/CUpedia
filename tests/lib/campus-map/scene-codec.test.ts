@@ -51,6 +51,18 @@ const catalog: CampusMapSceneCatalog = {
 };
 
 describe("Campus Map versioned scene codec", () => {
+  it.each(["peek", "half", "full"] as const)(
+    "round-trips a Place's %s state",
+    (snap) => {
+      const session: CampusMapSession = {
+        mode: "browse",
+        scene: { kind: "place", placeId: "fountain", snap },
+      };
+      expect(
+        decodeCampusMapUrl(encodeCampusMapUrl(session, catalog), catalog),
+      ).toEqual({ status: "decoded", session });
+    },
+  );
   it("owns canonical Place deep links used outside the runtime", () => {
     expect(
       encodeCampusMapPlaceHref("courtyardWater", {
@@ -124,14 +136,14 @@ describe("Campus Map versioned scene codec", () => {
     ).toMatchObject({ status: "fallback", reason: "invalid-return-context" });
   });
 
-  it("normalizes a legacy full facility URL to its compact card", () => {
+  it("preserves expanded Place URLs without adding derived containment fields", () => {
     const session = {
       mode: "browse",
       scene: { kind: "place", placeId: "fountain", snap: "full" },
     } as unknown as CampusMapSession;
 
     const encoded = encodeCampusMapUrl(session, catalog);
-    expect(encoded.toString()).toBe("v=1&scene=place&id=fountain&snap=peek");
+    expect(encoded.toString()).toBe("v=1&scene=place&id=fountain&snap=full");
     expect(encoded.has("building")).toBe(false);
     expect(encoded.has("floor")).toBe(false);
     expect(encoded.has("category")).toBe(false);
@@ -141,7 +153,7 @@ describe("Campus Map versioned scene codec", () => {
       status: "decoded",
       session: {
         mode: "browse",
-        scene: { kind: "place", placeId: "fountain", snap: "peek" },
+        scene: { kind: "place", placeId: "fountain", snap: "full" },
       },
     });
   });

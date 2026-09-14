@@ -94,6 +94,39 @@ function harness(initialSearch = "?v=1", clearStartEffects = true) {
 }
 
 describe("CampusMapSceneDriver", () => {
+  it("refines Place expansion without a new history entry or losing the Building return", () => {
+    const runtime = harness("?v=1&scene=building&id=science&floor=1&snap=half");
+    const returnSession = runtime.driver.getSnapshot().session;
+    runtime.driver.dispatch({
+      type: "OPEN_PLACE",
+      placeId: "fountain",
+      source: "building",
+    });
+    const pushes = runtime.history.pushState.mock.calls.length;
+    const depth = runtime.history.state;
+    vi.mocked(runtime.ports.focus).mockClear();
+    for (const snap of ["half", "full", "peek"] as const) {
+      runtime.driver.dispatch({ type: "SET_SNAP", snap });
+      expect(runtime.search).toBe(`?v=1&scene=place&id=fountain&snap=${snap}`);
+      expect(runtime.driver.getSnapshot().returnTo).toEqual(returnSession);
+      expect(runtime.history.state).toEqual(depth);
+    }
+    expect(runtime.history.pushState).toHaveBeenCalledTimes(pushes);
+    expect(runtime.ports.focus).not.toHaveBeenCalled();
+    runtime.driver.dispatch({ type: "DISMISS" });
+    expect(runtime.driver.getSnapshot().session).toEqual(returnSession);
+    expect(runtime.ports.focus).toHaveBeenLastCalledWith(
+      { kind: "result", resultId: "fountain", fallback: { kind: "heading" } },
+      expect.anything(),
+    );
+    runtime.driver.dispatch({
+      type: "OPEN_PLACE",
+      placeId: "courtyardWater",
+      source: "map",
+    });
+    expect(runtime.search).toBe("?v=1&scene=place&id=courtyardWater&snap=peek");
+  });
+
   it("projects a deep link through one complete start transition", () => {
     const runtime = harness("?v=1&scene=place&id=fountain&snap=peek", false);
 

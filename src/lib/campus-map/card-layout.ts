@@ -1,3 +1,38 @@
+export type CampusMapBrowseSheetSnap = "peek" | "half" | "full";
+
+export function campusMapBrowsePanelHeight(snap: CampusMapBrowseSheetSnap) {
+  const limit =
+    snap === "full"
+      ? "calc(var(--campus-map-browse-viewport-height, 100dvh) - 80px)"
+      : snap === "half"
+        ? "calc(var(--campus-map-browse-viewport-height, 100dvh) * 0.55)"
+        : "min(380px, calc(var(--campus-map-browse-viewport-height, 100dvh) * 0.45))";
+  return `min(var(--campus-map-browse-content-height, 380px), max(var(--campus-map-browse-core-height, 0px), ${limit}))`;
+}
+
+export function campusMapNearestBrowseSheetSnap(
+  height: number,
+  contentHeight: number,
+  coreHeight: number,
+  viewportHeight: number,
+): CampusMapBrowseSheetSnap {
+  const heights = {
+    peek: Math.min(
+      contentHeight,
+      Math.max(coreHeight, Math.min(380, viewportHeight * 0.45)),
+    ),
+    half: Math.min(contentHeight, Math.max(coreHeight, viewportHeight * 0.55)),
+    full: Math.min(contentHeight, Math.max(coreHeight, viewportHeight - 80)),
+  };
+  return (Object.keys(heights) as CampusMapBrowseSheetSnap[]).reduce(
+    (closest, snap) =>
+      Math.abs(heights[snap] - height) < Math.abs(heights[closest] - height)
+        ? snap
+        : closest,
+    "peek",
+  );
+}
+
 export type CampusMapMobilePanelLayout =
   | { kind: "location-selection" }
   | { kind: "placing" }

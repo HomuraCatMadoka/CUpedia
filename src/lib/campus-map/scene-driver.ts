@@ -57,7 +57,7 @@ export type CampusMapDriverFocusCommand =
 
 export type CampusMapSheetCommand =
   | { kind: "hide" }
-  | { kind: "show"; snap: "peek" | "full" };
+  | { kind: "show"; snap: "peek" | "half" | "full" };
 
 export interface CampusMapDriverSnapshot {
   session: CampusMapSession;

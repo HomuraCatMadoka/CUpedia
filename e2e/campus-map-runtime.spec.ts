@@ -1,4 +1,4 @@
-// refs #646, #649, #799, #838, #878, #880, #888, #889
+// refs #646, #649, #799, #838, #878, #880, #888, #889, #908
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { loginWithPassword } from "./helpers/auth";
@@ -959,7 +959,9 @@ test("cards remain usable across short phones, tablets, and desktop", async ({
       expect(searchBox!.x + searchBox!.width).toBeLessThanOrEqual(cardBox!.x);
       expect(filterBox!.x + filterBox!.width).toBeLessThanOrEqual(cardBox!.x);
     } else {
-      expect(cardBox!.height).toBeLessThanOrEqual(356);
+      expect(cardBox!.height).toBeLessThanOrEqual(
+        Math.min(380, viewport.height * 0.45) + 1,
+      );
       await expect(card.getByRole("heading", { name: "G/F" })).toBeVisible();
       await expect(
         card.locator(`[data-return-result="${browseIds.place}"]`),
@@ -1010,14 +1012,33 @@ test("cards remain usable across short phones, tablets, and desktop", async ({
       });
       const placeCardBox = await placeCard.boundingBox();
       expect(placeCardBox).not.toBeNull();
-      expect(placeCardBox!.height).toBeLessThanOrEqual(196);
+      expect(placeCardBox!.height).toBeLessThanOrEqual(
+        Math.min(380, viewport.height * 0.45) + 1,
+      );
+      await expect(
+        placeCard.getByRole("button", { name: "展开详情" }),
+      ).toHaveCount(0);
+      await expect
+        .poll(() =>
+          placeCard
+            .locator("[data-campus-map-card-scroll]")
+            .evaluate((element) => element.scrollHeight - element.clientHeight),
+        )
+        .toBeLessThanOrEqual(1);
       await expect(
         placeCard.getByText(/饮水点 · 正式测试楼 · G\/F/),
       ).toBeVisible();
     }
-    for (const action of [suggestEdit, placeDetails]) {
+    for (const action of [
+      page.getByRole("button", { name: "定位所属建筑" }),
+      page.getByRole("button", { name: "分享", exact: true }),
+      page.getByRole("button", { name: "关闭地点详情" }),
+      suggestEdit,
+      placeDetails,
+    ]) {
       const actionBox = await action.boundingBox();
       expect(actionBox).not.toBeNull();
+      expect(actionBox!.height).toBeGreaterThanOrEqual(44);
       expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(
         viewport.height,
       );

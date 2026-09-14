@@ -12,104 +12,109 @@ export function CampusMapPlaceCardContent({
   showLocation?: boolean;
   compact?: boolean;
 }) {
+  const secondaryFacts = [card.primaryFact, ...card.detailFacts].filter(
+    (fact) => fact && fact.key !== "regularHours" && fact.key !== "visitNote",
+  );
   const hasMoreInformation =
-    card.detailFacts.length > 0 ||
+    secondaryFacts.length > 0 ||
     card.verification.length > 0 ||
     card.sources.length > 0;
 
   return (
-    <div className={cn("space-y-4", className)}>
-      {showLocation || card.primaryFact ? (
-        <dl className="grid gap-3">
-          {showLocation ? (
-            <div
-              className={cn(
-                card.locationIsPrimary && "rounded-xl bg-[#edf5f1] px-3 py-2.5",
-              )}
-            >
-              <dt
-                className={cn(
-                  "text-xs font-semibold text-neutral-500",
-                  card.locationIsPrimary && "text-[#47685b]",
-                )}
-              >
-                位置
-              </dt>
-              <dd
-                className={cn(
-                  "mt-1 text-sm font-medium text-neutral-900",
-                  card.locationIsPrimary &&
-                    "font-semibold leading-6 text-[#174b38]",
-                )}
-              >
-                {card.locationLabel}
-              </dd>
-            </div>
-          ) : null}
-          {card.primaryFact ? (
-            <div className="rounded-xl bg-[#edf5f1] px-3 py-2.5">
-              <dt className="text-xs font-semibold text-[#47685b]">
-                {card.primaryFact.label}
-              </dt>
-              <dd className="mt-1 text-sm font-semibold leading-6 text-[#174b38]">
-                {card.primaryFact.value}
-              </dd>
-            </div>
-          ) : null}
+    <div className={cn("space-y-5 text-foreground", className)}>
+      {showLocation ? (
+        <dl>
+          <dt className="text-xs font-medium text-muted-foreground">位置</dt>
+          <dd className="mt-1 text-sm leading-6">{card.locationLabel}</dd>
         </dl>
       ) : null}
 
+      {card.visitNote ? (
+        <section aria-label="到访提示">
+          <h3 className="text-sm font-medium">到访提示</h3>
+          <p className="mt-1 whitespace-pre-line break-words text-sm leading-6">
+            {card.visitNote}
+          </p>
+        </section>
+      ) : null}
+
+      {card.regularHours ? (
+        <section aria-label="通常开放时间">
+          <h3 className="text-sm font-medium">通常开放时间</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            香港时间 · 每周通常安排
+          </p>
+          {card.regularHours.intervals.length > 1 ? (
+            <details className="mt-1">
+              <summary className="min-h-11 cursor-pointer rounded-lg py-2 text-sm leading-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                {card.regularHours.summary}
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  展开完整时间
+                </span>
+              </summary>
+              <ul className="mt-2 space-y-2 text-sm leading-6">
+                {card.regularHours.intervals.map((interval, index) => (
+                  <li key={`${interval}:${index}`}>{interval}</li>
+                ))}
+              </ul>
+            </details>
+          ) : (
+            <p className="mt-1 text-sm leading-6">
+              {card.regularHours.summary}
+            </p>
+          )}
+        </section>
+      ) : null}
+
       {card.officialActions.length > 0 ? (
-        <div aria-label="官方入口" className="grid gap-2 sm:grid-cols-2">
-          {card.officialActions.map((action, index) => {
-            const opensNewTab = action.url.startsWith("https://");
-            return (
-              <a
-                key={`${action.label}:${action.url}`}
-                href={action.url}
-                target={opensNewTab ? "_blank" : undefined}
-                rel={opensNewTab ? "noreferrer" : undefined}
-                className={cn(
-                  "flex min-h-11 items-center justify-between gap-3 rounded-xl border px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2",
-                  index === 0
-                    ? "border-[#174b38] bg-[#174b38] text-white hover:bg-[#123d2e]"
-                    : "border-[#174b38]/30 text-[#174b38] hover:bg-[#edf5f1]",
-                )}
-              >
-                <span className="shrink-0 whitespace-nowrap">
-                  {action.label}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-right text-xs font-normal opacity-75">
-                  {action.destination}
-                </span>
-              </a>
-            );
-          })}
-        </div>
+        <section aria-label="官方入口">
+          <h3 className="mb-2 text-sm font-medium">官方入口</h3>
+          <div className="grid gap-2">
+            {card.officialActions.map((action) => {
+              const opensNewTab = action.url.startsWith("https://");
+              return (
+                <a
+                  key={`${action.label}:${action.url}`}
+                  href={action.url}
+                  target={opensNewTab ? "_blank" : undefined}
+                  rel={opensNewTab ? "noreferrer" : undefined}
+                  className="flex min-h-11 items-center justify-between gap-3 rounded-full border border-border px-4 py-2 text-sm text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <span className="min-w-0 break-words font-medium">
+                    {action.label}
+                  </span>
+                  <span className="min-w-0 max-w-[40%] break-all text-right text-xs text-muted-foreground">
+                    {action.destination}
+                  </span>
+                </a>
+              );
+            })}
+          </div>
+        </section>
       ) : null}
 
       {!compact && hasMoreInformation ? (
-        <details className="rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm">
-          <summary className="min-h-8 cursor-pointer font-semibold text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]">
+        <details className="rounded-2xl border border-border px-4 text-sm">
+          <summary className="flex min-h-11 cursor-pointer items-center rounded-lg py-2 font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             查看其他已知资料与来源
           </summary>
-          <div className="mt-3 space-y-4 border-t border-black/8 pt-3">
-            {card.detailFacts.length > 0 ? (
+          <div className="space-y-4 border-t border-border py-4">
+            {secondaryFacts.length > 0 ? (
               <dl className="grid gap-3">
-                {card.detailFacts.map((fact) => (
-                  <div key={fact.key}>
-                    <dt className="text-xs font-semibold text-neutral-500">
-                      {fact.label}
-                    </dt>
-                    <dd className="mt-1 leading-6 text-neutral-800">
-                      {fact.value}
-                    </dd>
-                  </div>
-                ))}
+                {secondaryFacts.map((fact) =>
+                  fact ? (
+                    <div key={fact.key}>
+                      <dt className="text-xs text-muted-foreground">
+                        {fact.label}
+                      </dt>
+                      <dd className="mt-1 leading-6">{fact.value}</dd>
+                    </div>
+                  ) : null,
+                )}
               </dl>
             ) : null}
             {card.verification.length > 0 ? (
-              <ul className="space-y-1 text-xs leading-5 text-neutral-600">
+              <ul className="space-y-1 text-xs leading-5 text-muted-foreground">
                 {card.verification.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
@@ -117,10 +122,8 @@ export function CampusMapPlaceCardContent({
             ) : null}
             {card.sources.length > 0 ? (
               <div>
-                <h3 className="text-xs font-semibold text-neutral-700">
-                  资料来源
-                </h3>
-                <ul className="mt-1 space-y-1 text-xs leading-5 text-neutral-600">
+                <h3 className="text-xs font-medium">资料来源</h3>
+                <ul className="mt-1 space-y-1 text-xs leading-5 text-muted-foreground">
                   {card.sources.map((source, index) => (
                     <li key={`${source}:${index}`}>{source}</li>
                   ))}

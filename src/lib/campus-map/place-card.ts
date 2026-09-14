@@ -56,6 +56,8 @@ export interface CampusMapPlaceCardProjection {
   locationIsPrimary: boolean;
   primaryFact: CampusMapPlaceCardFact | null;
   detailFacts: readonly CampusMapPlaceCardFact[];
+  visitNote: string | null;
+  regularHours: { summary: string; intervals: readonly string[] } | null;
   officialActions: ReadonlyArray<
     CampusMapOfficialAction & {
       destination: string;
@@ -114,12 +116,13 @@ function weekdayGroupLabel(
 }
 
 function formatCampusMapRegularHours(hours: CampusMapRegularHours) {
-  return hours.intervals
-    .map(
-      (interval) =>
-        `${weekdayGroupLabel(interval.days)} ${interval.opensAt}–${interval.closesAt}`,
-    )
-    .join("；");
+  return hours.intervals.map(formatRegularHoursInterval).join("；");
+}
+
+function formatRegularHoursInterval(
+  interval: CampusMapRegularHours["intervals"][number],
+) {
+  return `${weekdayGroupLabel(interval.days)} ${interval.opensAt}–${interval.closesAt}`;
 }
 
 function knownDate(value: Date | string | null) {
@@ -208,6 +211,9 @@ export function projectCampusMapPlaceCard(
   const safeActions = input.officialActions.filter(isCampusMapOfficialAction);
   const observedOn = knownDate(input.observedAt);
   const verifiedOn = knownDate(input.verifiedAt);
+  const hoursIntervals = input.regularHours?.intervals.map(
+    formatRegularHoursInterval,
+  );
 
   return {
     placeTypeLabel: campusMapPlaceTypeLabel(input.placeType),
@@ -215,6 +221,20 @@ export function projectCampusMapPlaceCard(
     locationIsPrimary: input.placeType === "classroom",
     primaryFact,
     detailFacts: facts.filter((fact) => fact.key !== primaryFact?.key),
+    visitNote: input.visitNote?.trim() || null,
+    regularHours: hoursIntervals?.length
+      ? {
+          summary: [
+            hoursIntervals[0],
+            hoursIntervals.length > 1
+              ? `等 ${hoursIntervals.length} 段时间`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          intervals: hoursIntervals,
+        }
+      : null,
     officialActions: safeActions.slice(0, 2).map((action) => ({
       ...action,
       destination: officialActionDestination(action.url),

@@ -32,7 +32,7 @@ export type CampusMapBrowseScene =
   | {
       kind: "place";
       placeId: string;
-      snap: "peek";
+      snap: Exclude<CampusMapSheetSnap, "hidden">;
     }
   | {
       kind: "content";
@@ -137,7 +137,7 @@ export type CampusMapFocusCommand =
       fallback: CampusMapFocusTarget;
     };
 
-export type CampusMapSheetSnap = "hidden" | "peek" | "full";
+export type CampusMapSheetSnap = "hidden" | "peek" | "half" | "full";
 
 export type CampusMapCameraCommand =
   | { kind: "focus"; buildingId: string; reason: CameraReason }
@@ -356,11 +356,6 @@ export function transitionCampusMapSession(
     if (session.scene.kind === "map") {
       return reject(session, "event-not-allowed");
     }
-    if (session.scene.kind === "place") {
-      return event.snap === "peek"
-        ? acceptNoop(session)
-        : reject(session, "event-not-allowed");
-    }
     if (session.scene.snap === event.snap) return acceptNoop(session);
     return {
       status: "accepted",
@@ -371,7 +366,10 @@ export function transitionCampusMapSession(
       commands: {
         history: historyCommandFor("refine"),
         camera: null,
-        focus: event.snap === "full" ? { kind: "heading" } : null,
+        focus:
+          session.scene.kind !== "place" && event.snap === "full"
+            ? { kind: "heading" }
+            : null,
       },
     };
   }

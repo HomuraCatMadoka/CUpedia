@@ -1,8 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { campusMapMobilePanelHeight } from "@/lib/campus-map/card-layout";
+import {
+  campusMapMobilePanelHeight,
+  campusMapNearestBrowseSheetSnap,
+} from "@/lib/campus-map/card-layout";
 
 describe("Campus Map card layout policy", () => {
+  it("snaps a long card to summary, half and near-full heights", () => {
+    expect(campusMapNearestBrowseSheetSnap(365, 1000, 240, 844)).toBe("peek");
+    expect(campusMapNearestBrowseSheetSnap(470, 1000, 240, 844)).toBe("half");
+    expect(campusMapNearestBrowseSheetSnap(750, 1000, 240, 844)).toBe("full");
+  });
+  it("keeps a short card at its content height and accommodates a taller header", () => {
+    expect(campusMapNearestBrowseSheetSnap(250, 250, 150, 844)).toBe("peek");
+    expect(campusMapNearestBrowseSheetSnap(420, 900, 420, 844)).toBe("peek");
+  });
   it.each([
     [
       { kind: "location-selection" } as const,
