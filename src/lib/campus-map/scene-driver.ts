@@ -128,6 +128,21 @@ function sheetCommand(session: CampusMapSession): CampusMapSheetCommand {
     : { kind: "hide" };
 }
 
+function resultsScrollIdentity(session: CampusMapSession): string | null {
+  if (session.mode !== "browse") return null;
+  const scene = session.scene;
+  if (scene.kind === "search-results") {
+    return JSON.stringify([scene.kind, scene.query]);
+  }
+  if (scene.kind === "category-results") {
+    return JSON.stringify([scene.kind, scene.category]);
+  }
+  if (scene.kind === "building") {
+    return JSON.stringify([scene.kind, scene.buildingId, scene.floorId]);
+  }
+  return null;
+}
+
 function returnTargetFor(
   session: CampusMapSession,
   event: CampusMapEvent,
@@ -161,6 +176,10 @@ export class CampusMapSceneDriver {
   } | null = null;
   private snapshot: CampusMapDriverSnapshot;
   private readonly listeners = new Set<() => void>();
+  private readonly resultsScrollByDepth = new Map<
+    number,
+    { identity: string; scrollTop: number }
+  >();
   private readonly returnTargetsByDepth = new Map<
     number,
     CampusMapSession | null
@@ -183,6 +202,23 @@ export class CampusMapSceneDriver {
   getSnapshot = () => this.snapshot;
 
   getIntentToken = () => this.intentVersion;
+
+  rememberResultsScroll(scrollTop: number) {
+    if (!Number.isFinite(scrollTop)) return;
+    const identity = resultsScrollIdentity(this.snapshot.session);
+    if (identity === null) return;
+    this.resultsScrollByDepth.set(this.currentDepth, {
+      identity,
+      scrollTop: Math.max(0, scrollTop),
+    });
+  }
+
+  getResultsScrollTop() {
+    const saved = this.resultsScrollByDepth.get(this.currentDepth);
+    return saved?.identity === resultsScrollIdentity(this.snapshot.session)
+      ? saved.scrollTop
+      : null;
+  }
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -524,6 +560,17 @@ export class CampusMapSceneDriver {
       history === "push" || history === "back-or-push"
         ? this.currentDepth + 1
         : this.currentDepth;
+    const nextResultsIdentity = resultsScrollIdentity(session);
+    if (
+      this.resultsScrollByDepth.get(nextDepth)?.identity !== nextResultsIdentity
+    ) {
+      this.resultsScrollByDepth.delete(nextDepth);
+    }
+    if (history === "push" || history === "back-or-push") {
+      for (const depth of this.resultsScrollByDepth.keys()) {
+        if (depth >= nextDepth) this.resultsScrollByDepth.delete(depth);
+      }
+    }
     this.currentDepth = nextDepth;
     this.snapshot = {
       session,

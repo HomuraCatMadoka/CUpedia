@@ -2022,7 +2022,12 @@ describe("Campus Map AMap runtime effects", () => {
 
     map.setZoomAndCenter.mockClear();
     map.panTo.mockClear();
-    fireEvent.click(screen.getByRole("button", { name: /^洗手间科学馆/ }));
+    fireEvent.click(
+      within(screen.getByRole("region", { name: "科学馆" })).getByRole(
+        "button",
+        { name: /^洗手间/ },
+      ),
+    );
     await screen.findByRole("heading", { name: "洗手间" });
     await runtime.flushAnimationFrames();
 
