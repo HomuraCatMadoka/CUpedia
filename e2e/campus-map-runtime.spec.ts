@@ -415,6 +415,9 @@ test("search and marker open one canonical Place card", async ({ page }) => {
   ).toHaveCount(0);
 
   await page.getByRole("button", { name: "关闭地点详情" }).click();
+  await expect(search).toHaveValue("正式测试饮水点");
+  await page.getByRole("button", { name: "清除搜索" }).click();
+  await expect(search).toHaveValue("");
   await page.getByRole("button", { name: "饮水点", exact: true }).click();
   await page
     .locator(
