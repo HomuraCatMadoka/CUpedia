@@ -4,6 +4,7 @@ import { campusMapFloorDisplayLabel } from "@/lib/campus-map/floor-label";
 
 import {
   type CSSProperties,
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -16,7 +17,6 @@ import {
   ArrowLeftIcon,
   Building2Icon,
   CheckCircle2Icon,
-  ChevronDownIcon,
   LocateFixedIcon,
   MapPinIcon,
   MinusIcon,
@@ -37,6 +37,7 @@ import {
 import { CampusMapCategoryFilters } from "@/components/campus-map/category-filters";
 import { CampusMapCategoryResultsPanel } from "@/components/campus-map/category-results-panel";
 import { AmapCanonicalBrowseLayer } from "@/components/campus-map/amap-canonical-browse-layer";
+import { CampusMapBuildingFloorPicker } from "@/components/campus-map/building-floor-picker";
 import { CampusMapEditSheet } from "@/components/campus-map/edit-sheet";
 import type { FacilityLocationReference } from "@/components/campus-map/facility-location-picker";
 import { CampusMapPlaceCardContent } from "@/components/campus-map/place-card-content";
@@ -98,6 +99,7 @@ import {
   type CampusMapBrowseRefreshResult,
 } from "@/lib/campus-map/browse-projection-store";
 import { projectCampusMapBuildingDirectory } from "@/lib/campus-map/building-directory";
+import { orderedCampusMapFloors } from "@/lib/campus-map/browse-order";
 import {
   campusMapBuildingDisplayFor,
   projectCampusMapBuildingDisplay,
@@ -153,6 +155,7 @@ type Building = CampusMapBrowseBuilding;
 type Place = CampusMapBrowsePlace;
 const EMPTY_PLACE_COVERS: Record<string, CampusMapPlacePhotoView> = {};
 const CAMPUS_MAP_LIST_RETURN_STORAGE_KEY = "cupedia:campus-map:list-return:v1";
+const SEARCH_SUGGESTION_LIMIT = 8;
 const MAP_NUDGE_OFFSETS = {
   north: [0, 0.00005],
   south: [0, -0.00005],
@@ -593,8 +596,14 @@ function publishedPlaceNotice(
 }
 
 function groupBuildingFacilities(building: Building, places: readonly Place[]) {
+  const floorsById = new Map(
+    building.floors.map((floor) => [floor.floorId, floor]),
+  );
   const floorOrder = new Map(
-    building.floors.map((floor, index) => [floor.floorId, index]),
+    orderedCampusMapFloors(building.floors).map((floor, index) => [
+      floor.floorId,
+      index,
+    ]),
   );
   const groups = new Map<
     string,
@@ -602,9 +611,14 @@ function groupBuildingFacilities(building: Building, places: readonly Place[]) {
   >();
   for (const facility of places) {
     const key = facility.floorId ?? "__building";
+    const floor = facility.floorId
+      ? floorsById.get(facility.floorId)
+      : undefined;
     const group = groups.get(key) ?? {
       floorId: facility.floorId,
-      label: floorLabel(facility.floorId, facility.floorLabel),
+      label: floor
+        ? campusMapFloorDisplayLabel(floor.displayLabel)
+        : "楼层未知",
       places: [],
     };
     group.places.push(facility);
@@ -673,6 +687,14 @@ export function CampusMapRuntime({
         sceneCatalog,
       ).mapFilter.query,
   );
+  const [browseAllSearchQuery, setBrowseAllSearchQuery] = useState<
+    string | null
+  >(null);
+  const pendingSearchFocusRef = useRef<{
+    resultId: string;
+    token: number;
+    preventScroll: boolean;
+  } | null>(null);
   const [locationReference, setLocationReference] =
     useState<FacilityLocationReference | null>(null);
   const unidentifiedLocationReferenceSequenceRef = useRef(0);
@@ -1398,7 +1420,27 @@ export function CampusMapRuntime({
               if (result) {
                 result.focus({ preventScroll: true });
               } else {
-                focusSceneTarget(focus.fallback);
+                const current = sceneDriver.getSnapshot().session;
+                if (
+                  current.mode === "browse" &&
+                  current.scene.kind === "search-results" &&
+                  listResultsRef.current?.querySelector(
+                    "[data-search-browse-all]",
+                  ) &&
+                  searchCampusMapBrowse(
+                    projectionStore.getSnapshot().projection,
+                    current.scene.query,
+                  ).some((candidate) => candidate.resultId === focus.resultId)
+                ) {
+                  pendingSearchFocusRef.current = {
+                    resultId: focus.resultId,
+                    token: context.token,
+                    preventScroll: true,
+                  };
+                  setBrowseAllSearchQuery(current.scene.query);
+                } else {
+                  focusSceneTarget(focus.fallback);
+                }
               }
             } else if (focus.kind === "category-filter") {
               const filter = Array.from(
@@ -1484,14 +1526,33 @@ export function CampusMapRuntime({
       listReturnRef.current?.returnTo === activeListReturnTo
         ? listReturnRef.current
         : null;
-    const scrollTop = inMemoryReturn
-      ? inMemoryReturn.scrollTop
-      : consumeCampusMapListScroll(activeListReturnTo);
+    const scrollTop =
+      driver.getResultsScrollTop() ??
+      (inMemoryReturn
+        ? inMemoryReturn.scrollTop
+        : consumeCampusMapListScroll(activeListReturnTo));
     const scroller = listResultsRef.current;
-    if (scrollTop === null || !scroller) return;
-    scroller.scrollTop = scrollTop;
+    if (!scroller) return;
+    scroller.scrollTop = scrollTop ?? 0;
     if (inMemoryReturn) listReturnRef.current = null;
-  }, [activeListReturnTo]);
+  }, [activeListReturnTo, browseAllSearchQuery, driver]);
+
+  useLayoutEffect(() => {
+    const pending = pendingSearchFocusRef.current;
+    if (!pending) return;
+    pendingSearchFocusRef.current = null;
+    if (pending.token !== driver.getSnapshot().transitionToken) {
+      return;
+    }
+    const result = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-search-result]"),
+    ).find((candidate) => candidate.dataset.searchResult === pending.resultId);
+    if (result) {
+      result.focus({ preventScroll: pending.preventScroll });
+    } else {
+      searchInputRef.current?.focus({ preventScroll: true });
+    }
+  }, [browseAllSearchQuery, driver]);
 
   useEffect(() => {
     if (!activeCategory) return;
@@ -1508,6 +1569,9 @@ export function CampusMapRuntime({
   const dispatch = useCallback(
     (intent: CampusMapDriverIntent) => {
       setPublishNotice(null);
+      if (intent.type === "SEARCH" || intent.type === "SET_BUILDING_FLOOR") {
+        listReturnRef.current = null;
+      }
       return driver.dispatch(intent);
     },
     [driver],
@@ -1614,6 +1678,10 @@ export function CampusMapRuntime({
         : [],
     [activeSearchQuery, browseProjection],
   );
+  const visibleSearchResults =
+    browseAllSearchQuery === activeSearchQuery
+      ? searchResults
+      : searchResults.slice(0, SEARCH_SUGGESTION_LIMIT);
   const classroomFallbackName = selectedBuilding
     ? searchResults.find(
         (result) =>
@@ -1929,6 +1997,8 @@ export function CampusMapRuntime({
 
   const selectBuilding = useCallback(
     (building: Building, source: "map" | "search" = "map") => {
+      if (source === "search")
+        driver.rememberResultsScroll(listResultsRef.current?.scrollTop ?? 0);
       clearTransientHotspot();
       dispatch({
         type: "OPEN_BUILDING",
@@ -1936,7 +2006,7 @@ export function CampusMapRuntime({
         source,
       });
     },
-    [clearTransientHotspot, dispatch],
+    [clearTransientHotspot, dispatch, driver],
   );
 
   const selectLocationBuilding = useCallback(
@@ -1977,6 +2047,7 @@ export function CampusMapRuntime({
       const sourceSession = driver.getSnapshot().session;
       const returnTo = campusMapListPath(sourceSession, sceneCatalog);
       if (returnTo) {
+        driver.rememberResultsScroll(listResultsRef.current?.scrollTop ?? 0);
         listReturnRef.current = {
           returnTo,
           scrollTop: listResultsRef.current?.scrollTop ?? 0,
@@ -2882,21 +2953,19 @@ export function CampusMapRuntime({
           className="pointer-events-auto mx-auto w-full max-w-[560px]"
           onSubmit={(event) => {
             event.preventDefault();
-            const exactClassrooms = searchResults.flatMap((result) =>
-              result.kind === "place" &&
-              result.match === "exact-name" &&
-              result.place.placeType === "classroom"
+            const exactPlaces = searchResults.flatMap((result) =>
+              result.kind === "place" && result.match === "exact-name"
                 ? [result.place]
                 : [],
             );
-            if (exactClassrooms.length === 1) {
-              selectFacility(exactClassrooms[0]!, "search");
+            if (exactPlaces.length === 1) {
+              selectFacility(exactPlaces[0]!, "search");
               return;
             }
             dispatch({ type: "SEARCH", query: queryDraft });
           }}
         >
-          <label className="flex h-12 items-center gap-3 rounded-xl bg-white px-4 shadow-[0_3px_14px_rgba(23,33,28,.18)] focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2">
+          <label className="flex h-12 items-center gap-3 rounded-xl bg-white px-4 shadow-[0_3px_14px_rgba(23,33,28,.18)] focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 dark:bg-neutral-900 dark:text-neutral-100 dark:focus-within:ring-emerald-300 dark:focus-within:ring-offset-neutral-900">
             <SearchIcon
               aria-hidden="true"
               className="size-5 text-neutral-500"
@@ -2907,9 +2976,29 @@ export function CampusMapRuntime({
               name="campus-map-search"
               autoComplete="off"
               value={queryDraft}
+              aria-describedby="campus-map-search-help"
+              aria-controls={
+                activeSearchQuery && state.selection.kind === "none"
+                  ? "campus-map-search-results"
+                  : undefined
+              }
+              onKeyDown={(event) => {
+                if (event.key !== "ArrowDown" && event.key !== "ArrowUp")
+                  return;
+                const buttons =
+                  listResultsRef.current?.querySelectorAll<HTMLButtonElement>(
+                    "[data-search-result], [data-search-browse-all]",
+                  );
+                if (!buttons?.length) return;
+                event.preventDefault();
+                buttons[
+                  event.key === "ArrowDown" ? 0 : buttons.length - 1
+                ]?.focus();
+              }}
               onChange={(event) => {
                 const query = event.currentTarget.value;
                 setQueryDraft(query);
+                setBrowseAllSearchQuery(null);
                 dispatch({ type: "SEARCH", query });
               }}
               className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-neutral-500"
@@ -2919,9 +3008,10 @@ export function CampusMapRuntime({
               <button
                 type="button"
                 aria-label="清除搜索"
-                className="grid size-11 place-items-center rounded-full hover:bg-neutral-100"
+                className="grid size-11 place-items-center rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 onClick={() => {
                   setQueryDraft("");
+                  setBrowseAllSearchQuery(null);
                   dispatch({ type: "SEARCH", query: "" });
                 }}
               >
@@ -2929,18 +3019,40 @@ export function CampusMapRuntime({
               </button>
             ) : null}
           </label>
+          <p id="campus-map-search-help" className="sr-only">
+            上下方向键选择建议，Enter 打开，Escape
+            关闭。精确地点优先，其次建筑；同组按名称和编号排序。
+          </p>
           {activeSearchQuery && state.selection.kind === "none" ? (
             <div
               ref={listResultsRef}
+              id="campus-map-search-results"
               data-campus-map-results="search"
-              className="mt-2 max-h-[calc(100dvh-76px)] overflow-y-auto overscroll-contain rounded-xl bg-white py-1 shadow-[0_8px_28px_rgba(23,33,28,.22)]"
+              onScroll={(event) =>
+                driver.rememberResultsScroll(event.currentTarget.scrollTop)
+              }
+              onKeyDown={(event) => {
+                if (event.key !== "ArrowDown" && event.key !== "ArrowUp")
+                  return;
+                const buttons = Array.from(
+                  event.currentTarget.querySelectorAll<HTMLButtonElement>(
+                    "[data-search-result], [data-search-browse-all]",
+                  ),
+                );
+                const index = buttons.indexOf(
+                  event.target as HTMLButtonElement,
+                );
+                if (index < 0) return;
+                event.preventDefault();
+                const next =
+                  buttons[index + (event.key === "ArrowDown" ? 1 : -1)];
+                (next ?? searchInputRef.current)?.focus();
+              }}
+              className="mt-2 max-h-[calc(100dvh-76px)] overflow-y-auto overscroll-contain rounded-xl bg-white py-1 shadow-[0_8px_28px_rgba(23,33,28,.22)] dark:bg-neutral-900 dark:text-neutral-100"
             >
               {searchResults.length ? (
-                searchResults.map((result) => {
-                  const id =
-                    result.kind === "building"
-                      ? result.building.buildingId
-                      : result.place.placeId;
+                visibleSearchResults.map((result, index) => {
+                  const id = result.resultId;
                   const resultStyle =
                     result.kind === "place"
                       ? placeTypeStyle(result.place.placeType)
@@ -3012,7 +3124,7 @@ export function CampusMapRuntime({
                           ) : null}
                         </strong>
                         {subtitle ? (
-                          <span className="block truncate text-xs text-neutral-500">
+                          <span className="block truncate text-xs text-neutral-500 dark:text-neutral-400">
                             {subtitle}
                           </span>
                         ) : null}
@@ -3020,27 +3132,34 @@ export function CampusMapRuntime({
                     </>
                   );
                   return (
-                    <button
-                      key={id}
-                      data-search-result={id}
-                      type="button"
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 focus-visible:bg-neutral-50 focus-visible:outline-none"
-                      onClick={() => {
-                        if (result.kind === "building") {
-                          selectBuilding(result.building, "search");
-                        } else {
-                          selectFacility(result.place, "search");
-                        }
-                      }}
-                    >
-                      {content}
-                    </button>
+                    <Fragment key={id}>
+                      {index === 0 ||
+                      visibleSearchResults[index - 1]?.kind !== result.kind ? (
+                        <h2 className="px-4 pt-3 pb-1 text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+                          {result.kind === "building" ? "建筑" : "地点"}
+                        </h2>
+                      ) : null}
+                      <button
+                        data-search-result={id}
+                        type="button"
+                        className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 focus-visible:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346] dark:hover:bg-neutral-800 dark:focus-visible:bg-neutral-800 dark:focus-visible:ring-emerald-300"
+                        onClick={() => {
+                          if (result.kind === "building") {
+                            selectBuilding(result.building, "search");
+                          } else {
+                            selectFacility(result.place, "search");
+                          }
+                        }}
+                      >
+                        {content}
+                      </button>
+                    </Fragment>
                   );
                 })
               ) : (
-                <div className="px-4 py-4 text-sm text-neutral-600">
+                <div className="px-4 py-4 text-sm text-neutral-600 dark:text-neutral-300">
                   <p>{`没有找到“${activeSearchQuery}”`}</p>
-                  <p className="mt-1 text-xs leading-5 text-neutral-500">
+                  <p className="mt-1 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
                     试试缩短名称、切换中英文，或输入建筑代码。
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -3064,6 +3183,31 @@ export function CampusMapRuntime({
                   </div>
                 </div>
               )}
+              {searchResults.length > visibleSearchResults.length ? (
+                <button
+                  type="button"
+                  data-search-browse-all
+                  className="min-h-11 w-full border-t border-black/10 px-4 py-3 text-left text-sm font-medium text-[#176346] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346] dark:border-white/15 dark:text-emerald-300 dark:focus-visible:ring-emerald-300"
+                  onClick={() => {
+                    const nextResult =
+                      searchResults[visibleSearchResults.length];
+                    if (nextResult) {
+                      pendingSearchFocusRef.current = {
+                        resultId: nextResult.resultId,
+                        token: driver.getSnapshot().transitionToken,
+                        preventScroll: false,
+                      };
+                    }
+                    setBrowseAllSearchQuery(activeSearchQuery);
+                  }}
+                >
+                  浏览全部 {searchResults.length} 个匹配
+                </button>
+              ) : searchResults.length > SEARCH_SUGGESTION_LIMIT ? (
+                <p className="px-4 py-2 text-xs text-neutral-500 dark:text-neutral-400">
+                  全部 {searchResults.length} 个匹配
+                </p>
+              ) : null}
             </div>
           ) : null}
         </form>
@@ -3444,38 +3588,6 @@ export function CampusMapRuntime({
                               {selectedBuilding.englishName}
                             </span>
                           ) : null}
-                          {selectedBuilding.floors.length > 0 ? (
-                            <label className="relative shrink-0">
-                              <span className="sr-only">切换楼层</span>
-                              <select
-                                aria-label="切换楼层"
-                                className="min-h-11 appearance-none rounded-full border border-border bg-muted py-2 pr-8 pl-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                value={state.buildingContext.floorId ?? ""}
-                                onChange={(event) =>
-                                  dispatch({
-                                    type: "SET_BUILDING_FLOOR",
-                                    floorId: event.target.value || null,
-                                  })
-                                }
-                              >
-                                <option value="">全部楼层</option>
-                                {selectedBuilding.floors.map((floor) => (
-                                  <option
-                                    key={floor.floorId}
-                                    value={floor.floorId}
-                                  >
-                                    {campusMapFloorDisplayLabel(
-                                      floor.displayLabel,
-                                    )}
-                                  </option>
-                                ))}
-                              </select>
-                              <ChevronDownIcon
-                                aria-hidden="true"
-                                className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-foreground"
-                              />
-                            </label>
-                          ) : null}
                           {visibleSelectedBuildingQualifier ? (
                             <span
                               title={visibleSelectedBuildingQualifier}
@@ -3517,6 +3629,17 @@ export function CampusMapRuntime({
                   dispatch({ type: "REFRAME", reason: "map-selection" })
                 }
               />
+
+              {selectedBuilding && !selectedFacility ? (
+                <CampusMapBuildingFloorPicker
+                  key={selectedBuilding.buildingId}
+                  floors={selectedBuilding.floors}
+                  floorId={state.buildingContext.floorId}
+                  onChange={(floorId) =>
+                    dispatch({ type: "SET_BUILDING_FLOOR", floorId })
+                  }
+                />
+              ) : null}
 
               {selectedBuildingIsClassroomFallback ? (
                 <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 md:px-5">
@@ -3639,8 +3762,14 @@ export function CampusMapRuntime({
                       ref={listResultsRef}
                       id="campus-map-card-details"
                       data-campus-map-card-scroll
+                      data-campus-map-results="building"
                       tabIndex={0}
                       aria-label="楼内设施列表"
+                      onScroll={(event) =>
+                        driver.rememberResultsScroll(
+                          event.currentTarget.scrollTop,
+                        )
+                      }
                       className="min-h-0 flex-1 overflow-y-auto overscroll-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                     >
                       <div className="px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:py-5">
@@ -3684,7 +3813,7 @@ export function CampusMapRuntime({
                                       <FacilityResultButton
                                         key={facility.placeId}
                                         facility={facility}
-                                        location={card.locationLabel}
+                                        location=""
                                         summary={metadataLabel(
                                           placeTypeStyle(facility.placeType)
                                             .label,

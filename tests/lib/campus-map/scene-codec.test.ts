@@ -314,6 +314,26 @@ describe("Campus Map versioned scene codec", () => {
     });
   });
 
+  it("decodes map metadata alongside Next.js native history fields (#909)", () => {
+    const frameworkState = {
+      __NA: true,
+      __PRIVATE_NEXTJS_INTERNALS_TREE: { tree: "framework-owned" },
+    };
+    expect(
+      decodeCampusMapHistoryMetadata({
+        ...encodeCampusMapHistoryMetadata(3),
+        ...frameworkState,
+      }),
+    ).toEqual({ status: "decoded", depth: 3 });
+    expect(
+      decodeCampusMapHistoryMetadata({
+        ...encodeCampusMapHistoryMetadata(3),
+        ...frameworkState,
+        session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      }),
+    ).toEqual({ status: "fallback", depth: 0, reason: "conflicting-fields" });
+  });
+
   it.each([
     [
       "old version",
@@ -346,6 +366,11 @@ describe("Campus Map versioned scene codec", () => {
     [
       "inherited metadata",
       Object.create({ campusMapScene: true, version: 1, depth: 2 }),
+      "invalid-snapshot",
+    ],
+    [
+      "unknown extra metadata",
+      { ...encodeCampusMapHistoryMetadata(2), unrelated: true },
       "invalid-snapshot",
     ],
   ])("safely falls back for $0", (_label, snapshot, reason) => {

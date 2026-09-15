@@ -4,6 +4,7 @@ import type {
 } from "@/lib/campus-map/fact-store";
 import { isCampusMapPublicPlaceType } from "@/lib/campus-map/controlled-values";
 import type { CampusMapPublicPlaceType } from "@/lib/campus-map/place-type-contract";
+import { compareCampusMapNames } from "@/lib/campus-map/browse-order";
 
 /** Product viewport default, not a Building or Place assertion. */
 export const CAMPUS_MAP_DEFAULT_VIEW_CENTER = [114.2072, 22.4191] as const;
@@ -345,14 +346,15 @@ export function queryCampusMapBrowse(
 
 /**
  * Produces the user-facing search order without turning a parent Building into
- * a Place. Exact Place names come first; a classroom-like query may fall back
- * to a sourced Building name/code while staying explicitly labelled as such.
+ * a Place. Exact Places and sourced Buildings precede partial Place names.
+ * Classroom-like queries may fall back to an explicitly labelled Building.
  */
 export function searchCampusMapBrowse(
   projection: CampusMapBrowseProjection,
   query: string,
 ) {
   const trimmedQuery = query.trim();
+  const normalizedQuery = normalizedSearchTerm(trimmedQuery);
   const parts = searchParts(trimmedQuery);
   if (parts.length === 0) return [];
 
@@ -363,22 +365,17 @@ export function searchCampusMapBrowse(
     query: trimmedQuery,
     placeMatch: "name",
   }).places;
-  const placeResults = places
-    .map((place) => ({
-      kind: "place" as const,
-      match: isExactPlaceName(trimmedQuery, place.name)
-        ? ("exact-name" as const)
-        : ("name" as const),
-      place,
-      building: place.buildingId
-        ? (buildingById.get(place.buildingId) ?? null)
-        : null,
-    }))
-    .sort(
-      (left, right) =>
-        Number(right.match === "exact-name") -
-        Number(left.match === "exact-name"),
-    );
+  const placeResults = places.map((place) => ({
+    kind: "place" as const,
+    resultId: place.placeId,
+    match: isExactPlaceName(trimmedQuery, place.name)
+      ? ("exact-name" as const)
+      : ("name" as const),
+    place,
+    building: place.buildingId
+      ? (buildingById.get(place.buildingId) ?? null)
+      : null,
+  }));
   const matchedClassroomBuildingIds = new Set(
     places.flatMap((place) =>
       place.placeType === "classroom" && place.buildingId
@@ -399,15 +396,44 @@ export function searchCampusMapBrowse(
     return [
       {
         kind: "building" as const,
-        match: classroomFallback
-          ? ("classroom-fallback" as const)
-          : ("building" as const),
+        resultId: building.buildingId,
+        match: directMatch
+          ? buildingSearchValues(building).some(
+              (value) =>
+                value && normalizedSearchTerm(value) === normalizedQuery,
+            )
+            ? ("exact-building" as const)
+            : ("building" as const)
+          : ("classroom-fallback" as const),
         building,
       },
     ];
   });
 
-  return [...placeResults, ...buildingResults];
+  const rank = {
+    "exact-name": 0,
+    "exact-building": 1,
+    building: 2,
+    name: 3,
+    "classroom-fallback": 4,
+  };
+  return [...placeResults, ...buildingResults].sort((left, right) => {
+    const leftEntity = left.kind === "place" ? left.place : left.building;
+    const rightEntity = right.kind === "place" ? right.place : right.building;
+    return (
+      rank[left.match] - rank[right.match] ||
+      compareCampusMapNames(
+        {
+          name: leftEntity.name,
+          id: left.resultId,
+        },
+        {
+          name: rightEntity.name,
+          id: right.resultId,
+        },
+      )
+    );
+  });
 }
 
 export function queryCampusMapNearby(

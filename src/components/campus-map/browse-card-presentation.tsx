@@ -108,7 +108,7 @@ export function CampusMapFacilityResultButton({
         "flex w-full items-center text-left text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
         variant === "category"
           ? "min-h-16 gap-3 border-b border-black/8 py-2 dark:border-white/10"
-          : "min-h-20 gap-3 py-3",
+          : "min-h-14 gap-3 py-2.5",
       )}
       onClick={onSelect}
     >
@@ -143,31 +143,31 @@ export function CampusMapFacilityResultButton({
       <span className="min-w-0 flex-1">
         <strong
           className={cn(
-            "block text-sm font-medium",
-            variant === "category"
-              ? "break-words [overflow-wrap:anywhere]"
-              : "truncate",
+            "block break-words text-sm",
+            variant === "category" && "font-medium [overflow-wrap:anywhere]",
           )}
         >
           {facility.name}
         </strong>
-        <span
-          className={cn(
-            "mt-0.5 block text-muted-foreground",
-            variant === "category"
-              ? "break-words text-[13px] leading-5"
-              : "truncate text-xs",
-          )}
-        >
-          {location}
-        </span>
-        {summary ? (
+        {location ? (
           <span
             className={cn(
               "mt-0.5 block text-muted-foreground",
               variant === "category"
                 ? "break-words text-[13px] leading-5"
                 : "truncate text-xs",
+            )}
+          >
+            {location}
+          </span>
+        ) : null}
+        {summary ? (
+          <span
+            className={cn(
+              "mt-0.5 block text-muted-foreground",
+              variant === "category"
+                ? "break-words text-[13px] leading-5"
+                : "break-words text-xs",
             )}
           >
             {summary}
