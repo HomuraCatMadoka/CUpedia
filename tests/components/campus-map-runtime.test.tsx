@@ -719,15 +719,35 @@ describe("CampusMapRuntime", () => {
     const card = heading.closest("section");
     if (!card) throw new Error("expected the classroom Place card");
     expect(
-      within(card).getByText("课室", { exact: true, selector: "p" }),
+      within(card).getByText("课室 · 李卓敏基本医学大楼", { selector: "p" }),
     ).toBeTruthy();
-    expect(within(card).getByText("位置", { selector: "dt" })).toBeTruthy();
     expect(
-      within(card).getByText("李卓敏基本医学大楼", { selector: "dd" }),
+      within(card).getByRole("button", { name: "定位所属建筑" }),
     ).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "分享" })).toBeTruthy();
     expect(window.location.search).toContain(
       "scene=place&id=87900000-0000-4000-8000-000000000001",
     );
+  });
+
+  it("locates an indoor Place through its existing Building camera without changing selection, and respects reduced motion", async () => {
+    const amap = installAmapRuntime({ projectedPoint: { x: 1200, y: 300 } });
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={representativeV2Projection()}
+        initialSearch="?v=1&scene=place&id=87900000-0000-4000-8000-000000000001&snap=peek"
+      />,
+    );
+    await screen.findByRole("heading", { name: "BMS LT" });
+    await waitFor(() => expect(amap.maps).toHaveLength(1));
+    await amap.flushAnimationFrames();
+    amap.maps[0].panTo.mockClear();
+    const before = window.location.search;
+    fireEvent.click(screen.getByRole("button", { name: "定位所属建筑" }));
+    await amap.flushAnimationFrames();
+    expect(amap.maps[0].panTo).toHaveBeenCalledWith(expect.anything(), 0);
+    expect(window.location.search).toBe(before);
   });
 
   it("keeps a classroom-like Building fallback honest", async () => {
@@ -1078,7 +1098,7 @@ describe("CampusMapRuntime", () => {
     expect(screen.queryByText("暂未收录设施")).toBeNull();
   });
 
-  it("exposes every Place action as an accessible control", async () => {
+  it("keeps the direct Place card focused on visitor information and details", async () => {
     const placeId = "71000000-0000-4000-8000-000000000005";
     render(
       <CampusMapRuntime
@@ -1091,29 +1111,21 @@ describe("CampusMapRuntime", () => {
     expect(screen.queryByText("G/F")).toBeNull();
     expect(screen.queryByText(/开放条件未完全核实/)).toBeNull();
     expect(screen.queryByText(/尚无室内精确坐标/)).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "建议修改" }).hasAttribute("disabled"),
-    ).toBe(false);
+    expect(screen.queryByRole("button", { name: "建议修改" })).toBeNull();
     expect(screen.queryByRole("button", { name: "查看建筑" })).toBeNull();
     expect(
-      screen.getByRole("link", { name: "详情与记录" }).getAttribute("href"),
+      screen.getByRole("link", { name: "查看详情" }).getAttribute("href"),
     ).toBe(`/campus-map/places/${placeId}`);
     const actions = screen.getByRole("group", { name: "地点操作" });
     const controls = Array.from(actions.children) as HTMLElement[];
     expect(controls.map((control) => control.textContent)).toEqual([
-      "详情与记录",
-      "建议修改",
+      "查看详情",
     ]);
     expect(
       controls.every((control) => control.classList.contains("min-h-11")),
     ).toBe(true);
     expect(screen.queryByText("资料来源")).toBeNull();
-    expect(controls[1]?.classList.contains("text-neutral-700")).toBe(true);
-    expect(
-      controls[1]?.className
-        .split(" ")
-        .some((token) => /(?:^|:)(?:bg|border|text)-(?:red|rose)-/.test(token)),
-    ).toBe(false);
+    expect(screen.queryByText("其他已知资料与来源")).toBeNull();
   });
 
   it("refetches Current facts after publish so the Building Place is searchable", async () => {
@@ -2407,12 +2419,10 @@ describe("CampusMapRuntime", () => {
     window.history.replaceState(
       null,
       "",
-      "/campus-map?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=peek",
+      "/campus-map?v=1&task=edit&id=71000000-0000-4000-8000-000000000005",
     );
     render(<CampusMapRuntime initialSearch={window.location.search} />);
 
-    await screen.findByRole("heading", { name: "饮水机" });
-    fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
     expect(
       await screen.findByRole("heading", { name: "修改设施" }),
     ).toBeTruthy();
@@ -2428,12 +2438,33 @@ describe("CampusMapRuntime", () => {
     ).toBe(false);
   });
 
+  it("returns to the same Place after closing a clean detail-origin edit", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000005";
+    window.history.replaceState(
+      null,
+      "",
+      `/campus-map?v=1&task=edit&id=${placeId}`,
+    );
+    render(<CampusMapRuntime initialSearch={window.location.search} />);
+    await screen.findByRole("heading", { name: "修改设施" });
+    fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
+
+    await waitFor(() =>
+      expect(window.location.search).toBe(
+        `?v=1&scene=place&id=${placeId}&snap=peek`,
+      ),
+    );
+    expect(screen.queryByRole("heading", { name: "修改设施" })).toBeNull();
+    expect(screen.getByRole("link", { name: "查看详情" })).not.toBeNull();
+    expect(publishCampusMapEdit).not.toHaveBeenCalled();
+  });
+
   it("uses neutral success feedback after publishing an existing Place edit", async () => {
     const placeId = "71000000-0000-4000-8000-000000000005";
     window.history.replaceState(
       null,
       "",
-      `/campus-map?v=1&scene=place&id=${placeId}&snap=peek`,
+      `/campus-map?v=1&task=edit&id=${placeId}`,
     );
     vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
       status: "published",
@@ -2450,8 +2481,6 @@ describe("CampusMapRuntime", () => {
 
     render(<CampusMapRuntime initialSearch={window.location.search} />);
 
-    await screen.findByRole("heading", { name: "饮水机" });
-    fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
     await screen.findByRole("heading", { name: "修改设施" });
     selectFacilityType("toilet");
     fireEvent.click(screen.getByRole("button", { name: "发布修改" }));
@@ -2467,7 +2496,7 @@ describe("CampusMapRuntime", () => {
     window.history.replaceState(
       null,
       "",
-      `/campus-map?v=1&scene=place&id=${placeId}&snap=peek`,
+      `/campus-map?v=1&task=edit&id=${placeId}`,
     );
     const current = await vi.mocked(loadCampusMapEditablePlace)(placeId);
     if (!current) throw new Error("missing edit fixture");
@@ -2511,8 +2540,6 @@ describe("CampusMapRuntime", () => {
       />,
     );
 
-    await screen.findByRole("heading", { name: "饮水机" });
-    fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
     await screen.findByRole("heading", { name: "修改设施" });
     fireEvent.click(
       screen.getByRole("button", { name: "移除第 1 张地点照片" }),
@@ -2702,12 +2729,10 @@ describe("CampusMapRuntime", () => {
     window.history.replaceState(
       null,
       "",
-      `/campus-map?v=1&scene=place&id=${placeId}&snap=peek`,
+      `/campus-map?v=1&task=edit&id=${placeId}`,
     );
     render(<CampusMapRuntime initialSearch={window.location.search} />);
 
-    await screen.findByRole("heading", { name: "饮水机" });
-    fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
     await screen.findByRole("heading", { name: "修改设施" });
     selectFacilityType("toilet");
     vi.mocked(loadCampusMapEditablePlace).mockClear();
@@ -2820,16 +2845,19 @@ describe("CampusMapRuntime", () => {
     window.history.replaceState(
       null,
       "",
-      `/campus-map?v=1&scene=place&id=${placeId}&snap=peek`,
+      `/campus-map?v=1&task=edit&id=${placeId}`,
     );
     render(<CampusMapRuntime initialSearch={window.location.search} />);
 
-    await screen.findByRole("heading", { name: "饮水机" });
-    fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
+    await waitFor(() => expect(resolveRead).toBeTypeOf("function"));
     fireEvent.keyDown(window, { key: "Escape" });
     resolveRead(canonical);
 
-    await waitFor(() => expect(window.location.search).toBe("?v=1"));
+    await waitFor(() =>
+      expect(window.location.search).toBe(
+        `?v=1&scene=place&id=${placeId}&snap=peek`,
+      ),
+    );
     expect(screen.queryByRole("heading", { name: "修改设施" })).toBeNull();
   });
 
@@ -3075,7 +3103,7 @@ describe("CampusMapRuntime", () => {
     expect(heading.parentElement?.textContent).toContain("大学图书馆 · G/F");
     await waitFor(() => {
       expect(window.location.search).toBe(
-        "?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=peek",
+        "?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=full",
       );
     });
   });
@@ -3141,7 +3169,7 @@ describe("CampusMapRuntime", () => {
     expect(replace.mock.calls.length - replacesBefore).toBe(1);
   });
 
-  it("keeps a direct facility deep-link building fallback reversible", async () => {
+  it("closes a direct indoor Place to its Building without a duplicate Back control", async () => {
     const push = vi.spyOn(window.history, "pushState");
     render(
       <CampusMapRuntime initialSearch="?v=1&scene=place&id=71000000-0000-4000-8000-000000000003&snap=peek" />,
@@ -3149,11 +3177,14 @@ describe("CampusMapRuntime", () => {
     await screen.findByRole("heading", { name: "洗手间" });
     const before = push.mock.calls.length;
 
-    fireEvent.click(screen.getByRole("button", { name: "返回" }));
-
-    expect(
-      await screen.findByRole("heading", { name: "伍何曼原楼" }),
-    ).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "返回" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "关闭地点详情" }));
+    await waitFor(() =>
+      expect(window.location.search).toBe(
+        "?v=1&scene=building&id=wmy&floor=5&snap=peek",
+      ),
+    );
+    expect(screen.getByRole("heading", { name: "伍何曼原楼" })).not.toBeNull();
     expect(push.mock.calls.length - before).toBe(1);
   });
 
@@ -3165,7 +3196,7 @@ describe("CampusMapRuntime", () => {
     await screen.findByRole("heading", { name: "洗手间" });
     expect(screen.queryByText(/尚无室内精确坐标/)).toBeNull();
     expect(screen.queryByRole("button", { name: "查看建筑" })).toBeNull();
-    expect(screen.getByRole("button", { name: "返回" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "返回" })).toBeNull();
   });
 
   it("closes with Escape and restores focus to the search result trigger", async () => {
@@ -3272,7 +3303,7 @@ describe("CampusMapRuntime", () => {
       "?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
     expect(screen.getByRole("button", { name: "返回搜索结果" })).not.toBeNull();
-    const details = screen.getByRole("link", { name: "详情与记录" });
+    const details = screen.getByRole("link", { name: "查看详情" });
     const detailsUrl = new URL(
       details.getAttribute("href") ?? "",
       "https://cupedia.test",
@@ -3287,7 +3318,7 @@ describe("CampusMapRuntime", () => {
     expect(restoredResult.parentElement?.scrollTop).toBe(96);
   });
 
-  it("uses a generic Back label for a direct outdoor Place", async () => {
+  it("closes a direct outdoor Place without a duplicate Back control", async () => {
     const placeId = "30000000-0000-4000-8000-000000000020";
     render(
       <CampusMapRuntime
@@ -3297,12 +3328,13 @@ describe("CampusMapRuntime", () => {
     );
 
     await screen.findByRole("heading", { name: "新发布饮水点" });
-    fireEvent.click(screen.getByRole("button", { name: "返回" }));
+    expect(screen.queryByRole("button", { name: "返回" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "关闭地点详情" }));
 
     await waitFor(() => expect(window.location.search).toBe("?v=1"));
   });
 
-  it("uses a truthful generic Back label without a return context", async () => {
+  it("omits Back when the Place has no list return context", async () => {
     const placeId = "71000000-0000-4000-8000-000000000005";
     window.history.replaceState(
       { campusMapScene: true, version: 1, depth: 1 },
@@ -3313,7 +3345,7 @@ describe("CampusMapRuntime", () => {
     render(<CampusMapRuntime initialSearch={window.location.search} />);
 
     await screen.findByRole("heading", { name: "饮水机" });
-    expect(screen.getByRole("button", { name: "返回" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "返回" })).toBeNull();
     expect(screen.queryByRole("button", { name: "返回建筑" })).toBeNull();
     expect(screen.queryByRole("button", { name: "返回地图" })).toBeNull();
   });
@@ -3324,7 +3356,7 @@ describe("CampusMapRuntime", () => {
     );
 
     const details = await screen.findByRole("link", {
-      name: "详情与记录",
+      name: "查看详情",
     });
     expect(details.getAttribute("href")).toBe(
       "/campus-map/places/71000000-0000-4000-8000-000000000005",
@@ -3335,7 +3367,7 @@ describe("CampusMapRuntime", () => {
     expect(screen.queryByRole("button", { name: "展开地点卡片" })).toBeNull();
     await waitFor(() =>
       expect(window.location.search).toBe(
-        "?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=peek",
+        "?v=1&scene=place&id=71000000-0000-4000-8000-000000000005&snap=full",
       ),
     );
     expect(screen.queryByText(/Current fact/i)).toBeNull();
@@ -3463,8 +3495,7 @@ describe("CampusMapRuntime", () => {
 
     fireEvent.click(result);
     const detailsUrl = new URL(
-      screen.getByRole("link", { name: "详情与记录" }).getAttribute("href") ??
-        "",
+      screen.getByRole("link", { name: "查看详情" }).getAttribute("href") ?? "",
       "https://cupedia.test",
     );
     expect(detailsUrl.searchParams.get("from")).toBe(returnTo);
@@ -3517,7 +3548,7 @@ describe("CampusMapRuntime", () => {
     fireEvent.click(result);
     expect(
       new URL(
-        screen.getByRole("link", { name: "详情与记录" }).getAttribute("href")!,
+        screen.getByRole("link", { name: "查看详情" }).getAttribute("href")!,
         "https://cupedia.test",
       ).searchParams.get("from"),
     ).toContain("scene=category&id=classroom&snap=full");

@@ -99,46 +99,64 @@ export function CampusMapFacilityResultButton({
 }) {
   const style = campusMapPlaceTypeStyle(facility.placeType);
   const Icon = style.icon;
+  const showsIcon = variant === "building";
   return (
     <button
       data-return-result={facility.placeId}
       type="button"
       className={cn(
-        "flex min-h-16 w-full items-center gap-3 py-2 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]",
-        variant === "category" &&
-          "border-b border-black/8 dark:border-white/10 dark:hover:bg-neutral-800 dark:focus-visible:ring-emerald-400",
+        "flex w-full items-center text-left text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+        variant === "category"
+          ? "min-h-16 gap-3 border-b border-black/8 py-2 dark:border-white/10"
+          : "min-h-20 gap-3 py-3",
       )}
       onClick={onSelect}
     >
-      {coverPhoto ? (
-        <span className="relative size-12 shrink-0 overflow-hidden rounded-lg">
-          <Image
-            unoptimized
-            fill
-            sizes="48px"
-            className="object-cover"
-            src={coverPhoto.thumbnailUrl}
-            alt=""
-          />
-        </span>
-      ) : (
+      {variant === "category" ? (
+        coverPhoto ? (
+          <span className="relative size-12 shrink-0 overflow-hidden rounded-lg">
+            <Image
+              unoptimized
+              fill
+              sizes="48px"
+              className="object-cover"
+              src={coverPhoto.thumbnailUrl}
+              alt=""
+            />
+          </span>
+        ) : (
+          <span
+            className="grid size-8 shrink-0 place-items-center rounded-full text-white"
+            style={{ background: style.color }}
+          >
+            <Icon aria-hidden="true" className="size-4" />
+          </span>
+        )
+      ) : showsIcon ? (
         <span
-          className="grid size-8 shrink-0 place-items-center rounded-full text-white"
+          className="grid size-9 shrink-0 place-items-center rounded-full text-white"
           style={{ background: style.color }}
         >
           <Icon aria-hidden="true" className="size-4" />
         </span>
-      )}
+      ) : null}
       <span className="min-w-0 flex-1">
-        <strong className="block break-words text-sm font-medium [overflow-wrap:anywhere]">
+        <strong
+          className={cn(
+            "block text-sm font-medium",
+            variant === "category"
+              ? "break-words [overflow-wrap:anywhere]"
+              : "truncate",
+          )}
+        >
           {facility.name}
         </strong>
         <span
           className={cn(
-            "mt-0.5 block break-words text-neutral-600",
+            "mt-0.5 block text-muted-foreground",
             variant === "category"
-              ? "text-[13px] leading-5 dark:text-neutral-300"
-              : "text-xs",
+              ? "break-words text-[13px] leading-5"
+              : "truncate text-xs",
           )}
         >
           {location}
@@ -146,10 +164,10 @@ export function CampusMapFacilityResultButton({
         {summary ? (
           <span
             className={cn(
-              "mt-0.5 block break-words text-neutral-500",
+              "mt-0.5 block text-muted-foreground",
               variant === "category"
-                ? "text-[13px] leading-5 dark:text-neutral-400"
-                : "text-xs",
+                ? "break-words text-[13px] leading-5"
+                : "truncate text-xs",
             )}
           >
             {summary}

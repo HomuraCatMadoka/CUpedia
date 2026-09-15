@@ -375,11 +375,9 @@ async function openOutdoorPlaceEdit(
   const rendered = await renderWithRuntime({
     ...options,
     projection,
-    initialSearch: `?v=1&scene=place&id=${place.placeId}&snap=peek`,
+    initialSearch: `?v=1&task=edit&id=${place.placeId}`,
   });
 
-  await screen.findByRole("heading", { name: place.name });
-  fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
   await screen.findByRole("heading", { name: "修改设施" });
 
   return { ...rendered, place };
@@ -1853,7 +1851,7 @@ describe("Campus Map AMap runtime effects", () => {
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "新增设施" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "建议修改" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "详情与记录" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "查看详情" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
     expect(
       within(providerCard).getByRole("button", {

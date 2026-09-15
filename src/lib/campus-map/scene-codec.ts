@@ -53,7 +53,9 @@ function hasRepeatedUrlKeys(params: URLSearchParams) {
 }
 
 function snap(value: string | null) {
-  return value === "peek" || value === "full" ? value : null;
+  return value === "peek" || value === "half" || value === "full"
+    ? value
+    : null;
 }
 
 function validSession(
@@ -209,6 +211,27 @@ export function encodeCampusMapPlaceHref(
         }
       : { mode: "browse", scene: { kind: "map" } },
   );
+  return `/campus-map?${params.toString()}`;
+}
+
+export function encodeCampusMapPlaceEditHref(
+  placeId: string,
+  head: {
+    status: "active" | "retired" | "merged";
+    visibility: "public" | "redacted";
+  },
+): string | null {
+  if (
+    head.status !== "active" ||
+    head.visibility !== "public" ||
+    !isCanonicalCampusMapId(placeId)
+  ) {
+    return null;
+  }
+  const params = encodeNormalizedCampusMapUrl({
+    mode: "task",
+    task: { kind: "edit", placeId },
+  });
   return `/campus-map?${params.toString()}`;
 }
 
@@ -386,7 +409,7 @@ export function decodeCampusMapUrl(
       sceneKind === "place"
         ? {
             mode: "browse",
-            scene: { kind: "place", placeId: id, snap: "peek" },
+            scene: { kind: "place", placeId: id, snap: panelSnap },
           }
         : {
             mode: "browse",
