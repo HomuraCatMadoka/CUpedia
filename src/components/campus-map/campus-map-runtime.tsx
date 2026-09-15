@@ -802,6 +802,7 @@ export function CampusMapRuntime({
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const listResultsRef = useRef<HTMLDivElement | null>(null);
   const activeCategoryFilterRef = useRef<HTMLButtonElement | null>(null);
+  const moreCategoryFilterRef = useRef<HTMLButtonElement | null>(null);
   const panelTitleRef = useRef<HTMLHeadingElement | null>(null);
   const listReturnRef = useRef<CampusMapListReturn | null>(null);
   const mapGestureCleanupRef = useRef<(() => void) | null>(null);
@@ -1451,8 +1452,9 @@ export function CampusMapRuntime({
                 (candidate) =>
                   candidate.dataset.categoryFilter === focus.category,
               );
-              if (filter) {
-                filter.focus({ preventScroll: true });
+              const returnTarget = filter ?? moreCategoryFilterRef.current;
+              if (returnTarget) {
+                returnTarget.focus({ preventScroll: true });
               } else {
                 focusSceneTarget(focus.fallback);
               }
@@ -3225,6 +3227,7 @@ export function CampusMapRuntime({
         <CampusMapCategoryFilters
           activeCategory={activeCategory}
           activeFilterRef={activeCategoryFilterRef}
+          moreFilterRef={moreCategoryFilterRef}
           onSelect={(category) => {
             clearTransientHotspot();
             if (

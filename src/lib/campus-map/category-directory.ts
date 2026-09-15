@@ -2,12 +2,9 @@ import type {
   CampusMapBrowseBuilding,
   CampusMapBrowsePlace,
 } from "@/lib/campus-map/browse-projection";
+import { compareCampusMapNames } from "@/lib/campus-map/browse-order";
 
 export const CAMPUS_MAP_CATEGORY_PREVIEW_LIMIT = 8;
-const naturalOrder = new Intl.Collator("en", {
-  numeric: true,
-  sensitivity: "base",
-});
 
 export interface CampusMapClassroomGroup {
   buildingId: string | null;
@@ -24,13 +21,15 @@ function compareRooms(left: CampusMapBrowsePlace, right: CampusMapBrowsePlace) {
   if (leftFloor && rightFloor) {
     const floorOrder =
       leftFloor.sortOrder - rightFloor.sortOrder ||
-      naturalOrder.compare(leftFloor.displayLabel, rightFloor.displayLabel) ||
-      naturalOrder.compare(leftFloor.id, rightFloor.id);
+      compareCampusMapNames(
+        { name: leftFloor.displayLabel, id: leftFloor.id },
+        { name: rightFloor.displayLabel, id: rightFloor.id },
+      );
     if (floorOrder) return floorOrder;
   }
-  return (
-    naturalOrder.compare(left.name, right.name) ||
-    left.placeId.localeCompare(right.placeId, "en")
+  return compareCampusMapNames(
+    { name: left.name, id: left.placeId },
+    { name: right.name, id: right.placeId },
   );
 }
 
@@ -60,9 +59,9 @@ export function groupCampusMapClassrooms(
         group.building?.englishName ??
         group.building?.name ??
         "";
-      return (
-        naturalOrder.compare(key(left), key(right)) ||
-        (left.buildingId ?? "").localeCompare(right.buildingId ?? "", "en")
+      return compareCampusMapNames(
+        { name: key(left), id: left.buildingId ?? "" },
+        { name: key(right), id: right.buildingId ?? "" },
       );
     })
     .map((group) => ({

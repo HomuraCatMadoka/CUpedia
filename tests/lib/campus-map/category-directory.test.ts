@@ -64,6 +64,16 @@ describe("campus-wide classroom directory", () => {
     expect(rooms[1]!.floorId).toBeNull();
   });
 
+  it("uses the shared Chinese name order inside a Floor", () => {
+    const rooms = [room("b", "波室", 1), room("a", "阿室", 1)];
+
+    expect(
+      groupCampusMapClassrooms(rooms, buildings)[0]!.places.map(
+        ({ name }) => name,
+      ),
+    ).toEqual(["阿室", "波室"]);
+  });
+
   it("keeps same-named Buildings and rooms separate and has stable fallbacks for absent metadata", () => {
     const sameNameBuilding = {
       ...fixture.buildings[0]!,

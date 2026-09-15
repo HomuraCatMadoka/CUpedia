@@ -3643,6 +3643,22 @@ describe("CampusMapRuntime", () => {
     await waitFor(() => expect(document.activeElement).toBe(activeFilter));
   });
 
+  it("returns focus to More when dismissing a category discovered there", async () => {
+    render(<CampusMapRuntime />);
+
+    const moreFilter = screen.getByRole("button", { name: "更多" });
+    fireEvent.click(moreFilter);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "医疗服务" }));
+    await screen.findByRole("heading", { name: "医疗服务" });
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭医疗服务列表" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "医疗服务" })).toBeNull(),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(moreFilter));
+  });
+
   it("shows every category result and restores scroll after Place navigation", async () => {
     const projection = createCampusMapBrowseFixture();
     const waterPlace = projection.places.find(
