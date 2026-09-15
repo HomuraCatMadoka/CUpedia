@@ -3643,6 +3643,22 @@ describe("CampusMapRuntime", () => {
     await waitFor(() => expect(document.activeElement).toBe(activeFilter));
   });
 
+  it("returns focus to More when dismissing a category discovered there", async () => {
+    render(<CampusMapRuntime />);
+
+    const moreFilter = screen.getByRole("button", { name: "更多" });
+    fireEvent.click(moreFilter);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "医疗服务" }));
+    await screen.findByRole("heading", { name: "医疗服务" });
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭医疗服务列表" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "医疗服务" })).toBeNull(),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(moreFilter));
+  });
+
   it("shows every category result and restores scroll after Place navigation", async () => {
     const projection = createCampusMapBrowseFixture();
     const waterPlace = projection.places.find(
@@ -3704,6 +3720,112 @@ describe("CampusMapRuntime", () => {
     expect(
       screen.getByRole("button", { name: "饮水点", pressed: true }),
     ).not.toBeNull();
+  });
+
+  it("bounds classroom previews and restores the full grouped list, scroll and row focus", async () => {
+    const fixture = createCampusMapBrowseFixture();
+    const base = fixture.places[0]!;
+    const rooms = Array.from({ length: 12 }, (_, index) => ({
+      ...base,
+      placeId: `91000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+      name: `SC ${index + 1}`,
+      placeType: "classroom" as const,
+    }));
+    const commonSpaces = rooms.slice(0, 9).map((room, index) => ({
+      ...room,
+      placeId: room.placeId.replace("91000000", "92000000"),
+      name: `公共空间 ${index + 1}`,
+      placeType: "common-space" as const,
+    }));
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={{
+          ...fixture,
+          places: [...rooms, ...commonSpaces],
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "课室" }));
+    expect(
+      await screen.findByText("全校园课室 · 按建筑、已知楼层与课室编号排列"),
+    ).toBeTruthy();
+    expect(document.querySelectorAll("[data-return-result]")).toHaveLength(8);
+    expect(screen.queryByRole("button", { name: /^SC 12/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "查看全部 12 处设施" }));
+    expect(document.querySelectorAll("[data-return-result]")).toHaveLength(12);
+    expect(window.location.search).toContain("snap=full");
+    const result = screen.getByRole("button", { name: /^SC 12/ });
+    const list = result.closest("[data-campus-map-results]")!;
+    list.scrollTop = 180;
+    fireEvent.click(result);
+    expect(
+      new URL(
+        screen.getByRole("link", { name: "查看详情" }).getAttribute("href")!,
+        "https://cupedia.test",
+      ).searchParams.get("from"),
+    ).toContain("scene=category&id=classroom&snap=full");
+    fireEvent.click(screen.getByRole("button", { name: "返回课室列表" }));
+    const restored = await screen.findByRole("button", { name: /^SC 12/ });
+    expect(restored.closest("[data-campus-map-results]")?.scrollTop).toBe(180);
+    expect(
+      screen.getByRole("button", { name: "收起至预览", expanded: true }),
+    ).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(restored));
+    fireEvent.click(screen.getByRole("button", { name: "收起至预览" }));
+    expect(document.querySelectorAll("[data-return-result]")).toHaveLength(8);
+    fireEvent.click(screen.getByRole("button", { name: "公共空间" }));
+    expect(window.location.search).toContain("id=common-space&snap=peek");
+    expect(
+      screen
+        .getByRole("button", { name: /^公共空间 1/ })
+        .closest("[data-campus-map-results]")?.scrollTop,
+    ).toBe(0);
+  });
+
+  it("discovers health and sports through More and restores a health Place to its category", async () => {
+    const fixture = createCampusMapBrowseFixture();
+    const base = fixture.places[0]!;
+    const clinic = {
+      ...base,
+      placeType: "health-service" as const,
+      name: "门诊（Outpatient Service）",
+    };
+    const pool = {
+      ...base,
+      placeId: "91000000-0000-4000-8000-000000000099",
+      placeType: "sports-facility" as const,
+      name: "大学游泳池",
+    };
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={{ ...fixture, places: [clinic, pool] }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "更多" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "医疗服务" }));
+    expect(
+      await screen.findByRole("heading", { name: "医疗服务" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "医疗服务", pressed: true }),
+    ).toBeTruthy();
+    const row = screen.getByRole("button", {
+      name: /门诊（Outpatient Service）/,
+    });
+    row.closest("[data-campus-map-results]")!.scrollTop = 40;
+    fireEvent.click(row);
+    fireEvent.click(screen.getByRole("button", { name: "返回医疗服务列表" }));
+    const restored = await screen.findByRole("button", {
+      name: /门诊（Outpatient Service）/,
+    });
+    expect(restored.closest("[data-campus-map-results]")?.scrollTop).toBe(40);
+    await waitFor(() => expect(document.activeElement).toBe(restored));
+    fireEvent.click(screen.getByRole("button", { name: "更多" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "体育设施" }));
+    expect(
+      await screen.findByRole("button", { name: /大学游泳池/ }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /查看全部/ })).toBeNull();
   });
 
   it("restores navigation from browser history state", async () => {

@@ -34,6 +34,8 @@ import {
   campusMapPlaceLocationLabel as placeLocationLabel,
   knownCampusMapBrowseCategory as knownBrowseCategory,
 } from "@/components/campus-map/browse-card-presentation";
+import { CampusMapCategoryFilters } from "@/components/campus-map/category-filters";
+import { CampusMapCategoryResultsPanel } from "@/components/campus-map/category-results-panel";
 import { AmapCanonicalBrowseLayer } from "@/components/campus-map/amap-canonical-browse-layer";
 import { CampusMapBuildingFloorPicker } from "@/components/campus-map/building-floor-picker";
 import { CampusMapEditSheet } from "@/components/campus-map/edit-sheet";
@@ -800,6 +802,7 @@ export function CampusMapRuntime({
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const listResultsRef = useRef<HTMLDivElement | null>(null);
   const activeCategoryFilterRef = useRef<HTMLButtonElement | null>(null);
+  const moreCategoryFilterRef = useRef<HTMLButtonElement | null>(null);
   const panelTitleRef = useRef<HTMLHeadingElement | null>(null);
   const listReturnRef = useRef<CampusMapListReturn | null>(null);
   const mapGestureCleanupRef = useRef<(() => void) | null>(null);
@@ -1449,8 +1452,9 @@ export function CampusMapRuntime({
                 (candidate) =>
                   candidate.dataset.categoryFilter === focus.category,
               );
-              if (filter) {
-                filter.focus({ preventScroll: true });
+              const returnTarget = filter ?? moreCategoryFilterRef.current;
+              if (returnTarget) {
+                returnTarget.focus({ preventScroll: true });
               } else {
                 focusSceneTarget(focus.fallback);
               }
@@ -1500,6 +1504,8 @@ export function CampusMapRuntime({
     ? (buildingById.get(selectedFacility.buildingId) ?? null)
     : buildingFor(state.selection, buildings);
   const activeCategory = knownBrowseCategory(state.mapFilter.category);
+  const categoryPanelActive =
+    session.mode === "browse" && session.scene.kind === "category-results";
   const selectedMarkerPlaceId = selectedFacility?.placeId ?? null;
   const selectedFacilityBackLabel = selectedFacility
     ? facilityBackLabel(driverSnapshot.returnTo)
@@ -2678,9 +2684,13 @@ export function CampusMapRuntime({
   const buildingFacilityGroups = selectedBuilding
     ? groupBuildingFacilities(selectedBuilding, buildingFacilities)
     : [];
-  const categoryResults = activeCategory
-    ? queryCampusMapBrowse(browseProjection, { placeType: activeCategory })
-    : null;
+  const categoryResults = useMemo(
+    () =>
+      activeCategory
+        ? queryCampusMapBrowse(browseProjection, { placeType: activeCategory })
+        : null,
+    [activeCategory, browseProjection],
+  );
   const categoryDistanceByPlaceId = useMemo(() => {
     if (!activeCategory || userLocation.status !== "located") {
       return new Map<
@@ -2703,7 +2713,8 @@ export function CampusMapRuntime({
   }, [activeCategory, browseProjection, userLocation]);
   const categoryFacilities = useMemo(() => {
     const places = categoryResults?.places ?? [];
-    if (!categoryDistanceByPlaceId.size) return places;
+    if (activeCategory === "classroom" || !categoryDistanceByPlaceId.size)
+      return places;
     return [...places].sort((first, second) => {
       const firstDistance = categoryDistanceByPlaceId.get(first.placeId);
       const secondDistance = categoryDistanceByPlaceId.get(second.placeId);
@@ -2712,7 +2723,7 @@ export function CampusMapRuntime({
       if (secondDistance === undefined) return -1;
       return firstDistance.distanceMeters - secondDistance.distanceMeters;
     });
-  }, [categoryDistanceByPlaceId, categoryResults]);
+  }, [activeCategory, categoryDistanceByPlaceId, categoryResults]);
   const activeCategoryStyle = activeCategory
     ? placeTypeStyle(activeCategory)
     : null;
@@ -2790,9 +2801,6 @@ export function CampusMapRuntime({
     (selectedBuilding || selectedFacility),
   );
   const cardSnap = state.sheet.snap === "hidden" ? "peek" : state.sheet.snap;
-  const mobilePanelHeight = canonicalCardVisible
-    ? campusMapBrowsePanelHeight(cardSnap)
-    : campusMapMobilePanelHeight(mobilePanelLayout);
   const shareHref = canonicalCardVisible
     ? `/campus-map?${encodeCampusMapUrl(
         selectedFacility
@@ -2827,6 +2835,12 @@ export function CampusMapRuntime({
     : selectedBuilding?.anchor
       ? "定位建筑"
       : null;
+  const mobilePanelHeight =
+    categoryPanelActive && state.sheet.snap === "full"
+      ? "min(640px, 72dvh)"
+      : canonicalCardVisible
+        ? campusMapBrowsePanelHeight(cardSnap)
+        : campusMapMobilePanelHeight(mobilePanelLayout);
   const mobileMapOcclusion = panelHidden
     ? "0px"
     : canonicalCardVisible
@@ -3210,52 +3224,22 @@ export function CampusMapRuntime({
           browseChromeHidden && "invisible pointer-events-none opacity-0",
         )}
       >
-        <nav
-          aria-label="设施筛选"
-          className="pointer-events-auto flex w-full gap-1.5 overflow-x-auto py-1 pr-5 [scrollbar-width:none] md:w-auto md:max-w-[calc(100%-32px)] md:gap-2 md:pr-1 [&::-webkit-scrollbar]:hidden"
-        >
-          {CATEGORIES.map((category) => {
-            const Icon = category.icon;
-            const active = state.mapFilter.category === category.id;
-            return (
-              <button
-                ref={active ? activeCategoryFilterRef : undefined}
-                key={category.id}
-                type="button"
-                data-category-filter={category.id}
-                aria-pressed={active}
-                className={cn(
-                  "flex h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[13px] font-medium shadow-[0_2px_10px_rgba(23,33,28,.14)] transition-[background-color,border-color,color,transform] active:scale-[0.98] md:gap-2 md:text-sm motion-reduce:transform-none",
-                  active
-                    ? "border-[#176346] bg-[#176346] text-white"
-                    : "border-black/10 bg-white text-neutral-700 hover:bg-neutral-50",
-                )}
-                onClick={() => {
-                  clearTransientHotspot();
-                  if (
-                    session.mode === "browse" &&
-                    session.scene.kind === "category-results" &&
-                    session.scene.category === category.id
-                  ) {
-                    closeSelection();
-                  } else {
-                    dispatch({ type: "OPEN_CATEGORY", category: category.id });
-                  }
-                }}
-              >
-                <Icon
-                  aria-hidden="true"
-                  className="size-4"
-                  style={active ? undefined : { color: category.color }}
-                />
-                {category.label}
-              </button>
-            );
-          })}
-        </nav>
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#dce7e9] to-transparent md:hidden"
+        <CampusMapCategoryFilters
+          activeCategory={activeCategory}
+          activeFilterRef={activeCategoryFilterRef}
+          moreFilterRef={moreCategoryFilterRef}
+          onSelect={(category) => {
+            clearTransientHotspot();
+            if (
+              session.mode === "browse" &&
+              session.scene.kind === "category-results" &&
+              session.scene.category === category
+            ) {
+              closeSelection();
+            } else {
+              dispatch({ type: "OPEN_CATEGORY", category });
+            }
+          }}
         />
       </div>
 
@@ -3356,6 +3340,8 @@ export function CampusMapRuntime({
           canonicalCardVisible
             ? "h-[var(--campus-map-drag-height,var(--campus-map-panel-height))] border-border bg-white text-[#202124] shadow-[0_2px_8px_rgba(32,33,36,.15)] [--border:#dadce0] [--foreground:#202124] [--muted:#f1f3f4] [--muted-foreground:#5f6368] dark:bg-[#202124] dark:text-[#e8eaed] dark:[--border:#5f6368] dark:[--foreground:#e8eaed] dark:[--muted:#303134] dark:[--muted-foreground:#bdc1c6]"
             : "h-[var(--campus-map-panel-height)]",
+          categoryPanelActive &&
+            "dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-100",
           editSession &&
             editSession.status !== "selecting-location" &&
             editSession.status !== "placing"
@@ -3502,119 +3488,66 @@ export function CampusMapRuntime({
           state.mapFilter.category &&
           !selectedFacility &&
           activeCategoryStyle ? (
-          <div id="campus-map-panel-content" className="flex h-full flex-col">
-            <div className="flex items-center border-b border-black/10 px-5 pb-3">
-              <h2
-                id="campus-map-panel-title"
-                ref={panelTitleRef}
-                tabIndex={-1}
-                aria-label={activeCategoryStyle.label}
-                aria-describedby="campus-map-category-count"
-                className="-ml-2 min-w-0 flex-1 truncate pl-2 text-xl font-semibold focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346]"
-              >
-                {activeCategoryStyle.label}
-                {categoryFacilities.length > 0 ? (
-                  <span
-                    aria-hidden="true"
-                    className="font-normal text-neutral-500"
-                  >
-                    {` · ${categoryFacilities.length} 处`}
-                  </span>
-                ) : null}
-              </h2>
-              <span id="campus-map-category-count" className="sr-only">
-                {categoryFacilities.length} 处设施
-              </span>
-              <button
-                type="button"
-                aria-label={`关闭${activeCategoryStyle.label}列表`}
-                className="grid size-11 place-items-center rounded-full hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-                onClick={closeSelection}
-              >
-                <XIcon aria-hidden="true" className="size-5" />
-              </button>
-            </div>
-            {clusterStatus !== "ready" ? (
-              <p
-                role="status"
-                className={cn(
-                  "mx-5 mt-3 rounded-lg px-3 py-2 text-xs",
-                  clusterStatus === "error"
-                    ? "bg-amber-50 text-amber-900"
-                    : "bg-neutral-100 text-neutral-600",
-                )}
-              >
-                {clusterStatus === "error"
-                  ? "地图标记加载失败，列表仍可使用"
-                  : "地图标记正在加载"}
-              </p>
-            ) : null}
-            <div
-              ref={listResultsRef}
-              className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,var(--campus-map-safe-area-bottom))] md:pb-5"
-            >
-              {categoryFacilities.map((facility) => {
-                const building = facility.buildingId
-                  ? buildingById.get(facility.buildingId)
-                  : undefined;
-                const visibleBuildingName = building
-                  ? campusMapBuildingDisplayFor(
-                      buildingDisplay,
-                      building.buildingId,
-                    )?.label
-                  : undefined;
-                const card = placeCardFor(
-                  facility,
-                  building,
-                  visibleBuildingName,
-                );
-                return (
-                  <FacilityResultButton
-                    key={facility.placeId}
-                    facility={facility}
-                    location={card.locationLabel}
-                    coverPhoto={placeCovers[facility.placeId]}
-                    summary={metadataLabel(
-                      categoryDistanceByPlaceId.has(facility.placeId)
-                        ? nearbyDistanceLabel(
-                            categoryDistanceByPlaceId.get(facility.placeId)!,
-                          )
-                        : null,
-                      facilityFeedbackSummaryLabel(
-                        facility,
-                        initialFeedbackSummaries[facility.placeId],
-                      ),
-                      card.primaryFact?.value,
-                    )}
-                    variant="category"
-                    onSelect={() => selectFacility(facility, "category")}
-                  />
-                );
-              })}
-              {categoryFacilities.length ? (
-                <button
-                  type="button"
-                  className="mt-2 flex min-h-11 touch-manipulation items-center gap-1 rounded-lg px-2 text-sm font-medium text-[#176346] hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-                  onClick={startFacilityForActiveCategory}
-                >
-                  <PlusIcon aria-hidden="true" className="size-4" />
-                  新增{activeCategoryStyle.label}
-                </button>
-              ) : null}
-              {!categoryFacilities.length ? (
-                <div className="py-6 text-center text-sm text-neutral-500">
-                  <p>暂未收录{activeCategoryStyle.label}</p>
-                  <button
-                    type="button"
-                    className="mt-3 min-h-11 rounded-xl bg-[#174b38] px-4 font-semibold text-white"
-                    onClick={startFacilityForActiveCategory}
-                  >
-                    新增{activeCategoryStyle.label}
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
+          <CampusMapCategoryResultsPanel
+            key={activeCategoryStyle.id}
+            category={activeCategoryStyle.id}
+            facilities={categoryFacilities}
+            buildings={buildingById}
+            buildingLabel={(building) =>
+              campusMapBuildingDisplayFor(buildingDisplay, building.buildingId)
+                ?.label ?? building.name
+            }
+            rowMetadata={(facility) => {
+              const building = facility.buildingId
+                ? buildingById.get(facility.buildingId)
+                : undefined;
+              const label = building
+                ? campusMapBuildingDisplayFor(
+                    buildingDisplay,
+                    building.buildingId,
+                  )?.label
+                : undefined;
+              const card = placeCardFor(facility, building, label);
+              return {
+                location: card.locationLabel,
+                summary: metadataLabel(
+                  activeCategory !== "classroom" &&
+                    categoryDistanceByPlaceId.has(facility.placeId)
+                    ? nearbyDistanceLabel(
+                        categoryDistanceByPlaceId.get(facility.placeId)!,
+                      )
+                    : null,
+                  facilityFeedbackSummaryLabel(
+                    facility,
+                    initialFeedbackSummaries[facility.placeId],
+                  ),
+                  card.primaryFact?.value,
+                ),
+              };
+            }}
+            covers={placeCovers}
+            expanded={state.sheet.snap === "full"}
+            clusterStatus={clusterStatus}
+            titleRef={panelTitleRef}
+            resultsRef={listResultsRef}
+            onSelect={(facility) => selectFacility(facility, "category")}
+            onClose={closeSelection}
+            onAdd={startFacilityForActiveCategory}
+            onExpand={(expanded) =>
+              dispatch({ type: "SET_SNAP", snap: expanded ? "full" : "peek" })
+            }
+            onSwitchCategory={() => {
+              const nextCategory =
+                CATEGORIES.find(
+                  (category) =>
+                    category.id !== activeCategory &&
+                    places.some((place) => place.placeType === category.id),
+                ) ??
+                CATEGORIES.find((category) => category.id !== activeCategory);
+              if (nextCategory)
+                dispatch({ type: "OPEN_CATEGORY", category: nextCategory.id });
+            }}
+          />
         ) : selectedBuilding || selectedFacility ? (
           <div
             id="campus-map-panel-content"
