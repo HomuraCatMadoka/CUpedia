@@ -22,6 +22,7 @@ import {
   MinusIcon,
   PlusIcon,
   SearchIcon,
+  SchoolIcon,
   XIcon,
 } from "lucide-react";
 
@@ -81,6 +82,7 @@ import {
 } from "@/lib/campus-map/amap-browse-projection";
 import {
   CAMPUS_MAP_DEFAULT_VIEW_CENTER as CAMPUS_CENTER,
+  CAMPUS_MAP_DEFAULT_VIEW_BOUNDS,
   EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
   queryCampusMapBrowse,
   queryCampusMapNearby,
@@ -743,6 +745,12 @@ export function CampusMapRuntime({
   const providerProjectionIntentRef = useRef(0);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
+  const selectedPlaceCameraRef = useRef(false);
+  const [locateFeedback, setLocateFeedback] = useState<{
+    placeId: string;
+    message: string;
+    revision: number;
+  } | null>(null);
   const canonicalBrowseLayerRef =
     useRef<AmapCanonicalBrowseLayer<AMapMap> | null>(null);
   const cameraGateRef = useRef(new CameraRequestGate());
@@ -869,6 +877,16 @@ export function CampusMapRuntime({
               ? rect(panelRef.current)
               : null;
           const policy = cameraPolicyFor(reason, mapRect, panelRect);
+          if (policy && selectedPlaceCameraRef.current) {
+            // Reserve space for the selected label as well as the point itself.
+            const padding = deriveCameraPadding(mapRect, panelRect);
+            policy.padding = {
+              top: Math.max(220, padding.top + 76),
+              right: padding.right + 76,
+              bottom: padding.bottom + 20,
+              left: padding.left + 76,
+            };
+          }
           if (!policy) {
             if (pendingSelectionTokenRef.current === request.token) {
               pendingSelectionTokenRef.current = null;
@@ -1281,10 +1299,23 @@ export function CampusMapRuntime({
         ].slice(-8);
       }
       pendingPlacementCameraRef.current = null;
-      if (camera.kind === "fit") {
+      if (camera.kind === "fit" || camera.kind === "campus-extent") {
         cameraGateRef.current.invalidate();
-        const longitudes = camera.positions.map((position) => position[0]);
-        const latitudes = camera.positions.map((position) => position[1]);
+        const positions =
+          camera.kind === "fit"
+            ? camera.positions
+            : CAMPUS_MAP_DEFAULT_VIEW_BOUNDS.flatMap((position) => {
+                const projected = projectCampusMapWgs84ToAmap(
+                  asWgs84Position(position),
+                  "approximate",
+                );
+                return projected.status === "projected"
+                  ? [projected.position]
+                  : [];
+              });
+        if (positions.length === 0) return;
+        const longitudes = positions.map((position) => position[0]);
+        const latitudes = positions.map((position) => position[1]);
         const bounds = new AMap.Bounds(
           new AMap.LngLat(Math.min(...longitudes), Math.min(...latitudes)),
           new AMap.LngLat(Math.max(...longitudes), Math.max(...latitudes)),
@@ -1299,7 +1330,7 @@ export function CampusMapRuntime({
           bounds,
           false,
           [padding.top, padding.bottom, padding.left, padding.right],
-          18,
+          camera.kind === "campus-extent" ? 16 : 18,
         );
         return;
       }
@@ -1453,6 +1484,9 @@ export function CampusMapRuntime({
     : buildingFor(state.selection, buildings);
   const activeCategory = knownBrowseCategory(state.mapFilter.category);
   const selectedMarkerPlaceId = selectedFacility?.placeId ?? null;
+  useLayoutEffect(() => {
+    selectedPlaceCameraRef.current = selectedMarkerPlaceId !== null;
+  }, [selectedMarkerPlaceId]);
   const selectedFacilityBackLabel = selectedFacility
     ? facilityBackLabel(driverSnapshot.returnTo)
     : "返回地图";
@@ -1617,9 +1651,13 @@ export function CampusMapRuntime({
     : null;
   const visibleMarkerPlaceIds = useMemo(() => {
     if (activeCategory) {
-      return places
+      const categoryIds = places
         .filter((place) => place.placeType === activeCategory)
         .map((place) => place.placeId);
+      return selectedMarkerPlaceId &&
+        !categoryIds.includes(selectedMarkerPlaceId)
+        ? [...categoryIds, selectedMarkerPlaceId]
+        : categoryIds;
     }
     if (selectedMarkerPlaceId) return [selectedMarkerPlaceId];
     return searchResults.flatMap((result) =>
@@ -2519,7 +2557,6 @@ export function CampusMapRuntime({
   useEffect(() => {
     if (
       !mapReady ||
-      clusterStatus !== "ready" ||
       coordinateVersion === 0 ||
       !window.AMap ||
       !canonicalBrowseLayerRef.current
@@ -2528,7 +2565,12 @@ export function CampusMapRuntime({
     const synced = canonicalBrowseLayerRef.current.render({
       projection: browseProjection,
       providerPositions: amapPositionsRef.current,
-      mode: markerMode,
+      mode:
+        clusterStatus === "ready"
+          ? markerMode
+          : markerMode.kind === "places" && markerMode.selectedPlaceId
+            ? { ...markerMode, placeIds: [markerMode.selectedPlaceId] }
+            : { kind: "hidden" },
     });
     if (!synced) {
       queueMicrotask(() => setClusterStatus("error"));
@@ -2715,7 +2757,9 @@ export function CampusMapRuntime({
     mobilePanelLayout = {
       kind: "place",
       hasSummary: Boolean(
-        selectedPlaceShowsLocation || selectedPlaceCard?.primaryFact,
+        selectedPlaceShowsLocation ||
+        selectedPlaceCard?.primaryFact ||
+        locateFeedback?.placeId === selectedFacility.placeId,
       ),
       hasOfficialActions: Boolean(selectedPlaceCard?.officialActions.length),
     };
@@ -3128,6 +3172,20 @@ export function CampusMapRuntime({
             ) : null}
           </div>
         ) : null}
+        <button
+          type="button"
+          aria-label="回到校园"
+          disabled={!mapReady}
+          className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 bg-white px-3 text-sm font-semibold shadow-[0_4px_16px_rgba(23,33,28,.18)] hover:bg-neutral-50 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+          onClick={() => {
+            cancelPendingUserLocation();
+            dispatch({ type: "RETURN_TO_CAMPUS" });
+            setLocateFeedback(null);
+          }}
+        >
+          <SchoolIcon aria-hidden="true" className="size-5" />
+          回到校园
+        </button>
         <button
           type="button"
           aria-label={
@@ -3576,6 +3634,32 @@ export function CampusMapRuntime({
                   aria-label="地点操作"
                   className="mt-4 flex flex-wrap items-center gap-2"
                 >
+                  <button
+                    type="button"
+                    className="flex min-h-11 touch-manipulation items-center gap-2 rounded-xl border border-[#174b38] px-3 text-sm font-semibold text-[#174b38] hover:bg-[#edf5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] max-[359px]:gap-1 max-[359px]:px-2 max-[359px]:text-xs"
+                    onClick={() => {
+                      const supported =
+                        selectedFacility.location.kind === "outdoor-point" ||
+                        Boolean(selectedBuilding?.anchor);
+                      const message = !mapReady
+                        ? "地图暂时不可用，仍可查看地点位置资料。"
+                        : !supported
+                          ? "尚未掌握可显示的地图位置，请查看建筑与楼层资料。"
+                          : selectedFacility.buildingId
+                            ? `地图目标：${selectedFacility.name} 所属建筑，非室内精确位置。`
+                            : `地图目标：${selectedFacility.name}，${selectedFacility.location.kind === "outdoor-point" && selectedFacility.location.point.precision === "precise" ? "精确" : "约略"}室外位置。`;
+                      if (mapReady && supported)
+                        dispatch({ type: "REFRAME", reason: "map-selection" });
+                      setLocateFeedback((previous) => ({
+                        placeId: selectedFacility.placeId,
+                        message,
+                        revision: (previous?.revision ?? 0) + 1,
+                      }));
+                    }}
+                  >
+                    <LocateFixedIcon aria-hidden="true" className="size-4" />
+                    {selectedFacility.buildingId ? "定位所属建筑" : "定位地点"}
+                  </button>
                   <a
                     href={selectedFacilityDetailHref}
                     onClick={(event) => {
@@ -3602,29 +3686,28 @@ export function CampusMapRuntime({
                       });
                       window.location.replace(event.currentTarget.href);
                     }}
-                    className="flex min-h-11 touch-manipulation items-center rounded-lg px-2 text-sm font-semibold text-[#174b38] hover:bg-[#edf5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                    className="flex min-h-11 touch-manipulation items-center rounded-lg px-2 text-sm font-semibold text-[#174b38] hover:bg-[#edf5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] max-[359px]:text-xs"
                   >
                     详情与记录
                   </a>
-                  {!selectedFacility.buildingId ? (
-                    <button
-                      type="button"
-                      className="min-h-11 touch-manipulation rounded-xl border border-[#174b38] px-3 text-sm font-semibold text-[#174b38] hover:bg-[#edf5f1] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none"
-                      onClick={() =>
-                        dispatch({ type: "REFRAME", reason: "map-selection" })
-                      }
-                    >
-                      定位地点
-                    </button>
-                  ) : null}
                   <button
                     type="button"
-                    className="ml-auto min-h-11 touch-manipulation rounded-xl px-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-100 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] motion-reduce:transform-none"
+                    className="ml-auto min-h-11 touch-manipulation rounded-xl px-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-100 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] max-[359px]:px-2 max-[359px]:text-xs motion-reduce:transform-none"
                     onClick={() => startEdit(selectedFacility)}
                   >
                     建议修改
                   </button>
                 </div>
+                {locateFeedback?.placeId === selectedFacility.placeId ? (
+                  <p
+                    key={locateFeedback.revision}
+                    role="status"
+                    data-campus-map-locate-feedback
+                    className="mt-2 text-xs leading-5 text-neutral-600"
+                  >
+                    {locateFeedback.message}
+                  </p>
+                ) : null}
               </div>
             ) : selectedBuilding ? (
               <>

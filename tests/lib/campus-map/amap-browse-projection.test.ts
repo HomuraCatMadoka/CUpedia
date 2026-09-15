@@ -2,7 +2,11 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it } from "vitest";
-
+import { CAMPUS_MAP_DEFAULT_VIEW_BOUNDS } from "@/lib/campus-map/browse-projection";
+import {
+  asWgs84Position,
+  projectCampusMapWgs84ToAmap,
+} from "@/lib/campus-map/amap-position";
 import {
   campusMapAmapBuildingPositionKey,
   campusMapAmapCoordinateProjectionSignature,
@@ -10,6 +14,15 @@ import {
 } from "@/lib/campus-map/amap-browse-projection";
 import { projectCampusMapBrowse } from "@/lib/campus-map/browse-projection";
 import type { CampusMapCurrentPlace } from "@/lib/campus-map/fact-store";
+
+it("can project both configured campus extent corners without provider fallback", () => {
+  for (const corner of CAMPUS_MAP_DEFAULT_VIEW_BOUNDS) {
+    expect(
+      projectCampusMapWgs84ToAmap(asWgs84Position(corner), "approximate")
+        .status,
+    ).toBe("projected");
+  }
+});
 
 const BUILDING_ID = "10000000-0000-4000-8000-000000000001";
 const FLOOR_ID = "20000000-0000-4000-8000-000000000001";

@@ -131,6 +131,15 @@ export function CampusMapFacilityResultButton({
               <Icon aria-hidden="true" className="size-6" />
             </span>
           )}
+          {coverPhoto ? (
+            <span
+              aria-hidden="true"
+              className="absolute right-0 bottom-0 grid size-7 place-items-center rounded-tl-lg border-2 border-white text-white"
+              style={{ background: style.color }}
+            >
+              <Icon aria-hidden="true" className="size-4" />
+            </span>
+          ) : null}
         </span>
       ) : showsIcon ? (
         <span
