@@ -9,10 +9,12 @@ import {
   type ReactNode,
 } from "react";
 
-import {
-  campusMapNearestBrowseSheetSnap,
-  type CampusMapBrowseSheetSnap,
-} from "@/lib/campus-map/card-layout";
+import { campusMapNearestBrowseSheetSnap } from "@/lib/campus-map/card-layout";
+import type { CampusMapBrowseSheetSnap } from "@/lib/campus-map/scene-kernel";
+
+function resolvePanel(controls: HTMLElement | null) {
+  return controls?.closest<HTMLElement>("[data-campus-map-panel]") ?? null;
+}
 
 export function CampusMapBrowseSheetControls({
   snap,
@@ -34,6 +36,7 @@ export function CampusMapBrowseSheetControls({
     moved: boolean;
   } | null>(null);
   const suppressClickRef = useRef(false);
+  const measurementsRef = useRef({ contentHeight: 0, coreHeight: 0 });
   const [canExpand, setCanExpand] = useState(false);
 
   useLayoutEffect(() => {
@@ -60,8 +63,9 @@ export function CampusMapBrowseSheetControls({
   useLayoutEffect(() => {
     const controls = controlsRef.current;
     const content = controls?.parentElement;
-    const panel = content?.parentElement;
-    if (!controls || !content || !panel) return;
+    const panel = resolvePanel(controls);
+    const layoutRoot = panel?.parentElement;
+    if (!controls || !content || !panel || !layoutRoot) return;
     const measure = () => {
       const scroll = content.querySelector<HTMLElement>(
         "[data-campus-map-card-scroll]",
@@ -77,36 +81,29 @@ export function CampusMapBrowseSheetControls({
         total += height;
         if (child !== scroll) core += height;
       }
-      panel.style.setProperty(
+      measurementsRef.current = { contentHeight: total, coreHeight: core };
+      layoutRoot.style.setProperty(
         "--campus-map-browse-content-height",
         `${Math.ceil(total)}px`,
       );
-      panel.style.setProperty(
-        "--campus-map-browse-core-height",
-        `${Math.ceil(core)}px`,
-      );
-      panel.parentElement?.style.setProperty(
-        "--campus-map-browse-content-height",
-        `${Math.ceil(total)}px`,
-      );
-      panel.parentElement?.style.setProperty(
+      layoutRoot.style.setProperty(
         "--campus-map-browse-core-height",
         `${Math.ceil(core)}px`,
       );
       const viewport = window.visualViewport?.height ?? window.innerHeight;
-      panel.parentElement?.style.setProperty(
+      layoutRoot.style.setProperty(
         "--campus-map-browse-viewport-height",
         `${viewport}px`,
       );
       const bottomInset = window.visualViewport
         ? Math.max(
             0,
-            panel.parentElement!.getBoundingClientRect().height -
+            layoutRoot.getBoundingClientRect().height -
               viewport -
               window.visualViewport.offsetTop,
           )
         : 0;
-      panel.parentElement?.style.setProperty(
+      layoutRoot.style.setProperty(
         "--campus-map-browse-bottom-inset",
         `${bottomInset}px`,
       );
@@ -140,18 +137,10 @@ export function CampusMapBrowseSheetControls({
       window.visualViewport?.removeEventListener("scroll", measure);
       window.removeEventListener("resize", measure);
       panel.style.removeProperty("--campus-map-drag-height");
-      panel.parentElement?.style.removeProperty(
-        "--campus-map-browse-content-height",
-      );
-      panel.parentElement?.style.removeProperty(
-        "--campus-map-browse-core-height",
-      );
-      panel.parentElement?.style.removeProperty(
-        "--campus-map-browse-viewport-height",
-      );
-      panel.parentElement?.style.removeProperty(
-        "--campus-map-browse-bottom-inset",
-      );
+      layoutRoot.style.removeProperty("--campus-map-browse-content-height");
+      layoutRoot.style.removeProperty("--campus-map-browse-core-height");
+      layoutRoot.style.removeProperty("--campus-map-browse-viewport-height");
+      layoutRoot.style.removeProperty("--campus-map-browse-bottom-inset");
     };
   }, []);
 
@@ -163,7 +152,7 @@ export function CampusMapBrowseSheetControls({
     if (!drag || drag.pointerId !== event.pointerId) return;
     dragRef.current = null;
     suppressClickRef.current = drag.moved;
-    const panel = controlsRef.current?.parentElement?.parentElement;
+    const panel = resolvePanel(controlsRef.current);
     if (!panel) return;
     const height = panel.getBoundingClientRect().height;
     panel.style.removeProperty("--campus-map-drag-height");
@@ -171,12 +160,8 @@ export function CampusMapBrowseSheetControls({
     onSnap(
       campusMapNearestBrowseSheetSnap(
         height,
-        Number.parseFloat(
-          panel.style.getPropertyValue("--campus-map-browse-content-height"),
-        ),
-        Number.parseFloat(
-          panel.style.getPropertyValue("--campus-map-browse-core-height"),
-        ),
+        measurementsRef.current.contentHeight,
+        measurementsRef.current.coreHeight,
         window.visualViewport?.height ?? window.innerHeight,
       ),
     );
@@ -207,7 +192,7 @@ export function CampusMapBrowseSheetControls({
           onPointerDown={(event) => {
             if (!event.isPrimary || event.button !== 0) return;
             suppressClickRef.current = false;
-            const panel = controlsRef.current?.parentElement?.parentElement;
+            const panel = resolvePanel(controlsRef.current);
             if (!panel) return;
             dragRef.current = {
               pointerId: event.pointerId,
@@ -219,17 +204,14 @@ export function CampusMapBrowseSheetControls({
           }}
           onPointerMove={(event) => {
             const drag = dragRef.current;
-            const panel = controlsRef.current?.parentElement?.parentElement;
+            const panel = resolvePanel(controlsRef.current);
             if (!drag || drag.pointerId !== event.pointerId || !panel) return;
             const delta = drag.y - event.clientY;
             if (Math.abs(delta) < 6 && !drag.moved) return;
             drag.moved = true;
             const viewport =
               window.visualViewport?.height ?? window.innerHeight;
-            const core =
-              Number.parseFloat(
-                panel.style.getPropertyValue("--campus-map-browse-core-height"),
-              ) || 0;
+            const core = measurementsRef.current.coreHeight;
             panel.style.setProperty(
               "--campus-map-drag-height",
               `${Math.max(core, Math.min(viewport - 80, drag.height + delta))}px`,

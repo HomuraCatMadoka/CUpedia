@@ -32,6 +32,10 @@ catalog the source of map facts.
   rejects superseded tokens, and replaces the current task history entry with
   the canonical Place. It is not a `RESTORE` event and never adds a task entry
   that Back can reopen.
+- `CLOSE_BROWSE_SELECTION` is the driver-level close intent. The driver returns
+  an owned selection to its recorded source and projects a directly loaded
+  Place or Content scene to its canonical Building/map fallback; UI callers do
+  not inspect driver state to choose between dismissal and navigation.
 - `scene-semantics.ts` is an internal seam, not a second product API. Its single
   resolver owns session validity, catalog-derived context, restore focus,
   contribution anchors, and the normalized URL session consumed by the kernel
@@ -58,20 +62,20 @@ building, floor, or category fields.
 `history`, `camera`, and `focus` are scalar command slots, so a transition
 cannot emit more than one command of each kind.
 
-| Event                | Accepted from              | Next scene                             | History                                           | Camera                                                                                                           | Focus                                                  |
-| -------------------- | -------------------------- | -------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `OPEN_MAP`           | any browse scene           | map                                    | replace                                           | cancel                                                                                                           | map                                                    |
-| `SEARCH`             | browse                     | search-results, or map for blank query | replace                                           | cancel                                                                                                           | search input                                           |
-| `OPEN_CATEGORY`      | browse                     | category-results                       | entity detail: push; other browse scenes: replace | cancel                                                                                                           | results                                                |
-| `OPEN_BUILDING`      | browse                     | building                               | push                                              | focus building using #593 reason                                                                                 | heading                                                |
-| `OPEN_PLACE`         | browse                     | place                                  | push                                              | map/search source focuses the public Place point or available Building anchor; no target/building source cancels | heading                                                |
-| `OPEN_CONTENT`       | browse                     | content                                | push                                              | map source focuses derived building; building source cancels                                                     | heading                                                |
-| `SET_SNAP`           | sheet-bearing browse scene | same identity, new snap                | replace                                           | none                                                                                                             | unchanged for Place; other full sheets use the heading |
-| `SET_BUILDING_FLOOR` | building                   | same building, validated floor         | replace                                           | none                                                                                                             | results                                                |
-| `START_CREATE`       | browse                     | create task                            | push                                              | cancel                                                                                                           | contribution form                                      |
-| `START_EDIT`         | browse                     | edit task with stable Place ID         | push                                              | cancel                                                                                                           | contribution form                                      |
-| `CANCEL_TASK`        | task                       | anchor projection or map               | back-or-push                                      | cancel                                                                                                           | scene heading                                          |
-| `RESTORE`            | any                        | normalized decoded session             | none                                              | derived entity focus or cancel                                                                                   | matching result or scene focus                         |
+| Event                | Accepted from              | Next scene                                         | History                                           | Camera                                                                                                           | Focus                                                  |
+| -------------------- | -------------------------- | -------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `OPEN_MAP`           | any browse scene           | map                                                | replace                                           | cancel                                                                                                           | map                                                    |
+| `SEARCH`             | browse                     | search-results, or map for blank query             | replace                                           | cancel                                                                                                           | search input                                           |
+| `OPEN_CATEGORY`      | browse                     | category-results                                   | entity detail: push; other browse scenes: replace | cancel                                                                                                           | results                                                |
+| `OPEN_BUILDING`      | browse                     | building                                           | push                                              | focus building using #593 reason                                                                                 | heading                                                |
+| `OPEN_PLACE`         | browse                     | place                                              | push                                              | map/search source focuses the public Place point or available Building anchor; no target/building source cancels | heading                                                |
+| `OPEN_CONTENT`       | browse                     | content                                            | push                                              | map source focuses derived building; building source cancels                                                     | heading                                                |
+| `SET_SNAP`           | sheet-bearing browse scene | same identity, new snap                            | replace                                           | none                                                                                                             | unchanged for Place; other full sheets use the heading |
+| `SET_BUILDING_FLOOR` | building                   | same building, validated floor                     | replace                                           | none                                                                                                             | results                                                |
+| `START_CREATE`       | browse                     | create task                                        | push                                              | cancel                                                                                                           | contribution form                                      |
+| `START_EDIT`         | browse                     | edit task with stable Place ID                     | push                                              | cancel                                                                                                           | contribution form                                      |
+| `CANCEL_TASK`        | task                       | edit: same Place; create: anchor projection or map | back-or-push                                      | cancel                                                                                                           | scene heading                                          |
+| `RESTORE`            | any                        | normalized decoded session                         | none                                              | derived entity focus or cancel                                                                                   | matching result or scene focus                         |
 
 Events outside the listed source scenes, unknown catalog IDs, and invalid
 floors are explicitly rejected with no state change and no commands.
@@ -91,7 +95,10 @@ History is projected from an internal navigation class instead of being a
 fixed property of an event: `enter` maps to `push`, `refine` to `replace`,
 `return` to `back-or-push`, and `restore` and `noop` to no history
 command. This is why entering category results from an entity detail is
-returnable while switching result filters replaces the current entry.
+returnable while switching result filters replaces the current entry. The
+driver resolves a direct task's `back-or-push` cancellation to `replace`
+because there is no owned Campus Map entry to return to; this prevents Back
+from reopening an already closed task.
 
 ## Invariants
 

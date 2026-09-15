@@ -14,13 +14,11 @@ export function CampusMapPlaceCardContent({
   card,
   className,
   showLocation = true,
-  compact = false,
   presentation = "detail",
 }: {
   card: CampusMapPlaceCardProjection;
   className?: string;
   showLocation?: boolean;
-  compact?: boolean;
   presentation?: "detail" | "map";
 }) {
   const visibleFacts = [card.primaryFact, ...card.detailFacts].filter(
@@ -164,7 +162,7 @@ export function CampusMapPlaceCardContent({
         </section>
       ) : null}
 
-      {presentation === "detail" && !compact && hasMoreInformation ? (
+      {presentation === "detail" && hasMoreInformation ? (
         <details className="border-t border-border/50 text-sm">
           <summary className="min-h-11 cursor-pointer rounded-lg py-3 text-[13px] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             资料来源与核对时间

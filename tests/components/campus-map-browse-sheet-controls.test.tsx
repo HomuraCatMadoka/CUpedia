@@ -4,7 +4,7 @@ import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CampusMapBrowseSheetControls } from "@/components/campus-map/browse-sheet-controls";
-import type { CampusMapBrowseSheetSnap } from "@/lib/campus-map/card-layout";
+import type { CampusMapBrowseSheetSnap } from "@/lib/campus-map/scene-kernel";
 
 const captureDescriptor = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,
@@ -81,21 +81,23 @@ function sheet() {
     const [snap, setSnap] = useState<CampusMapBrowseSheetSnap>("peek");
     return (
       <main>
-        <section data-panel>
-          <div>
-            <CampusMapBrowseSheetControls
-              snap={snap}
-              onSnap={(next) => {
-                onSnap(next);
-                setSnap(next);
-              }}
-            >
-              <header data-header>地点名称与固定操作</header>
-              <div id="campus-map-card-details" data-campus-map-card-scroll>
-                <div data-natural>详细信息</div>
-              </div>
-            </CampusMapBrowseSheetControls>
-          </div>
+        <section data-campus-map-panel data-panel>
+          <article>
+            <div>
+              <CampusMapBrowseSheetControls
+                snap={snap}
+                onSnap={(next) => {
+                  onSnap(next);
+                  setSnap(next);
+                }}
+              >
+                <header data-header>地点名称与固定操作</header>
+                <div id="campus-map-card-details" data-campus-map-card-scroll>
+                  <div data-natural>详细信息</div>
+                </div>
+              </CampusMapBrowseSheetControls>
+            </div>
+          </article>
         </section>
       </main>
     );

@@ -3169,7 +3169,7 @@ describe("CampusMapRuntime", () => {
     expect(replace.mock.calls.length - replacesBefore).toBe(1);
   });
 
-  it("closes a direct indoor Place without a duplicate Back control", async () => {
+  it("closes a direct indoor Place to its Building without a duplicate Back control", async () => {
     const push = vi.spyOn(window.history, "pushState");
     render(
       <CampusMapRuntime initialSearch="?v=1&scene=place&id=71000000-0000-4000-8000-000000000003&snap=peek" />,
@@ -3179,8 +3179,13 @@ describe("CampusMapRuntime", () => {
 
     expect(screen.queryByRole("button", { name: "返回" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "关闭地点详情" }));
-    await waitFor(() => expect(window.location.search).toBe("?v=1"));
-    expect(push.mock.calls.length - before).toBe(0);
+    await waitFor(() =>
+      expect(window.location.search).toBe(
+        "?v=1&scene=building&id=wmy&floor=5&snap=peek",
+      ),
+    );
+    expect(screen.getByRole("heading", { name: "伍何曼原楼" })).not.toBeNull();
+    expect(push.mock.calls.length - before).toBe(1);
   });
 
   it("does not repeat an indoor Building action or precision warning", async () => {

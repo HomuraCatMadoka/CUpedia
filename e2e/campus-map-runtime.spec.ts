@@ -415,7 +415,7 @@ test("search and marker open one canonical Place card", async ({ page }) => {
   ).toHaveCount(0);
 
   await page.getByRole("button", { name: "关闭地点详情" }).click();
-  await page.getByRole("button", { name: "饮水点" }).click();
+  await page.getByRole("button", { name: "饮水点", exact: true }).click();
   await page
     .locator(
       '[data-cupedia-marker="true"][aria-label*="正式测试楼有 1 个饮水点"]',

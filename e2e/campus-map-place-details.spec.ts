@@ -307,7 +307,7 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     });
   }
 
-  test("the compact card, Back, and return link preserve the active Place selection", async ({
+  test("the compact card, edit close, Back, and return link preserve the active Place selection", async ({
     page,
   }) => {
     await installFakeCampusMapAmap(page);
@@ -330,6 +330,20 @@ test.describe.serial("Campus Map Place details and admin lifecycle", () => {
     await expect(page.getByRole("heading", { name: placeName })).toBeVisible();
 
     await page.getByRole("link", { name: "查看详情" }).click();
+    const detailPage = page.locator("#main-content");
+    await detailPage.getByText("更多操作", { exact: true }).click();
+    await detailPage.getByRole("link", { name: "建议修改" }).click();
+    await expect(page.getByRole("heading", { name: "修改设施" })).toBeVisible();
+    await page.getByRole("button", { name: "关闭地图编辑" }).click();
+    await expect(page).toHaveURL(new RegExp(`scene=place&id=${ids.place}`));
+
+    await page.goBack();
+    await expect(page).toHaveURL(
+      new RegExp(`/campus-map/places/${ids.place}$`),
+    );
+    await expect(
+      detailPage.getByRole("heading", { name: placeName }),
+    ).toBeVisible();
     const returnToRestoredPlace = page.getByRole("link", { name: "返回地图" });
     await expect(returnToRestoredPlace).toHaveAttribute(
       "href",

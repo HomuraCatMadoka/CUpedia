@@ -53,7 +53,6 @@ interface CampusMapPlaceCardFact {
 export interface CampusMapPlaceCardProjection {
   placeTypeLabel: string;
   locationLabel: string;
-  locationIsPrimary: boolean;
   primaryFact: CampusMapPlaceCardFact | null;
   detailFacts: readonly CampusMapPlaceCardFact[];
   visitNote: string | null;
@@ -218,7 +217,6 @@ export function projectCampusMapPlaceCard(
   return {
     placeTypeLabel: campusMapPlaceTypeLabel(input.placeType),
     locationLabel: input.locationLabel,
-    locationIsPrimary: input.placeType === "classroom",
     primaryFact,
     detailFacts: facts.filter((fact) => fact.key !== primaryFact?.key),
     visitNote: input.visitNote?.trim() || null,

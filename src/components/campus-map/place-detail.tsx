@@ -317,18 +317,17 @@ export function CampusMapPlaceDetail({
                 建议修改
               </Link>
             ) : null}
-            <Link
+            <a
               href={`/campus-map/places/${placeId}/history${
                 mapListReturnPath
                   ? `?from=${encodeURIComponent(mapListReturnPath)}`
                   : ""
               }`}
-              prefetch={false}
               aria-label="查看编辑记录 / History"
               className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               查看编辑记录
-            </Link>
+            </a>
           </div>
         </details>
 

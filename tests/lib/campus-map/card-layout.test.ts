@@ -25,29 +25,9 @@ describe("Campus Map card layout policy", () => {
     [{ kind: "add" } as const, "min(640px, 82dvh)"],
     [{ kind: "feedback" } as const, "min(480px, 68dvh)"],
     [{ kind: "transient-hotspot" } as const, "min(184px, calc(100dvh - 80px))"],
-    [{ kind: "empty-building" } as const, "208px"],
-    [
-      { kind: "empty-building", hasFloors: true } as const,
-      "min(288px, calc(100dvh - 80px))",
-    ],
-    [{ kind: "place" } as const, "min(184px, 35dvh)"],
-    [{ kind: "building" } as const, "min(352px, 53dvh)"],
     [{ kind: "default" } as const, "var(--campus-map-peek-height)"],
   ])("projects the %s panel height", (layout, expected) => {
     expect(campusMapMobilePanelHeight(layout)).toBe(expected);
-  });
-
-  it("grows a Place card only for content that is actually shown", () => {
-    expect(
-      campusMapMobilePanelHeight({ kind: "place", hasSummary: true }),
-    ).toBe("min(252px, 35dvh)");
-    expect(
-      campusMapMobilePanelHeight({
-        kind: "place",
-        hasSummary: true,
-        hasOfficialActions: true,
-      }),
-    ).toBe("min(308px, 35dvh)");
   });
 
   it("grows a short category preview with its visible rows", () => {

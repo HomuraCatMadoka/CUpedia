@@ -11,33 +11,36 @@ import {
  * by their dedicated runtime boundaries.
  */
 
+export type CampusMapBrowseSheetSnap = "peek" | "half" | "full";
+export type CampusMapSheetSnap = "hidden" | CampusMapBrowseSheetSnap;
+
 export type CampusMapBrowseScene =
   | { kind: "map" }
   | {
       kind: "search-results";
       query: string;
-      snap: Exclude<CampusMapSheetSnap, "hidden">;
+      snap: CampusMapBrowseSheetSnap;
     }
   | {
       kind: "category-results";
       category: string;
-      snap: Exclude<CampusMapSheetSnap, "hidden">;
+      snap: CampusMapBrowseSheetSnap;
     }
   | {
       kind: "building";
       buildingId: string;
       floorId: string | null;
-      snap: Exclude<CampusMapSheetSnap, "hidden">;
+      snap: CampusMapBrowseSheetSnap;
     }
   | {
       kind: "place";
       placeId: string;
-      snap: Exclude<CampusMapSheetSnap, "hidden">;
+      snap: CampusMapBrowseSheetSnap;
     }
   | {
       kind: "content";
       contentId: string;
-      snap: Exclude<CampusMapSheetSnap, "hidden">;
+      snap: CampusMapBrowseSheetSnap;
     };
 
 export type CampusMapContributionTask =
@@ -110,7 +113,7 @@ export type CampusMapEvent =
       contentId: string;
       source: "map" | "building";
     }
-  | { type: "SET_SNAP"; snap: Exclude<CampusMapSheetSnap, "hidden"> }
+  | { type: "SET_SNAP"; snap: CampusMapBrowseSheetSnap }
   | { type: "SET_BUILDING_FLOOR"; floorId: string | null }
   | { type: "START_CREATE" }
   | { type: "START_EDIT"; placeId: string }
@@ -136,8 +139,6 @@ export type CampusMapFocusCommand =
       category: string;
       fallback: CampusMapFocusTarget;
     };
-
-export type CampusMapSheetSnap = "hidden" | "peek" | "half" | "full";
 
 export type CampusMapCameraCommand =
   | { kind: "focus"; buildingId: string; reason: CameraReason }

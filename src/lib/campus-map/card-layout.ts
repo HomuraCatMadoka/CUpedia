@@ -1,4 +1,4 @@
-export type CampusMapBrowseSheetSnap = "peek" | "half" | "full";
+import type { CampusMapBrowseSheetSnap } from "@/lib/campus-map/scene-kernel";
 
 export function campusMapBrowsePanelHeight(snap: CampusMapBrowseSheetSnap) {
   const limit =
@@ -40,13 +40,6 @@ export type CampusMapMobilePanelLayout =
   | { kind: "add" }
   | { kind: "feedback" }
   | { kind: "transient-hotspot"; candidateCount?: number }
-  | { kind: "empty-building"; hasFloors?: boolean }
-  | {
-      kind: "place";
-      hasSummary?: boolean;
-      hasOfficialActions?: boolean;
-    }
-  | { kind: "building" }
   | { kind: "category"; resultCount: number }
   | { kind: "default" };
 
@@ -66,17 +59,6 @@ export function campusMapMobilePanelHeight(
       return "100dvh";
     case "transient-hotspot":
       return `min(${184 + Math.max(0, (layout.candidateCount ?? 0) - 1) * 52}px, calc(100dvh - 80px))`;
-    case "empty-building":
-      return layout.hasFloors ? "min(288px, calc(100dvh - 80px))" : "208px";
-    case "place": {
-      const contentHeight =
-        184 +
-        (layout.hasSummary ? 68 : 0) +
-        (layout.hasOfficialActions ? 56 : 0);
-      return `min(${contentHeight}px, 35dvh)`;
-    }
-    case "building":
-      return "min(352px, 53dvh)";
     case "category": {
       const contentHeight = Math.max(
         208,

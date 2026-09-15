@@ -134,6 +134,7 @@ import {
   EMPTY_CAMPUS_MAP_SCENE_SESSION,
   type CampusMapFocusTarget,
   type CampusMapSceneCatalog,
+  type CampusMapSheetSnap,
   type CampusMapSession,
 } from "@/lib/campus-map/scene-kernel";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
@@ -328,7 +329,7 @@ type ProjectedCampusMapState = {
   selection: ProjectedCampusMapSelection;
   mapFilter: { category: string | null; query: string };
   buildingContext: { floorId: string | null };
-  sheet: { snap: "hidden" | "peek" | "half" | "full" };
+  sheet: { snap: CampusMapSheetSnap };
 };
 
 function projectedState(
@@ -2054,7 +2055,7 @@ export function CampusMapRuntime({
       clearTransientHotspot();
       return;
     }
-    dispatch({ type: "DISMISS" });
+    dispatch({ type: "CLOSE_BROWSE_SELECTION" });
   }, [cancelPendingUserLocation, clearTransientHotspot, dispatch]);
 
   const navigateEntityBack = useCallback(() => {
@@ -2650,11 +2651,6 @@ export function CampusMapRuntime({
     !selectedFacility &&
     buildingOverviewDirectory?.status === "empty",
   );
-  const selectedBuildingViewIsEmpty = Boolean(
-    selectedBuilding &&
-    !selectedFacility &&
-    buildingDirectory?.status === "empty",
-  );
   const selectedBuildingFloor = selectedBuilding?.floors.find(
     (floor) => floor.floorId === state.buildingContext.floorId,
   );
@@ -2670,8 +2666,6 @@ export function CampusMapRuntime({
         selectedBuildingDisplayName ?? undefined,
       )
     : null;
-  const selectedPlaceShowsLocation =
-    selectedPlaceCard?.locationIsPrimary ?? false;
   const selectedBuildingIsClassroomFallback = Boolean(
     selectedBuilding && !selectedFacility && classroomFallbackName,
   );
@@ -2713,21 +2707,6 @@ export function CampusMapRuntime({
       kind: "transient-hotspot",
       candidateCount: hotspotBuildingSuggestions.length,
     };
-  } else if (selectedFacility) {
-    mobilePanelLayout = {
-      kind: "place",
-      hasSummary: Boolean(
-        selectedPlaceShowsLocation || selectedPlaceCard?.primaryFact,
-      ),
-      hasOfficialActions: Boolean(selectedPlaceCard?.officialActions.length),
-    };
-  } else if (selectedBuildingViewIsEmpty) {
-    mobilePanelLayout = {
-      kind: "empty-building",
-      hasFloors: Boolean(selectedBuilding?.floors.length),
-    };
-  } else if (selectedBuilding) {
-    mobilePanelLayout = { kind: "building" };
   } else if (activeCategory) {
     mobilePanelLayout = {
       kind: "category",
@@ -3223,6 +3202,7 @@ export function CampusMapRuntime({
 
       <section
         ref={panelRef}
+        data-campus-map-panel
         hidden={panelHidden}
         role={editSession ? "dialog" : undefined}
         aria-modal={editSession && !locationSelectionActive ? true : undefined}
@@ -3624,7 +3604,7 @@ export function CampusMapRuntime({
                   aria-label="地点详细信息"
                   className="min-h-0 flex-1 overflow-y-auto overscroll-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 >
-                  <div className="px-5 pb-[max(1.125rem,var(--campus-map-safe-area-bottom))] md:pb-[18px]">
+                  <div className="flow-root px-5 pb-[max(1.125rem,var(--campus-map-safe-area-bottom))] md:pb-[18px]">
                     {selectedPlaceCard ? (
                       <CampusMapPlaceCardContent
                         card={selectedPlaceCard}
