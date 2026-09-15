@@ -10,9 +10,9 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { push, getCount, getPage, markOne, markAll } = vi.hoisted(() => ({
+const { fetchMock, push, getPage, markOne, markAll } = vi.hoisted(() => ({
+  fetchMock: vi.fn(),
   push: vi.fn(),
-  getCount: vi.fn(),
   getPage: vi.fn(),
   markOne: vi.fn(),
   markAll: vi.fn(),
@@ -23,7 +23,6 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/notification-actions", () => ({
-  getUnreadNotificationCount: (...args: unknown[]) => getCount(...args),
   getNotifications: (...args: unknown[]) => getPage(...args),
   markNotificationRead: (...args: unknown[]) => markOne(...args),
   markAllNotificationsRead: (...args: unknown[]) => markAll(...args),
@@ -62,7 +61,11 @@ const mapNoteNotification = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getCount.mockResolvedValue(0);
+  vi.stubGlobal("fetch", fetchMock);
+  fetchMock.mockResolvedValue({
+    ok: true,
+    json: async () => ({ count: 0 }),
+  });
   getPage.mockResolvedValue({ notifications: [], hasMore: false });
   markOne.mockResolvedValue(undefined);
   markAll.mockResolvedValue(undefined);
@@ -72,25 +75,33 @@ afterEach(cleanup);
 
 describe("NotificationCenter", () => {
   it("loads on page mount and formats the unread badge as 1–9 or 9+", async () => {
-    getCount.mockResolvedValue(10);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ count: 10 }),
+    });
 
     render(<NotificationCenter />);
 
     expect(await screen.findByText("9+")).toBeTruthy();
-    expect(getCount).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith("/api/notifications/count", {
+      cache: "no-store",
+    });
   });
 
   it("hides a zero or failed count, then retries count and list when opened", async () => {
-    getCount
+    fetchMock
       .mockRejectedValueOnce(new Error("count failed"))
-      .mockResolvedValueOnce(2);
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ count: 2 }),
+      });
     getPage.mockResolvedValue({
       notifications: [unreadNotification],
       hasMore: false,
     });
 
     render(<NotificationCenter />);
-    await waitFor(() => expect(getCount).toHaveBeenCalledOnce());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
     expect(screen.queryByTestId("notification-badge")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "通知" }));
@@ -98,7 +109,7 @@ describe("NotificationCenter", () => {
     expect(
       await screen.findByText("Alice 回复了你在 CSCI3150 的评论"),
     ).toBeTruthy();
-    expect(getCount).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(getPage).toHaveBeenCalledWith(0);
   });
 
@@ -123,7 +134,10 @@ describe("NotificationCenter", () => {
   });
 
   it("marks an item read before navigating to its deep link", async () => {
-    getCount.mockResolvedValue(1);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ count: 1 }),
+    });
     getPage.mockResolvedValue({
       notifications: [unreadNotification],
       hasMore: false,
@@ -175,7 +189,10 @@ describe("NotificationCenter", () => {
   });
 
   it("marks all unread history without showing a success message", async () => {
-    getCount.mockResolvedValue(4);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ count: 4 }),
+    });
     getPage.mockResolvedValue({
       notifications: [unreadNotification],
       hasMore: true,
@@ -195,7 +212,10 @@ describe("NotificationCenter", () => {
   });
 
   it("does not race mark-all against an in-flight list refresh", async () => {
-    getCount.mockResolvedValue(2);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ count: 2 }),
+    });
     getPage.mockReturnValue(new Promise(() => undefined));
 
     render(<NotificationCenter />);
@@ -227,6 +247,6 @@ describe("NotificationCenter", () => {
     await waitFor(() => expect(getPage).toHaveBeenLastCalledWith(10));
 
     window.dispatchEvent(new Event("focus"));
-    await waitFor(() => expect(getCount).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
   });
 });

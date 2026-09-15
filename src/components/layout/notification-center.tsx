@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/popover";
 import {
   getNotifications,
-  getUnreadNotificationCount,
   markAllNotificationsRead,
   markNotificationRead,
   type NotificationView,
@@ -53,7 +52,22 @@ export function NotificationCenter({
 
   async function refreshCount() {
     try {
-      setUnreadCount(await getUnreadNotificationCount());
+      // Passive Server Actions can overwrite a newer route when they finish
+      // after navigation. Keep the background badge refresh on plain HTTP.
+      const response = await fetch("/api/notifications/count", {
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error("Notification count unavailable");
+      const payload: unknown = await response.json();
+      if (
+        typeof payload !== "object" ||
+        payload === null ||
+        !("count" in payload) ||
+        typeof payload.count !== "number"
+      ) {
+        throw new Error("Invalid notification count response");
+      }
+      setUnreadCount(payload.count);
     } catch {
       setUnreadCount(null);
     }
