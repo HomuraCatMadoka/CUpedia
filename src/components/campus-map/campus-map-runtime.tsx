@@ -1428,12 +1428,7 @@ export function CampusMapRuntime({
                   searchCampusMapBrowse(
                     projectionStore.getSnapshot().projection,
                     current.scene.query,
-                  ).some(
-                    (candidate) =>
-                      (candidate.kind === "building"
-                        ? candidate.building.buildingId
-                        : candidate.place.placeId) === focus.resultId,
-                  )
+                  ).some((candidate) => candidate.resultId === focus.resultId)
                 ) {
                   pendingSearchFocusRef.current = {
                     resultId: focus.resultId,
@@ -3045,10 +3040,7 @@ export function CampusMapRuntime({
             >
               {searchResults.length ? (
                 visibleSearchResults.map((result, index) => {
-                  const id =
-                    result.kind === "building"
-                      ? result.building.buildingId
-                      : result.place.placeId;
+                  const id = result.resultId;
                   const resultStyle =
                     result.kind === "place"
                       ? placeTypeStyle(result.place.placeType)
@@ -3189,10 +3181,7 @@ export function CampusMapRuntime({
                       searchResults[visibleSearchResults.length];
                     if (nextResult) {
                       pendingSearchFocusRef.current = {
-                        resultId:
-                          nextResult.kind === "building"
-                            ? nextResult.building.buildingId
-                            : nextResult.place.placeId,
+                        resultId: nextResult.resultId,
                         token: driver.getSnapshot().transitionToken,
                         preventScroll: false,
                       };

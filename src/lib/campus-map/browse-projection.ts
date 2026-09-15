@@ -367,6 +367,7 @@ export function searchCampusMapBrowse(
   }).places;
   const placeResults = places.map((place) => ({
     kind: "place" as const,
+    resultId: place.placeId,
     match: isExactPlaceName(trimmedQuery, place.name)
       ? ("exact-name" as const)
       : ("name" as const),
@@ -395,6 +396,7 @@ export function searchCampusMapBrowse(
     return [
       {
         kind: "building" as const,
+        resultId: building.buildingId,
         match: directMatch
           ? buildingSearchValues(building).some(
               (value) =>
@@ -423,17 +425,11 @@ export function searchCampusMapBrowse(
       compareCampusMapNames(
         {
           name: leftEntity.name,
-          id:
-            left.kind === "place"
-              ? left.place.placeId
-              : left.building.buildingId,
+          id: left.resultId,
         },
         {
           name: rightEntity.name,
-          id:
-            right.kind === "place"
-              ? right.place.placeId
-              : right.building.buildingId,
+          id: right.resultId,
         },
       )
     );
