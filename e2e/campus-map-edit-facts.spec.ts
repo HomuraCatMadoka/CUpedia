@@ -280,8 +280,17 @@ for (const scenario of [
     const floorSelect = buildingCard.getByRole("combobox", {
       name: "切换楼层",
     });
+    const floorButton = buildingCard.getByRole("button", {
+      name: scenario.floorLabel,
+      exact: true,
+    });
     await expect(
-      floorSelect.getByRole("option", { name: scenario.floorLabel }),
+      floorButton.or(
+        floorSelect.getByRole("option", {
+          name: scenario.floorLabel,
+          exact: true,
+        }),
+      ),
     ).toHaveCount(1);
     await expect(buildingCard).toContainText("饮水点");
 

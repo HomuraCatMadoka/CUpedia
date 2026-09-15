@@ -1119,9 +1119,20 @@ for (const viewport of [
       "/campus-map?v=1&scene=building&id=41b66763-b2ae-5ede-989e-846e2153bdaa&snap=peek",
     );
     const card = page.getByRole("region", { name: "文物馆", exact: true });
-    const floor = card.getByRole("combobox", { name: "切换楼层" });
-    await expect(floor).toBeInViewport();
-    await floor.selectOption({ label: "地下（G）" });
+    const floorSelect = card.getByRole("combobox", { name: "切换楼层" });
+    const floorButton = card.getByRole("button", {
+      name: "地下（G）",
+      exact: true,
+    });
+    const floorControl = floorButton.or(floorSelect);
+    await expect(floorControl).toHaveCount(1);
+    await expect(floorControl).toBeInViewport();
+    if (await floorButton.isVisible()) {
+      await floorButton.click();
+      await expect(floorButton).toHaveAttribute("aria-pressed", "true");
+    } else {
+      await floorSelect.selectOption({ label: "地下（G）" });
+    }
     const add = card.getByRole("button", { name: /在文物馆新增/ });
     await expect(add).toBeInViewport();
     const cardBox = await card.boundingBox();
@@ -1151,9 +1162,19 @@ test("a selected empty floor never shows a facility from another floor", async (
     await page.goto(
       `/campus-map?v=1&scene=building&id=${browseIds.building}&floor=${floorId}&snap=peek`,
     );
-    const floor = page.getByRole("combobox", { name: "切换楼层" });
-    await expect(floor).toHaveValue(floorId);
-    await expect(floor.locator("option:checked")).toHaveText("2/F");
+    const card = page.getByRole("region", { name: "正式测试楼" });
+    const floorSelect = card.getByRole("combobox", { name: "切换楼层" });
+    const floorButton = card.getByRole("button", {
+      name: "2/F",
+      exact: true,
+    });
+    await expect(floorButton.or(floorSelect)).toHaveCount(1);
+    if (await floorButton.isVisible()) {
+      await expect(floorButton).toHaveAttribute("aria-pressed", "true");
+    } else {
+      await expect(floorSelect).toHaveValue(floorId);
+      await expect(floorSelect.locator("option:checked")).toHaveText("2/F");
+    }
     await expect(
       page.locator(`[data-return-result="${browseIds.place}"]`),
     ).toHaveCount(0);
