@@ -279,14 +279,58 @@ describe("Campus Map Place detail (#816, #825)", () => {
     expect(document.body.textContent).not.toContain("未记录");
     expect(document.body.textContent).not.toContain("实时");
 
-    const details = screen
-      .getByText("查看其他已知资料与来源")
-      .closest("details");
+    const details = screen.getByText("资料来源与核对时间").closest("details");
     expect(details?.open).toBe(false);
-    fireEvent.click(screen.getByText("查看其他已知资料与来源"));
+    fireEvent.click(screen.getByText("资料来源与核对时间"));
     expect(details?.open).toBe(true);
     expect(screen.getByText("登记时须出示个人身份证明。")).toBeTruthy();
     expect(screen.getByText(/官方资料 · 查阅于 2026-09-02/u)).toBeTruthy();
+  });
+
+  it("keeps editing and public history behind the detail page's secondary menu", () => {
+    const props = {
+      placeId,
+      head: {
+        revisionId,
+        status: "active" as const,
+        visibility: "public" as const,
+        mergedIntoPlaceId: null,
+        name: "室外饮水点",
+      },
+      fact: v2Fact(),
+      retirementReason: null,
+      mapHref: "/campus-map?v=1",
+      building: null,
+      isAdmin: false,
+    };
+    const view = render(<CampusMapPlaceDetail {...props} />);
+    expect(screen.getByText("室外 · 大约位置")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("22.419");
+    expect(document.body.textContent).not.toContain("114.205");
+    const more = screen.getByText("更多操作");
+    expect(more.closest("details")?.open).toBe(false);
+    expect(
+      screen.getByRole("link", { name: "建议修改" }).closest("details"),
+    ).toBe(more.closest("details"));
+    expect(
+      screen
+        .getByRole("link", { name: "查看编辑记录 / History" })
+        .closest("details"),
+    ).toBe(more.closest("details"));
+    fireEvent.click(more);
+    expect(
+      screen.getByRole("link", { name: "建议修改" }).getAttribute("href"),
+    ).toBe(`/campus-map?v=1&task=edit&id=${placeId}`);
+    expect(
+      screen
+        .getByRole("link", { name: "查看编辑记录 / History" })
+        .getAttribute("href"),
+    ).toBe(`/campus-map/places/${placeId}/history`);
+    view.rerender(<CampusMapPlaceDetail {...props} viewerCanWrite={false} />);
+    expect(screen.queryByRole("link", { name: "建议修改" })).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "查看编辑记录 / History" }),
+    ).toBeTruthy();
   });
 
   it("keeps a reserved V2 type out of the public detail presentation", () => {

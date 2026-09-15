@@ -209,47 +209,53 @@ for (const viewport of [
     await page.setViewportSize(viewport);
     await page.goto(`/campus-map/places/${ids.place}`);
     const historyUrl = `/campus-map/places/${ids.place}/history`;
-    await Promise.all([
-      page.waitForURL(historyUrl),
-      page.getByRole("link", { name: /History/ }).click(),
-    ]);
+    const detailPage = page.locator("#main-content");
+    const historyLink = detailPage.getByRole("link", { name: /History/ });
+    await expect(historyLink).toHaveAttribute("href", historyUrl);
+    await historyLink.click();
+    await expect(page).toHaveURL(historyUrl);
 
+    const historyPage = page.locator("#main-content");
     await expect(
-      page.getByRole("heading", { name: "历史测试饮水点的编辑记录" }),
+      historyPage.getByRole("heading", { name: "历史测试饮水点的编辑记录" }),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "返回地图" })).toHaveAttribute(
-      "href",
-      "/campus-map?v=1",
-    );
-    await expect(page.getByText("地点已停用", { exact: true })).toBeVisible();
-    await expect(page.getByText("来源摘要：现场复核")).toBeVisible();
-    await expect(page.getByText(ids.retireRevision)).toHaveCount(0);
-    await expect(page.getByText(ids.retireChangeset)).toHaveCount(0);
-    await expect(page.getByText("查看 Changeset", { exact: true })).toHaveCount(
-      0,
-    );
+    await expect(
+      historyPage.getByRole("link", { name: "返回地图" }),
+    ).toHaveAttribute("href", "/campus-map?v=1");
+    await expect(
+      historyPage.getByText("地点已停用", { exact: true }),
+    ).toBeVisible();
+    await expect(historyPage.getByText("来源摘要：现场复核")).toBeVisible();
+    await expect(historyPage.getByText(ids.retireRevision)).toHaveCount(0);
+    await expect(historyPage.getByText(ids.retireChangeset)).toHaveCount(0);
+    await expect(
+      historyPage.getByText("查看 Changeset", { exact: true }),
+    ).toHaveCount(0);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
-    await page.getByRole("button", { name: "复制稳定链接" }).click();
-    await expect(page.getByText("链接已复制")).toBeVisible();
+    await historyPage.getByRole("button", { name: "复制稳定链接" }).click();
+    await expect(historyPage.getByText("链接已复制")).toBeVisible();
 
-    const revisionLink = page
+    const revisionLink = historyPage
       .getByRole("link", { name: "查看修改详情" })
       .first();
     await revisionLink.focus();
     await expect(revisionLink).toBeFocused();
     await revisionLink.press("Enter");
     await expect(page).toHaveURL(new RegExp(`/history/${ids.retireRevision}$`));
-    await expect(page.getByText("地点已停用", { exact: true })).toBeVisible();
-    await expect(page.getByText("来源摘要：现场复核")).toBeVisible();
+    const revisionPage = page.locator("#main-content");
     await expect(
-      page.getByText(`Changeset：${ids.retireChangeset}`),
+      revisionPage.getByText("地点已停用", { exact: true }),
+    ).toBeVisible();
+    await expect(revisionPage.getByText("来源摘要：现场复核")).toBeVisible();
+    await expect(
+      revisionPage.getByText(`Changeset：${ids.retireChangeset}`),
     ).toBeVisible();
 
-    await page.getByRole("link", { name: "查看 Changeset" }).click();
+    await revisionPage.getByRole("link", { name: "查看 Changeset" }).click();
     await expect(page).toHaveURL(
       new RegExp(`/campus-map/changesets/${ids.retireChangeset}$`),
     );

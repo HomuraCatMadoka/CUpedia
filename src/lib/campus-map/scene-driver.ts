@@ -10,6 +10,7 @@ import {
   EMPTY_CAMPUS_MAP_SCENE_SESSION,
   transitionCampusMapSession,
   type CampusMapEvent,
+  type CampusMapBrowseSheetSnap,
   type CampusMapCameraCommand,
   type CampusMapFocusCommand,
   type CampusMapSceneCatalog,
@@ -25,6 +26,7 @@ import {
 export type CampusMapDriverIntent =
   | CampusMapEvent
   | { type: "NAVIGATE_BACK" }
+  | { type: "CLOSE_BROWSE_SELECTION" }
   | { type: "DISMISS" }
   | {
       type: "FIT_CLUSTER";
@@ -57,7 +59,7 @@ export type CampusMapDriverFocusCommand =
 
 export type CampusMapSheetCommand =
   | { kind: "hide" }
-  | { kind: "show"; snap: "peek" | "full" };
+  | { kind: "show"; snap: CampusMapBrowseSheetSnap };
 
 export interface CampusMapDriverSnapshot {
   session: CampusMapSession;
@@ -218,7 +220,11 @@ export class CampusMapSceneDriver {
     if (intent.type === "FIT_CLUSTER") return this.fitCluster(intent.positions);
     if (intent.type === "REFRAME") return this.reframe(intent.reason);
     if (this.pendingHistoryReturn) {
-      if (intent.type === "NAVIGATE_BACK" || intent.type === "DISMISS") {
+      if (
+        intent.type === "NAVIGATE_BACK" ||
+        intent.type === "CLOSE_BROWSE_SELECTION" ||
+        intent.type === "DISMISS"
+      ) {
         return { status: "pending" as const };
       }
       this.intentVersion += 1;
@@ -228,19 +234,9 @@ export class CampusMapSceneDriver {
       return { status: "queued" as const };
     }
     if (intent.type === "NAVIGATE_BACK") return this.navigateBack();
-    if (intent.type === "DISMISS") {
-      const target = this.snapshot.returnTo ?? EMPTY_CAMPUS_MAP_SCENE_SESSION;
-      return this.commitTransition({
-        session: target,
-        returnTo: null,
-        commands: {
-          history: "replace",
-          camera: { kind: "cancel" },
-          focus: this.dismissFocus(target),
-        },
-        syncSheet: true,
-      });
-    }
+    if (intent.type === "CLOSE_BROWSE_SELECTION")
+      return this.closeBrowseSelection();
+    if (intent.type === "DISMISS") return this.dismiss();
     return this.applyKernelEvent(
       intent,
       returnTargetFor(this.snapshot.session, intent),
@@ -388,11 +384,17 @@ export class CampusMapSceneDriver {
     ) {
       return result;
     }
+    const commands =
+      event.type === "CANCEL_TASK" &&
+      result.commands.history === "back-or-push" &&
+      this.currentDepth === 0
+        ? { ...result.commands, history: "replace" as const }
+        : result.commands;
     return this.commitTransition({
       session: result.session,
       returnTo:
         nextReturnTo === undefined ? this.snapshot.returnTo : nextReturnTo,
-      commands: result.commands,
+      commands,
       syncSheet: result.session !== this.snapshot.session,
       incrementIntentVersion,
     });
@@ -418,6 +420,32 @@ export class CampusMapSceneDriver {
       },
       syncSheet: true,
       bumpToken: false,
+    });
+  }
+
+  private closeBrowseSelection() {
+    const { session, returnTo } = this.snapshot;
+    if (
+      returnTo === null &&
+      session.mode === "browse" &&
+      (session.scene.kind === "place" || session.scene.kind === "content")
+    ) {
+      return this.navigateBack();
+    }
+    return this.dismiss();
+  }
+
+  private dismiss() {
+    const target = this.snapshot.returnTo ?? EMPTY_CAMPUS_MAP_SCENE_SESSION;
+    return this.commitTransition({
+      session: target,
+      returnTo: null,
+      commands: {
+        history: "replace",
+        camera: { kind: "cancel" },
+        focus: this.dismissFocus(target),
+      },
+      syncSheet: true,
     });
   }
 

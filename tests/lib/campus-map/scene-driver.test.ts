@@ -94,6 +94,39 @@ function harness(initialSearch = "?v=1", clearStartEffects = true) {
 }
 
 describe("CampusMapSceneDriver", () => {
+  it("refines Place expansion without a new history entry or losing the Building return", () => {
+    const runtime = harness("?v=1&scene=building&id=science&floor=1&snap=half");
+    const returnSession = runtime.driver.getSnapshot().session;
+    runtime.driver.dispatch({
+      type: "OPEN_PLACE",
+      placeId: "fountain",
+      source: "building",
+    });
+    const pushes = runtime.history.pushState.mock.calls.length;
+    const depth = runtime.history.state;
+    vi.mocked(runtime.ports.focus).mockClear();
+    for (const snap of ["half", "full", "peek"] as const) {
+      runtime.driver.dispatch({ type: "SET_SNAP", snap });
+      expect(runtime.search).toBe(`?v=1&scene=place&id=fountain&snap=${snap}`);
+      expect(runtime.driver.getSnapshot().returnTo).toEqual(returnSession);
+      expect(runtime.history.state).toEqual(depth);
+    }
+    expect(runtime.history.pushState).toHaveBeenCalledTimes(pushes);
+    expect(runtime.ports.focus).not.toHaveBeenCalled();
+    runtime.driver.dispatch({ type: "CLOSE_BROWSE_SELECTION" });
+    expect(runtime.driver.getSnapshot().session).toEqual(returnSession);
+    expect(runtime.ports.focus).toHaveBeenLastCalledWith(
+      { kind: "result", resultId: "fountain", fallback: { kind: "heading" } },
+      expect.anything(),
+    );
+    runtime.driver.dispatch({
+      type: "OPEN_PLACE",
+      placeId: "courtyardWater",
+      source: "map",
+    });
+    expect(runtime.search).toBe("?v=1&scene=place&id=courtyardWater&snap=peek");
+  });
+
   it("projects a deep link through one complete start transition", () => {
     const runtime = harness("?v=1&scene=place&id=fountain&snap=peek", false);
 
@@ -219,7 +252,7 @@ describe("CampusMapSceneDriver", () => {
     runtime.driver.dispatch({ type: "OPEN_CATEGORY", category: "water" });
     vi.mocked(runtime.ports.focus).mockClear();
 
-    runtime.driver.dispatch({ type: "DISMISS" });
+    runtime.driver.dispatch({ type: "CLOSE_BROWSE_SELECTION" });
 
     expect(runtime.ports.focus).toHaveBeenCalledWith(
       {
@@ -272,6 +305,39 @@ describe("CampusMapSceneDriver", () => {
       },
     });
     expect(direct.history.pushState).toHaveBeenCalledTimes(1);
+  });
+
+  it("owns the close-selection fallback for a direct Place", () => {
+    const runtime = harness("?v=1&scene=place&id=fountain&snap=peek");
+
+    runtime.driver.dispatch({ type: "CLOSE_BROWSE_SELECTION" });
+
+    expect(runtime.driver.getSnapshot().session).toEqual({
+      mode: "browse",
+      scene: {
+        kind: "building",
+        buildingId: "science",
+        floorId: "1",
+        snap: "peek",
+      },
+    });
+    expect(runtime.history.back).not.toHaveBeenCalled();
+    expect(runtime.history.pushState).toHaveBeenCalledOnce();
+  });
+
+  it("replaces a directly loaded edit task when cancelling it", () => {
+    const runtime = harness("?v=1&task=edit&id=fountain");
+
+    runtime.driver.dispatch({ type: "CANCEL_TASK" });
+
+    expect(runtime.driver.getSnapshot().session).toEqual({
+      mode: "browse",
+      scene: { kind: "place", placeId: "fountain", snap: "peek" },
+    });
+    expect(runtime.search).toBe("?v=1&scene=place&id=fountain&snap=peek");
+    expect(runtime.history.back).not.toHaveBeenCalled();
+    expect(runtime.history.pushState).not.toHaveBeenCalled();
+    expect(runtime.history.replaceState).toHaveBeenCalledOnce();
   });
 
   it.each([
@@ -331,7 +397,7 @@ describe("CampusMapSceneDriver", () => {
     expect(executed).toEqual(["focus"]);
   });
 
-  it.each(["X", "Escape"])("keeps %s dismissal independent from Back", () => {
+  it("keeps a map-click dismissal independent from Back", () => {
     const runtime = harness("?v=1&scene=place&id=fountain&snap=peek");
 
     runtime.driver.dispatch({ type: "DISMISS" });
@@ -370,7 +436,7 @@ describe("CampusMapSceneDriver", () => {
       expect.objectContaining({ token: 2 }),
     );
 
-    runtime.driver.dispatch({ type: "DISMISS" });
+    runtime.driver.dispatch({ type: "CLOSE_BROWSE_SELECTION" });
     expect(runtime.driver.getSnapshot().session).toEqual({
       mode: "browse",
       scene: {
