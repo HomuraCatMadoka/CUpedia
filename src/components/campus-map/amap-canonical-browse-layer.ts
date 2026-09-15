@@ -22,7 +22,10 @@ import {
   projectCampusMapBuildingDisplay,
   type CampusMapBuildingDisplayProjection,
 } from "@/lib/campus-map/building-display";
-import { placeTypeMarkerContent } from "@/lib/campus-map/canonical-marker";
+import {
+  placeClusterMarkerContent,
+  placeTypeMarkerContent,
+} from "@/lib/campus-map/canonical-marker";
 
 interface ProviderLngLat {
   lng: number;
@@ -39,6 +42,7 @@ interface ProviderMarker {
 interface ProviderClusterEvent {
   clusterData?: ReadonlyArray<{
     lnglat: ProviderLngLat | CampusMapAmapPosition;
+    markerKey?: string;
   }>;
 }
 
@@ -48,6 +52,8 @@ interface ProviderMarkerCluster {
 }
 
 interface ProviderMapLike {
+  add(marker: ProviderMarker): void;
+  remove(markers: readonly ProviderMarker[]): void;
   on(event: string, handler: (event: ProviderMapEvent) => void): void;
   off(event: string, handler: (event: ProviderMapEvent) => void): void;
 }
@@ -59,6 +65,7 @@ interface ProviderMapEvent {
 }
 
 interface ProviderNamespace<ProviderMap extends ProviderMapLike> {
+  Marker: new (options: Record<string, unknown>) => ProviderMarker;
   MarkerCluster: new (
     map: ProviderMap,
     data: readonly Record<string, unknown>[],
@@ -160,6 +167,10 @@ function placeTypeMarkerView(
         marker.position.precision === "precise" ? "精确位置" : "约略位置",
       placeType: marker.placeType,
       color: style.color,
+      precisionLabel:
+        marker.position.precision === "precise"
+          ? "精确室外位置"
+          : "约略室外位置",
       markerLabel: `${place.name}，${
         marker.position.precision === "precise" ? "精确" : "约略"
       } WGS84 地点`,
@@ -192,6 +203,8 @@ function placeTypeMarkerView(
         : `${markerPlaces.length} 个地点`,
     placeType: marker.placeType,
     color: style.color,
+    count: markerPlaces.length,
+    precisionLabel: "所属建筑 · 非室内精确位置",
     markerLabel: `${buildingLabel(building, buildingDisplay)}有 ${markerPlaces.length} 个${style.label}，建筑位置参考`,
   };
 }
@@ -243,9 +256,25 @@ function targetContent(
   projection: CampusMapBrowseProjection,
   buildingDisplay: CampusMapBuildingDisplayProjection,
   selected: boolean,
+  selectedPlaceId: string | null = null,
 ) {
   const view = placeTypeMarkerView(target, projection, buildingDisplay);
-  return view ? placeTypeMarkerContent({ ...view, selected }) : null;
+  if (!view) return null;
+  const place = selectedPlaceId
+    ? projection.places.find(
+        (candidate) => candidate.placeId === selectedPlaceId,
+      )
+    : null;
+  return placeTypeMarkerContent({
+    ...view,
+    selected,
+    ...(selected && place
+      ? {
+          name: place.name,
+          markerLabel: `已选 ${place.name}，${view.buildingName}，${view.precisionLabel}`,
+        }
+      : {}),
+  });
 }
 
 /**
@@ -261,6 +290,8 @@ export class AmapCanonicalBrowseLayer<
   private readonly markers = new Map<string, ProviderMarker>();
   private targetsByKey = new Map<string, MarkerTarget>();
   private selectedPlaceId: string | null = null;
+  private selectedMarker: ProviderMarker | null = null;
+  private selectedMarkerPositionKey: string | null = null;
   private cancelPendingDismiss: (() => void) | null = null;
   private cancelCompanionClickExpiry: (() => void) | null = null;
   private suppressCompanionMapClick = false;
@@ -306,11 +337,18 @@ export class AmapCanonicalBrowseLayer<
     }
 
     const mode = input.mode;
-    const targets = markerTargets({
+    const visibleTargets = markerTargets({
       projection: input.projection,
       providerPositions: input.providerPositions,
       mode,
     });
+    const selectedTarget = visibleTargets.find((target) =>
+      isTargetSelected(target, mode.selectedPlaceId),
+    );
+    // A selected Place stays visible even while its neighbours are clustered.
+    const targets = visibleTargets.filter(
+      (target) => target !== selectedTarget,
+    );
     const dataSignature = targets
       .map(
         ({ key, position, visiblePlaceIds }) =>
@@ -324,7 +362,7 @@ export class AmapCanonicalBrowseLayer<
     ) {
       this.clearMarkers();
     }
-    if (targets.length === 0) {
+    if (visibleTargets.length === 0) {
       this.clearMarkers();
       return true;
     }
@@ -344,12 +382,21 @@ export class AmapCanonicalBrowseLayer<
     }
 
     try {
-      if (!this.cluster) {
+      this.projection = input.projection;
+      this.syncSelectedMarker(
+        selectedTarget,
+        input.projection,
+        buildingDisplay,
+      );
+      if (!this.cluster && targets.length > 0) {
         const assignments = new WeakMap<ProviderMarker, MarkerTarget>();
         const nextTargetIndex = new Map<string, number>();
         const cluster = new this.input.provider.MarkerCluster(
           this.input.map,
-          targets.map(({ position }) => ({ lnglat: position })),
+          targets.map(({ key, position }) => ({
+            lnglat: position,
+            markerKey: key,
+          })),
           {
             gridSize: 90,
             maxZoom: 18,
@@ -377,16 +424,13 @@ export class AmapCanonicalBrowseLayer<
               this.markers.set(target.key, marker);
               marker.setContent(content);
               marker.on("click", () => {
+                if (this.markers.get(target!.key) !== marker) return;
                 const current = this.targetsByKey.get(target!.key);
                 if (!current) return;
-                const selectedPlaceId = this.selectedPlaceId;
                 const directPlaceId =
-                  selectedPlaceId &&
-                  current.visiblePlaceIds.includes(selectedPlaceId)
-                    ? selectedPlaceId
-                    : current.visiblePlaceIds.length === 1
-                      ? current.visiblePlaceIds[0]!
-                      : null;
+                  current.visiblePlaceIds.length === 1
+                    ? current.visiblePlaceIds[0]!
+                    : null;
                 if (directPlaceId) {
                   this.activateCanonicalTarget({
                     type: "OPEN_PLACE",
@@ -401,27 +445,65 @@ export class AmapCanonicalBrowseLayer<
               });
             },
             renderClusterMarker: ({
-              count,
               marker,
-            }: {
-              count: number;
+              clusterData,
+            }: ProviderClusterEvent & {
               marker: ProviderMarker;
             }) => {
-              const firstPlaceType = targets[0]?.marker.placeType;
-              const color =
+              const members = this.clusterMembers(clusterData);
+              const positions = clusterData
+                ? new Set(
+                    clusterData.map(({ lnglat }) =>
+                      providerPositionKey(lnglat),
+                    ),
+                  )
+                : null;
+              const firstPlaceType = members?.[0]?.marker.placeType;
+              const placeType =
                 firstPlaceType &&
-                targets.every(
+                members!.every(
                   (target) => target.marker.placeType === firstPlaceType,
                 )
-                  ? campusMapPlaceTypeStyle(firstPlaceType).color
-                  : "#174b38";
+                  ? firstPlaceType
+                  : null;
+              const style = placeType
+                ? campusMapPlaceTypeStyle(placeType)
+                : null;
+              const placeCount = members
+                ? new Set(members.flatMap((member) => member.visiblePlaceIds))
+                    .size
+                : null;
+              const buildingId = members ? this.sameBuilding(members) : null;
+              const building = buildingId
+                ? input.projection.buildings.find(
+                    (candidate) => candidate.buildingId === buildingId,
+                  )
+                : null;
+              const destination = building
+                ? `${buildingLabel(building, buildingDisplay)}，打开建筑目录`
+                : "放大查看这些位置";
               marker.setContent(
-                `<button type="button" data-cupedia-marker="true" aria-label="${count} 个设施位置" style="display:grid;min-width:46px;height:46px;place-items:center;border:3px solid white;border-radius:999px;background:${color};color:white;font:700 14px system-ui;box-shadow:0 3px 12px rgba(0,0,0,.22);padding:0 12px">${count}</button>`,
+                placeClusterMarkerContent({
+                  count: placeCount ?? positions?.size ?? null,
+                  measure: placeCount === null ? "位置" : "地点",
+                  placeType,
+                  color: style?.color ?? "#374151",
+                  label: members
+                    ? `${placeCount} 个${style?.label ?? "不同类别地点"}，${positions?.size ?? 0} 个地图位置，${destination}`
+                    : `${positions?.size ?? "多个"} 个地图位置，地点数量暂不可用，${destination}`,
+                }),
               );
             },
           },
         );
         cluster.on("click", (event) => {
+          if (this.cluster !== cluster) return;
+          const members = this.clusterMembers(event.clusterData);
+          const buildingId = members ? this.sameBuilding(members) : null;
+          if (buildingId) {
+            this.activateCanonicalTarget({ type: "OPEN_BUILDING", buildingId });
+            return;
+          }
           const positions = event.clusterData?.map(({ lnglat }) =>
             "lng" in lnglat ? asAmapPosition([lnglat.lng, lnglat.lat]) : lnglat,
           );
@@ -480,6 +562,80 @@ export class AmapCanonicalBrowseLayer<
     this.markers.clear();
     this.targetsByKey.clear();
     this.selectedPlaceId = null;
+    if (this.selectedMarker) this.input.map.remove([this.selectedMarker]);
+    this.selectedMarker = null;
+    this.selectedMarkerPositionKey = null;
+  }
+
+  private clusterMembers(data: ProviderClusterEvent["clusterData"]) {
+    if (!data?.length) return null;
+    const members: MarkerTarget[] = [];
+    for (const item of data) {
+      // Only metadata from the canonical input can establish containment.
+      const target = item.markerKey
+        ? this.targetsByKey.get(item.markerKey)
+        : null;
+      if (!target) return null;
+      members.push(target);
+    }
+    return members;
+  }
+
+  private sameBuilding(members: readonly MarkerTarget[]) {
+    const buildingIds = members.map((target) => {
+      const marker = target.marker;
+      return marker.kind === "building-presence"
+        ? marker.buildingId
+        : this.projection?.places.find(
+            (place) => place.placeId === marker.placeId,
+          )?.buildingId;
+    });
+    const buildingId = buildingIds[0];
+    return buildingId && buildingIds.every((id) => id === buildingId)
+      ? buildingId
+      : null;
+  }
+
+  private syncSelectedMarker(
+    target: MarkerTarget | undefined,
+    projection: CampusMapBrowseProjection,
+    display: CampusMapBuildingDisplayProjection,
+  ) {
+    const positionKey = target
+      ? `${target.key}:${providerPositionKey(target.position)}`
+      : null;
+    if (this.selectedMarker && this.selectedMarkerPositionKey !== positionKey) {
+      this.input.map.remove([this.selectedMarker]);
+      this.selectedMarker = null;
+    }
+    this.selectedMarkerPositionKey = positionKey;
+    if (!target) return;
+    if (!this.selectedMarker) {
+      const marker = new this.input.provider.Marker({
+        position: target.position,
+        anchor: "center",
+        zIndex: 240,
+      });
+      marker.on("click", () => {
+        if (this.selectedMarker !== marker) return;
+        if (this.selectedPlaceId)
+          this.activateCanonicalTarget({
+            type: "OPEN_PLACE",
+            placeId: this.selectedPlaceId,
+          });
+      });
+      this.selectedMarker = marker;
+      this.input.map.add(marker);
+    }
+    const content = targetContent(
+      target,
+      projection,
+      display,
+      true,
+      this.selectedPlaceId,
+    );
+    if (content) this.selectedMarker.setContent(content);
+    this.selectedMarker.setzIndex(240);
   }
 
   private syncSelection(

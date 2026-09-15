@@ -5,6 +5,7 @@ export type CampusMapE2eMapSnapshot = {
   center: readonly [number, number];
   panToCount: number;
   setZoomAndCenterCount: number;
+  setBoundsCount: number;
 };
 
 type CampusMapE2eMap = {
@@ -96,6 +97,18 @@ export async function installFakeCampusMapAmap(page: Page) {
       private center: FakeLngLat;
       private panToCount = 0;
       private setZoomAndCenterCount = 0;
+      private setBoundsCount = 0;
+      private readonly overlays = new Set<FakeMarker>();
+
+      registerOverlay(marker: FakeMarker) {
+        this.overlays.add(marker);
+      }
+      unregisterOverlay(marker: FakeMarker) {
+        this.overlays.delete(marker);
+      }
+      private repaint() {
+        for (const marker of this.overlays) marker.reposition(this);
+      }
 
       constructor(
         private readonly containerId: string,
@@ -158,6 +171,7 @@ export async function installFakeCampusMapAmap(page: Page) {
           center: [this.center.lng, this.center.lat] as const,
           panToCount: this.panToCount,
           setZoomAndCenterCount: this.setZoomAndCenterCount,
+          setBoundsCount: this.setBoundsCount,
         };
       }
 
@@ -189,6 +203,7 @@ export async function installFakeCampusMapAmap(page: Page) {
         this.setZoomAndCenterCount += 1;
         this.zoom = zoom;
         this.center = this.normalizeLngLat(center);
+        this.repaint();
         queueMicrotask(() => this.emit("moveend", {}));
       }
 
@@ -219,6 +234,7 @@ export async function installFakeCampusMapAmap(page: Page) {
       panTo(center: FakeLngLat | readonly [number, number]) {
         this.panToCount += 1;
         this.center = this.normalizeLngLat(center);
+        this.repaint();
         queueMicrotask(() => this.emit("moveend", {}));
       }
       panBy(x: number, y: number) {
@@ -228,7 +244,21 @@ export async function installFakeCampusMapAmap(page: Page) {
         );
         queueMicrotask(() => this.emit("moveend", {}));
       }
-      setBounds() {}
+      setBounds(
+        bounds: { southWest: FakeLngLat; northEast: FakeLngLat },
+        _immediately?: boolean,
+        _avoid?: readonly number[],
+        maxZoom = 18,
+      ) {
+        this.setBoundsCount += 1;
+        this.center = new FakeLngLat(
+          (bounds.southWest.lng + bounds.northEast.lng) / 2,
+          (bounds.southWest.lat + bounds.northEast.lat) / 2,
+        );
+        this.zoom = Math.min(maxZoom, 16);
+        this.repaint();
+        queueMicrotask(() => this.emit("moveend", {}));
+      }
       zoomIn() {
         this.zoom += 1;
       }
@@ -267,6 +297,7 @@ export async function installFakeCampusMapAmap(page: Page) {
       private readonly handlers = new Map<string, Array<() => void>>();
       private content = "";
       private element: HTMLElement | null = null;
+      private map: FakeMap | null = null;
 
       constructor(
         private readonly options: {
@@ -291,11 +322,14 @@ export async function installFakeCampusMapAmap(page: Page) {
       setContent(content: string) {
         this.content = content;
         if (this.element) this.element.innerHTML = content;
+        if (this.map) this.reposition(this.map);
       }
 
       setzIndex() {}
 
       mount(map: FakeMap) {
+        this.map = map;
+        map.registerOverlay(this);
         const element = document.createElement("div");
         element.dataset.amapMarker = "true";
         element.innerHTML = this.content;
@@ -304,9 +338,31 @@ export async function installFakeCampusMapAmap(page: Page) {
         });
         map.getContainer().append(element);
         this.element = element;
+        this.reposition(map);
+      }
+
+      reposition(map: FakeMap) {
+        // Selection visibility checks need the actual projected point.
+        if (
+          !this.element ||
+          !this.content.includes("data-campus-map-selected-label")
+        )
+          return;
+        const position = this.getPosition();
+        if (!position) return;
+        const point = map.lngLatToContainer(position);
+        Object.assign(this.element.style, {
+          position: "absolute",
+          left: `${point.x}px`,
+          top: `${point.y}px`,
+          transform: "translate(-50%, -50%)",
+          zIndex: "240",
+        });
       }
 
       remove() {
+        this.map?.unregisterOverlay(this);
+        this.map = null;
         this.element?.remove();
         this.element = null;
       }

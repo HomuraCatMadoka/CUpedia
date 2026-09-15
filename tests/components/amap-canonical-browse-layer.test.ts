@@ -190,6 +190,8 @@ function healthBuildingProjection(
 
 class TestMarker {
   static latest: TestMarker | null = null;
+  content = "";
+  zIndex = 0;
   private readonly handlers = new Map<string, () => void>();
 
   constructor(private readonly position: readonly [number, number]) {
@@ -208,16 +210,29 @@ class TestMarker {
     return { lng: this.position[0], lat: this.position[1] };
   }
 
-  setContent() {}
-  setzIndex() {}
+  setContent(content: string) {
+    this.content = content;
+  }
+  setzIndex(zIndex: number) {
+    this.zIndex = zIndex;
+  }
+}
+
+class TestSelectedMarker extends TestMarker {
+  constructor(options: Record<string, unknown>) {
+    super(options.position as readonly [number, number]);
+  }
 }
 
 class TestMarkerCluster {
+  static instances: TestMarkerCluster[] = [];
+  private click: ((event: object) => void) | null = null;
   constructor(
     _map: TestMap,
-    data: readonly Record<string, unknown>[],
-    options: Record<string, unknown>,
+    readonly data: readonly Record<string, unknown>[],
+    private readonly options: Record<string, unknown>,
   ) {
+    TestMarkerCluster.instances.push(this);
     const renderMarker = options.renderMarker as (input: {
       marker: TestMarker;
     }) => void;
@@ -225,11 +240,35 @@ class TestMarkerCluster {
     renderMarker({ marker });
   }
 
-  on() {}
+  on(_event: string, handler: (event: object) => void) {
+    this.click = handler;
+  }
+  emitClick(data = this.data) {
+    this.click?.({ clusterData: data });
+  }
+  renderCluster(data = this.data) {
+    const marker = new TestMarker([0, 0]);
+    (this.options.renderClusterMarker as (input: object) => void)({
+      marker,
+      count: data.length,
+      clusterData: data,
+    });
+    return marker;
+  }
   setMap() {}
 }
 
 class TestMap {
+  readonly overlays: Array<{ content: string; zIndex: number }> = [];
+  add(marker: TestMarker) {
+    this.overlays.push(marker);
+  }
+  remove(markers: readonly TestMarker[]) {
+    for (const marker of markers) {
+      const index = this.overlays.indexOf(marker);
+      if (index >= 0) this.overlays.splice(index, 1);
+    }
+  }
   private readonly handlers = new Map<string, (event: object) => void>();
 
   on(event: string, handler: (event: object) => void) {
@@ -331,10 +370,183 @@ function installManualFrames() {
 afterEach(() => {
   TestMarker.latest = null;
   StickyEmptyCluster.instances = [];
+  TestMarkerCluster.instances = [];
   vi.unstubAllGlobals();
 });
 
 describe("AmapCanonicalBrowseLayer", () => {
+  function renderClusterProjection(projection: CampusMapBrowseProjection) {
+    const map = new TestMap();
+    const intents: unknown[] = [];
+    const layer = new AmapCanonicalBrowseLayer({
+      map,
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: TestMarkerCluster,
+      },
+      onIntent: (intent) => intents.push(intent),
+      onHotspot: vi.fn(),
+    });
+    const providerPositions = Object.fromEntries(
+      projection.markers.map((marker) => [
+        marker.kind === "building-presence"
+          ? campusMapAmapBuildingPositionKey(marker.buildingId)
+          : campusMapAmapPlacePositionKey(marker.placeId),
+        asAmapPosition([marker.position.longitude, marker.position.latitude]),
+      ]),
+    );
+    const input = {
+      projection,
+      providerPositions,
+      mode: {
+        kind: "places" as const,
+        placeIds: projection.places.map((place) => place.placeId),
+        selectedPlaceId: null as string | null,
+      },
+    };
+    layer.render(input);
+    return {
+      layer,
+      map,
+      intents,
+      input,
+      cluster: TestMarkerCluster.instances.at(-1)!,
+    };
+  }
+
+  it("counts canonical Places and opens the directory for a same-Building cluster", () => {
+    const projection = healthBuildingProjection(2);
+    const printer = {
+      ...projection.places[0]!,
+      placeId: "printer",
+      name: "打印站",
+      placeType: "printer" as const,
+    };
+    const runtime = renderClusterProjection({
+      ...projection,
+      places: [...projection.places, printer],
+      markers: [
+        ...projection.markers,
+        {
+          ...projection.markers[0]!,
+          placeType: "printer",
+          placeIds: [printer.placeId],
+        } as CampusMapBrowseProjection["markers"][number],
+      ],
+    });
+    const marker = runtime.cluster.renderCluster();
+    expect(marker.content).toContain("3 个不同类别地点，1 个地图位置");
+    expect(marker.content).toContain("打开建筑目录");
+    runtime.cluster.emitClick();
+    expect(runtime.intents).toEqual([{ type: "OPEN_BUILDING", buildingId }]);
+    runtime.layer.destroy();
+  });
+
+  it("uses the cluster's members for category styling even when the layer is mixed", () => {
+    const projection = healthBuildingProjection(2);
+    const otherId = projection.buildings[1]!.buildingId;
+    const other = {
+      ...projection.places[0]!,
+      placeId: "other-health",
+      buildingId: otherId,
+    };
+    const runtime = renderClusterProjection({
+      ...projection,
+      places: [...projection.places, other, placeProjection.places[0]!],
+      markers: [
+        ...projection.markers,
+        {
+          ...projection.markers[0]!,
+          buildingId: otherId,
+          placeIds: [other.placeId],
+          position: projection.buildings[1]!.anchor!,
+        } as CampusMapBrowseProjection["markers"][number],
+        placeProjection.markers[0]!,
+      ],
+    });
+    const members = runtime.cluster.data.slice(0, 2);
+    const marker = runtime.cluster.renderCluster(members);
+    expect(marker.content).toContain("background:#b33d5c");
+    expect(marker.content).toContain('data-place-type-icon="health-service"');
+    expect(marker.content).toContain("3 个医疗服务，2 个地图位置");
+    runtime.cluster.emitClick(members);
+    expect(runtime.intents).toEqual([
+      {
+        type: "FIT_CLUSTER",
+        positions: members.map((member) => member.lnglat),
+      },
+    ]);
+    runtime.layer.destroy();
+  });
+
+  it("does not invent Building membership from equal coordinates or names", () => {
+    const projection = healthBuildingProjection(2);
+    const otherId = projection.buildings[1]!.buildingId;
+    const other = {
+      ...projection.places[0]!,
+      placeId: "other-health",
+      buildingId: otherId,
+    };
+    const runtime = renderClusterProjection({
+      ...projection,
+      buildings: projection.buildings.map((building) => ({
+        ...building,
+        anchor: projection.buildings[0]!.anchor,
+      })),
+      places: [...projection.places, other],
+      markers: [
+        ...projection.markers,
+        {
+          ...projection.markers[0]!,
+          buildingId: otherId,
+          placeIds: [other.placeId],
+        } as CampusMapBrowseProjection["markers"][number],
+      ],
+    });
+    runtime.cluster.emitClick();
+    expect(runtime.intents[0]).toMatchObject({ type: "FIT_CLUSTER" });
+    const withoutIdentity = runtime.cluster.data.map(({ lnglat }) => ({
+      lnglat,
+    }));
+    expect(runtime.cluster.renderCluster(withoutIdentity).content).toContain(
+      "1 个地图位置，地点数量暂不可用",
+    );
+    runtime.cluster.emitClick(withoutIdentity);
+    expect(runtime.intents[1]).toMatchObject({ type: "FIT_CLUSTER" });
+    runtime.layer.destroy();
+  });
+
+  it("shows the selected canonical room outside clustering and replaces its label on rapid switching", () => {
+    const projection = healthBuildingProjection(2);
+    const runtime = renderClusterProjection(projection);
+    runtime.layer.render({
+      ...runtime.input,
+      mode: { ...runtime.input.mode, selectedPlaceId: placeId },
+    });
+    expect(runtime.map.overlays).toHaveLength(1);
+    expect(runtime.map.overlays[0]!.content).toContain(
+      "已选 · 门诊（Outpatient Service）",
+    );
+    expect(runtime.map.overlays[0]!.content).toContain(
+      "所属建筑 · 非室内精确位置",
+    );
+    runtime.layer.render({
+      ...runtime.input,
+      mode: {
+        ...runtime.input.mode,
+        selectedPlaceId: projection.places[1]!.placeId,
+      },
+    });
+    expect(runtime.map.overlays).toHaveLength(1);
+    expect(runtime.map.overlays[0]!.content).toContain(
+      "已选 · 牙科（Dental Service）",
+    );
+    expect(runtime.map.overlays[0]!.content).not.toContain("Outpatient");
+    runtime.cluster.emitClick();
+    expect(runtime.intents).toEqual([]);
+    runtime.layer.destroy();
+    expect(runtime.map.overlays).toHaveLength(0);
+  });
   it("forwards one AMap hotspot without a companion map dismissal", () => {
     const frames = installManualFrames();
     const intents: unknown[] = [];
@@ -342,7 +554,10 @@ describe("AmapCanonicalBrowseLayer", () => {
     const map = new TestMap();
     const layer = new AmapCanonicalBrowseLayer({
       map,
-      provider: { MarkerCluster: TestMarkerCluster },
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: TestMarkerCluster,
+      },
       onIntent: (intent) => intents.push(intent),
       onHotspot: (hotspot) => hotspots.push(hotspot),
     });
@@ -370,7 +585,10 @@ describe("AmapCanonicalBrowseLayer", () => {
     const intents: unknown[] = [];
     const layer = new AmapCanonicalBrowseLayer({
       map: new TestMap(),
-      provider: { MarkerCluster: TestMarkerCluster },
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: TestMarkerCluster,
+      },
       onIntent: (intent) => intents.push(intent),
       onHotspot: vi.fn(),
     });
@@ -402,7 +620,10 @@ describe("AmapCanonicalBrowseLayer", () => {
       const projection = healthBuildingProjection(serviceCount);
       const layer = new AmapCanonicalBrowseLayer({
         map: new TestMap(),
-        provider: { MarkerCluster: TestMarkerCluster },
+        provider: {
+          Marker: TestSelectedMarker,
+          MarkerCluster: TestMarkerCluster,
+        },
         onIntent: (nextIntent) => intents.push(nextIntent),
         onHotspot: vi.fn(),
       });
@@ -430,7 +651,10 @@ describe("AmapCanonicalBrowseLayer", () => {
     const projection = healthBuildingProjection(2);
     const layer = new AmapCanonicalBrowseLayer({
       map: new TestMap(),
-      provider: { MarkerCluster: TestMarkerCluster },
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: TestMarkerCluster,
+      },
       onIntent: (intent) => intents.push(intent),
       onHotspot: vi.fn(),
     });
@@ -462,7 +686,10 @@ describe("AmapCanonicalBrowseLayer", () => {
     const projection = healthBuildingProjection(2);
     const layer = new AmapCanonicalBrowseLayer({
       map: new TestMap(),
-      provider: { MarkerCluster: TestMarkerCluster },
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: TestMarkerCluster,
+      },
       onIntent: (intent) => intents.push(intent),
       onHotspot: vi.fn(),
     });
@@ -490,7 +717,10 @@ describe("AmapCanonicalBrowseLayer", () => {
     const map = new TestMap();
     const layer = new AmapCanonicalBrowseLayer({
       map,
-      provider: { MarkerCluster: TestMarkerCluster },
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: TestMarkerCluster,
+      },
       onIntent: (intent) => intents.push(intent),
       onHotspot: vi.fn(),
     });
@@ -516,7 +746,10 @@ describe("AmapCanonicalBrowseLayer", () => {
     const map = new TestMap();
     const layer = new AmapCanonicalBrowseLayer({
       map,
-      provider: { MarkerCluster: TestMarkerCluster },
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: TestMarkerCluster,
+      },
       onIntent: (intent) => intents.push(intent),
       onHotspot: vi.fn(),
     });
@@ -542,7 +775,10 @@ describe("AmapCanonicalBrowseLayer", () => {
     const map = new TestMap();
     const layer = new AmapCanonicalBrowseLayer({
       map,
-      provider: { MarkerCluster: TestMarkerCluster },
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: TestMarkerCluster,
+      },
       onIntent: (intent) => intents.push(intent),
       onHotspot: vi.fn(),
     });
@@ -568,7 +804,10 @@ describe("AmapCanonicalBrowseLayer", () => {
     const map = new TestMap();
     const layer = new AmapCanonicalBrowseLayer({
       map,
-      provider: { MarkerCluster: TestMarkerCluster },
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: TestMarkerCluster,
+      },
       onIntent: (intent) => intents.push(intent),
       onHotspot: vi.fn(),
     });
@@ -586,7 +825,10 @@ describe("AmapCanonicalBrowseLayer", () => {
     const map = new TestMap();
     const layer = new AmapCanonicalBrowseLayer({
       map,
-      provider: { MarkerCluster: TestMarkerCluster },
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: TestMarkerCluster,
+      },
       onIntent: (intent) => intents.push(intent),
       onHotspot: vi.fn(),
     });
@@ -607,9 +849,13 @@ describe("AmapCanonicalBrowseLayer", () => {
   });
 
   it("keeps a rendered Place marker's selected state in sync", () => {
+    const map = new TestMap();
     const layer = new AmapCanonicalBrowseLayer({
-      map: new TestMap(),
-      provider: { MarkerCluster: StickyEmptyCluster },
+      map,
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: StickyEmptyCluster,
+      },
       onIntent: vi.fn(),
       onHotspot: vi.fn(),
     });
@@ -626,16 +872,21 @@ describe("AmapCanonicalBrowseLayer", () => {
       },
     });
 
-    const marker = StickyEmptyCluster.instances[0]?.markers[0];
+    const marker = map.overlays[0];
     expect(marker?.content).toContain('aria-pressed="true"');
-    expect(marker?.zIndex).toBe(220);
+    expect(marker?.zIndex).toBe(240);
+    expect(StickyEmptyCluster.instances).toHaveLength(0);
     layer.destroy();
   });
 
   it("renders when a published Place receives its provider position", () => {
+    const map = new TestMap();
     const layer = new AmapCanonicalBrowseLayer({
-      map: new TestMap(),
-      provider: { MarkerCluster: StickyEmptyCluster },
+      map,
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: StickyEmptyCluster,
+      },
       onIntent: vi.fn(),
       onHotspot: vi.fn(),
     });
@@ -654,8 +905,8 @@ describe("AmapCanonicalBrowseLayer", () => {
       mode,
     });
 
-    expect(StickyEmptyCluster.instances).toHaveLength(1);
-    expect(StickyEmptyCluster.instances[0]?.markers[0]?.content).toContain(
+    expect(map.overlays).toHaveLength(1);
+    expect(map.overlays[0]?.content).toContain(
       `data-canonical-marker-key="${campusMapAmapPlacePositionKey(placeId)}"`,
     );
     layer.destroy();
@@ -664,7 +915,10 @@ describe("AmapCanonicalBrowseLayer", () => {
   it("keeps duplicate-name Building markers distinguishable", () => {
     const layer = new AmapCanonicalBrowseLayer({
       map: new TestMap(),
-      provider: { MarkerCluster: StickyEmptyCluster },
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: StickyEmptyCluster,
+      },
       onIntent: vi.fn(),
       onHotspot: vi.fn(),
     });

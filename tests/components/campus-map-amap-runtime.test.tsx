@@ -417,6 +417,103 @@ async function renderUnmappedHotspot() {
 }
 
 describe("Campus Map AMap runtime effects", () => {
+  it("reframes a selected Place after the measured card expands without changing zoom", async () => {
+    const { runtime, map } = await renderWithRuntime({
+      initialSearch:
+        "?v=1&scene=place&id=71000000-0000-4000-8000-000000000002&snap=peek",
+      mapRect: { top: 0, right: 390, bottom: 844, left: 0 },
+      panelRect: { top: 596, right: 390, bottom: 844, left: 0 },
+      projectedPoint: { x: 195, y: 600 },
+    });
+    await runtime.flushAnimationFrames();
+    map.panTo.mockClear();
+    const zoom = map.getZoom();
+    runtime.panelRect.top = 460;
+    await runtime.triggerResize();
+    await runtime.flushAnimationFrames();
+    expect(map.panTo).toHaveBeenLastCalledWith(
+      expect.objectContaining({ lng: 195, lat: 606 }),
+      0,
+    );
+    expect(map.getZoom()).toBe(zoom);
+  });
+  it("keeps a searched room selected and repeats locate feedback without changing history", async () => {
+    const base = createCampusMapBrowseFixture();
+    const template = base.places[0]!;
+    const room = {
+      ...template,
+      placeId: "room-201",
+      name: "YIA 201",
+      placeType: "classroom" as const,
+      selectionTarget: { ...template.selectionTarget, placeId: "room-201" },
+    };
+    const projection: CampusMapBrowseProjection = {
+      ...base,
+      places: [room],
+      markers: [
+        {
+          kind: "building-presence",
+          buildingId: room.buildingId!,
+          placeType: "classroom",
+          placeIds: [room.placeId],
+          position: base.buildings.find(
+            (building) => building.buildingId === room.buildingId,
+          )!.anchor!,
+        },
+      ],
+    };
+    const { runtime, map } = await renderWithRuntime({ projection });
+    fireEvent.change(screen.getByRole("textbox", { name: "搜索建筑或地点" }), {
+      target: { value: room.name },
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /YIA 201/ }));
+    await screen.findByRole("heading", { name: room.name });
+    await runtime.flushAnimationFrames();
+    const search = window.location.search;
+    const push = vi.spyOn(window.history, "pushState");
+    map.panTo.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "定位所属建筑" }));
+    const firstFeedback = screen.getByText(
+      "地图目标：YIA 201 所属建筑，非室内精确位置。",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "定位所属建筑" }));
+    expect(
+      screen.getByText("地图目标：YIA 201 所属建筑，非室内精确位置。"),
+    ).not.toBe(firstFeedback);
+    await runtime.flushAnimationFrames();
+    expect(map.panTo).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+    expect(window.location.search).toBe(search);
+    expect(
+      runtime.markers.some((marker) =>
+        marker.content.includes("已选 · YIA 201"),
+      ),
+    ).toBe(true);
+  });
+
+  it("fits the configured campus extent and cancels older camera work while retaining the selected Place", async () => {
+    const { runtime, map } = await renderWithRuntime({
+      initialSearch:
+        "?v=1&scene=place&id=71000000-0000-4000-8000-000000000002&snap=peek",
+    });
+    await screen.findByRole("heading", { name: "饮水机" });
+    const search = window.location.search;
+    const push = vi.spyOn(window.history, "pushState");
+    fireEvent.click(screen.getByRole("button", { name: "回到校园" }));
+    expect(map.setBounds).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        southWest: expect.objectContaining({ lng: 114.1965, lat: 22.41 }),
+        northEast: expect.objectContaining({ lng: 114.2179, lat: 22.4282 }),
+      }),
+      false,
+      expect.any(Array),
+      16,
+    );
+    await runtime.flushAnimationFrames();
+    expect(window.location.search).toBe(search);
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "饮水机" })).not.toBeNull();
+  });
   it("uses the mapped AMap Building hotspot to select the Add location", async () => {
     const { runtime, map } = await renderWithRuntime({
       placementAnchorPosition: { longitude: 114.22, latitude: 22.43 },
@@ -1395,17 +1492,16 @@ describe("Campus Map AMap runtime effects", () => {
       initialSearch: `?v=1&scene=place&id=${secondPlaceId}&snap=peek`,
     });
 
-    const selectedCluster = await waitFor(() => {
-      const cluster = runtime.clusters.at(-1);
-      expect(cluster?.data).toHaveLength(1);
-      return cluster!;
+    const selectedMarker = await waitFor(() => {
+      const marker = runtime.markers.find((candidate) =>
+        candidate.content.includes('aria-pressed="true"'),
+      );
+      expect(marker).toBeDefined();
+      return marker!;
     });
-    expect(selectedCluster.singleMarkers).toHaveLength(1);
-    await waitFor(() =>
-      expect(selectedCluster.singleMarkers[0]?.content).toContain(
-        'aria-pressed="true"',
-      ),
-    );
+    expect(selectedMarker.content).toContain("已选 · 东翼饮水机");
+    expect(selectedMarker.content).toContain("所属建筑 · 非室内精确位置");
+    expect(runtime.clusters).toHaveLength(0);
   });
 
   it("projects the University Library water fixture at the library building anchor", async () => {
@@ -1483,6 +1579,26 @@ describe("Campus Map AMap runtime effects", () => {
       "地图标记正在加载",
     );
   });
+
+  it.each(["pending", "plugin-error"] as const)(
+    "keeps the selected Place label visible while the cluster plugin is %s",
+    async (markerClusterStatus) => {
+      const { runtime } = await renderWithRuntime({
+        markerClusterStatus,
+        initialSearch:
+          "?v=1&scene=place&id=71000000-0000-4000-8000-000000000002&snap=peek",
+      });
+      await screen.findByRole("heading", { name: "饮水机" });
+      await waitFor(() => {
+        expect(
+          runtime.markers.some((marker) =>
+            marker.content.includes("已选 · 饮水机"),
+          ),
+        ).toBe(true);
+      });
+      expect(runtime.clusters).toHaveLength(0);
+    },
+  );
 
   it("keeps the result list usable when the marker plugin fails", async () => {
     await renderWithRuntime({ markerClusterStatus: "plugin-error" });

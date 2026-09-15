@@ -6,6 +6,7 @@ import {
   emitAmapEvent,
   installFakeCampusMapAmap,
   readAmapProjectedPoint,
+  readAmapSnapshot,
 } from "./helpers/campus-map-amap";
 
 const browseIds = {
@@ -425,6 +426,75 @@ test("search and marker open one canonical Place card", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "正式测试饮水点" }),
   ).toBeVisible();
+});
+
+// ref #911: exercise the real scene/history owner with a deterministic AMap adapter.
+test("selected Place label and locate feedback remain visible across viewports and history", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  for (const viewport of [
+    { width: 1280, height: 800 },
+    { width: 390, height: 844 },
+    { width: 320, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      await page.goto("/campus-map");
+      const search = page.getByRole("textbox", { name: "搜索建筑或地点" });
+      await search.fill("正式测试饮水点");
+      await page
+        .getByRole("button", { name: /正式测试饮水点.*正式测试楼/ })
+        .click();
+      const label = page.locator("[data-campus-map-selected-label]");
+      await expect(label).toContainText("已选 · 正式测试饮水点");
+      await expect(label).toContainText("所属建筑 · 非室内精确位置");
+      const card = page.getByRole("region", { name: "正式测试饮水点" });
+      await expect
+        .poll(async () => {
+          const labelBox = await label.boundingBox();
+          const cardBox = await card.boundingBox();
+          return Boolean(
+            labelBox &&
+            cardBox &&
+            labelBox.x >= 0 &&
+            labelBox.y >= 0 &&
+            labelBox.x + labelBox.width <= viewport.width &&
+            labelBox.y + labelBox.height <= viewport.height &&
+            (labelBox.y + labelBox.height <= cardBox.y ||
+              labelBox.x + labelBox.width <= cardBox.x ||
+              labelBox.x >= cardBox.x + cardBox.width),
+          );
+        })
+        .toBe(true);
+      const placeUrl = page.url();
+      const locate = page.getByRole("button", { name: "定位所属建筑" });
+      await locate.press("Enter");
+      await expect(
+        page.locator("[data-campus-map-locate-feedback]"),
+      ).toBeVisible();
+      await locate.press("Enter");
+      await expect(
+        page.locator("[data-campus-map-locate-feedback]"),
+      ).toContainText("非室内精确位置");
+      await expect(page).toHaveURL(placeUrl);
+      const before = await readAmapSnapshot(page);
+      await page.getByRole("button", { name: "回到校园" }).press("Enter");
+      await expect
+        .poll(async () => (await readAmapSnapshot(page)).setBoundsCount)
+        .toBe(before.setBoundsCount + 1);
+      await expect(page).toHaveURL(placeUrl);
+      await page.goBack();
+      await expect(page).toHaveURL(/scene=search/);
+      await page.goForward();
+      await expect(page).toHaveURL(placeUrl);
+      await expect(label).toContainText("正式测试饮水点");
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(viewport.width);
+    }
+  }
 });
 
 test("mobile Place details return to the same search list and history position", async ({
