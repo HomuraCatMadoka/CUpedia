@@ -25,7 +25,7 @@ function input(
 }
 
 describe("Campus Map compact Place card (#879)", () => {
-  it("keeps a classroom's location primary and moves other facts into details", () => {
+  it("keeps a classroom's known facts in details", () => {
     const card = projectCampusMapPlaceCard(
       input({
         visitNote: "请先查看最新安排。",
@@ -33,7 +33,6 @@ describe("Campus Map compact Place card (#879)", () => {
       }),
     );
 
-    expect(card.locationIsPrimary).toBe(true);
     expect(card.primaryFact).toBeNull();
     expect(card.detailFacts.map((fact) => fact.key)).toEqual([
       "visitNote",

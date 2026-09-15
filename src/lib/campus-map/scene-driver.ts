@@ -10,6 +10,7 @@ import {
   EMPTY_CAMPUS_MAP_SCENE_SESSION,
   transitionCampusMapSession,
   type CampusMapEvent,
+  type CampusMapBrowseSheetSnap,
   type CampusMapCameraCommand,
   type CampusMapFocusCommand,
   type CampusMapSceneCatalog,
@@ -25,6 +26,7 @@ import {
 export type CampusMapDriverIntent =
   | CampusMapEvent
   | { type: "NAVIGATE_BACK" }
+  | { type: "CLOSE_BROWSE_SELECTION" }
   | { type: "DISMISS" }
   | {
       type: "FIT_CLUSTER";
@@ -57,7 +59,7 @@ export type CampusMapDriverFocusCommand =
 
 export type CampusMapSheetCommand =
   | { kind: "hide" }
-  | { kind: "show"; snap: "peek" | "full" };
+  | { kind: "show"; snap: CampusMapBrowseSheetSnap };
 
 export interface CampusMapDriverSnapshot {
   session: CampusMapSession;
@@ -126,6 +128,21 @@ function sheetCommand(session: CampusMapSession): CampusMapSheetCommand {
     : { kind: "hide" };
 }
 
+function resultsScrollIdentity(session: CampusMapSession): string | null {
+  if (session.mode !== "browse") return null;
+  const scene = session.scene;
+  if (scene.kind === "search-results") {
+    return JSON.stringify([scene.kind, scene.query]);
+  }
+  if (scene.kind === "category-results") {
+    return JSON.stringify([scene.kind, scene.category]);
+  }
+  if (scene.kind === "building") {
+    return JSON.stringify([scene.kind, scene.buildingId, scene.floorId]);
+  }
+  return null;
+}
+
 function returnTargetFor(
   session: CampusMapSession,
   event: CampusMapEvent,
@@ -161,7 +178,7 @@ export class CampusMapSceneDriver {
   private readonly listeners = new Set<() => void>();
   private readonly resultsScrollByDepth = new Map<
     number,
-    { url: string; scrollTop: number }
+    { identity: string; scrollTop: number }
   >();
   private readonly returnTargetsByDepth = new Map<
     number,
@@ -188,23 +205,17 @@ export class CampusMapSceneDriver {
 
   rememberResultsScroll(scrollTop: number) {
     if (!Number.isFinite(scrollTop)) return;
-    const session = this.snapshot.session;
-    if (
-      session.mode !== "browse" ||
-      !["search-results", "category-results", "building"].includes(
-        session.scene.kind,
-      )
-    )
-      return;
+    const identity = resultsScrollIdentity(this.snapshot.session);
+    if (identity === null) return;
     this.resultsScrollByDepth.set(this.currentDepth, {
-      url: this.urlFor(this.snapshot.session),
+      identity,
       scrollTop: Math.max(0, scrollTop),
     });
   }
 
   getResultsScrollTop() {
     const saved = this.resultsScrollByDepth.get(this.currentDepth);
-    return saved?.url === this.urlFor(this.snapshot.session)
+    return saved?.identity === resultsScrollIdentity(this.snapshot.session)
       ? saved.scrollTop
       : null;
   }
@@ -245,7 +256,11 @@ export class CampusMapSceneDriver {
     if (intent.type === "FIT_CLUSTER") return this.fitCluster(intent.positions);
     if (intent.type === "REFRAME") return this.reframe(intent.reason);
     if (this.pendingHistoryReturn) {
-      if (intent.type === "NAVIGATE_BACK" || intent.type === "DISMISS") {
+      if (
+        intent.type === "NAVIGATE_BACK" ||
+        intent.type === "CLOSE_BROWSE_SELECTION" ||
+        intent.type === "DISMISS"
+      ) {
         return { status: "pending" as const };
       }
       this.intentVersion += 1;
@@ -255,19 +270,9 @@ export class CampusMapSceneDriver {
       return { status: "queued" as const };
     }
     if (intent.type === "NAVIGATE_BACK") return this.navigateBack();
-    if (intent.type === "DISMISS") {
-      const target = this.snapshot.returnTo ?? EMPTY_CAMPUS_MAP_SCENE_SESSION;
-      return this.commitTransition({
-        session: target,
-        returnTo: null,
-        commands: {
-          history: "replace",
-          camera: { kind: "cancel" },
-          focus: this.dismissFocus(target),
-        },
-        syncSheet: true,
-      });
-    }
+    if (intent.type === "CLOSE_BROWSE_SELECTION")
+      return this.closeBrowseSelection();
+    if (intent.type === "DISMISS") return this.dismiss();
     return this.applyKernelEvent(
       intent,
       returnTargetFor(this.snapshot.session, intent),
@@ -415,11 +420,17 @@ export class CampusMapSceneDriver {
     ) {
       return result;
     }
+    const commands =
+      event.type === "CANCEL_TASK" &&
+      result.commands.history === "back-or-push" &&
+      this.currentDepth === 0
+        ? { ...result.commands, history: "replace" as const }
+        : result.commands;
     return this.commitTransition({
       session: result.session,
       returnTo:
         nextReturnTo === undefined ? this.snapshot.returnTo : nextReturnTo,
-      commands: result.commands,
+      commands,
       syncSheet: result.session !== this.snapshot.session,
       incrementIntentVersion,
     });
@@ -445,6 +456,32 @@ export class CampusMapSceneDriver {
       },
       syncSheet: true,
       bumpToken: false,
+    });
+  }
+
+  private closeBrowseSelection() {
+    const { session, returnTo } = this.snapshot;
+    if (
+      returnTo === null &&
+      session.mode === "browse" &&
+      (session.scene.kind === "place" || session.scene.kind === "content")
+    ) {
+      return this.navigateBack();
+    }
+    return this.dismiss();
+  }
+
+  private dismiss() {
+    const target = this.snapshot.returnTo ?? EMPTY_CAMPUS_MAP_SCENE_SESSION;
+    return this.commitTransition({
+      session: target,
+      returnTo: null,
+      commands: {
+        history: "replace",
+        camera: { kind: "cancel" },
+        focus: this.dismissFocus(target),
+      },
+      syncSheet: true,
     });
   }
 
@@ -523,8 +560,10 @@ export class CampusMapSceneDriver {
       history === "push" || history === "back-or-push"
         ? this.currentDepth + 1
         : this.currentDepth;
-    const nextUrl = this.urlFor(session);
-    if (this.resultsScrollByDepth.get(nextDepth)?.url !== nextUrl) {
+    const nextResultsIdentity = resultsScrollIdentity(session);
+    if (
+      this.resultsScrollByDepth.get(nextDepth)?.identity !== nextResultsIdentity
+    ) {
       this.resultsScrollByDepth.delete(nextDepth);
     }
     if (history === "push" || history === "back-or-push") {

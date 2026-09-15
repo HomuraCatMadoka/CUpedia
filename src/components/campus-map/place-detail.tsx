@@ -23,7 +23,10 @@ import type {
   CampusMapPlaceFeedbackView,
 } from "@/lib/campus-map/place-feedback";
 import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
-import { safeCampusMapListReturnPath } from "@/lib/campus-map/scene-codec";
+import {
+  encodeCampusMapPlaceEditHref,
+  safeCampusMapListReturnPath,
+} from "@/lib/campus-map/scene-codec";
 
 function scheduleLabel(schedule: CampusMapHistoricalFactV1["accessSchedule"]) {
   if (schedule.kind !== "weekly") {
@@ -49,9 +52,7 @@ function locationLabel(
   if (fact.locationKind === "outdoor-point") {
     const precision =
       fact.pointPrecision === "precise" ? "精确位置" : "大约位置";
-    return fact.longitude !== null && fact.latitude !== null
-      ? `室外 · ${precision} · ${fact.latitude.toFixed(6)}, ${fact.longitude.toFixed(6)}`
-      : `室外 · ${precision}`;
+    return `室外 · ${precision}`;
   }
   if (!building) return "建筑资料暂不可用";
   return fact.locationKind === "floor" && building.floorLabel
@@ -129,6 +130,10 @@ export function CampusMapPlaceDetail({
   const feedbackEnabled = Boolean(
     presentedFact && supportsPlaceFeedback(presentedFact),
   );
+  const editHref =
+    presentedFact && viewerCanWrite
+      ? encodeCampusMapPlaceEditHref(placeId, head)
+      : null;
 
   return (
     <main className="w-full min-w-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_oklab,var(--color-emerald-500)_10%,transparent),transparent_42%)] px-4 py-8 sm:px-6 lg:py-12">
@@ -295,20 +300,36 @@ export function CampusMapPlaceDetail({
           />
         ) : null}
 
-        <div>
-          <Link
-            href={`/campus-map/places/${placeId}/history${
-              mapListReturnPath
-                ? `?from=${encodeURIComponent(mapListReturnPath)}`
-                : ""
-            }`}
-            prefetch={false}
-            aria-label="查看编辑记录 / History"
-            className="inline-flex min-h-11 items-center rounded-xl bg-foreground px-4 text-sm font-semibold text-background transition-colors hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            查看编辑记录
-          </Link>
-        </div>
+        <details
+          open={head.status !== "active" || !presentedFact}
+          className="border-t text-sm"
+        >
+          <summary className="min-h-11 cursor-pointer rounded-lg py-3 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            更多操作
+          </summary>
+          <div className="flex flex-wrap gap-3 pb-3">
+            {editHref ? (
+              <Link
+                href={editHref}
+                prefetch={false}
+                className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                建议修改
+              </Link>
+            ) : null}
+            <a
+              href={`/campus-map/places/${placeId}/history${
+                mapListReturnPath
+                  ? `?from=${encodeURIComponent(mapListReturnPath)}`
+                  : ""
+              }`}
+              aria-label="查看编辑记录 / History"
+              className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              查看编辑记录
+            </a>
+          </div>
+        </details>
 
         {isAdmin && (head.status === "active" || head.status === "retired") ? (
           <section className="mt-4 rounded-2xl border border-dashed p-5 sm:p-6">

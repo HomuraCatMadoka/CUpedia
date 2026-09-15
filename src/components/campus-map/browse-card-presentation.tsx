@@ -105,9 +105,9 @@ export function CampusMapFacilityResultButton({
       data-return-result={facility.placeId}
       type="button"
       className={cn(
-        "flex w-full items-center text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]",
+        "flex w-full items-center text-left text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
         showsIcon
-          ? "min-h-14 gap-3 py-2.5 dark:hover:bg-neutral-800 dark:focus-visible:ring-emerald-300"
+          ? "min-h-14 gap-3 py-2.5"
           : "min-h-20 gap-3 border-b border-black/8 py-2",
       )}
       onClick={onSelect}
@@ -150,22 +150,15 @@ export function CampusMapFacilityResultButton({
           {facility.name}
         </strong>
         {location ? (
-          <span
-            className={cn(
-              "mt-0.5 block truncate text-xs text-neutral-600",
-              showsIcon && "dark:text-neutral-300",
-            )}
-          >
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
             {location}
           </span>
         ) : null}
         {summary ? (
           <span
             className={cn(
-              "mt-0.5 block text-xs text-neutral-500",
-              variant === "building"
-                ? "break-words dark:text-neutral-400"
-                : "truncate",
+              "mt-0.5 block text-xs text-muted-foreground",
+              variant === "building" ? "break-words" : "truncate",
             )}
           >
             {summary}

@@ -544,6 +544,29 @@ describe("Campus Map canonical scene transition", () => {
     expect(cancelled.commands.history).toBe("back-or-push");
   });
 
+  it.each(["fountain", "courtyardWater"])(
+    "keeps %s selected when cancelling a directly opened edit",
+    (placeId) => {
+      const cancelled = transitionCampusMapSession(
+        { mode: "task", task: { kind: "edit", placeId } },
+        { type: "CANCEL_TASK" },
+        catalog,
+      );
+      expect(cancelled).toEqual({
+        status: "accepted",
+        session: {
+          mode: "browse",
+          scene: { kind: "place", placeId, snap: "peek" },
+        },
+        commands: {
+          history: "back-or-push",
+          camera: { kind: "cancel" },
+          focus: { kind: "heading" },
+        },
+      });
+    },
+  );
+
   it("accepts scene-specific SET_SNAP and SET_BUILDING_FLOOR events only", () => {
     const building = transitionCampusMapSession(
       EMPTY_CAMPUS_MAP_SCENE_SESSION,
@@ -791,7 +814,7 @@ describe("Campus Map canonical scene transition", () => {
     }
   });
 
-  it("restores a legacy full Place as the one canonical compact session", () => {
+  it("restores an expanded Place through the canonical scene owner", () => {
     const legacyFullPlace = {
       mode: "browse",
       scene: { kind: "place", placeId: "fountain", snap: "full" },
@@ -805,7 +828,7 @@ describe("Campus Map canonical scene transition", () => {
       ).session,
     ).toEqual({
       mode: "browse",
-      scene: { kind: "place", placeId: "fountain", snap: "peek" },
+      scene: { kind: "place", placeId: "fountain", snap: "full" },
     });
   });
 
@@ -1152,7 +1175,17 @@ describe("Campus Map canonical scene transition", () => {
         ),
       );
     }
-    verify("place", setSnap, rejected(sources.place));
+    verify(
+      "place",
+      setSnap,
+      accepted(
+        {
+          mode: "browse",
+          scene: { kind: "place", placeId: "fountain", snap: "full" },
+        },
+        { history: "replace", camera: null, focus: null },
+      ),
+    );
     verify("content", setSnap, accepted(sources.content, noCommands));
 
     const setFloor = { type: "SET_BUILDING_FLOOR", floorId: "4" } as const;
@@ -1221,7 +1254,7 @@ describe("Campus Map canonical scene transition", () => {
     verify(
       "task",
       cancelTask,
-      accepted(sources.building, {
+      accepted(sources.place, {
         history: "back-or-push",
         camera: { kind: "cancel" },
         focus: { kind: "heading" },

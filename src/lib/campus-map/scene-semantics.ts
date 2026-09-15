@@ -350,13 +350,7 @@ export function resolveCampusMapSessionSemantics(
   }
   return {
     status: "valid",
-    session:
-      scene.kind === "place"
-        ? {
-            mode: "browse",
-            scene: { kind: "place", placeId: scene.placeId, snap: "peek" },
-          }
-        : session,
+    session,
     context: {
       buildingId: entity.buildingId,
       floorId: entity.floorId,

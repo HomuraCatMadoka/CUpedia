@@ -4,6 +4,7 @@ import {
   decodeCampusMapUrl,
   decodeCampusMapHistoryMetadata,
   encodeCampusMapPlaceHref,
+  encodeCampusMapPlaceEditHref,
   encodeCampusMapUrl,
   encodeCampusMapHistoryMetadata,
   normalizeCampusMapUrlSession,
@@ -51,6 +52,18 @@ const catalog: CampusMapSceneCatalog = {
 };
 
 describe("Campus Map versioned scene codec", () => {
+  it.each(["peek", "half", "full"] as const)(
+    "round-trips a Place's %s state",
+    (snap) => {
+      const session: CampusMapSession = {
+        mode: "browse",
+        scene: { kind: "place", placeId: "fountain", snap },
+      };
+      expect(
+        decodeCampusMapUrl(encodeCampusMapUrl(session, catalog), catalog),
+      ).toEqual({ status: "decoded", session });
+    },
+  );
   it("owns canonical Place deep links used outside the runtime", () => {
     expect(
       encodeCampusMapPlaceHref("courtyardWater", {
@@ -76,6 +89,39 @@ describe("Campus Map versioned scene codec", () => {
         visibility: "redacted",
       }),
     ).toBe("/campus-map?v=1");
+  });
+
+  it("opens an active public Place's existing edit task from the detail page", () => {
+    const href = encodeCampusMapPlaceEditHref("courtyardWater", {
+      status: "active",
+      visibility: "public",
+    });
+    expect(href).not.toBeNull();
+    expect(
+      decodeCampusMapUrl(
+        new URL(href!, "https://campus-map.local").search,
+        catalog,
+      ),
+    ).toEqual({
+      status: "decoded",
+      session: {
+        mode: "task",
+        task: { kind: "edit", placeId: "courtyardWater" },
+      },
+    });
+    for (const head of [
+      { status: "retired", visibility: "public" },
+      { status: "merged", visibility: "public" },
+      { status: "active", visibility: "redacted" },
+    ] as const) {
+      expect(encodeCampusMapPlaceEditHref("courtyardWater", head)).toBeNull();
+    }
+    expect(
+      encodeCampusMapPlaceEditHref(" courtyardWater ", {
+        status: "active",
+        visibility: "public",
+      }),
+    ).toBeNull();
   });
 
   it("accepts only internal result-list return paths", () => {
@@ -124,14 +170,14 @@ describe("Campus Map versioned scene codec", () => {
     ).toMatchObject({ status: "fallback", reason: "invalid-return-context" });
   });
 
-  it("normalizes a legacy full facility URL to its compact card", () => {
+  it("preserves expanded Place URLs without adding derived containment fields", () => {
     const session = {
       mode: "browse",
       scene: { kind: "place", placeId: "fountain", snap: "full" },
     } as unknown as CampusMapSession;
 
     const encoded = encodeCampusMapUrl(session, catalog);
-    expect(encoded.toString()).toBe("v=1&scene=place&id=fountain&snap=peek");
+    expect(encoded.toString()).toBe("v=1&scene=place&id=fountain&snap=full");
     expect(encoded.has("building")).toBe(false);
     expect(encoded.has("floor")).toBe(false);
     expect(encoded.has("category")).toBe(false);
@@ -141,7 +187,7 @@ describe("Campus Map versioned scene codec", () => {
       status: "decoded",
       session: {
         mode: "browse",
-        scene: { kind: "place", placeId: "fountain", snap: "peek" },
+        scene: { kind: "place", placeId: "fountain", snap: "full" },
       },
     });
   });
