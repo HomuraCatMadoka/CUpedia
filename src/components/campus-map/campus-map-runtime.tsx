@@ -188,11 +188,13 @@ interface AMapEvent {
   id?: string;
   name?: string;
   lnglat: AMapLngLat;
-  clusterData?: ReadonlyArray<{
-    lnglat: AMapLngLat | CampusMapAmapPosition;
-    markerKey?: string;
-  }>;
   originEvent?: { target?: Element | null };
+}
+
+interface AMapClusterEvent {
+  marker?: ReadonlyArray<{
+    lnglat: AMapLngLat | CampusMapAmapPosition;
+  }>;
 }
 
 interface AMapMarker {
@@ -203,7 +205,7 @@ interface AMapMarker {
 }
 
 interface AMapMarkerCluster {
-  on(event: string, handler: (event: AMapEvent) => void): void;
+  on(event: string, handler: (event: AMapClusterEvent) => void): void;
   setData(data: readonly Record<string, unknown>[]): void;
   setMap(map: AMapMap | null): void;
 }

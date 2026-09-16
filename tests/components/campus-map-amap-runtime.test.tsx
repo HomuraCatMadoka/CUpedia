@@ -1413,10 +1413,7 @@ describe("Campus Map AMap runtime effects", () => {
 
     await act(async () => {
       cluster.emit("click", {
-        clusterData: [
-          { lnglat: { lng: 114.20801, lat: 22.41966 } },
-          { lnglat: { lng: 114.20763, lat: 22.41947 } },
-        ],
+        marker: cluster.data.map(({ lnglat }) => ({ lnglat })),
       });
       map.emit("click", { lnglat: { lng: 114.20801, lat: 22.41966 } });
     });

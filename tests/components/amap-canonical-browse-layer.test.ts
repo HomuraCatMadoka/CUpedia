@@ -227,6 +227,7 @@ class TestSelectedMarker extends TestMarker {
 class TestMarkerCluster {
   static instances: TestMarkerCluster[] = [];
   private click: ((event: object) => void) | null = null;
+  readonly singleMarkers: TestMarker[] = [];
   constructor(
     _map: TestMap,
     readonly data: readonly Record<string, unknown>[],
@@ -237,6 +238,7 @@ class TestMarkerCluster {
       marker: TestMarker;
     }) => void;
     const marker = new TestMarker(data[0]!.lnglat as readonly [number, number]);
+    this.singleMarkers.push(marker);
     renderMarker({ marker });
   }
 
@@ -244,14 +246,15 @@ class TestMarkerCluster {
     this.click = handler;
   }
   emitClick(data = this.data) {
-    this.click?.({ clusterData: data });
+    this.click?.({
+      marker: data.map(({ lnglat }) => ({ lnglat })),
+    });
   }
   renderCluster(data = this.data) {
     const marker = new TestMarker([0, 0]);
     (this.options.renderClusterMarker as (input: object) => void)({
       marker,
       count: data.length,
-      clusterData: data,
     });
     return marker;
   }
@@ -434,15 +437,45 @@ describe("AmapCanonicalBrowseLayer", () => {
         } as CampusMapBrowseProjection["markers"][number],
       ],
     });
-    const marker = runtime.cluster.renderCluster();
+    expect(runtime.cluster.data).toHaveLength(1);
+    const marker = runtime.cluster.singleMarkers[0]!;
     expect(marker.content).toContain("3 个不同类别地点，1 个地图位置");
     expect(marker.content).toContain("打开建筑目录");
-    runtime.cluster.emitClick();
+    marker.emitClickWithoutPointerGesture();
     expect(runtime.intents).toEqual([{ type: "OPEN_BUILDING", buildingId }]);
     runtime.layer.destroy();
   });
 
-  it("uses the cluster's members for category styling even when the layer is mixed", () => {
+  it("keeps category styling while counting distinct cluster positions", () => {
+    const projection = healthBuildingProjection(2);
+    const otherId = projection.buildings[1]!.buildingId;
+    const other = {
+      ...projection.places[0]!,
+      placeId: "other-health",
+      buildingId: otherId,
+    };
+    const runtime = renderClusterProjection({
+      ...projection,
+      places: [...projection.places, other],
+      markers: [
+        ...projection.markers,
+        {
+          ...projection.markers[0]!,
+          buildingId: otherId,
+          placeIds: [other.placeId],
+          position: projection.buildings[1]!.anchor!,
+        } as CampusMapBrowseProjection["markers"][number],
+      ],
+    });
+
+    const marker = runtime.cluster.renderCluster();
+    expect(marker.content).toContain("background:#b33d5c");
+    expect(marker.content).toContain('data-place-type-icon="health-service"');
+    expect(marker.content).toContain("2 个地图位置，类别：医疗服务");
+    runtime.layer.destroy();
+  });
+
+  it("uses truthful position semantics when render callbacks omit members", () => {
     const projection = healthBuildingProjection(2);
     const otherId = projection.buildings[1]!.buildingId;
     const other = {
@@ -466,9 +499,10 @@ describe("AmapCanonicalBrowseLayer", () => {
     });
     const members = runtime.cluster.data.slice(0, 2);
     const marker = runtime.cluster.renderCluster(members);
-    expect(marker.content).toContain("background:#b33d5c");
-    expect(marker.content).toContain('data-place-type-icon="health-service"');
-    expect(marker.content).toContain("3 个医疗服务，2 个地图位置");
+    expect(marker.content).toContain("background:#374151");
+    expect(marker.content).toContain("2 个地图位置，放大查看这些位置");
+    expect(marker.content).not.toContain("不同类别");
+    expect(marker.content).not.toContain("地点数量暂不可用");
     runtime.cluster.emitClick(members);
     expect(runtime.intents).toEqual([
       {
@@ -503,16 +537,14 @@ describe("AmapCanonicalBrowseLayer", () => {
         } as CampusMapBrowseProjection["markers"][number],
       ],
     });
-    runtime.cluster.emitClick();
+    expect(runtime.cluster.data).toHaveLength(1);
+    const marker = runtime.cluster.singleMarkers[0]!;
+    expect(marker.content).toContain("3 个医疗服务，1 个地图位置");
+    expect(marker.content).not.toContain("打开建筑目录");
+    marker.emitClickWithoutPointerGesture();
     expect(runtime.intents[0]).toMatchObject({ type: "FIT_CLUSTER" });
-    const withoutIdentity = runtime.cluster.data.map(({ lnglat }) => ({
-      lnglat,
-    }));
-    expect(runtime.cluster.renderCluster(withoutIdentity).content).toContain(
-      "1 个地图位置，地点数量暂不可用",
-    );
-    runtime.cluster.emitClick(withoutIdentity);
-    expect(runtime.intents[1]).toMatchObject({ type: "FIT_CLUSTER" });
+    runtime.cluster.emitClick([{ lnglat: [0, 0] }]);
+    expect(runtime.intents).toHaveLength(1);
     runtime.layer.destroy();
   });
 

@@ -39,15 +39,16 @@ interface ProviderMarker {
   setzIndex(zIndex: number): void;
 }
 
-interface ProviderClusterEvent {
-  clusterData?: ReadonlyArray<{
-    lnglat: ProviderLngLat | CampusMapAmapPosition;
-    markerKey?: string;
-  }>;
+interface ProviderClusterPoint {
+  lnglat: ProviderLngLat | CampusMapAmapPosition;
+}
+
+interface ProviderClusterClickEvent {
+  marker?: ReadonlyArray<ProviderClusterPoint>;
 }
 
 interface ProviderMarkerCluster {
-  on(event: string, handler: (event: ProviderClusterEvent) => void): void;
+  on(event: string, handler: (event: ProviderClusterClickEvent) => void): void;
   setMap(map: null): void;
 }
 
@@ -116,6 +117,12 @@ type MarkerTarget = MarkerIdentity & {
   visiblePlaceIds: readonly string[];
 };
 
+type CanonicalPositionGroup = {
+  key: string;
+  position: CampusMapAmapPosition;
+  targets: readonly MarkerTarget[];
+};
+
 function scheduleAfterProviderEvents(callback: () => void) {
   if (typeof requestAnimationFrame === "function") {
     const frame = requestAnimationFrame(callback);
@@ -135,6 +142,31 @@ function providerPositionKey(position: ProviderLngLat | CampusMapAmapPosition) {
   const longitude = "lng" in position ? position.lng : position[0];
   const latitude = "lat" in position ? position.lat : position[1];
   return `${longitude.toFixed(12)}:${latitude.toFixed(12)}`;
+}
+
+function groupMarkerTargetsByPosition(
+  targets: readonly MarkerTarget[],
+): CanonicalPositionGroup[] {
+  const groups = new Map<string, MarkerTarget[]>();
+  for (const target of targets) {
+    const key = providerPositionKey(target.position);
+    const members = groups.get(key) ?? [];
+    members.push(target);
+    groups.set(key, members);
+  }
+  return [...groups].map(([key, members]) => ({
+    key,
+    position: members[0]!.position,
+    targets: members,
+  }));
+}
+
+function commonPlaceType(targets: readonly MarkerTarget[]) {
+  const firstPlaceType = targets[0]?.marker.placeType;
+  return firstPlaceType &&
+    targets.every((target) => target.marker.placeType === firstPlaceType)
+    ? firstPlaceType
+    : null;
 }
 
 function buildingLabel(
@@ -288,7 +320,7 @@ export class AmapCanonicalBrowseLayer<
   private projection: CampusMapBrowseProjection | null = null;
   private dataSignature: string | null = null;
   private readonly markers = new Map<string, ProviderMarker>();
-  private targetsByKey = new Map<string, MarkerTarget>();
+  private positionGroups = new Map<string, CanonicalPositionGroup>();
   private selectedPlaceId: string | null = null;
   private selectedMarker: ProviderMarker | null = null;
   private selectedMarkerPositionKey: string | null = null;
@@ -370,16 +402,11 @@ export class AmapCanonicalBrowseLayer<
     const buildingDisplay = projectCampusMapBuildingDisplay(
       input.projection.buildings,
     );
-    const targetsByKey = new Map(targets.map((target) => [target.key, target]));
-    this.targetsByKey = targetsByKey;
+    const positionGroups = groupMarkerTargetsByPosition(targets);
+    this.positionGroups = new Map(
+      positionGroups.map((group) => [group.key, group]),
+    );
     this.selectedPlaceId = mode.selectedPlaceId;
-    const targetsByPosition = new Map<string, MarkerTarget[]>();
-    for (const target of targets) {
-      const key = providerPositionKey(target.position);
-      const candidates = targetsByPosition.get(key) ?? [];
-      candidates.push(target);
-      targetsByPosition.set(key, candidates);
-    }
 
     try {
       this.projection = input.projection;
@@ -389,108 +416,56 @@ export class AmapCanonicalBrowseLayer<
         buildingDisplay,
       );
       if (!this.cluster && targets.length > 0) {
-        const assignments = new WeakMap<ProviderMarker, MarkerTarget>();
-        const nextTargetIndex = new Map<string, number>();
         const cluster = new this.input.provider.MarkerCluster(
           this.input.map,
-          targets.map(({ key, position }) => ({
+          positionGroups.map(({ position }) => ({
             lnglat: position,
-            markerKey: key,
           })),
           {
             gridSize: 90,
             maxZoom: 18,
             averageCenter: true,
             renderMarker: ({ marker }: { marker: ProviderMarker }) => {
-              let target = assignments.get(marker);
-              if (!target) {
-                const position = marker.getPosition();
-                if (!position) return;
-                const positionKey = providerPositionKey(position);
-                const candidates = targetsByPosition.get(positionKey);
-                if (!candidates?.length) return;
-                const targetIndex = nextTargetIndex.get(positionKey) ?? 0;
-                target = candidates[targetIndex % candidates.length];
-                nextTargetIndex.set(positionKey, targetIndex + 1);
-                assignments.set(marker, target);
-              }
-              const content = targetContent(
-                target,
+              const position = marker.getPosition();
+              if (!position) return;
+              const group = this.positionGroups.get(
+                providerPositionKey(position),
+              );
+              if (!group) return;
+              const content = this.positionGroupContent(
+                group,
                 input.projection,
                 buildingDisplay,
-                isTargetSelected(target, mode.selectedPlaceId),
+                mode.selectedPlaceId,
               );
               if (!content) return;
-              this.markers.set(target.key, marker);
+              this.markers.set(group.key, marker);
               marker.setContent(content);
               marker.on("click", () => {
-                if (this.markers.get(target!.key) !== marker) return;
-                const current = this.targetsByKey.get(target!.key);
+                if (this.markers.get(group.key) !== marker) return;
+                const current = this.positionGroups.get(group.key);
                 if (!current) return;
-                const directPlaceId =
-                  current.visiblePlaceIds.length === 1
-                    ? current.visiblePlaceIds[0]!
-                    : null;
-                if (directPlaceId) {
-                  this.activateCanonicalTarget({
-                    type: "OPEN_PLACE",
-                    placeId: directPlaceId,
-                  });
-                } else if (current.marker.kind === "building-presence") {
-                  this.activateCanonicalTarget({
-                    type: "OPEN_BUILDING",
-                    buildingId: current.marker.buildingId,
-                  });
-                }
+                this.activatePositionGroup(current);
               });
             },
             renderClusterMarker: ({
+              count,
               marker,
-              clusterData,
-            }: ProviderClusterEvent & {
+            }: {
+              count: number;
               marker: ProviderMarker;
             }) => {
-              const members = this.clusterMembers(clusterData);
-              const positions = clusterData
-                ? new Set(
-                    clusterData.map(({ lnglat }) =>
-                      providerPositionKey(lnglat),
-                    ),
-                  )
-                : null;
-              const firstPlaceType = members?.[0]?.marker.placeType;
-              const placeType =
-                firstPlaceType &&
-                members!.every(
-                  (target) => target.marker.placeType === firstPlaceType,
-                )
-                  ? firstPlaceType
-                  : null;
+              const placeType = commonPlaceType(targets);
               const style = placeType
                 ? campusMapPlaceTypeStyle(placeType)
                 : null;
-              const placeCount = members
-                ? new Set(members.flatMap((member) => member.visiblePlaceIds))
-                    .size
-                : null;
-              const buildingId = members ? this.sameBuilding(members) : null;
-              const building = buildingId
-                ? input.projection.buildings.find(
-                    (candidate) => candidate.buildingId === buildingId,
-                  )
-                : null;
-              const destination = building
-                ? `${buildingLabel(building, buildingDisplay)}，打开建筑目录`
-                : "放大查看这些位置";
               marker.setContent(
                 placeClusterMarkerContent({
-                  count: placeCount ?? positions?.size ?? null,
-                  measure: placeCount === null ? "位置" : "地点",
+                  count,
+                  measure: "位置",
                   placeType,
                   color: style?.color ?? "#374151",
-                  label: members
-                    ? `${placeCount} 个${style?.label ?? "不同类别地点"}，${positions?.size ?? 0} 个地图位置，${destination}`
-                    : `${positions?.size ?? "多个"} 个地图位置，地点数量暂不可用，${destination}`,
+                  label: `${count} 个地图位置${style ? `，类别：${style.label}` : ""}，放大查看这些位置`,
                 }),
               );
             },
@@ -498,24 +473,28 @@ export class AmapCanonicalBrowseLayer<
         );
         cluster.on("click", (event) => {
           if (this.cluster !== cluster) return;
-          const members = this.clusterMembers(event.clusterData);
-          const buildingId = members ? this.sameBuilding(members) : null;
+          const groups = this.clusterGroups(event.marker);
+          if (!groups) return;
+          const members = groups.flatMap((group) => group.targets);
+          const buildingId = this.sameBuilding(members);
           if (buildingId) {
             this.activateCanonicalTarget({ type: "OPEN_BUILDING", buildingId });
             return;
           }
-          const positions = event.clusterData?.map(({ lnglat }) =>
-            "lng" in lnglat ? asAmapPosition([lnglat.lng, lnglat.lat]) : lnglat,
-          );
-          if (positions?.length) {
-            this.activateCanonicalTarget({ type: "FIT_CLUSTER", positions });
-          }
+          this.activateCanonicalTarget({
+            type: "FIT_CLUSTER",
+            positions: groups.map((group) => group.position),
+          });
         });
         this.cluster = cluster;
         this.projection = input.projection;
         this.dataSignature = dataSignature;
       }
-      this.syncSelection(input.projection, targets, mode.selectedPlaceId);
+      this.syncSelection(
+        input.projection,
+        positionGroups,
+        mode.selectedPlaceId,
+      );
       return true;
     } catch {
       this.clearMarkers();
@@ -560,25 +539,88 @@ export class AmapCanonicalBrowseLayer<
     this.projection = null;
     this.dataSignature = null;
     this.markers.clear();
-    this.targetsByKey.clear();
+    this.positionGroups.clear();
     this.selectedPlaceId = null;
     if (this.selectedMarker) this.input.map.remove([this.selectedMarker]);
     this.selectedMarker = null;
     this.selectedMarkerPositionKey = null;
   }
 
-  private clusterMembers(data: ProviderClusterEvent["clusterData"]) {
-    if (!data?.length) return null;
-    const members: MarkerTarget[] = [];
-    for (const item of data) {
-      // Only metadata from the canonical input can establish containment.
-      const target = item.markerKey
-        ? this.targetsByKey.get(item.markerKey)
-        : null;
-      if (!target) return null;
-      members.push(target);
+  private clusterGroups(points: ProviderClusterClickEvent["marker"]) {
+    if (!points?.length) return null;
+    const groups: CanonicalPositionGroup[] = [];
+    const seen = new Set<string>();
+    for (const point of points) {
+      const key = providerPositionKey(point.lnglat);
+      if (seen.has(key)) continue;
+      const group = this.positionGroups.get(key);
+      // Coordinates only find a group we created from canonical membership;
+      // they never establish a new Place-to-Building relationship.
+      if (!group) return null;
+      seen.add(key);
+      groups.push(group);
     }
-    return members;
+    return groups;
+  }
+
+  private positionGroupContent(
+    group: CanonicalPositionGroup,
+    projection: CampusMapBrowseProjection,
+    display: CampusMapBuildingDisplayProjection,
+    selectedPlaceId: string | null,
+  ) {
+    if (group.targets.length === 1) {
+      const target = group.targets[0]!;
+      return targetContent(
+        target,
+        projection,
+        display,
+        isTargetSelected(target, selectedPlaceId),
+      );
+    }
+    const placeType = commonPlaceType(group.targets);
+    const style = placeType ? campusMapPlaceTypeStyle(placeType) : null;
+    const placeCount = new Set(
+      group.targets.flatMap((target) => target.visiblePlaceIds),
+    ).size;
+    const buildingId = this.sameBuilding(group.targets);
+    const building = buildingId
+      ? projection.buildings.find(
+          (candidate) => candidate.buildingId === buildingId,
+        )
+      : null;
+    const destination = building
+      ? `${buildingLabel(building, display)}，打开建筑目录`
+      : "放大查看这个地图位置";
+    return placeClusterMarkerContent({
+      count: placeCount,
+      measure: "地点",
+      placeType,
+      color: style?.color ?? "#374151",
+      label: `${placeCount} 个${style?.label ?? "不同类别地点"}，1 个地图位置，${destination}`,
+    });
+  }
+
+  private activatePositionGroup(group: CanonicalPositionGroup) {
+    const placeIds = new Set(
+      group.targets.flatMap((target) => target.visiblePlaceIds),
+    );
+    if (placeIds.size === 1) {
+      this.activateCanonicalTarget({
+        type: "OPEN_PLACE",
+        placeId: [...placeIds][0]!,
+      });
+      return;
+    }
+    const buildingId = this.sameBuilding(group.targets);
+    if (buildingId) {
+      this.activateCanonicalTarget({ type: "OPEN_BUILDING", buildingId });
+      return;
+    }
+    this.activateCanonicalTarget({
+      type: "FIT_CLUSTER",
+      positions: [group.position],
+    });
   }
 
   private sameBuilding(members: readonly MarkerTarget[]) {
@@ -640,28 +682,25 @@ export class AmapCanonicalBrowseLayer<
 
   private syncSelection(
     projection: CampusMapBrowseProjection,
-    visibleTargets: readonly MarkerTarget[],
+    visibleGroups: readonly CanonicalPositionGroup[],
     selectedPlaceId: string | null,
   ) {
     const buildingDisplay = projectCampusMapBuildingDisplay(
       projection.buildings,
     );
-    const targets = new Map(
-      visibleTargets.map((target) => [target.key, target]),
-    );
+    const groups = new Map(visibleGroups.map((group) => [group.key, group]));
 
     for (const [key, marker] of this.markers) {
-      const target = targets.get(key);
-      if (!target) continue;
-      const selected = isTargetSelected(target, selectedPlaceId);
-      const content = targetContent(
-        target,
+      const group = groups.get(key);
+      if (!group) continue;
+      const content = this.positionGroupContent(
+        group,
         projection,
         buildingDisplay,
-        selected,
+        selectedPlaceId,
       );
       if (!content) continue;
-      marker.setzIndex(selected ? 220 : 160);
+      marker.setzIndex(160);
       marker.setContent(content);
     }
   }
