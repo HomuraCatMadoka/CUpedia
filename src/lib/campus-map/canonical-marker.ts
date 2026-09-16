@@ -10,10 +10,11 @@ const PLACE_TYPE_PATHS: Record<CampusMapPublicPlaceType, string> = {
   "common-space":
     '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   classroom:
-    '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+    '<path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M18 4.933V21"/><path d="m4 6 7.106-3.79a2 2 0 0 1 1.788 0L20 6"/><path d="m6 11-3.52 2.147a1 1 0 0 0-.48.854V19a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a1 1 0 0 0-.48-.853L18 11"/><path d="M6 4.933V21"/><circle cx="12" cy="9" r="2"/>',
   "sports-facility":
     '<path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/>',
-  "health-service": '<path d="M12 3v18"/><path d="M3 12h18"/>',
+  "health-service":
+    '<path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/><path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/>',
 };
 
 function icon(path: string, attribute = "") {
@@ -48,11 +49,21 @@ function markerButton(input: {
   selected: boolean;
   color: string;
   icon: string;
+  count?: number;
+  selectedLabel?: string;
+  precisionLabel?: string;
 }) {
   const safeColor = /^#[\da-f]{3,8}$/i.test(input.color)
     ? input.color
     : "#176346";
-  return `<button type="button" data-cupedia-marker="true" ${input.identityAttribute}="${escapeAttribute(input.identity)}" aria-label="${escapeAttribute(input.label)}" aria-pressed="${input.selected}" style="display:grid;width:44px;height:44px;place-items:center;border:${input.selected ? 4 : 3}px solid white;border-radius:999px;background:${safeColor};color:white;box-shadow:${input.selected ? "0 0 0 4px rgba(23,75,56,.28),0 5px 16px rgba(0,0,0,.3)" : "0 3px 12px rgba(0,0,0,.22)"};transform:${input.selected ? "scale(1.08)" : "none"}">${input.icon}</button>`;
+  const count =
+    input.count && input.count > 1
+      ? `<span aria-hidden="true" style="position:absolute;top:-10px;right:-14px;min-width:24px;padding:2px 5px;border:2px solid white;border-radius:8px;background:${safeColor};font:700 12px system-ui">${input.count}</span>`
+      : "";
+  const selectedLabel = input.selected
+    ? `<span data-campus-map-selected-label style="position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);width:max-content;max-width:180px;box-sizing:border-box;border:2px solid ${safeColor};border-radius:12px;padding:6px 10px;background:white;color:#17211c;font:600 13px/18px system-ui;box-shadow:0 3px 12px rgba(0,0,0,.2);overflow-wrap:anywhere;white-space:normal"><span style="display:block;max-height:36px;overflow:hidden">已选 · ${escapeAttribute(input.selectedLabel ?? input.label)}</span><span style="display:block;font-size:11px;font-weight:400">${escapeAttribute(input.precisionLabel ?? "")}</span></span>`
+    : "";
+  return `<button type="button" class="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black" data-cupedia-marker="true" ${input.identityAttribute}="${escapeAttribute(input.identity)}" aria-label="${escapeAttribute(input.label)}" aria-pressed="${input.selected}" style="position:relative;display:grid;width:44px;height:44px;place-items:center;border:${input.selected ? 4 : 3}px solid white;border-radius:${input.selected ? "12px" : "999px"};background:${safeColor};color:white;box-shadow:${input.selected ? "0 0 0 4px rgba(23,75,56,.28),0 5px 16px rgba(0,0,0,.3)" : "0 3px 12px rgba(0,0,0,.22)"}">${input.icon}${count}${selectedLabel}</button>`;
 }
 
 export function placeTypeMarkerContent(input: {
@@ -64,6 +75,8 @@ export function placeTypeMarkerContent(input: {
   color: string;
   selected: boolean;
   markerLabel?: string;
+  count?: number;
+  precisionLabel?: string;
 }) {
   return markerButton({
     identityAttribute: "data-canonical-marker-key",
@@ -74,5 +87,26 @@ export function placeTypeMarkerContent(input: {
     selected: input.selected,
     color: input.color,
     icon: placeTypeMarkerIcon(input.placeType),
+    count: input.selected ? undefined : input.count,
+    selectedLabel: input.name,
+    precisionLabel: input.precisionLabel,
   });
+}
+
+export function placeClusterMarkerContent(input: {
+  label: string;
+  count: number | null;
+  measure: "地点" | "位置";
+  color: string;
+  placeType: CampusMapPublicPlaceType | null;
+}) {
+  const safeColor = /^#[\da-f]{3,8}$/i.test(input.color)
+    ? input.color
+    : "#374151";
+  const iconContent = input.placeType
+    ? placeTypeMarkerIcon(input.placeType)
+    : icon(
+        '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+      );
+  return `<button type="button" class="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black" data-cupedia-marker="true" data-campus-map-cluster aria-label="${escapeAttribute(input.label)}" style="display:flex;min-width:64px;min-height:48px;align-items:center;justify-content:center;gap:6px;padding:5px 10px;border:3px solid white;border-radius:14px;background:${safeColor};color:white;box-shadow:0 3px 12px rgba(0,0,0,.22)">${iconContent}<span style="font:700 14px/16px system-ui">${input.count ?? "聚合"}<span style="display:block;font-size:10px;font-weight:400">${input.measure}</span></span></button>`;
 }

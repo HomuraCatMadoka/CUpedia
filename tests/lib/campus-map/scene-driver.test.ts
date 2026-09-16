@@ -94,6 +94,24 @@ function harness(initialSearch = "?v=1", clearStartEffects = true) {
 }
 
 describe("CampusMapSceneDriver", () => {
+  it("returns to campus through the camera owner without changing selection or history", () => {
+    const runtime = harness("?v=1&scene=place&id=fountain&snap=peek");
+    const session = runtime.driver.getSnapshot().session;
+    const search = runtime.search;
+    runtime.driver.dispatch({ type: "REFRAME", reason: "map-selection" });
+    const previousCamera = vi.mocked(runtime.ports.camera).mock.calls[0]![1];
+    runtime.driver.dispatch({ type: "RETURN_TO_CAMPUS" });
+    expect(previousCamera.isCurrent()).toBe(false);
+    expect(runtime.ports.camera).toHaveBeenLastCalledWith(
+      { kind: "campus-extent" },
+      expect.any(Object),
+    );
+    expect(runtime.driver.getSnapshot().session).toBe(session);
+    expect(runtime.search).toBe(search);
+    expect(runtime.history.pushState).not.toHaveBeenCalled();
+    expect(runtime.history.replaceState).not.toHaveBeenCalled();
+  });
+
   it("restores directory scroll on repeated Back/Forward and clears it when the same entry changes (#909)", () => {
     const runtime = harness();
     runtime.driver.dispatch({

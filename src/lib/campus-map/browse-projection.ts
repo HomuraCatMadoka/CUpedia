@@ -8,6 +8,11 @@ import { compareCampusMapNames } from "@/lib/campus-map/browse-order";
 
 /** Product viewport default, not a Building or Place assertion. */
 export const CAMPUS_MAP_DEFAULT_VIEW_CENTER = [114.2072, 22.4191] as const;
+/** Campus overview bounds in WGS84; presentation config, not location facts. */
+export const CAMPUS_MAP_DEFAULT_VIEW_BOUNDS = [
+  [114.1965, 22.41],
+  [114.2179, 22.4282],
+] as const;
 
 export interface CampusMapBrowseBuildingSource {
   buildingId: string;

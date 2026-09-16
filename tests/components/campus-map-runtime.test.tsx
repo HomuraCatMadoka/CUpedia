@@ -828,6 +828,7 @@ describe("CampusMapRuntime", () => {
     expect(result.textContent).not.toContain("4.4 分");
     expect(result.textContent).not.toContain("评分");
     expect(result.querySelector("img")?.getAttribute("alt")).toBe("");
+    expect(result.querySelector(".lucide-droplets")).not.toBeNull();
     expect(result.querySelector("img")?.getAttribute("src")).toContain(
       "place-photos",
     );

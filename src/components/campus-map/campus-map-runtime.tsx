@@ -22,6 +22,7 @@ import {
   MinusIcon,
   PlusIcon,
   SearchIcon,
+  SchoolIcon,
   XIcon,
 } from "lucide-react";
 
@@ -86,6 +87,7 @@ import {
 } from "@/lib/campus-map/amap-browse-projection";
 import {
   CAMPUS_MAP_DEFAULT_VIEW_CENTER as CAMPUS_CENTER,
+  CAMPUS_MAP_DEFAULT_VIEW_BOUNDS,
   EMPTY_CAMPUS_MAP_BROWSE_PROJECTION,
   queryCampusMapBrowse,
   queryCampusMapNearby,
@@ -195,11 +197,13 @@ interface AMapEvent {
   id?: string;
   name?: string;
   lnglat: AMapLngLat;
-  clusterData?: ReadonlyArray<{
-    lnglat: AMapLngLat | CampusMapAmapPosition;
-    markerKey?: string;
-  }>;
   originEvent?: { target?: Element | null };
+}
+
+interface AMapClusterEvent {
+  marker?: ReadonlyArray<{
+    lnglat: AMapLngLat | CampusMapAmapPosition;
+  }>;
 }
 
 interface AMapMarker {
@@ -210,7 +214,7 @@ interface AMapMarker {
 }
 
 interface AMapMarkerCluster {
-  on(event: string, handler: (event: AMapEvent) => void): void;
+  on(event: string, handler: (event: AMapClusterEvent) => void): void;
   setData(data: readonly Record<string, unknown>[]): void;
   setMap(map: AMapMap | null): void;
 }
@@ -771,6 +775,12 @@ export function CampusMapRuntime({
   const providerProjectionIntentRef = useRef(0);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
+  const selectedPlaceCameraRef = useRef(false);
+  const [locateFeedback, setLocateFeedback] = useState<{
+    placeId: string;
+    message: string;
+    revision: number;
+  } | null>(null);
   const canonicalBrowseLayerRef =
     useRef<AmapCanonicalBrowseLayer<AMapMap> | null>(null);
   const cameraGateRef = useRef(new CameraRequestGate());
@@ -898,6 +908,16 @@ export function CampusMapRuntime({
               ? rect(panelRef.current)
               : null;
           const policy = cameraPolicyFor(reason, mapRect, panelRect);
+          if (policy && selectedPlaceCameraRef.current) {
+            // Reserve space for the selected label as well as the point itself.
+            const padding = deriveCameraPadding(mapRect, panelRect);
+            policy.padding = {
+              top: Math.max(220, padding.top + 76),
+              right: padding.right + 76,
+              bottom: padding.bottom + 20,
+              left: padding.left + 76,
+            };
+          }
           if (!policy) {
             if (pendingSelectionTokenRef.current === request.token) {
               pendingSelectionTokenRef.current = null;
@@ -1312,10 +1332,23 @@ export function CampusMapRuntime({
         ].slice(-8);
       }
       pendingPlacementCameraRef.current = null;
-      if (camera.kind === "fit") {
+      if (camera.kind === "fit" || camera.kind === "campus-extent") {
         cameraGateRef.current.invalidate();
-        const longitudes = camera.positions.map((position) => position[0]);
-        const latitudes = camera.positions.map((position) => position[1]);
+        const positions =
+          camera.kind === "fit"
+            ? camera.positions
+            : CAMPUS_MAP_DEFAULT_VIEW_BOUNDS.flatMap((position) => {
+                const projected = projectCampusMapWgs84ToAmap(
+                  asWgs84Position(position),
+                  "approximate",
+                );
+                return projected.status === "projected"
+                  ? [projected.position]
+                  : [];
+              });
+        if (positions.length === 0) return;
+        const longitudes = positions.map((position) => position[0]);
+        const latitudes = positions.map((position) => position[1]);
         const bounds = new AMap.Bounds(
           new AMap.LngLat(Math.min(...longitudes), Math.min(...latitudes)),
           new AMap.LngLat(Math.max(...longitudes), Math.max(...latitudes)),
@@ -1330,7 +1363,7 @@ export function CampusMapRuntime({
           bounds,
           false,
           [padding.top, padding.bottom, padding.left, padding.right],
-          18,
+          camera.kind === "campus-extent" ? 16 : 18,
         );
         return;
       }
@@ -1507,6 +1540,9 @@ export function CampusMapRuntime({
   const categoryPanelActive =
     session.mode === "browse" && session.scene.kind === "category-results";
   const selectedMarkerPlaceId = selectedFacility?.placeId ?? null;
+  useLayoutEffect(() => {
+    selectedPlaceCameraRef.current = selectedMarkerPlaceId !== null;
+  }, [selectedMarkerPlaceId]);
   const selectedFacilityBackLabel = selectedFacility
     ? facilityBackLabel(driverSnapshot.returnTo)
     : "返回地图";
@@ -1696,9 +1732,13 @@ export function CampusMapRuntime({
     : null;
   const visibleMarkerPlaceIds = useMemo(() => {
     if (activeCategory) {
-      return places
+      const categoryIds = places
         .filter((place) => place.placeType === activeCategory)
         .map((place) => place.placeId);
+      return selectedMarkerPlaceId &&
+        !categoryIds.includes(selectedMarkerPlaceId)
+        ? [...categoryIds, selectedMarkerPlaceId]
+        : categoryIds;
     }
     if (selectedMarkerPlaceId) return [selectedMarkerPlaceId];
     return searchResults.flatMap((result) =>
@@ -2599,7 +2639,6 @@ export function CampusMapRuntime({
   useEffect(() => {
     if (
       !mapReady ||
-      clusterStatus !== "ready" ||
       coordinateVersion === 0 ||
       !window.AMap ||
       !canonicalBrowseLayerRef.current
@@ -2608,7 +2647,12 @@ export function CampusMapRuntime({
     const synced = canonicalBrowseLayerRef.current.render({
       projection: browseProjection,
       providerPositions: amapPositionsRef.current,
-      mode: markerMode,
+      mode:
+        clusterStatus === "ready"
+          ? markerMode
+          : markerMode.kind === "places" && markerMode.selectedPlaceId
+            ? { ...markerMode, placeIds: [markerMode.selectedPlaceId] }
+            : { kind: "hidden" },
     });
     if (!synced) {
       queueMicrotask(() => setClusterStatus("error"));
@@ -2835,6 +2879,35 @@ export function CampusMapRuntime({
     : selectedBuilding?.anchor
       ? "定位建筑"
       : null;
+  const locateSelection = () => {
+    if (!selectedFacility) {
+      dispatch({ type: "REFRAME", reason: "map-selection" });
+      return;
+    }
+    const supported =
+      selectedFacility.location.kind === "outdoor-point" ||
+      Boolean(selectedBuilding?.anchor);
+    const message = !mapReady
+      ? "地图暂时不可用，仍可查看地点位置资料。"
+      : !supported
+        ? "尚未掌握可显示的地图位置，请查看建筑与楼层资料。"
+        : selectedFacility.buildingId
+          ? `地图目标：${selectedFacility.name} 所属建筑，非室内精确位置。`
+          : `地图目标：${selectedFacility.name}，${
+              selectedFacility.location.kind === "outdoor-point" &&
+              selectedFacility.location.point.precision === "precise"
+                ? "精确"
+                : "约略"
+            }室外位置。`;
+    if (mapReady && supported) {
+      dispatch({ type: "REFRAME", reason: "map-selection" });
+    }
+    setLocateFeedback((previous) => ({
+      placeId: selectedFacility.placeId,
+      message,
+      revision: (previous?.revision ?? 0) + 1,
+    }));
+  };
   const mobilePanelHeight =
     categoryPanelActive && state.sheet.snap === "full"
       ? "min(640px, 72dvh)"
@@ -3288,6 +3361,20 @@ export function CampusMapRuntime({
         ) : null}
         <button
           type="button"
+          aria-label="回到校园"
+          disabled={!mapReady}
+          className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 bg-white px-3 text-sm font-semibold shadow-[0_4px_16px_rgba(23,33,28,.18)] hover:bg-neutral-50 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+          onClick={() => {
+            cancelPendingUserLocation();
+            dispatch({ type: "RETURN_TO_CAMPUS" });
+            setLocateFeedback(null);
+          }}
+        >
+          <SchoolIcon aria-hidden="true" className="size-5" />
+          回到校园
+        </button>
+        <button
+          type="button"
           aria-label={
             userLocation.status === "locating" ? "正在定位…" : "使用我的位置"
           }
@@ -3628,8 +3715,15 @@ export function CampusMapRuntime({
                 name={selectedFacility?.name ?? selectedBuilding!.name}
                 href={shareHref}
                 locateLabel={locateLabel}
-                onLocate={() =>
-                  dispatch({ type: "REFRAME", reason: "map-selection" })
+                onLocate={locateSelection}
+                locateFeedback={
+                  selectedFacility &&
+                  locateFeedback?.placeId === selectedFacility.placeId
+                    ? {
+                        message: locateFeedback.message,
+                        revision: locateFeedback.revision,
+                      }
+                    : null
                 }
               />
 

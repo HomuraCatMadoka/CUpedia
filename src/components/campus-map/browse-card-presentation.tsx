@@ -123,6 +123,13 @@ export function CampusMapFacilityResultButton({
               src={coverPhoto.thumbnailUrl}
               alt=""
             />
+            <span
+              aria-hidden="true"
+              className="absolute right-0 bottom-0 grid size-6 place-items-center rounded-tl-md border-2 border-background text-white"
+              style={{ background: style.color }}
+            >
+              <Icon aria-hidden="true" className="size-3.5" />
+            </span>
           </span>
         ) : (
           <span

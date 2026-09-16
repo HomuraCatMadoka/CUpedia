@@ -28,6 +28,7 @@ export type CampusMapDriverIntent =
   | { type: "NAVIGATE_BACK" }
   | { type: "CLOSE_BROWSE_SELECTION" }
   | { type: "DISMISS" }
+  | { type: "RETURN_TO_CAMPUS" }
   | {
       type: "FIT_CLUSTER";
       positions: ReadonlyArray<readonly [longitude: number, latitude: number]>;
@@ -36,6 +37,7 @@ export type CampusMapDriverIntent =
 
 export type CampusMapDriverCameraCommand =
   | CampusMapCameraCommand
+  | { kind: "campus-extent" }
   | {
       kind: "fit";
       positions: ReadonlyArray<readonly [longitude: number, latitude: number]>;
@@ -253,6 +255,12 @@ export class CampusMapSceneDriver {
   }
 
   dispatch(intent: CampusMapDriverIntent) {
+    if (intent.type === "RETURN_TO_CAMPUS") {
+      if (this.snapshot.session.mode !== "browse") return this.snapshot;
+      this.bumpToken();
+      this.ports.camera({ kind: "campus-extent" }, this.effectContext());
+      return this.snapshot;
+    }
     if (intent.type === "FIT_CLUSTER") return this.fitCluster(intent.positions);
     if (intent.type === "REFRAME") return this.reframe(intent.reason);
     if (this.pendingHistoryReturn) {
