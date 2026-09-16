@@ -26,6 +26,8 @@ import {
   placeClusterMarkerContent,
   placeTypeMarkerContent,
 } from "@/lib/campus-map/canonical-marker";
+import type { CampusMapMarkerLabelPlacement } from "@/lib/campus-map/marker-label-layout";
+import type { CampusMapPublicPlaceType } from "@/lib/campus-map/place-type-contract";
 
 interface ProviderLngLat {
   lng: number;
@@ -85,7 +87,12 @@ export type CampusMapCanonicalBrowseMode =
 export type CampusMapCanonicalBrowseIntent =
   | { type: "OPEN_BUILDING"; buildingId: string }
   | { type: "OPEN_PLACE"; placeId: string }
-  | { type: "FIT_CLUSTER"; positions: readonly CampusMapAmapPosition[] }
+  | { type: "EXPAND_CLUSTER"; positions: readonly CampusMapAmapPosition[] }
+  | {
+      type: "OPEN_CLUSTER_MEMBERS";
+      placeIds: readonly string[];
+      placeType: CampusMapPublicPlaceType | null;
+    }
   | { type: "DISMISS" };
 
 export interface AmapCanonicalBrowseLayerInput<
@@ -99,6 +106,9 @@ export interface AmapCanonicalBrowseLayerInput<
       providerPosition: CampusMapAmapPosition | null;
     },
   ): void;
+  selectedLabelPlacement?(
+    position: CampusMapAmapPosition,
+  ): CampusMapMarkerLabelPlacement;
 }
 
 export interface AmapCanonicalBrowseRenderInput {
@@ -141,7 +151,10 @@ function placeTypeMarkerKey(marker: CampusMapBrowseMarker) {
 function providerPositionKey(position: ProviderLngLat | CampusMapAmapPosition) {
   const longitude = "lng" in position ? position.lng : position[0];
   const latitude = "lat" in position ? position.lat : position[1];
-  return `${longitude.toFixed(12)}:${latitude.toFixed(12)}`;
+  // MarkerCluster may round the same coordinate while turning our data point
+  // into a provider marker. This key only reconnects that marker to the exact
+  // canonical data we supplied; it never establishes Place/Building identity.
+  return `${longitude.toFixed(6)}:${latitude.toFixed(6)}`;
 }
 
 function groupMarkerTargetsByPosition(
@@ -289,6 +302,7 @@ function targetContent(
   buildingDisplay: CampusMapBuildingDisplayProjection,
   selected: boolean,
   selectedPlaceId: string | null = null,
+  selectedLabelPlacement: CampusMapMarkerLabelPlacement = "top",
 ) {
   const view = placeTypeMarkerView(target, projection, buildingDisplay);
   if (!view) return null;
@@ -306,6 +320,7 @@ function targetContent(
           markerLabel: `已选 ${place.name}，${view.buildingName}，${view.precisionLabel}`,
         }
       : {}),
+    selectedLabelPlacement,
   });
 }
 
@@ -431,7 +446,21 @@ export class AmapCanonicalBrowseLayer<
               const group = this.positionGroups.get(
                 providerPositionKey(position),
               );
-              if (!group) return;
+              if (!group) {
+                // Never fall through to AMap's unnamed default blue pin. The
+                // canonical list remains the recovery path if provider output
+                // cannot be matched back to our submitted presentation point.
+                marker.setContent(
+                  placeClusterMarkerContent({
+                    count: null,
+                    measure: "地点",
+                    placeType: null,
+                    color: "#374151",
+                    label: "校园地点标记，地点列表仍可使用",
+                  }),
+                );
+                return;
+              }
               const content = this.positionGroupContent(
                 group,
                 input.projection,
@@ -482,7 +511,7 @@ export class AmapCanonicalBrowseLayer<
             return;
           }
           this.activateCanonicalTarget({
-            type: "FIT_CLUSTER",
+            type: "EXPAND_CLUSTER",
             positions: groups.map((group) => group.position),
           });
         });
@@ -591,7 +620,7 @@ export class AmapCanonicalBrowseLayer<
       : null;
     const destination = building
       ? `${buildingLabel(building, display)}，打开建筑目录`
-      : "放大查看这个地图位置";
+      : "打开这个地图位置的地点列表";
     return placeClusterMarkerContent({
       count: placeCount,
       measure: "地点",
@@ -618,8 +647,9 @@ export class AmapCanonicalBrowseLayer<
       return;
     }
     this.activateCanonicalTarget({
-      type: "FIT_CLUSTER",
-      positions: [group.position],
+      type: "OPEN_CLUSTER_MEMBERS",
+      placeIds: [...placeIds],
+      placeType: commonPlaceType(group.targets),
     });
   }
 
@@ -675,6 +705,7 @@ export class AmapCanonicalBrowseLayer<
       display,
       true,
       this.selectedPlaceId,
+      this.input.selectedLabelPlacement?.(target.position) ?? "top",
     );
     if (content) this.selectedMarker.setContent(content);
     this.selectedMarker.setzIndex(240);

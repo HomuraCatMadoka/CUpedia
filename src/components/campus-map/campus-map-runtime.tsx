@@ -56,6 +56,7 @@ import {
   type CameraReason,
   type ScreenRect,
 } from "@/lib/campus-map/camera-policy";
+import { chooseCampusMapMarkerLabelPlacement } from "@/lib/campus-map/marker-label-layout";
 import {
   asAmapPosition,
   asWgs84Position,
@@ -151,6 +152,7 @@ import {
   type CampusMapProviderHotspotResolution,
 } from "@/lib/campus-map/provider-hotspot";
 import type { CampusMapProviderMappingProjection } from "@/lib/campus-map/provider-mapping-domain";
+import type { CampusMapPublicPlaceType } from "@/lib/campus-map/place-type-contract";
 import { cn } from "@/lib/utils";
 
 type Building = CampusMapBrowseBuilding;
@@ -750,6 +752,7 @@ export function CampusMapRuntime({
   const [mapReady, setMapReady] = useState(false);
   const [mapMoving, setMapMoving] = useState(false);
   const [mapCenterRevision, setMapCenterRevision] = useState(0);
+  const [markerLayoutVersion, setMarkerLayoutVersion] = useState(0);
   const [coordinateVersion, setCoordinateVersion] = useState(0);
   const [clusterStatus, setClusterStatus] = useState<
     "loading" | "ready" | "error"
@@ -780,6 +783,10 @@ export function CampusMapRuntime({
     placeId: string;
     message: string;
     revision: number;
+  } | null>(null);
+  const [clusterMemberSelection, setClusterMemberSelection] = useState<{
+    category: CampusMapPublicPlaceType;
+    placeIds: readonly string[];
   } | null>(null);
   const canonicalBrowseLayerRef =
     useRef<AmapCanonicalBrowseLayer<AMapMap> | null>(null);
@@ -858,6 +865,7 @@ export function CampusMapRuntime({
     setMapReady(false);
     setMapMoving(false);
     setMapCenterRevision(0);
+    setMarkerLayoutVersion(0);
     setProviderCenterPosition(null);
     setLockedProviderFallback(null);
     setPlaceContext(null);
@@ -1332,6 +1340,27 @@ export function CampusMapRuntime({
         ].slice(-8);
       }
       pendingPlacementCameraRef.current = null;
+      if (camera.kind === "expand-cluster") {
+        cameraGateRef.current.invalidate();
+        if (camera.positions.length === 0) return;
+        const center = asAmapPosition([
+          camera.positions.reduce((sum, position) => sum + position[0], 0) /
+            camera.positions.length,
+          camera.positions.reduce((sum, position) => sum + position[1], 0) /
+            camera.positions.length,
+        ]);
+        // MarkerCluster stops grouping at zoom 18. Advancing by one level is
+        // deterministic even when fitting the same bounds would be a no-op.
+        const nextZoom = Math.min(20, map.getZoom() + 1);
+        map.setZoomAndCenter(
+          nextZoom,
+          new AMap.LngLat(center[0], center[1]),
+          true,
+          0,
+        );
+        requestCamera(center, "map-selection", context, true);
+        return;
+      }
       if (camera.kind === "fit" || camera.kind === "campus-extent") {
         cameraGateRef.current.invalidate();
         const positions =
@@ -2216,6 +2245,38 @@ export function CampusMapRuntime({
     selectedTransientHotspot,
   ]);
 
+  const selectedLabelPlacement = useCallback(
+    (position: CampusMapAmapPosition) => {
+      const map = mapRef.current;
+      const mapElement = mapElementRef.current;
+      const AMap = window.AMap;
+      if (!map || !mapElement || !AMap) return "top" as const;
+      const mapRect = rect(mapElement);
+      const point = map.lngLatToContainer(
+        new AMap.LngLat(position[0], position[1]),
+      );
+      const obstacles = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          "[data-campus-map-marker-obstacle]",
+        ),
+      ).flatMap((element) => {
+        const style = window.getComputedStyle(element);
+        return element.hidden ||
+          style.display === "none" ||
+          style.visibility === "hidden" ||
+          element.getClientRects().length === 0
+          ? []
+          : [rect(element)];
+      });
+      return chooseCampusMapMarkerLabelPlacement({
+        marker: { x: mapRect.left + point.x, y: mapRect.top + point.y },
+        map: mapRect,
+        obstacles,
+      });
+    },
+    [],
+  );
+
   const initialiseMap = useCallback(() => {
     if (!window.AMap || mapRef.current) return;
     setMapLoadError(null);
@@ -2244,6 +2305,7 @@ export function CampusMapRuntime({
     canonicalBrowseLayerRef.current = new AmapCanonicalBrowseLayer({
       map,
       provider: AMap,
+      selectedLabelPlacement,
       onHotspot: (hotspot) => {
         const target = resolveCampusMapProviderHotspot(
           projectionStore.getSnapshot().projection,
@@ -2317,11 +2379,30 @@ export function CampusMapRuntime({
           if (place) selectFacility(place, "category");
           return;
         }
-        if (intent.type === "FIT_CLUSTER") {
-          dispatch({ type: "FIT_CLUSTER", positions: intent.positions });
+        if (intent.type === "EXPAND_CLUSTER") {
+          setClusterMemberSelection(null);
+          dispatch({ type: "EXPAND_CLUSTER", positions: intent.positions });
+          return;
+        }
+        if (intent.type === "OPEN_CLUSTER_MEMBERS") {
+          const members = intent.placeIds.flatMap((placeId) => {
+            const place = facilitiesRef.current.find(
+              (candidate) => candidate.placeId === placeId,
+            );
+            return place ? [place] : [];
+          });
+          const category = intent.placeType ?? members[0]?.placeType;
+          if (!category || members.length === 0) return;
+          setClusterMemberSelection({
+            category,
+            placeIds: members.map((place) => place.placeId),
+          });
+          dispatch({ type: "OPEN_CATEGORY", category });
+          dispatch({ type: "SET_SNAP", snap: "full" });
           return;
         }
         if (editSessionActiveRef.current) return;
+        setClusterMemberSelection(null);
         closeSelection();
       },
     });
@@ -2468,6 +2549,7 @@ export function CampusMapRuntime({
     driver,
     initialAmapHotspotMappings,
     projectionStore,
+    selectedLabelPlacement,
     selectBuilding,
     selectFacility,
     selectLocationBuilding,
@@ -2661,8 +2743,34 @@ export function CampusMapRuntime({
     browseProjection,
     clusterStatus,
     coordinateVersion,
+    mapCenterRevision,
     mapReady,
+    markerLayoutVersion,
     markerMode,
+  ]);
+
+  useEffect(() => {
+    if (!mapReady || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      setMarkerLayoutVersion((version) => version + 1);
+    });
+    const mapElement = mapElementRef.current;
+    if (mapElement) observer.observe(mapElement);
+    for (const element of document.querySelectorAll<HTMLElement>(
+      "[data-campus-map-marker-obstacle]",
+    )) {
+      observer.observe(element);
+    }
+    return () => observer.disconnect();
+  }, [
+    activeCategory,
+    activeSearchQuery,
+    editSession,
+    mapReady,
+    selectedBuilding,
+    selectedFacility,
+    selectedTransientHotspot,
+    state.sheet.snap,
   ]);
 
   useEffect(() => {
@@ -2768,6 +2876,19 @@ export function CampusMapRuntime({
       return firstDistance.distanceMeters - secondDistance.distanceMeters;
     });
   }, [activeCategory, categoryDistanceByPlaceId, categoryResults]);
+  const featuredClusterFacilities = useMemo(() => {
+    if (
+      !clusterMemberSelection ||
+      clusterMemberSelection.category !== activeCategory
+    ) {
+      return [];
+    }
+    const byId = new Map(places.map((place) => [place.placeId, place]));
+    return clusterMemberSelection.placeIds.flatMap((placeId) => {
+      const place = byId.get(placeId);
+      return place ? [place] : [];
+    });
+  }, [activeCategory, clusterMemberSelection, places]);
   const activeCategoryStyle = activeCategory
     ? placeTypeStyle(activeCategory)
     : null;
@@ -2946,6 +3067,7 @@ export function CampusMapRuntime({
       {visiblePublishNotice ? (
         <div
           role="status"
+          data-campus-map-marker-obstacle
           className="pointer-events-none absolute bottom-[calc(var(--campus-map-panel-height)+12px)] left-1/2 z-40 flex min-h-11 max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-2 rounded-xl bg-[#174b38] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(23,75,56,.28)] motion-reduce:transition-none md:top-4 md:bottom-auto md:left-4 md:translate-x-0"
         >
           <CheckCircle2Icon aria-hidden="true" className="size-5 shrink-0" />
@@ -3016,6 +3138,7 @@ export function CampusMapRuntime({
       ) : null}
 
       <header
+        data-campus-map-marker-obstacle
         aria-hidden={editSession ? true : undefined}
         inert={editSession ? true : undefined}
         className={cn(
@@ -3289,6 +3412,7 @@ export function CampusMapRuntime({
       </header>
 
       <div
+        data-campus-map-marker-obstacle
         aria-hidden={editSession ? true : undefined}
         inert={editSession ? true : undefined}
         className={cn(
@@ -3303,6 +3427,7 @@ export function CampusMapRuntime({
           moreFilterRef={moreCategoryFilterRef}
           onSelect={(category) => {
             clearTransientHotspot();
+            setClusterMemberSelection(null);
             if (
               session.mode === "browse" &&
               session.scene.kind === "category-results" &&
@@ -3317,6 +3442,7 @@ export function CampusMapRuntime({
       </div>
 
       <div
+        data-campus-map-marker-obstacle
         aria-hidden={editSession ? true : undefined}
         inert={editSession ? true : undefined}
         className={cn(
@@ -3418,6 +3544,7 @@ export function CampusMapRuntime({
       <section
         ref={panelRef}
         data-campus-map-panel
+        data-campus-map-marker-obstacle
         hidden={panelHidden}
         role={editSession ? "dialog" : undefined}
         aria-modal={editSession && !locationSelectionActive ? true : undefined}
@@ -3579,6 +3706,7 @@ export function CampusMapRuntime({
             key={activeCategoryStyle.id}
             category={activeCategoryStyle.id}
             facilities={categoryFacilities}
+            featuredFacilities={featuredClusterFacilities}
             buildings={buildingById}
             buildingLabel={(building) =>
               campusMapBuildingDisplayFor(buildingDisplay, building.buildingId)
@@ -3618,12 +3746,16 @@ export function CampusMapRuntime({
             titleRef={panelTitleRef}
             resultsRef={listResultsRef}
             onSelect={(facility) => selectFacility(facility, "category")}
-            onClose={closeSelection}
+            onClose={() => {
+              setClusterMemberSelection(null);
+              closeSelection();
+            }}
             onAdd={startFacilityForActiveCategory}
             onExpand={(expanded) =>
               dispatch({ type: "SET_SNAP", snap: expanded ? "full" : "peek" })
             }
             onSwitchCategory={() => {
+              setClusterMemberSelection(null);
               const nextCategory =
                 CATEGORIES.find(
                   (category) =>

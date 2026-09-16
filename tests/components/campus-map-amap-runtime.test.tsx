@@ -1398,7 +1398,7 @@ describe("Campus Map AMap runtime effects", () => {
     );
   });
 
-  it("fits cluster members without selecting the first facility", async () => {
+  it("advances cluster members without selecting the first facility", async () => {
     const { runtime, map } = await renderWithRuntime();
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
     await waitFor(() =>
@@ -1414,7 +1414,8 @@ describe("Campus Map AMap runtime effects", () => {
     const cluster = runtime.clusters.findLast(
       (candidate) => candidate.data.length === 2,
     )!;
-    map.setBounds.mockClear();
+    const initialZoom = map.getZoom();
+    map.setZoomAndCenter.mockClear();
 
     await act(async () => {
       cluster.emit("click", {
@@ -1423,8 +1424,70 @@ describe("Campus Map AMap runtime effects", () => {
       map.emit("click", { lnglat: { lng: 114.20801, lat: 22.41966 } });
     });
 
-    expect(map.setBounds).toHaveBeenCalledTimes(1);
+    expect(map.setZoomAndCenter).toHaveBeenCalledWith(
+      initialZoom + 1,
+      expect.anything(),
+      true,
+      0,
+    );
+    expect(map.getZoom()).toBe(initialZoom + 1);
+    await runtime.flushAnimationFrames();
+
+    await act(async () => {
+      cluster.emit("click", {
+        marker: cluster.data.map(({ lnglat }) => ({ lnglat })),
+      });
+    });
+
+    expect(map.setZoomAndCenter).toHaveBeenCalledTimes(2);
+    expect(map.getZoom()).toBe(initialZoom + 2);
     expect(screen.getByRole("heading", { name: "饮水点" })).not.toBeNull();
+    expect(window.location.search).not.toContain("scene=place");
+  });
+
+  it("opens canonical member entries when one cross-Building position cannot split", async () => {
+    const projection = createCampusMapBrowseFixture();
+    const science = projection.buildings.find(
+      (building) => building.buildingId === "science-centre",
+    )!;
+    const universityLibrary = projection.buildings.find(
+      (building) => building.buildingId === "university-library",
+    )!;
+    const coLocatedProjection = {
+      ...projection,
+      buildings: projection.buildings.map((building) =>
+        building.buildingId === universityLibrary.buildingId
+          ? { ...building, anchor: science.anchor }
+          : building,
+      ),
+    };
+    const { runtime } = await renderWithRuntime({
+      projection: coLocatedProjection,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
+
+    const sharedMarker = await waitFor(() => {
+      const marker = runtime.clusters
+        .flatMap((cluster) => cluster.singleMarkers)
+        .find((candidate) =>
+          candidate.content.includes("2 个饮水点，1 个地图位置"),
+        );
+      expect(marker).toBeDefined();
+      return marker!;
+    });
+    await act(async () => sharedMarker.emit("click"));
+
+    const memberList = await waitFor(() => {
+      const element = document.querySelector(
+        "[data-campus-map-cluster-members]",
+      );
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    expect(memberList.querySelectorAll("[data-return-result]")).toHaveLength(2);
+    expect(window.location.search).toContain(
+      "scene=category&id=water&snap=full",
+    );
     expect(window.location.search).not.toContain("scene=place");
   });
 

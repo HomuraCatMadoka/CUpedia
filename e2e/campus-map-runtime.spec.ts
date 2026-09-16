@@ -1,4 +1,4 @@
-// refs #646, #649, #799, #838, #878, #880, #888, #889, #908
+// refs #646, #649, #799, #838, #878, #880, #888, #889, #908, #916
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { loginWithPassword } from "./helpers/auth";
@@ -471,6 +471,38 @@ test("selected Place label and locate feedback remain visible across viewports a
           );
         })
         .toBe(true);
+      await expect
+        .poll(async () => {
+          const labelBox = await label.boundingBox();
+          const obstacleBoxes = await page
+            .locator("[data-campus-map-marker-obstacle]:visible")
+            .evaluateAll((elements) =>
+              elements.map((element) => {
+                const box = element.getBoundingClientRect();
+                return {
+                  left: box.left,
+                  right: box.right,
+                  top: box.top,
+                  bottom: box.bottom,
+                };
+              }),
+            );
+          if (!labelBox) return false;
+          const labelRect = {
+            left: labelBox.x,
+            right: labelBox.x + labelBox.width,
+            top: labelBox.y,
+            bottom: labelBox.y + labelBox.height,
+          };
+          return obstacleBoxes.every(
+            (obstacle) =>
+              labelRect.right <= obstacle.left ||
+              labelRect.left >= obstacle.right ||
+              labelRect.bottom <= obstacle.top ||
+              labelRect.top >= obstacle.bottom,
+          );
+        })
+        .toBe(true);
       const placeUrl = page.url();
       const locate = page.getByRole("button", { name: "定位所属建筑" });
       await locate.press("Enter");
@@ -759,6 +791,62 @@ test("one mapped AMap hotspot opens once and a map click closes it", async ({
   expect(await page.evaluate(() => window.history.length)).toBe(
     historyBefore + 1,
   );
+});
+
+test("QA fixture: one exact provider object completes Building, floor, room, and Back", async ({
+  page,
+}) => {
+  // This deliberately proves the interaction contract with isolated QA data.
+  // It is not evidence that any production AMap object has been reviewed.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/campus-map");
+
+  await emitAmapEvent(page, "hotspotclick", {
+    id: mappedBuildingProviderId,
+    name: "高德 QA 正式测试楼",
+    lnglat: { lng: 114.2072, lat: 22.4191 },
+  });
+
+  const buildingUrl = new RegExp(
+    `/campus-map\\?v=1&scene=building&id=${browseIds.building}&snap=peek$`,
+  );
+  await expect(page).toHaveURL(buildingUrl);
+  await expect(page.getByText("高德地图地点")).toHaveCount(0);
+  const card = page.getByRole("region", { name: "正式测试楼" });
+  const floorButton = card.getByRole("button", { name: "G/F", exact: true });
+  const floorSelect = card.getByRole("combobox", { name: "切换楼层" });
+  if (await floorButton.isVisible()) {
+    await floorButton.click();
+    await expect(floorButton).toHaveAttribute("aria-pressed", "true");
+  } else {
+    await floorSelect.selectOption(browseIds.floor);
+    await expect(floorSelect).toHaveValue(browseIds.floor);
+  }
+  await expect(page).toHaveURL(
+    new RegExp(
+      `/campus-map\\?v=1&scene=building&id=${browseIds.building}&floor=${browseIds.floor}&snap=peek$`,
+    ),
+  );
+
+  const room = card.locator(`[data-return-result="${browseIds.place}"]`);
+  await expect(room).toContainText("正式测试饮水点");
+  await room.click();
+  await expect(page).toHaveURL(
+    new RegExp(
+      `/campus-map\\?v=1&scene=place&id=${browseIds.place}&snap=peek$`,
+    ),
+  );
+  await expect(
+    page.getByRole("heading", { name: "正式测试饮水点" }),
+  ).toBeVisible();
+
+  await page.goBack();
+  await expect(page).toHaveURL(
+    new RegExp(
+      `/campus-map\\?v=1&scene=building&id=${browseIds.building}&floor=${browseIds.floor}&snap=peek$`,
+    ),
+  );
+  await expect(room).toBeFocused();
 });
 
 test("a mapped AMap Building starts Add with its canonical Building selected", async ({

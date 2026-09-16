@@ -353,6 +353,30 @@ class StickyEmptyCluster {
   }
 }
 
+class RoundedPositionCluster {
+  static latestMarker: TestMarker | null = null;
+  static offset = 0.0000002;
+
+  constructor(
+    _map: TestMap,
+    data: readonly Record<string, unknown>[],
+    options: Record<string, unknown>,
+  ) {
+    const [longitude, latitude] = data[0]!.lnglat as readonly [number, number];
+    const marker = new TestMarker([
+      longitude + RoundedPositionCluster.offset,
+      latitude - RoundedPositionCluster.offset,
+    ]);
+    RoundedPositionCluster.latestMarker = marker;
+    (options.renderMarker as (input: { marker: TestMarker }) => void)({
+      marker,
+    });
+  }
+
+  on() {}
+  setMap() {}
+}
+
 function installManualFrames() {
   let nextId = 1;
   const pending = new Map<number, FrameRequestCallback>();
@@ -373,6 +397,8 @@ function installManualFrames() {
 afterEach(() => {
   TestMarker.latest = null;
   StickyEmptyCluster.instances = [];
+  RoundedPositionCluster.latestMarker = null;
+  RoundedPositionCluster.offset = 0.0000002;
   TestMarkerCluster.instances = [];
   vi.unstubAllGlobals();
 });
@@ -506,7 +532,7 @@ describe("AmapCanonicalBrowseLayer", () => {
     runtime.cluster.emitClick(members);
     expect(runtime.intents).toEqual([
       {
-        type: "FIT_CLUSTER",
+        type: "EXPAND_CLUSTER",
         positions: members.map((member) => member.lnglat),
       },
     ]);
@@ -542,7 +568,14 @@ describe("AmapCanonicalBrowseLayer", () => {
     expect(marker.content).toContain("3 个医疗服务，1 个地图位置");
     expect(marker.content).not.toContain("打开建筑目录");
     marker.emitClickWithoutPointerGesture();
-    expect(runtime.intents[0]).toMatchObject({ type: "FIT_CLUSTER" });
+    expect(runtime.intents[0]).toEqual({
+      type: "OPEN_CLUSTER_MEMBERS",
+      placeIds: [
+        ...projection.places.map((place) => place.placeId),
+        other.placeId,
+      ],
+      placeType: "health-service",
+    });
     runtime.cluster.emitClick([{ lnglat: [0, 0] }]);
     expect(runtime.intents).toHaveLength(1);
     runtime.layer.destroy();
@@ -556,9 +589,8 @@ describe("AmapCanonicalBrowseLayer", () => {
       mode: { ...runtime.input.mode, selectedPlaceId: placeId },
     });
     expect(runtime.map.overlays).toHaveLength(1);
-    expect(runtime.map.overlays[0]!.content).toContain(
-      "已选 · 门诊（Outpatient Service）",
-    );
+    expect(runtime.map.overlays[0]!.content).toContain(">已选 · 门诊</span>");
+    expect(runtime.map.overlays[0]!.content).toContain("Outpatient Service");
     expect(runtime.map.overlays[0]!.content).toContain(
       "所属建筑 · 非室内精确位置",
     );
@@ -570,9 +602,7 @@ describe("AmapCanonicalBrowseLayer", () => {
       },
     });
     expect(runtime.map.overlays).toHaveLength(1);
-    expect(runtime.map.overlays[0]!.content).toContain(
-      "已选 · 牙科（Dental Service）",
-    );
+    expect(runtime.map.overlays[0]!.content).toContain(">已选 · 牙科</span>");
     expect(runtime.map.overlays[0]!.content).not.toContain("Outpatient");
     runtime.cluster.emitClick();
     expect(runtime.intents).toEqual([]);
@@ -940,6 +970,94 @@ describe("AmapCanonicalBrowseLayer", () => {
     expect(map.overlays).toHaveLength(1);
     expect(map.overlays[0]?.content).toContain(
       `data-canonical-marker-key="${campusMapAmapPlacePositionKey(placeId)}"`,
+    );
+    layer.destroy();
+  });
+
+  it("reconnects a provider-rounded coordinate to its custom marker", () => {
+    const layer = new AmapCanonicalBrowseLayer({
+      map: new TestMap(),
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: RoundedPositionCluster,
+      },
+      onIntent: vi.fn(),
+      onHotspot: vi.fn(),
+    });
+
+    layer.render({
+      projection: placeProjection,
+      providerPositions: {
+        [campusMapAmapPlacePositionKey(placeId)]: position,
+      },
+      mode: { kind: "places", placeIds: [placeId], selectedPlaceId: null },
+    });
+
+    expect(RoundedPositionCluster.latestMarker?.content).toContain(
+      `data-canonical-marker-key="${campusMapAmapPlacePositionKey(placeId)}"`,
+    );
+    expect(RoundedPositionCluster.latestMarker?.content).toContain(
+      'data-cupedia-marker="true"',
+    );
+    layer.destroy();
+  });
+
+  it("replaces an unmatched provider callback with a named custom fallback", () => {
+    RoundedPositionCluster.offset = 0.00001;
+    const layer = new AmapCanonicalBrowseLayer({
+      map: new TestMap(),
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: RoundedPositionCluster,
+      },
+      onIntent: vi.fn(),
+      onHotspot: vi.fn(),
+    });
+
+    layer.render({
+      projection: placeProjection,
+      providerPositions: {
+        [campusMapAmapPlacePositionKey(placeId)]: position,
+      },
+      mode: { kind: "places", placeIds: [placeId], selectedPlaceId: null },
+    });
+
+    expect(RoundedPositionCluster.latestMarker?.content).toContain(
+      "data-campus-map-cluster",
+    );
+    expect(RoundedPositionCluster.latestMarker?.content).toContain(
+      'aria-label="校园地点标记，地点列表仍可使用"',
+    );
+    layer.destroy();
+  });
+
+  it("renders the selected label on the collision-free side", () => {
+    const map = new TestMap();
+    const layer = new AmapCanonicalBrowseLayer({
+      map,
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: StickyEmptyCluster,
+      },
+      selectedLabelPlacement: () => "right",
+      onIntent: vi.fn(),
+      onHotspot: vi.fn(),
+    });
+
+    layer.render({
+      projection: placeProjection,
+      providerPositions: {
+        [campusMapAmapPlacePositionKey(placeId)]: position,
+      },
+      mode: {
+        kind: "places",
+        placeIds: [placeId],
+        selectedPlaceId: placeId,
+      },
+    });
+
+    expect(map.overlays[0]?.content).toContain(
+      'data-campus-map-label-placement="right"',
     );
     layer.destroy();
   });

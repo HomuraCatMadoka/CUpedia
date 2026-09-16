@@ -19,6 +19,7 @@ import { CAMPUS_MAP_DISPLAY_REGISTRY } from "@/lib/campus-map/display-registry";
 export function CampusMapCategoryResultsPanel({
   category,
   facilities,
+  featuredFacilities = [],
   buildings,
   buildingLabel,
   rowMetadata,
@@ -35,6 +36,7 @@ export function CampusMapCategoryResultsPanel({
 }: {
   category: CampusMapPublicPlaceType;
   facilities: readonly CampusMapBrowsePlace[];
+  featuredFacilities?: readonly CampusMapBrowsePlace[];
   buildings: ReadonlyMap<string, CampusMapBrowseBuilding>;
   buildingLabel: (building: CampusMapBrowseBuilding) => string;
   rowMetadata: (place: CampusMapBrowsePlace) => {
@@ -71,7 +73,12 @@ export function CampusMapCategoryResultsPanel({
   const visiblePlaces = expanded
     ? orderedPlaces
     : orderedPlaces.slice(0, CAMPUS_MAP_CATEGORY_PREVIEW_LIMIT);
-  const visibleIds = new Set(visiblePlaces.map((place) => place.placeId));
+  const featuredIds = new Set(featuredFacilities.map((place) => place.placeId));
+  const visibleIds = new Set(
+    visiblePlaces
+      .filter((place) => !featuredIds.has(place.placeId))
+      .map((place) => place.placeId),
+  );
   const groupLabel = (
     building: CampusMapBrowseBuilding | null,
     buildingId: string | null,
@@ -177,6 +184,24 @@ export function CampusMapCategoryResultsPanel({
         data-campus-map-results="category"
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-3"
       >
+        {featuredFacilities.length > 0 ? (
+          <section
+            data-campus-map-cluster-members
+            aria-labelledby="campus-map-cluster-members-title"
+            className="border-b border-black/10 pb-3 dark:border-white/10"
+          >
+            <h3
+              id="campus-map-cluster-members-title"
+              className="pt-4 pb-1 text-sm font-medium"
+            >
+              此地图位置的地点
+              <span className="ml-2 text-xs font-normal text-neutral-500 dark:text-neutral-400">
+                {featuredFacilities.length} 处
+              </span>
+            </h3>
+            {featuredFacilities.map(resultButton)}
+          </section>
+        ) : null}
         {category === "classroom"
           ? classroomGroups.map((group) => {
               const rooms = group.places.filter((place) =>
@@ -202,7 +227,9 @@ export function CampusMapCategoryResultsPanel({
                 </section>
               );
             })
-          : visiblePlaces.map(resultButton)}
+          : visiblePlaces
+              .filter((place) => !featuredIds.has(place.placeId))
+              .map(resultButton)}
         {!facilities.length ? (
           <div className="py-5 text-sm text-neutral-600 dark:text-neutral-300">
             <p>暂未收录{style.label}</p>
