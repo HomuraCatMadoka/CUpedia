@@ -36,10 +36,10 @@ const PLACE_TYPE_PRESENTATION = {
   }
 >;
 
-export const CAMPUS_MAP_CATEGORIES =
-  CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories.map((placeType) =>
-    campusMapPlaceTypeStyle(placeType),
-  );
+export const CAMPUS_MAP_CATEGORIES = [
+  ...CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories,
+  ...CAMPUS_MAP_DISPLAY_REGISTRY.moreBrowseCategories,
+].map((placeType) => campusMapPlaceTypeStyle(placeType));
 
 export function campusMapPlaceTypeStyle(placeType: CampusMapPublicPlaceType) {
   return {
@@ -105,42 +105,40 @@ export function CampusMapFacilityResultButton({
       data-return-result={facility.placeId}
       type="button"
       className={cn(
-        "flex w-full items-center text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]",
-        showsIcon
-          ? "min-h-20 gap-3 py-3"
-          : "min-h-20 gap-3 border-b border-black/8 py-2",
+        "flex w-full items-center text-left text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+        variant === "category"
+          ? "min-h-16 gap-3 border-b border-black/8 py-2 dark:border-white/10"
+          : "min-h-14 gap-3 py-2.5",
       )}
       onClick={onSelect}
     >
       {variant === "category" ? (
-        <span className="relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-xl text-white">
-          {coverPhoto ? (
+        coverPhoto ? (
+          <span className="relative size-12 shrink-0 overflow-hidden rounded-lg">
             <Image
               unoptimized
               fill
-              sizes="64px"
+              sizes="48px"
               className="object-cover"
               src={coverPhoto.thumbnailUrl}
               alt=""
             />
-          ) : (
-            <span
-              className="grid size-full place-items-center"
-              style={{ background: style.color }}
-            >
-              <Icon aria-hidden="true" className="size-6" />
-            </span>
-          )}
-          {coverPhoto ? (
             <span
               aria-hidden="true"
-              className="absolute right-0 bottom-0 grid size-7 place-items-center rounded-tl-lg border-2 border-white text-white"
+              className="absolute right-0 bottom-0 grid size-6 place-items-center rounded-tl-md border-2 border-background text-white"
               style={{ background: style.color }}
             >
-              <Icon aria-hidden="true" className="size-4" />
+              <Icon aria-hidden="true" className="size-3.5" />
             </span>
-          ) : null}
-        </span>
+          </span>
+        ) : (
+          <span
+            className="grid size-8 shrink-0 place-items-center rounded-full text-white"
+            style={{ background: style.color }}
+          >
+            <Icon aria-hidden="true" className="size-4" />
+          </span>
+        )
       ) : showsIcon ? (
         <span
           className="grid size-9 shrink-0 place-items-center rounded-full text-white"
@@ -150,13 +148,38 @@ export function CampusMapFacilityResultButton({
         </span>
       ) : null}
       <span className="min-w-0 flex-1">
-        <strong className="block truncate text-sm">{facility.name}</strong>
-        <span className="mt-0.5 block truncate text-xs text-neutral-600">
-          {location}
-        </span>
-        <span className="mt-0.5 block truncate text-xs text-neutral-500">
-          {summary}
-        </span>
+        <strong
+          className={cn(
+            "block break-words text-sm",
+            variant === "category" && "font-medium [overflow-wrap:anywhere]",
+          )}
+        >
+          {facility.name}
+        </strong>
+        {location ? (
+          <span
+            className={cn(
+              "mt-0.5 block text-muted-foreground",
+              variant === "category"
+                ? "break-words text-[13px] leading-5"
+                : "truncate text-xs",
+            )}
+          >
+            {location}
+          </span>
+        ) : null}
+        {summary ? (
+          <span
+            className={cn(
+              "mt-0.5 block text-muted-foreground",
+              variant === "category"
+                ? "break-words text-[13px] leading-5"
+                : "break-words text-xs",
+            )}
+          >
+            {summary}
+          </span>
+        ) : null}
       </span>
     </button>
   );

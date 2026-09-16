@@ -68,10 +68,14 @@ describe("Campus Map display registry", () => {
 
   it("keeps retired printing services out of browse categories", () => {
     expect(CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories).toEqual([
+      "classroom",
+      "common-space",
       "water",
       "toilet",
-      "common-space",
-      "classroom",
+    ]);
+    expect(CAMPUS_MAP_DISPLAY_REGISTRY.moreBrowseCategories).toEqual([
+      "sports-facility",
+      "health-service",
     ]);
     expect(CAMPUS_MAP_DISPLAY_REGISTRY.browseCategories).not.toContain(
       "printer",

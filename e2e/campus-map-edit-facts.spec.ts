@@ -4,6 +4,7 @@ import { Client } from "pg";
 
 import { loginWithPassword } from "./helpers/auth";
 import { installFakeCampusMapAmap } from "./helpers/campus-map-amap";
+import { openCampusMapPlaceEdit } from "./helpers/campus-map-place";
 
 const buildingId = "00000000-0000-4000-8000-000000008141";
 const floorId = "00000000-0000-4000-8000-000000008142";
@@ -258,7 +259,7 @@ for (const scenario of [
       ),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "建议修改" }).click();
+    await openCampusMapPlaceEdit(page);
     await expect(page.getByRole("combobox", { name: "建筑" })).toHaveCount(0);
     await page.getByRole("button", { name: "修改位置" }).click();
     await expect(page.getByRole("combobox", { name: "建筑" })).toHaveValue(
@@ -279,8 +280,17 @@ for (const scenario of [
     const floorSelect = buildingCard.getByRole("combobox", {
       name: "切换楼层",
     });
+    const floorButton = buildingCard.getByRole("button", {
+      name: scenario.floorLabel,
+      exact: true,
+    });
     await expect(
-      floorSelect.getByRole("option", { name: scenario.floorLabel }),
+      floorButton.or(
+        floorSelect.getByRole("option", {
+          name: scenario.floorLabel,
+          exact: true,
+        }),
+      ),
     ).toHaveCount(1);
     await expect(buildingCard).toContainText("饮水点");
 
@@ -365,7 +375,7 @@ for (const scenario of [
     await expect(
       page.getByRole("heading", { name: scenario.defaultName }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "建议修改" }).click();
+    await openCampusMapPlaceEdit(page);
 
     await expect(page.getByRole("heading", { name: "修改设施" })).toBeVisible();
     await page
@@ -417,7 +427,7 @@ for (const scenario of [
     });
     await expect(result).toBeVisible();
     await result.click();
-    await page.getByRole("button", { name: "建议修改" }).click();
+    await openCampusMapPlaceEdit(page);
 
     await expect(page.getByRole("heading", { name: "修改设施" })).toBeVisible();
     await expect(
@@ -463,7 +473,7 @@ for (const scenario of [
     await concurrentPage.goto(
       `/campus-map?v=1&scene=place&id=${stablePlaceId}&snap=peek`,
     );
-    await concurrentPage.getByRole("button", { name: "建议修改" }).click();
+    await openCampusMapPlaceEdit(concurrentPage);
     await concurrentPage
       .getByRole("textbox", { name: "备注" })
       .fill(latestVisitNote);
@@ -494,7 +504,7 @@ for (const scenario of [
     await expect(
       page.getByRole("heading", { name: scenario.name }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "建议修改" }).click();
+    await openCampusMapPlaceEdit(page);
     await expect(page.getByRole("textbox", { name: "备注" })).toHaveValue(
       latestVisitNote,
     );
@@ -524,7 +534,7 @@ for (const scenario of [
     });
     await expect(updatedResult).toBeVisible();
     await updatedResult.click();
-    await page.getByRole("button", { name: "建议修改" }).click();
+    await openCampusMapPlaceEdit(page);
 
     await expect(
       page.getByRole("textbox", { name: "设施名称或编号" }),
@@ -607,7 +617,7 @@ test("Building-card Add inherits its Building, exits cleanly, and rejects an ine
     await page.goto(
       `/campus-map?v=1&scene=place&id=${stablePlaceId}&snap=peek`,
     );
-    await page.getByRole("button", { name: "建议修改" }).click();
+    await openCampusMapPlaceEdit(page);
     await page.getByRole("button", { name: "更多信息" }).click();
     const ineligibleDraft = page.getByRole("textbox", { name: "备注" });
     await ineligibleDraft.fill("QA 881 资料未完成用户的草稿。");

@@ -1,4 +1,4 @@
-// refs #646, #649, #799, #838, #878, #880, #888, #889
+// refs #646, #649, #799, #838, #878, #880, #888, #889, #908
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { loginWithPassword } from "./helpers/auth";
@@ -406,17 +406,20 @@ test("search and marker open one canonical Place card", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "正式测试饮水点" }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: "详情与记录" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "查看详情" })).toHaveAttribute(
     "href",
     `/campus-map/places/${browseIds.place}`,
   );
 
   await expect(
     page.getByRole("button", { name: "返回", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
 
   await page.getByRole("button", { name: "关闭地点详情" }).click();
-  await page.getByRole("button", { name: "饮水点" }).click();
+  await expect(search).toHaveValue("正式测试饮水点");
+  await page.getByRole("button", { name: "清除搜索" }).click();
+  await expect(search).toHaveValue("");
+  await page.getByRole("button", { name: "饮水点", exact: true }).click();
   await page
     .locator(
       '[data-cupedia-marker="true"][aria-label*="正式测试楼有 1 个饮水点"]',
@@ -528,7 +531,7 @@ test("mobile Place details return to the same search list and history position",
   const returnUrl = new URL(returnTo, page.url()).toString();
 
   await result.evaluate((element) => (element as HTMLButtonElement).click());
-  const details = page.getByRole("link", { name: "详情与记录" });
+  const details = page.getByRole("link", { name: "查看详情" });
   await expect(details).toHaveAttribute(
     "href",
     `/campus-map/places/${browseIds.place}?from=${encodeURIComponent(returnTo)}`,
@@ -1029,7 +1032,10 @@ test("cards remain usable across short phones, tablets, and desktop", async ({
       expect(searchBox!.x + searchBox!.width).toBeLessThanOrEqual(cardBox!.x);
       expect(filterBox!.x + filterBox!.width).toBeLessThanOrEqual(cardBox!.x);
     } else {
-      expect(cardBox!.height).toBeLessThanOrEqual(356);
+      // Short cards fit their fixed 44px controls even above the 45% target.
+      expect(cardBox!.height).toBeLessThanOrEqual(
+        Math.min(380, viewport.height - 80) + 1,
+      );
       await expect(card.getByRole("heading", { name: "G/F" })).toBeVisible();
       await expect(
         card.locator(`[data-return-result="${browseIds.place}"]`),
@@ -1070,8 +1076,8 @@ test("cards remain usable across short phones, tablets, and desktop", async ({
       page.getByRole("heading", { name: "正式测试饮水点" }),
     ).toBeFocused();
     const suggestEdit = page.getByRole("button", { name: "建议修改" });
-    const placeDetails = page.getByRole("link", { name: "详情与记录" });
-    await expect(suggestEdit).toBeVisible();
+    const placeDetails = page.getByRole("link", { name: "查看详情" });
+    await expect(suggestEdit).toHaveCount(0);
     await expect(page.getByRole("button", { name: "查看建筑" })).toHaveCount(0);
     await expect(placeDetails).toBeVisible();
     if (viewport.width < 768) {
@@ -1080,14 +1086,32 @@ test("cards remain usable across short phones, tablets, and desktop", async ({
       });
       const placeCardBox = await placeCard.boundingBox();
       expect(placeCardBox).not.toBeNull();
-      expect(placeCardBox!.height).toBeLessThanOrEqual(196);
+      expect(placeCardBox!.height).toBeLessThanOrEqual(
+        Math.min(380, viewport.height * 0.45) + 1,
+      );
+      await expect(
+        placeCard.getByRole("button", { name: "展开详情" }),
+      ).toHaveCount(0);
+      await expect
+        .poll(() =>
+          placeCard
+            .locator("[data-campus-map-card-scroll]")
+            .evaluate((element) => element.scrollHeight - element.clientHeight),
+        )
+        .toBeLessThanOrEqual(1);
       await expect(
         placeCard.getByText(/饮水点 · 正式测试楼 · G\/F/),
       ).toBeVisible();
     }
-    for (const action of [suggestEdit, placeDetails]) {
+    for (const action of [
+      page.getByRole("button", { name: "定位所属建筑" }),
+      page.getByRole("button", { name: "分享", exact: true }),
+      page.getByRole("button", { name: "关闭地点详情" }),
+      placeDetails,
+    ]) {
       const actionBox = await action.boundingBox();
       expect(actionBox).not.toBeNull();
+      expect(actionBox!.height).toBeGreaterThanOrEqual(44);
       expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(
         viewport.height,
       );
@@ -1168,9 +1192,20 @@ for (const viewport of [
       "/campus-map?v=1&scene=building&id=41b66763-b2ae-5ede-989e-846e2153bdaa&snap=peek",
     );
     const card = page.getByRole("region", { name: "文物馆", exact: true });
-    const floor = card.getByRole("combobox", { name: "切换楼层" });
-    await expect(floor).toBeInViewport();
-    await floor.selectOption({ label: "地下（G）" });
+    const floorSelect = card.getByRole("combobox", { name: "切换楼层" });
+    const floorButton = card.getByRole("button", {
+      name: "地下（G）",
+      exact: true,
+    });
+    const floorControl = floorButton.or(floorSelect);
+    await expect(floorControl).toHaveCount(1);
+    await expect(floorControl).toBeInViewport();
+    if (await floorButton.isVisible()) {
+      await floorButton.click();
+      await expect(floorButton).toHaveAttribute("aria-pressed", "true");
+    } else {
+      await floorSelect.selectOption({ label: "地下（G）" });
+    }
     const add = card.getByRole("button", { name: /在文物馆新增/ });
     await expect(add).toBeInViewport();
     const cardBox = await card.boundingBox();
@@ -1200,9 +1235,19 @@ test("a selected empty floor never shows a facility from another floor", async (
     await page.goto(
       `/campus-map?v=1&scene=building&id=${browseIds.building}&floor=${floorId}&snap=peek`,
     );
-    const floor = page.getByRole("combobox", { name: "切换楼层" });
-    await expect(floor).toHaveValue(floorId);
-    await expect(floor.locator("option:checked")).toHaveText("2/F");
+    const card = page.getByRole("region", { name: "正式测试楼" });
+    const floorSelect = card.getByRole("combobox", { name: "切换楼层" });
+    const floorButton = card.getByRole("button", {
+      name: "2/F",
+      exact: true,
+    });
+    await expect(floorButton.or(floorSelect)).toHaveCount(1);
+    if (await floorButton.isVisible()) {
+      await expect(floorButton).toHaveAttribute("aria-pressed", "true");
+    } else {
+      await expect(floorSelect).toHaveValue(floorId);
+      await expect(floorSelect.locator("option:checked")).toHaveText("2/F");
+    }
     await expect(
       page.locator(`[data-return-result="${browseIds.place}"]`),
     ).toHaveCount(0);

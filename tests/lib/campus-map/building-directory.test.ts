@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { projectCampusMapBuildingDirectory } from "@/lib/campus-map/building-directory";
 import type { CampusMapBrowseProjection } from "@/lib/campus-map/browse-projection";
+import {
+  createCampusMapSearchDirectoryFixture,
+  YIA_BUILDING_ID,
+  YIA_FLOOR_FOUR_ID,
+} from "../../helpers/campus-map-search-directory";
 
 const projection = {
   buildings: [
@@ -24,6 +29,31 @@ const projection = {
 } as unknown as CampusMapBrowseProjection;
 
 describe("canonical Building directory card state", () => {
+  it("orders the available YIA floor 4 rooms by number without deriving containment from names (#909)", () => {
+    const projection = createCampusMapSearchDirectoryFixture();
+    const original = [...projection.places];
+    const directory = projectCampusMapBuildingDirectory(
+      { status: "ready", projection },
+      YIA_BUILDING_ID,
+      YIA_FLOOR_FOUR_ID,
+    );
+    expect(directory.places.map((place) => place.name)).toEqual(
+      Array.from({ length: 11 }, (_, index) => `YIA ${401 + index}`),
+    );
+    expect(projection.places).toEqual(original);
+    const unknown = {
+      ...projection.places[0]!,
+      floorId: null,
+      name: "YIA 412",
+    };
+    expect(
+      projectCampusMapBuildingDirectory(
+        { status: "ready", projection: { ...projection, places: [unknown] } },
+        YIA_BUILDING_ID,
+        YIA_FLOOR_FOUR_ID,
+      ).places,
+    ).toEqual([]);
+  });
   it("returns ready content from the Current-facts projection", () => {
     expect(
       projectCampusMapBuildingDirectory(

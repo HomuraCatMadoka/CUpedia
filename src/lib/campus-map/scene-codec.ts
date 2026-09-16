@@ -53,7 +53,9 @@ function hasRepeatedUrlKeys(params: URLSearchParams) {
 }
 
 function snap(value: string | null) {
-  return value === "peek" || value === "full" ? value : null;
+  return value === "peek" || value === "half" || value === "full"
+    ? value
+    : null;
 }
 
 function validSession(
@@ -109,10 +111,17 @@ export function decodeCampusMapHistoryMetadata(
     if (snapshot.version !== CAMPUS_MAP_SCENE_CODEC_VERSION) {
       return historyFallback("unsupported-version");
     }
-    const allowedKeys = ["campusMapScene", "version", "depth"];
+    const metadataKeys = ["campusMapScene", "version", "depth"];
+    // Next.js appends its routing state to native history entries. It carries
+    // no Campus Map authority; only our own versioned metadata is decoded.
+    const allowedKeys = [
+      ...metadataKeys,
+      "__NA",
+      "__PRIVATE_NEXTJS_INTERNALS_TREE",
+    ];
     const keys = Object.keys(snapshot);
     if (
-      keys.length !== allowedKeys.length ||
+      metadataKeys.some((key) => !Object.hasOwn(snapshot, key)) ||
       keys.some((key) => !allowedKeys.includes(key)) ||
       !Number.isInteger(snapshot.depth) ||
       (snapshot.depth as number) < 0
@@ -209,6 +218,27 @@ export function encodeCampusMapPlaceHref(
         }
       : { mode: "browse", scene: { kind: "map" } },
   );
+  return `/campus-map?${params.toString()}`;
+}
+
+export function encodeCampusMapPlaceEditHref(
+  placeId: string,
+  head: {
+    status: "active" | "retired" | "merged";
+    visibility: "public" | "redacted";
+  },
+): string | null {
+  if (
+    head.status !== "active" ||
+    head.visibility !== "public" ||
+    !isCanonicalCampusMapId(placeId)
+  ) {
+    return null;
+  }
+  const params = encodeNormalizedCampusMapUrl({
+    mode: "task",
+    task: { kind: "edit", placeId },
+  });
   return `/campus-map?${params.toString()}`;
 }
 
@@ -386,7 +416,7 @@ export function decodeCampusMapUrl(
       sceneKind === "place"
         ? {
             mode: "browse",
-            scene: { kind: "place", placeId: id, snap: "peek" },
+            scene: { kind: "place", placeId: id, snap: panelSnap },
           }
         : {
             mode: "browse",
