@@ -3716,6 +3716,15 @@ export function CampusMapRuntime({
                 href={shareHref}
                 locateLabel={locateLabel}
                 onLocate={locateSelection}
+                locateFeedback={
+                  selectedFacility &&
+                  locateFeedback?.placeId === selectedFacility.placeId
+                    ? {
+                        message: locateFeedback.message,
+                        revision: locateFeedback.revision,
+                      }
+                    : null
+                }
               />
 
               {selectedBuilding && !selectedFacility ? (
@@ -3752,16 +3761,6 @@ export function CampusMapRuntime({
                         showLocation={false}
                         presentation="map"
                       />
-                    ) : null}
-                    {locateFeedback?.placeId === selectedFacility.placeId ? (
-                      <p
-                        key={locateFeedback.revision}
-                        role="status"
-                        data-campus-map-locate-feedback
-                        className="mt-3 text-xs leading-5 text-muted-foreground"
-                      >
-                        {locateFeedback.message}
-                      </p>
                     ) : null}
                     <div
                       role="group"

@@ -474,6 +474,13 @@ describe("Campus Map AMap runtime effects", () => {
     const firstFeedback = screen.getByText(
       "地图目标：YIA 201 所属建筑，非室内精确位置。",
     );
+    const mapActions = screen.getByRole("group", { name: "地图操作" });
+    expect(mapActions.parentElement?.contains(firstFeedback)).toBe(true);
+    expect(
+      document
+        .querySelector("[data-campus-map-card-scroll]")
+        ?.contains(firstFeedback),
+    ).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "定位所属建筑" }));
     expect(
       screen.getByText("地图目标：YIA 201 所属建筑，非室内精确位置。"),

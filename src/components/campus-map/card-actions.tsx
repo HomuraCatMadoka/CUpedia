@@ -8,14 +8,22 @@ export function CampusMapCardActions({
   href,
   locateLabel,
   onLocate,
+  locateFeedback = null,
 }: {
   name: string;
   href: string;
   locateLabel: string | null;
   onLocate: () => void;
+  locateFeedback?: { message: string; revision: number } | null;
 }) {
   const [status, setStatus] = useState("");
   const [sharing, setSharing] = useState(false);
+  const visibleStatus = status || locateFeedback?.message || "";
+  const visibleStatusKey = status
+    ? `share:${status}`
+    : locateFeedback
+      ? `locate:${locateFeedback.revision}`
+      : "empty";
 
   async function share() {
     if (sharing) return;
@@ -52,7 +60,10 @@ export function CampusMapCardActions({
         {locateLabel ? (
           <button
             type="button"
-            onClick={onLocate}
+            onClick={() => {
+              setStatus("");
+              onLocate();
+            }}
             className="inline-flex min-h-11 items-center justify-center gap-[7px] rounded-full bg-[#235741] px-5 text-sm font-medium text-white hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:bg-[#b2dfc2] dark:text-[#143c28]"
           >
             <LocateFixedIcon
@@ -72,21 +83,27 @@ export function CampusMapCardActions({
           分享
         </button>
       </div>
-      <p
-        role={status ? "status" : undefined}
-        aria-live="polite"
-        className="text-xs leading-5 text-muted-foreground"
-      >
-        {status}
-        {status.startsWith("分享失败") ? (
-          <a
-            href={href}
-            className="ml-1 inline-flex min-h-11 items-center underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            稳定链接
-          </a>
-        ) : null}
-      </p>
+      {visibleStatus ? (
+        <p
+          key={visibleStatusKey}
+          role="status"
+          aria-live="polite"
+          data-campus-map-locate-feedback={
+            locateFeedback && !status ? "true" : undefined
+          }
+          className="mt-2 text-xs leading-5 text-muted-foreground"
+        >
+          {visibleStatus}
+          {status.startsWith("分享失败") ? (
+            <a
+              href={href}
+              className="ml-1 inline-flex min-h-11 items-center underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              稳定链接
+            </a>
+          ) : null}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -474,13 +474,27 @@ test("selected Place label and locate feedback remain visible across viewports a
       const placeUrl = page.url();
       const locate = page.getByRole("button", { name: "定位所属建筑" });
       await locate.press("Enter");
-      await expect(
-        page.locator("[data-campus-map-locate-feedback]"),
-      ).toBeVisible();
+      const locateFeedback = page.locator("[data-campus-map-locate-feedback]");
+      await expect(locateFeedback).toBeVisible();
+      await expect
+        .poll(async () => {
+          const box = await locateFeedback.boundingBox();
+          const insideScrollableDetails = await locateFeedback.evaluate(
+            (element) =>
+              Boolean(element.closest("[data-campus-map-card-scroll]")),
+          );
+          return Boolean(
+            box &&
+            !insideScrollableDetails &&
+            box.x >= 0 &&
+            box.y >= 0 &&
+            box.x + box.width <= viewport.width &&
+            box.y + box.height <= viewport.height,
+          );
+        })
+        .toBe(true);
       await locate.press("Enter");
-      await expect(
-        page.locator("[data-campus-map-locate-feedback]"),
-      ).toContainText("非室内精确位置");
+      await expect(locateFeedback).toContainText("非室内精确位置");
       await expect(page).toHaveURL(placeUrl);
       const before = await readAmapSnapshot(page);
       await page.getByRole("button", { name: "回到校园" }).press("Enter");
