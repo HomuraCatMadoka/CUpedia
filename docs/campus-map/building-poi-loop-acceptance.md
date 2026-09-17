@@ -34,6 +34,23 @@ complete provider object ID. A human must capture and review that exact ID under
 [#767](https://github.com/Algebra-FUN/CUpedia/issues/767) before a production
 mapping can be released.
 
+## Local QA follow-up — 2026-09-16
+
+- The follow-up ran in a local QA worktree with a real AMap Web key and a local
+  copy of the production public Campus Map projection. It made no writes to the
+  production Supabase project.
+- The live SDK reports the rendered cluster Marker in `event.marker` and the
+  member points in `event.clusterData`. The adapter had treated `event.marker`
+  as the member array, so it returned before producing a cluster intent. The
+  full runtime test used the same incorrect shape and therefore stayed green.
+- After correcting the adapter and test contract, pointer activation and native
+  button Enter/Space activation each advanced or reclustered the clicked group.
+  Pointer and Enter activation of an ordinary marker opened the same canonical
+  Building target.
+- This verifies application behavior against production-shaped public rows. It
+  does not verify or create a production provider mapping; the YIA release gate
+  below remains unchanged.
+
 ## What this change proves
 
 - Cluster clicks advance the zoom by one level instead of fitting the same

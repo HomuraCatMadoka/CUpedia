@@ -37,7 +37,12 @@ import {
 } from "@/components/campus-map/browse-card-presentation";
 import { CampusMapCategoryFilters } from "@/components/campus-map/category-filters";
 import { CampusMapCategoryResultsPanel } from "@/components/campus-map/category-results-panel";
-import { AmapCanonicalBrowseLayer } from "@/components/campus-map/amap-canonical-browse-layer";
+import {
+  AmapCanonicalBrowseLayer,
+  type CampusMapAmapLngLat as AMapLngLat,
+  type CampusMapAmapMarker as AMapMarker,
+  type CampusMapAmapProviderNamespace,
+} from "@/components/campus-map/amap-canonical-browse-layer";
 import { CampusMapBuildingFloorPicker } from "@/components/campus-map/building-floor-picker";
 import { CampusMapEditSheet } from "@/components/campus-map/edit-sheet";
 import type { FacilityLocationReference } from "@/components/campus-map/facility-location-picker";
@@ -185,11 +190,6 @@ type UserLocationState =
       status: "error";
       reason: "denied" | "timeout" | "unavailable" | "unsupported";
     };
-interface AMapLngLat {
-  lng: number;
-  lat: number;
-}
-
 interface AMapPixel {
   x: number;
   y: number;
@@ -200,25 +200,6 @@ interface AMapEvent {
   name?: string;
   lnglat: AMapLngLat;
   originEvent?: { target?: Element | null };
-}
-
-interface AMapClusterEvent {
-  marker?: ReadonlyArray<{
-    lnglat: AMapLngLat | CampusMapAmapPosition;
-  }>;
-}
-
-interface AMapMarker {
-  on(event: string, handler: () => void): void;
-  getPosition(): AMapLngLat | null;
-  setContent(content: string): void;
-  setzIndex(zIndex: number): void;
-}
-
-interface AMapMarkerCluster {
-  on(event: string, handler: (event: AMapClusterEvent) => void): void;
-  setData(data: readonly Record<string, unknown>[]): void;
-  setMap(map: AMapMap | null): void;
 }
 
 interface AMapMap {
@@ -251,14 +232,11 @@ interface AMapMap {
   destroy(): void;
 }
 
-interface AMapNamespace extends CampusMapAmapCoordinateConverter {
+interface AMapNamespace
+  extends
+    CampusMapAmapCoordinateConverter,
+    CampusMapAmapProviderNamespace<AMapMap> {
   Map: new (container: string, options: Record<string, unknown>) => AMapMap;
-  Marker: new (options: Record<string, unknown>) => AMapMarker;
-  MarkerCluster: new (
-    map: AMapMap,
-    data: readonly Record<string, unknown>[],
-    options: Record<string, unknown>,
-  ) => AMapMarkerCluster;
   Geocoder: new (options: {
     radius: number;
     extensions: "all";

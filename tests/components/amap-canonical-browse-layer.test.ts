@@ -188,13 +188,55 @@ function healthBuildingProjection(
   };
 }
 
+class TestDomElement {
+  private readonly listeners = new Map<
+    string,
+    Array<(event: { detail: number }) => void>
+  >();
+
+  constructor(readonly outerHTML: string) {}
+
+  addEventListener(
+    event: string,
+    listener: (event: { detail: number }) => void,
+  ) {
+    const listeners = this.listeners.get(event) ?? [];
+    listeners.push(listener);
+    this.listeners.set(event, listeners);
+  }
+
+  emitClick(detail: number) {
+    for (const listener of this.listeners.get("click") ?? []) {
+      listener({ detail });
+    }
+  }
+}
+
+class TestDomContainer {
+  firstElementChild: TestDomElement | null = null;
+
+  set innerHTML(content: string) {
+    this.firstElementChild = new TestDomElement(content);
+  }
+}
+
+function installTestDocument() {
+  vi.stubGlobal("document", {
+    createElement: () => new TestDomContainer(),
+  });
+}
+
 class TestMarker {
   static latest: TestMarker | null = null;
   content = "";
   zIndex = 0;
   private readonly handlers = new Map<string, () => void>();
+  private contentElement: TestDomElement | null = null;
 
-  constructor(private readonly position: readonly [number, number]) {
+  constructor(
+    private readonly position: readonly [number, number],
+    private readonly emitBridge?: (event: string, payload: object) => void,
+  ) {
     TestMarker.latest = this;
   }
 
@@ -203,15 +245,30 @@ class TestMarker {
   }
 
   emitClickWithoutPointerGesture() {
-    this.handlers.get("click")?.();
+    this.emit("click", {});
+  }
+
+  emit(event: string, payload: object) {
+    this.handlers.get(event)?.();
+    this.emitBridge?.(event, payload);
+  }
+
+  emitContentClick(detail: number) {
+    this.contentElement?.emitClick(detail);
   }
 
   getPosition() {
     return { lng: this.position[0], lat: this.position[1] };
   }
 
-  setContent(content: string) {
-    this.content = content;
+  setContent(content: string | Element) {
+    if (typeof content === "string") {
+      this.content = content;
+      this.contentElement = null;
+      return;
+    }
+    this.content = content.outerHTML;
+    this.contentElement = content as unknown as TestDomElement;
   }
   setzIndex(zIndex: number) {
     this.zIndex = zIndex;
@@ -245,13 +302,16 @@ class TestMarkerCluster {
   on(_event: string, handler: (event: object) => void) {
     this.click = handler;
   }
-  emitClick(data = this.data) {
+  emitClick(data = this.data, marker = new TestMarker([0, 0])) {
     this.click?.({
-      marker: data.map(({ lnglat }) => ({ lnglat })),
+      marker,
+      clusterData: data.map(({ lnglat }) => ({ lnglat })),
     });
   }
   renderCluster(data = this.data) {
-    const marker = new TestMarker([0, 0]);
+    const marker = new TestMarker([0, 0], (event) => {
+      if (event === "click") this.emitClick(data, marker);
+    });
     (this.options.renderClusterMarker as (input: object) => void)({
       marker,
       count: data.length,
@@ -530,6 +590,47 @@ describe("AmapCanonicalBrowseLayer", () => {
     expect(marker.content).not.toContain("不同类别");
     expect(marker.content).not.toContain("地点数量暂不可用");
     runtime.cluster.emitClick(members);
+    expect(runtime.intents).toEqual([
+      {
+        type: "EXPAND_CLUSTER",
+        positions: members.map((member) => member.lnglat),
+      },
+    ]);
+    runtime.layer.destroy();
+  });
+
+  it("routes keyboard cluster activation through the provider click event once", () => {
+    installTestDocument();
+    const projection = healthBuildingProjection(2);
+    const otherId = projection.buildings[1]!.buildingId;
+    const other = {
+      ...projection.places[0]!,
+      placeId: "other-health",
+      buildingId: otherId,
+    };
+    const runtime = renderClusterProjection({
+      ...projection,
+      places: [...projection.places, other, placeProjection.places[0]!],
+      markers: [
+        ...projection.markers,
+        {
+          ...projection.markers[0]!,
+          buildingId: otherId,
+          placeIds: [other.placeId],
+          position: projection.buildings[1]!.anchor!,
+        } as CampusMapBrowseProjection["markers"][number],
+        placeProjection.markers[0]!,
+      ],
+    });
+    const members = runtime.cluster.data.slice(0, 2);
+    const marker = runtime.cluster.renderCluster(members);
+
+    marker.emitContentClick(1);
+    runtime.cluster.emitClick(members, marker);
+    expect(runtime.intents).toHaveLength(1);
+    runtime.intents.length = 0;
+
+    marker.emitContentClick(0);
     expect(runtime.intents).toEqual([
       {
         type: "EXPAND_CLUSTER",

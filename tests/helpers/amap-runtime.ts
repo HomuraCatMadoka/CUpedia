@@ -167,8 +167,7 @@ export function installAmapRuntime(options?: {
     zIndex = 0;
 
     constructor(private readonly markerOptions: Record<string, unknown> = {}) {
-      this.content =
-        typeof markerOptions.content === "string" ? markerOptions.content : "";
+      this.content = serializeMarkerContent(markerOptions.content);
       runtime.markers.push(this);
     }
 
@@ -193,13 +192,18 @@ export function installAmapRuntime(options?: {
         : new MockLngLat(position[0], position[1]);
     }
 
-    setContent(content: string) {
-      this.content = content;
+    setContent(content: string | Element) {
+      this.content = serializeMarkerContent(content);
     }
 
     setzIndex(zIndex: number) {
       this.zIndex = zIndex;
     }
+  }
+
+  function serializeMarkerContent(content: unknown) {
+    if (typeof content === "string") return content;
+    return content instanceof Element ? content.outerHTML : "";
   }
 
   class MockMarkerCluster {
@@ -242,14 +246,22 @@ export function installAmapRuntime(options?: {
       this.handlers.set(event, handlers);
     }
 
-    emit(event: string, payload: Record<string, unknown>) {
+    private emit(event: string, payload: Record<string, unknown>) {
       for (const handler of this.handlers.get(event) ?? []) handler(payload);
     }
 
-    renderCluster(count = this.data.length) {
-      const marker = new MockMarker();
-      this.clusterOptions.renderClusterMarker?.({ count, marker });
+    renderCluster(data = this.data) {
+      const marker = new MockMarker({ position: data[0]?.lnglat });
+      this.clusterOptions.renderClusterMarker?.({ count: data.length, marker });
       return marker;
+    }
+
+    emitClusterClick(data = this.data) {
+      const marker = this.renderCluster(data);
+      this.emit("click", {
+        marker,
+        clusterData: data.map(({ lnglat }) => ({ lnglat })),
+      });
     }
 
     setData(data: readonly Record<string, unknown>[]) {

@@ -29,34 +29,39 @@ import {
 import type { CampusMapMarkerLabelPlacement } from "@/lib/campus-map/marker-label-layout";
 import type { CampusMapPublicPlaceType } from "@/lib/campus-map/place-type-contract";
 
-interface ProviderLngLat {
+export interface CampusMapAmapLngLat {
   lng: number;
   lat: number;
 }
 
-interface ProviderMarker {
+export interface CampusMapAmapMarker {
   on(event: string, handler: () => void): void;
-  getPosition(): ProviderLngLat | null;
-  setContent(content: string): void;
+  emit(event: string, payload: { lnglat: CampusMapAmapLngLat }): void;
+  getPosition(): CampusMapAmapLngLat | null;
+  setContent(content: string | Element): void;
   setzIndex(zIndex: number): void;
 }
 
-interface ProviderClusterPoint {
-  lnglat: ProviderLngLat | CampusMapAmapPosition;
+export interface CampusMapAmapClusterPoint {
+  lnglat: CampusMapAmapLngLat | CampusMapAmapPosition;
 }
 
-interface ProviderClusterClickEvent {
-  marker?: ReadonlyArray<ProviderClusterPoint>;
+export interface CampusMapAmapClusterClickEvent {
+  clusterData?: ReadonlyArray<CampusMapAmapClusterPoint>;
+  marker?: CampusMapAmapMarker;
 }
 
-interface ProviderMarkerCluster {
-  on(event: string, handler: (event: ProviderClusterClickEvent) => void): void;
+export interface CampusMapAmapMarkerCluster {
+  on(
+    event: string,
+    handler: (event: CampusMapAmapClusterClickEvent) => void,
+  ): void;
   setMap(map: null): void;
 }
 
 interface ProviderMapLike {
-  add(marker: ProviderMarker): void;
-  remove(markers: readonly ProviderMarker[]): void;
+  add(marker: CampusMapAmapMarker): void;
+  remove(markers: readonly CampusMapAmapMarker[]): void;
   on(event: string, handler: (event: ProviderMapEvent) => void): void;
   off(event: string, handler: (event: ProviderMapEvent) => void): void;
 }
@@ -64,16 +69,16 @@ interface ProviderMapLike {
 interface ProviderMapEvent {
   id?: string;
   name?: string;
-  lnglat?: ProviderLngLat;
+  lnglat?: CampusMapAmapLngLat;
 }
 
-interface ProviderNamespace<ProviderMap extends ProviderMapLike> {
-  Marker: new (options: Record<string, unknown>) => ProviderMarker;
+export interface CampusMapAmapProviderNamespace<ProviderMap> {
+  Marker: new (options: Record<string, unknown>) => CampusMapAmapMarker;
   MarkerCluster: new (
     map: ProviderMap,
     data: readonly Record<string, unknown>[],
     options: Record<string, unknown>,
-  ) => ProviderMarkerCluster;
+  ) => CampusMapAmapMarkerCluster;
 }
 
 export type CampusMapCanonicalBrowseMode =
@@ -99,7 +104,7 @@ export interface AmapCanonicalBrowseLayerInput<
   ProviderMap extends ProviderMapLike,
 > {
   map: ProviderMap;
-  provider: ProviderNamespace<ProviderMap>;
+  provider: CampusMapAmapProviderNamespace<ProviderMap>;
   onIntent(intent: CampusMapCanonicalBrowseIntent): void;
   onHotspot(
     hotspot: CampusMapProviderHotspotInput & {
@@ -148,13 +153,42 @@ function placeTypeMarkerKey(marker: CampusMapBrowseMarker) {
     : `${campusMapAmapBuildingPositionKey(marker.buildingId)}:${marker.placeType}`;
 }
 
-function providerPositionKey(position: ProviderLngLat | CampusMapAmapPosition) {
+function providerPositionKey(
+  position: CampusMapAmapLngLat | CampusMapAmapPosition,
+) {
   const longitude = "lng" in position ? position.lng : position[0];
   const latitude = "lat" in position ? position.lat : position[1];
   // MarkerCluster may round the same coordinate while turning our data point
   // into a provider marker. This key only reconnects that marker to the exact
   // canonical data we supplied; it never establishes Place/Building identity.
   return `${longitude.toFixed(6)}:${latitude.toFixed(6)}`;
+}
+
+function providerClusterPoints(
+  event: CampusMapAmapClusterClickEvent,
+): readonly CampusMapAmapClusterPoint[] | null {
+  return Array.isArray(event.clusterData) ? event.clusterData : null;
+}
+
+function keyboardActivatableMarkerContent(
+  content: string,
+  marker: CampusMapAmapMarker,
+) {
+  if (typeof document === "undefined") return content;
+  const container = document.createElement("div");
+  container.innerHTML = content;
+  const element = container.firstElementChild;
+  if (!element) return content;
+  element.addEventListener("click", (event) => {
+    // AMap turns pointer gestures into Marker clicks itself. Native buttons
+    // report keyboard/assistive activation as a click with detail 0, which the
+    // provider does not bridge, so replay only that path through Marker.emit.
+    if ((event as MouseEvent).detail !== 0) return;
+    const lnglat = marker.getPosition();
+    if (!lnglat) return;
+    marker.emit("click", { lnglat });
+  });
+  return element;
 }
 
 function groupMarkerTargetsByPosition(
@@ -331,13 +365,13 @@ function targetContent(
 export class AmapCanonicalBrowseLayer<
   ProviderMap extends ProviderMapLike = ProviderMapLike,
 > {
-  private cluster: ProviderMarkerCluster | null = null;
+  private cluster: CampusMapAmapMarkerCluster | null = null;
   private projection: CampusMapBrowseProjection | null = null;
   private dataSignature: string | null = null;
-  private readonly markers = new Map<string, ProviderMarker>();
+  private readonly markers = new Map<string, CampusMapAmapMarker>();
   private positionGroups = new Map<string, CanonicalPositionGroup>();
   private selectedPlaceId: string | null = null;
-  private selectedMarker: ProviderMarker | null = null;
+  private selectedMarker: CampusMapAmapMarker | null = null;
   private selectedMarkerPositionKey: string | null = null;
   private cancelPendingDismiss: (() => void) | null = null;
   private cancelCompanionClickExpiry: (() => void) | null = null;
@@ -440,7 +474,7 @@ export class AmapCanonicalBrowseLayer<
             gridSize: 90,
             maxZoom: 18,
             averageCenter: true,
-            renderMarker: ({ marker }: { marker: ProviderMarker }) => {
+            renderMarker: ({ marker }: { marker: CampusMapAmapMarker }) => {
               const position = marker.getPosition();
               if (!position) return;
               const group = this.positionGroups.get(
@@ -469,7 +503,9 @@ export class AmapCanonicalBrowseLayer<
               );
               if (!content) return;
               this.markers.set(group.key, marker);
-              marker.setContent(content);
+              marker.setContent(
+                keyboardActivatableMarkerContent(content, marker),
+              );
               marker.on("click", () => {
                 if (this.markers.get(group.key) !== marker) return;
                 const current = this.positionGroups.get(group.key);
@@ -482,27 +518,28 @@ export class AmapCanonicalBrowseLayer<
               marker,
             }: {
               count: number;
-              marker: ProviderMarker;
+              marker: CampusMapAmapMarker;
             }) => {
               const placeType = commonPlaceType(targets);
               const style = placeType
                 ? campusMapPlaceTypeStyle(placeType)
                 : null;
+              const content = placeClusterMarkerContent({
+                count,
+                measure: "位置",
+                placeType,
+                color: style?.color ?? "#374151",
+                label: `${count} 个地图位置${style ? `，类别：${style.label}` : ""}，放大查看这些位置`,
+              });
               marker.setContent(
-                placeClusterMarkerContent({
-                  count,
-                  measure: "位置",
-                  placeType,
-                  color: style?.color ?? "#374151",
-                  label: `${count} 个地图位置${style ? `，类别：${style.label}` : ""}，放大查看这些位置`,
-                }),
+                keyboardActivatableMarkerContent(content, marker),
               );
             },
           },
         );
         cluster.on("click", (event) => {
           if (this.cluster !== cluster) return;
-          const groups = this.clusterGroups(event.marker);
+          const groups = this.clusterGroups(providerClusterPoints(event));
           if (!groups) return;
           const members = groups.flatMap((group) => group.targets);
           const buildingId = this.sameBuilding(members);
@@ -575,7 +612,7 @@ export class AmapCanonicalBrowseLayer<
     this.selectedMarkerPositionKey = null;
   }
 
-  private clusterGroups(points: ProviderClusterClickEvent["marker"]) {
+  private clusterGroups(points: readonly CampusMapAmapClusterPoint[] | null) {
     if (!points?.length) return null;
     const groups: CanonicalPositionGroup[] = [];
     const seen = new Set<string>();
@@ -707,7 +744,10 @@ export class AmapCanonicalBrowseLayer<
       this.selectedPlaceId,
       this.input.selectedLabelPlacement?.(target.position) ?? "top",
     );
-    if (content) this.selectedMarker.setContent(content);
+    if (content)
+      this.selectedMarker.setContent(
+        keyboardActivatableMarkerContent(content, this.selectedMarker),
+      );
     this.selectedMarker.setzIndex(240);
   }
 
@@ -732,7 +772,7 @@ export class AmapCanonicalBrowseLayer<
       );
       if (!content) continue;
       marker.setzIndex(160);
-      marker.setContent(content);
+      marker.setContent(keyboardActivatableMarkerContent(content, marker));
     }
   }
 }

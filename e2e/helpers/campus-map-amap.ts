@@ -295,7 +295,7 @@ export async function installFakeCampusMapAmap(page: Page) {
 
     class FakeMarker {
       private readonly handlers = new Map<string, Array<() => void>>();
-      private content = "";
+      private content: string | Element = "";
       private element: HTMLElement | null = null;
       private map: FakeMap | null = null;
 
@@ -311,6 +311,10 @@ export async function installFakeCampusMapAmap(page: Page) {
         this.handlers.set(event, handlers);
       }
 
+      emit(event: string) {
+        for (const handler of this.handlers.get(event) ?? []) handler();
+      }
+
       getPosition() {
         const position = this.options.position;
         if (!position) return null;
@@ -319,9 +323,9 @@ export async function installFakeCampusMapAmap(page: Page) {
           : new FakeLngLat(position[0], position[1]);
       }
 
-      setContent(content: string) {
+      setContent(content: string | Element) {
         this.content = content;
-        if (this.element) this.element.innerHTML = content;
+        if (this.element) this.mountContent(this.element);
         if (this.map) this.reposition(this.map);
       }
 
@@ -332,9 +336,10 @@ export async function installFakeCampusMapAmap(page: Page) {
         map.registerOverlay(this);
         const element = document.createElement("div");
         element.dataset.amapMarker = "true";
-        element.innerHTML = this.content;
-        element.addEventListener("click", () => {
-          for (const handler of this.handlers.get("click") ?? []) handler();
+        this.mountContent(element);
+        element.addEventListener("click", (event) => {
+          if (event.detail === 0) return;
+          this.emit("click");
         });
         map.getContainer().append(element);
         this.element = element;
@@ -345,7 +350,7 @@ export async function installFakeCampusMapAmap(page: Page) {
         // Selection visibility checks need the actual projected point.
         if (
           !this.element ||
-          !this.content.includes("data-campus-map-selected-label")
+          !this.contentMarkup().includes("data-campus-map-selected-label")
         )
           return;
         const position = this.getPosition();
@@ -365,6 +370,20 @@ export async function installFakeCampusMapAmap(page: Page) {
         this.map = null;
         this.element?.remove();
         this.element = null;
+      }
+
+      private contentMarkup() {
+        return typeof this.content === "string"
+          ? this.content
+          : this.content.outerHTML;
+      }
+
+      private mountContent(container: HTMLElement) {
+        if (typeof this.content === "string") {
+          container.innerHTML = this.content;
+          return;
+        }
+        container.replaceChildren(this.content);
       }
     }
 

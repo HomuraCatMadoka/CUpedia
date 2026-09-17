@@ -1418,9 +1418,7 @@ describe("Campus Map AMap runtime effects", () => {
     map.setZoomAndCenter.mockClear();
 
     await act(async () => {
-      cluster.emit("click", {
-        marker: cluster.data.map(({ lnglat }) => ({ lnglat })),
-      });
+      cluster.emitClusterClick();
       map.emit("click", { lnglat: { lng: 114.20801, lat: 22.41966 } });
     });
 
@@ -1434,9 +1432,7 @@ describe("Campus Map AMap runtime effects", () => {
     await runtime.flushAnimationFrames();
 
     await act(async () => {
-      cluster.emit("click", {
-        marker: cluster.data.map(({ lnglat }) => ({ lnglat })),
-      });
+      cluster.emitClusterClick();
     });
 
     expect(map.setZoomAndCenter).toHaveBeenCalledTimes(2);
