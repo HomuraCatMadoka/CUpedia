@@ -41,6 +41,7 @@
     "campus-bus:train-model": "node --import tsx scripts/cuhk-bus-train-model.ts",
     "campus-bus:check-official-sources": "node --import tsx scripts/cuhk-bus-check-official-sources.ts",
     "qa:campus-map-provider-mappings": "node --import tsx scripts/campus-map-provider-mapping-qa.ts",
+    "campus-map:provider-mapping-release": "node --import tsx scripts/campus-map-provider-mapping-release.ts",
     "campus-map:official-facilities": "node --import tsx scripts/campus-map-official-facilities.ts"
   },
   "dependencies": {

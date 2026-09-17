@@ -89,6 +89,7 @@ function harness(
       status: "ok" as const,
       identity,
       activeTarget: active.get(identityKey(identity)) ?? null,
+      activeProvenance: null,
       events: [],
     })),
     resolve: vi.fn(

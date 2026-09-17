@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "cuhk-campus-map-provider-mapping-release/2",
+  "manifestVersion": "2026-09-17.3",
+  "accessedOn": "2026-09-17",
+  "approval": {
+    "status": "approved",
+    "reviewedBy": "Codex Standards and Spec agent review",
+    "reviewedOn": "2026-09-17"
+  },
+  "reason": "Issue #767 reviewed exact AMap hotspot mappings.",
+  "mappings": [
+    {
+      "label": "康本国际学术园 / Yasumoto International Academic Park",
+      "identity": {
+        "provider": "amap",
+        "providerObjectId": "B0FFFS94ZL"
+      },
+      "target": {
+        "kind": "building",
+        "buildingId": "545893b6-b89b-5067-aba0-c86518aa8fa8"
+      },
+      "evidence": {
+        "providerLabel": "康本国际学术园",
+        "verificationMethod": "real-amap-sdk-hotspotclick",
+        "observedAt": "2026-09-17T14:44:07+08:00",
+        "note": "In the fixed detached QA worktree, clicking the current live AMap hotspot emitted this complete object ID. Canonical search on the same map opened the existing YIA Building with the same bilingual identity and official Building anchor. No name, distance, or coordinate heuristic performed the bind."
+      },
+      "provenance": {
+        "sourceRef": "amap:poi:B0FFFS94ZL:hotspotclick:2026-09-17",
+        "sourceOwner": "AutoNavi",
+        "sourceVersion": "AMap JavaScript API 2.0 live hotspot",
+        "accessedOn": "2026-09-17",
+        "observedAt": "2026-09-17T14:44:07+08:00",
+        "rightsStatus": "restricted",
+        "limitations": "The provider label and object ID are foreign identity evidence only. They do not define canonical Building facts, indoor Places, or geometry.",
+        "note": "Reviewed current AMap hotspot B0FFFS94ZL labelled 康本国际学术园 against canonical Building 545893b6-b89b-5067-aba0-c86518aa8fa8."
+      }
+    }
+  ],
+  "verifyExisting": [
+    {
+      "label": "科学馆 / University Science Centre",
+      "identity": {
+        "provider": "amap",
+        "providerObjectId": "B0J2RXUQB6"
+      },
+      "target": {
+        "kind": "building",
+        "buildingId": "d0f66212-4138-5ab3-b8e5-04980cf64fb3"
+      },
+      "evidence": {
+        "providerLabel": "ScienceCentre科学馆",
+        "verificationMethod": "real-amap-sdk-hotspotclick",
+        "observedAt": "2026-09-17T14:44:07+08:00",
+        "note": "The current live AMap hotspot emitted the same exact ID already recorded by the reviewed Building bootstrap and migration 0123. This release verifies the existing target and does not create a second decision."
+      },
+      "provenance": {
+        "sourceRef": "amap:poi:B0J2RXUQB6:hotspotclick:2026-08-26",
+        "sourceOwner": "AutoNavi",
+        "sourceVersion": "AMap JavaScript API",
+        "accessedOn": "2026-08-26",
+        "observedAt": null,
+        "rightsStatus": "unknown",
+        "limitations": "Provider label, object ID, and GCJ-02 point are transient evidence; they do not establish canonical identity on their own.",
+        "note": "Live hotspotclick observed ScienceCentre科学馆 with provider object B0J2RXUQB6; the object was reviewed against the official Science Centre name and nearby official WGS84 anchor, then retained for an explicit audited registry decision."
+      }
+    }
+  ],
+  "unresolved": []
+}
