@@ -14,6 +14,7 @@ import {
   campusMapProvenanceSources,
   campusMapRevisionVisibility,
   users,
+  type CampusMapProvenanceKind,
 } from "@/db/schema";
 import { isCanonicalCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
 import type { CampusMapSelectionTarget } from "@/lib/campus-map/fact-store";
@@ -753,6 +754,18 @@ export type CampusMapProviderMappingGovernanceResult =
       status: "ok";
       identity: CampusMapProviderIdentity;
       activeTarget: CampusMapProviderMappingTarget | null;
+      activeProvenance: {
+        id: string;
+        kind: CampusMapProvenanceKind;
+        ref: string;
+        owner: string | null;
+        version: string | null;
+        accessedOn: string;
+        observedAt: string | null;
+        rightsStatus: string;
+        limitations: string | null;
+        note: string | null;
+      } | null;
       events: Array<{
         id: string;
         kind: "bind" | "unlink" | "rebind";
@@ -803,8 +816,25 @@ export async function getCampusMapProviderMappingGovernance(
             targetKind: campusMapProviderMappings.targetKind,
             buildingId: campusMapProviderMappings.buildingId,
             placeId: campusMapProviderMappings.placeId,
+            provenanceId: campusMapProviderMappings.provenanceId,
+            provenanceKind: campusMapProvenanceSources.sourceKind,
+            provenanceRef: campusMapProvenanceSources.sourceRef,
+            provenanceOwner: campusMapProvenanceSources.sourceOwner,
+            provenanceVersion: campusMapProvenanceSources.sourceVersion,
+            provenanceAccessedOn: campusMapProvenanceSources.accessedOn,
+            provenanceObservedAt: campusMapProvenanceSources.observedAt,
+            provenanceRightsStatus: campusMapProvenanceSources.rightsStatus,
+            provenanceLimitations: campusMapProvenanceSources.limitations,
+            provenanceNote: campusMapProvenanceSources.note,
           })
           .from(campusMapProviderMappings)
+          .leftJoin(
+            campusMapProvenanceSources,
+            eq(
+              campusMapProviderMappings.provenanceId,
+              campusMapProvenanceSources.id,
+            ),
+          )
           .where(
             and(
               eq(campusMapProviderMappings.provider, identity.provider),
@@ -853,6 +883,21 @@ export async function getCampusMapProviderMappingGovernance(
         status: "ok",
         identity,
         activeTarget: active ? mappingTarget(active) : null,
+        activeProvenance:
+          active?.provenanceId && active.provenanceKind && active.provenanceRef
+            ? {
+                id: active.provenanceId,
+                kind: active.provenanceKind,
+                ref: active.provenanceRef,
+                owner: active.provenanceOwner,
+                version: active.provenanceVersion,
+                accessedOn: active.provenanceAccessedOn!,
+                observedAt: active.provenanceObservedAt?.toISOString() ?? null,
+                rightsStatus: active.provenanceRightsStatus!,
+                limitations: active.provenanceLimitations,
+                note: active.provenanceNote,
+              }
+            : null,
         events: events.map((event) => ({
           id: event.id,
           kind: event.kind as "bind" | "unlink" | "rebind",

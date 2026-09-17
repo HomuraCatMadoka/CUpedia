@@ -264,6 +264,18 @@ describe.skipIf(!hasDb)("Campus Map provider mapping registry", () => {
         providerObjectId: "building-poi",
       },
       activeTarget: { kind: "building", buildingId },
+      activeProvenance: {
+        id: provenanceId,
+        kind: "provider-candidate",
+        ref: `test:provider-mapping:${provenanceId}`,
+        owner: null,
+        version: null,
+        accessedOn: "2026-08-27",
+        observedAt: null,
+        rightsStatus: "restricted",
+        limitations: null,
+        note: null,
+      },
       events: [
         {
           kind: "bind",

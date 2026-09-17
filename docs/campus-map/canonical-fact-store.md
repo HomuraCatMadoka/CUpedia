@@ -146,6 +146,20 @@ governance decision. Run fixed-worktree QA serially, keep managed mappings
 applied until linked Building, linked Place, and transient POI checks are
 complete, and never run seed or bootstrap as part of this workflow.
 
+The QA fixture runner is not a permanent release importer. Reviewed production
+decisions use `campus-map:provider-mapping-release` and a checked-in strict
+manifest such as the [2026-09-17 AMap release](provider-mapping-release-2026-09-17.md).
+That command permits a Building-only release when no Place relationship has
+real evidence. It preflights the full manifest, creates immutable
+provider-candidate provenance through the existing provenance store, and calls
+only the registry's bind command. Its stable manifest-derived idempotency key
+makes a retry safe. A matching active row is accepted without a second write
+only when its provenance and latest lifecycle event prove the expected release;
+target equality alone fails closed. Existing prerequisite mappings must also
+retain a coherent actor, reason, provenance, and active lifecycle event.
+The trusted administrator identity remains an operator environment variable,
+never a manifest field.
+
 ## Persistence invariants
 
 - Building, Floor, and Place use UUID primary keys. Provider mappings have a
