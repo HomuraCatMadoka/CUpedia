@@ -523,21 +523,29 @@ describe("CampusMapSceneDriver", () => {
     );
   });
 
-  it("routes a cluster fit through one driver camera command", () => {
+  it("advances the camera for every repeated cluster click", () => {
     const runtime = harness();
 
     runtime.driver.dispatch({
-      type: "FIT_CLUSTER",
+      type: "EXPAND_CLUSTER",
+      positions: [
+        [114.2, 22.4],
+        [114.21, 22.41],
+      ],
+    });
+    runtime.driver.dispatch({
+      type: "EXPAND_CLUSTER",
       positions: [
         [114.2, 22.4],
         [114.21, 22.41],
       ],
     });
 
-    expect(runtime.ports.camera).toHaveBeenCalledTimes(1);
-    expect(runtime.ports.camera).toHaveBeenCalledWith(
+    expect(runtime.ports.camera).toHaveBeenCalledTimes(2);
+    expect(runtime.ports.camera).toHaveBeenNthCalledWith(
+      2,
       {
-        kind: "fit",
+        kind: "expand-cluster",
         positions: [
           [114.2, 22.4],
           [114.21, 22.41],

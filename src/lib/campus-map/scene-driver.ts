@@ -30,7 +30,7 @@ export type CampusMapDriverIntent =
   | { type: "DISMISS" }
   | { type: "RETURN_TO_CAMPUS" }
   | {
-      type: "FIT_CLUSTER";
+      type: "EXPAND_CLUSTER";
       positions: ReadonlyArray<readonly [longitude: number, latitude: number]>;
     }
   | { type: "REFRAME"; reason: CameraReason };
@@ -40,6 +40,10 @@ export type CampusMapDriverCameraCommand =
   | { kind: "campus-extent" }
   | {
       kind: "fit";
+      positions: ReadonlyArray<readonly [longitude: number, latitude: number]>;
+    }
+  | {
+      kind: "expand-cluster";
       positions: ReadonlyArray<readonly [longitude: number, latitude: number]>;
     }
   | {
@@ -261,7 +265,8 @@ export class CampusMapSceneDriver {
       this.ports.camera({ kind: "campus-extent" }, this.effectContext());
       return this.snapshot;
     }
-    if (intent.type === "FIT_CLUSTER") return this.fitCluster(intent.positions);
+    if (intent.type === "EXPAND_CLUSTER")
+      return this.expandCluster(intent.positions);
     if (intent.type === "REFRAME") return this.reframe(intent.reason);
     if (this.pendingHistoryReturn) {
       if (
@@ -530,12 +535,15 @@ export class CampusMapSceneDriver {
     return this.snapshot;
   }
 
-  private fitCluster(
+  private expandCluster(
     positions: ReadonlyArray<readonly [longitude: number, latitude: number]>,
   ) {
     if (positions.length === 0) return this.snapshot;
     this.bumpToken();
-    this.ports.camera({ kind: "fit", positions }, this.effectContext());
+    this.ports.camera(
+      { kind: "expand-cluster", positions },
+      this.effectContext(),
+    );
     return this.snapshot;
   }
 

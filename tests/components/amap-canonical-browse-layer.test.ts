@@ -188,13 +188,55 @@ function healthBuildingProjection(
   };
 }
 
+class TestDomElement {
+  private readonly listeners = new Map<
+    string,
+    Array<(event: { detail: number }) => void>
+  >();
+
+  constructor(readonly outerHTML: string) {}
+
+  addEventListener(
+    event: string,
+    listener: (event: { detail: number }) => void,
+  ) {
+    const listeners = this.listeners.get(event) ?? [];
+    listeners.push(listener);
+    this.listeners.set(event, listeners);
+  }
+
+  emitClick(detail: number) {
+    for (const listener of this.listeners.get("click") ?? []) {
+      listener({ detail });
+    }
+  }
+}
+
+class TestDomContainer {
+  firstElementChild: TestDomElement | null = null;
+
+  set innerHTML(content: string) {
+    this.firstElementChild = new TestDomElement(content);
+  }
+}
+
+function installTestDocument() {
+  vi.stubGlobal("document", {
+    createElement: () => new TestDomContainer(),
+  });
+}
+
 class TestMarker {
   static latest: TestMarker | null = null;
   content = "";
   zIndex = 0;
   private readonly handlers = new Map<string, () => void>();
+  private contentElement: TestDomElement | null = null;
 
-  constructor(private readonly position: readonly [number, number]) {
+  constructor(
+    private readonly position: readonly [number, number],
+    private readonly emitBridge?: (event: string, payload: object) => void,
+  ) {
     TestMarker.latest = this;
   }
 
@@ -203,15 +245,30 @@ class TestMarker {
   }
 
   emitClickWithoutPointerGesture() {
-    this.handlers.get("click")?.();
+    this.emit("click", {});
+  }
+
+  emit(event: string, payload: object) {
+    this.handlers.get(event)?.();
+    this.emitBridge?.(event, payload);
+  }
+
+  emitContentClick(detail: number) {
+    this.contentElement?.emitClick(detail);
   }
 
   getPosition() {
     return { lng: this.position[0], lat: this.position[1] };
   }
 
-  setContent(content: string) {
-    this.content = content;
+  setContent(content: string | Element) {
+    if (typeof content === "string") {
+      this.content = content;
+      this.contentElement = null;
+      return;
+    }
+    this.content = content.outerHTML;
+    this.contentElement = content as unknown as TestDomElement;
   }
   setzIndex(zIndex: number) {
     this.zIndex = zIndex;
@@ -245,13 +302,16 @@ class TestMarkerCluster {
   on(_event: string, handler: (event: object) => void) {
     this.click = handler;
   }
-  emitClick(data = this.data) {
+  emitClick(data = this.data, marker = new TestMarker([0, 0])) {
     this.click?.({
-      marker: data.map(({ lnglat }) => ({ lnglat })),
+      marker,
+      clusterData: data.map(({ lnglat }) => ({ lnglat })),
     });
   }
   renderCluster(data = this.data) {
-    const marker = new TestMarker([0, 0]);
+    const marker = new TestMarker([0, 0], (event) => {
+      if (event === "click") this.emitClick(data, marker);
+    });
     (this.options.renderClusterMarker as (input: object) => void)({
       marker,
       count: data.length,
@@ -353,6 +413,30 @@ class StickyEmptyCluster {
   }
 }
 
+class RoundedPositionCluster {
+  static latestMarker: TestMarker | null = null;
+  static offset = 0.0000002;
+
+  constructor(
+    _map: TestMap,
+    data: readonly Record<string, unknown>[],
+    options: Record<string, unknown>,
+  ) {
+    const [longitude, latitude] = data[0]!.lnglat as readonly [number, number];
+    const marker = new TestMarker([
+      longitude + RoundedPositionCluster.offset,
+      latitude - RoundedPositionCluster.offset,
+    ]);
+    RoundedPositionCluster.latestMarker = marker;
+    (options.renderMarker as (input: { marker: TestMarker }) => void)({
+      marker,
+    });
+  }
+
+  on() {}
+  setMap() {}
+}
+
 function installManualFrames() {
   let nextId = 1;
   const pending = new Map<number, FrameRequestCallback>();
@@ -373,6 +457,8 @@ function installManualFrames() {
 afterEach(() => {
   TestMarker.latest = null;
   StickyEmptyCluster.instances = [];
+  RoundedPositionCluster.latestMarker = null;
+  RoundedPositionCluster.offset = 0.0000002;
   TestMarkerCluster.instances = [];
   vi.unstubAllGlobals();
 });
@@ -506,7 +592,48 @@ describe("AmapCanonicalBrowseLayer", () => {
     runtime.cluster.emitClick(members);
     expect(runtime.intents).toEqual([
       {
-        type: "FIT_CLUSTER",
+        type: "EXPAND_CLUSTER",
+        positions: members.map((member) => member.lnglat),
+      },
+    ]);
+    runtime.layer.destroy();
+  });
+
+  it("routes keyboard cluster activation through the provider click event once", () => {
+    installTestDocument();
+    const projection = healthBuildingProjection(2);
+    const otherId = projection.buildings[1]!.buildingId;
+    const other = {
+      ...projection.places[0]!,
+      placeId: "other-health",
+      buildingId: otherId,
+    };
+    const runtime = renderClusterProjection({
+      ...projection,
+      places: [...projection.places, other, placeProjection.places[0]!],
+      markers: [
+        ...projection.markers,
+        {
+          ...projection.markers[0]!,
+          buildingId: otherId,
+          placeIds: [other.placeId],
+          position: projection.buildings[1]!.anchor!,
+        } as CampusMapBrowseProjection["markers"][number],
+        placeProjection.markers[0]!,
+      ],
+    });
+    const members = runtime.cluster.data.slice(0, 2);
+    const marker = runtime.cluster.renderCluster(members);
+
+    marker.emitContentClick(1);
+    runtime.cluster.emitClick(members, marker);
+    expect(runtime.intents).toHaveLength(1);
+    runtime.intents.length = 0;
+
+    marker.emitContentClick(0);
+    expect(runtime.intents).toEqual([
+      {
+        type: "EXPAND_CLUSTER",
         positions: members.map((member) => member.lnglat),
       },
     ]);
@@ -542,7 +669,14 @@ describe("AmapCanonicalBrowseLayer", () => {
     expect(marker.content).toContain("3 个医疗服务，1 个地图位置");
     expect(marker.content).not.toContain("打开建筑目录");
     marker.emitClickWithoutPointerGesture();
-    expect(runtime.intents[0]).toMatchObject({ type: "FIT_CLUSTER" });
+    expect(runtime.intents[0]).toEqual({
+      type: "OPEN_CLUSTER_MEMBERS",
+      placeIds: [
+        ...projection.places.map((place) => place.placeId),
+        other.placeId,
+      ],
+      placeType: "health-service",
+    });
     runtime.cluster.emitClick([{ lnglat: [0, 0] }]);
     expect(runtime.intents).toHaveLength(1);
     runtime.layer.destroy();
@@ -556,9 +690,8 @@ describe("AmapCanonicalBrowseLayer", () => {
       mode: { ...runtime.input.mode, selectedPlaceId: placeId },
     });
     expect(runtime.map.overlays).toHaveLength(1);
-    expect(runtime.map.overlays[0]!.content).toContain(
-      "已选 · 门诊（Outpatient Service）",
-    );
+    expect(runtime.map.overlays[0]!.content).toContain(">已选 · 门诊</span>");
+    expect(runtime.map.overlays[0]!.content).toContain("Outpatient Service");
     expect(runtime.map.overlays[0]!.content).toContain(
       "所属建筑 · 非室内精确位置",
     );
@@ -570,9 +703,7 @@ describe("AmapCanonicalBrowseLayer", () => {
       },
     });
     expect(runtime.map.overlays).toHaveLength(1);
-    expect(runtime.map.overlays[0]!.content).toContain(
-      "已选 · 牙科（Dental Service）",
-    );
+    expect(runtime.map.overlays[0]!.content).toContain(">已选 · 牙科</span>");
     expect(runtime.map.overlays[0]!.content).not.toContain("Outpatient");
     runtime.cluster.emitClick();
     expect(runtime.intents).toEqual([]);
@@ -940,6 +1071,94 @@ describe("AmapCanonicalBrowseLayer", () => {
     expect(map.overlays).toHaveLength(1);
     expect(map.overlays[0]?.content).toContain(
       `data-canonical-marker-key="${campusMapAmapPlacePositionKey(placeId)}"`,
+    );
+    layer.destroy();
+  });
+
+  it("reconnects a provider-rounded coordinate to its custom marker", () => {
+    const layer = new AmapCanonicalBrowseLayer({
+      map: new TestMap(),
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: RoundedPositionCluster,
+      },
+      onIntent: vi.fn(),
+      onHotspot: vi.fn(),
+    });
+
+    layer.render({
+      projection: placeProjection,
+      providerPositions: {
+        [campusMapAmapPlacePositionKey(placeId)]: position,
+      },
+      mode: { kind: "places", placeIds: [placeId], selectedPlaceId: null },
+    });
+
+    expect(RoundedPositionCluster.latestMarker?.content).toContain(
+      `data-canonical-marker-key="${campusMapAmapPlacePositionKey(placeId)}"`,
+    );
+    expect(RoundedPositionCluster.latestMarker?.content).toContain(
+      'data-cupedia-marker="true"',
+    );
+    layer.destroy();
+  });
+
+  it("replaces an unmatched provider callback with a named custom fallback", () => {
+    RoundedPositionCluster.offset = 0.00001;
+    const layer = new AmapCanonicalBrowseLayer({
+      map: new TestMap(),
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: RoundedPositionCluster,
+      },
+      onIntent: vi.fn(),
+      onHotspot: vi.fn(),
+    });
+
+    layer.render({
+      projection: placeProjection,
+      providerPositions: {
+        [campusMapAmapPlacePositionKey(placeId)]: position,
+      },
+      mode: { kind: "places", placeIds: [placeId], selectedPlaceId: null },
+    });
+
+    expect(RoundedPositionCluster.latestMarker?.content).toContain(
+      "data-campus-map-cluster",
+    );
+    expect(RoundedPositionCluster.latestMarker?.content).toContain(
+      'aria-label="校园地点标记，地点列表仍可使用"',
+    );
+    layer.destroy();
+  });
+
+  it("renders the selected label on the collision-free side", () => {
+    const map = new TestMap();
+    const layer = new AmapCanonicalBrowseLayer({
+      map,
+      provider: {
+        Marker: TestSelectedMarker,
+        MarkerCluster: StickyEmptyCluster,
+      },
+      selectedLabelPlacement: () => "right",
+      onIntent: vi.fn(),
+      onHotspot: vi.fn(),
+    });
+
+    layer.render({
+      projection: placeProjection,
+      providerPositions: {
+        [campusMapAmapPlacePositionKey(placeId)]: position,
+      },
+      mode: {
+        kind: "places",
+        placeIds: [placeId],
+        selectedPlaceId: placeId,
+      },
+    });
+
+    expect(map.overlays[0]?.content).toContain(
+      'data-campus-map-label-placement="right"',
     );
     layer.destroy();
   });

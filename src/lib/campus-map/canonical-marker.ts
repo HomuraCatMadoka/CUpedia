@@ -1,4 +1,5 @@
 import type { CampusMapPublicPlaceType } from "@/lib/campus-map/place-type-contract";
+import type { CampusMapMarkerLabelPlacement } from "@/lib/campus-map/marker-label-layout";
 
 const PLACE_TYPE_PATHS: Record<CampusMapPublicPlaceType, string> = {
   toilet:
@@ -42,6 +43,16 @@ function escapeAttribute(value: string) {
   );
 }
 
+function compactMarkerName(value: string) {
+  const withoutEnglishTranslation = value
+    .replace(/\s*[（(][^（）()]*[a-z][^（）()]*[）)]\s*$/iu, "")
+    .trim();
+  const characters = [...(withoutEnglishTranslation || value)];
+  return characters.length > 24
+    ? `${characters.slice(0, 23).join("")}…`
+    : characters.join("");
+}
+
 function markerButton(input: {
   identityAttribute: string;
   identity: string;
@@ -52,6 +63,7 @@ function markerButton(input: {
   count?: number;
   selectedLabel?: string;
   precisionLabel?: string;
+  selectedLabelPlacement?: CampusMapMarkerLabelPlacement;
 }) {
   const safeColor = /^#[\da-f]{3,8}$/i.test(input.color)
     ? input.color
@@ -60,8 +72,17 @@ function markerButton(input: {
     input.count && input.count > 1
       ? `<span aria-hidden="true" style="position:absolute;top:-10px;right:-14px;min-width:24px;padding:2px 5px;border:2px solid white;border-radius:8px;background:${safeColor};font:700 12px system-ui">${input.count}</span>`
       : "";
+  const placement = input.selectedLabelPlacement ?? "top";
+  const labelPosition =
+    placement === "bottom"
+      ? "top:calc(100% + 10px);left:50%;transform:translateX(-50%)"
+      : placement === "left"
+        ? "right:calc(100% + 10px);top:50%;transform:translateY(-50%)"
+        : placement === "right"
+          ? "left:calc(100% + 10px);top:50%;transform:translateY(-50%)"
+          : "bottom:calc(100% + 10px);left:50%;transform:translateX(-50%)";
   const selectedLabel = input.selected
-    ? `<span data-campus-map-selected-label style="position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);width:max-content;max-width:180px;box-sizing:border-box;border:2px solid ${safeColor};border-radius:12px;padding:6px 10px;background:white;color:#17211c;font:600 13px/18px system-ui;box-shadow:0 3px 12px rgba(0,0,0,.2);overflow-wrap:anywhere;white-space:normal"><span style="display:block;max-height:36px;overflow:hidden">已选 · ${escapeAttribute(input.selectedLabel ?? input.label)}</span><span style="display:block;font-size:11px;font-weight:400">${escapeAttribute(input.precisionLabel ?? "")}</span></span>`
+    ? `<span data-campus-map-selected-label data-campus-map-label-placement="${placement}" style="position:absolute;${labelPosition};width:max-content;max-width:180px;box-sizing:border-box;border:2px solid ${safeColor};border-radius:12px;padding:6px 10px;background:white;color:#17211c;font:600 13px/18px system-ui;box-shadow:0 3px 12px rgba(0,0,0,.2);overflow-wrap:anywhere;white-space:normal"><span style="display:block;max-height:36px;overflow:hidden">已选 · ${escapeAttribute(compactMarkerName(input.selectedLabel ?? input.label))}</span><span style="display:block;font-size:11px;font-weight:400">${escapeAttribute(input.precisionLabel ?? "")}</span></span>`
     : "";
   return `<button type="button" class="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black" data-cupedia-marker="true" ${input.identityAttribute}="${escapeAttribute(input.identity)}" aria-label="${escapeAttribute(input.label)}" aria-pressed="${input.selected}" style="position:relative;display:grid;width:44px;height:44px;place-items:center;border:${input.selected ? 4 : 3}px solid white;border-radius:${input.selected ? "12px" : "999px"};background:${safeColor};color:white;box-shadow:${input.selected ? "0 0 0 4px rgba(23,75,56,.28),0 5px 16px rgba(0,0,0,.3)" : "0 3px 12px rgba(0,0,0,.22)"}">${input.icon}${count}${selectedLabel}</button>`;
 }
@@ -77,6 +98,7 @@ export function placeTypeMarkerContent(input: {
   markerLabel?: string;
   count?: number;
   precisionLabel?: string;
+  selectedLabelPlacement?: CampusMapMarkerLabelPlacement;
 }) {
   return markerButton({
     identityAttribute: "data-canonical-marker-key",
@@ -90,6 +112,7 @@ export function placeTypeMarkerContent(input: {
     count: input.selected ? undefined : input.count,
     selectedLabel: input.name,
     precisionLabel: input.precisionLabel,
+    selectedLabelPlacement: input.selectedLabelPlacement,
   });
 }
 
