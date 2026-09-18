@@ -256,9 +256,7 @@ export function CampusMapBrowseSheetControls({
             type="button"
             aria-controls="campus-map-card-details"
             aria-expanded={snap !== "peek"}
-            onClick={(event) =>
-              changeSnap(snap === "peek" ? "half" : "full", event.currentTarget)
-            }
+            onClick={(event) => changeSnap("full", event.currentTarget)}
             className="inline-flex min-h-11 flex-1 items-center justify-between gap-2 rounded-lg text-sm font-medium text-[#235741] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-[#a9ddbc]"
           >
             {snap === "peek" ? "展开详情" : "完全展开"}

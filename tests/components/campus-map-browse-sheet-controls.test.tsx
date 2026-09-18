@@ -119,10 +119,12 @@ describe("Campus Map browse sheet controls (#908)", () => {
   it("offers every snap without requiring a drag gesture", () => {
     const { onSnap } = sheet();
     fireEvent.click(screen.getByRole("button", { name: "展开详情" }));
+    fireEvent.click(screen.getByRole("button", { name: "收起" }));
     fireEvent.click(screen.getByRole("button", { name: "完全展开" }));
     fireEvent.click(screen.getByRole("button", { name: "收起" }));
     fireEvent.click(screen.getByRole("button", { name: "收起" }));
     expect(onSnap.mock.calls.map(([snap]) => snap)).toEqual([
+      "full",
       "half",
       "full",
       "half",
@@ -130,10 +132,15 @@ describe("Campus Map browse sheet controls (#908)", () => {
     ]);
   });
 
+  it("opens the actual facility list from the explicit details action", () => {
+    const { onSnap } = sheet();
+    fireEvent.click(screen.getByRole("button", { name: "展开详情" }));
+    expect(onSnap).toHaveBeenCalledExactlyOnceWith("full");
+  });
+
   it("keeps focus in the card when an activated expand or collapse control disappears", () => {
     sheet();
-    fireEvent.click(screen.getByRole("button", { name: "展开详情" }));
-    const expand = screen.getByRole("button", { name: "完全展开" });
+    const expand = screen.getByRole("button", { name: "展开详情" });
     expand.focus();
     fireEvent.click(expand);
     const handle = screen.getByRole("button", { name: "拖动或点击展开卡片" });
