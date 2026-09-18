@@ -1,0 +1,16 @@
+.next
+node_modules
+.vercel
+.git
+wt
+pi-mono
+tools
+.agents
+.cursor
+.superpowers
+.scratch
+outputs
+profile-results
+coverage
+test-results
+playwright-report
