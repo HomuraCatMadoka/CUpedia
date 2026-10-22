@@ -1,6 +1,6 @@
 // ref #910; fixture publishes only into the worktree's disposable E2E database.
 import { readFileSync } from "node:fs";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { Client } from "pg";
 import {
   approveCampusMapOfficialFacilityManifest,
@@ -12,6 +12,7 @@ import { assertSafeE2eDatabase } from "./runtime";
 import { loginAsAdmin } from "./helpers/auth";
 import { emulateColorScheme } from "./helpers/theme";
 import {
+  completeAmapMarkerClusterLoad,
   emitAmapEvent,
   installFakeCampusMapAmap,
 } from "./helpers/campus-map-amap";
@@ -42,6 +43,20 @@ const fixtureSources = manifest.entries
   .map(({ sourceRef }) => sourceRef);
 let fixtureOwnsSources = false;
 let fixtureFloorIds: string[] = [];
+
+async function expectReadableClassroomRow(list: Locator) {
+  await expect
+    .poll(() => list.evaluate((element) => element.clientHeight))
+    .toBeGreaterThanOrEqual(96);
+  const row = list.locator("[data-return-result]").first();
+  await row.scrollIntoViewIfNeeded();
+  const listBox = (await list.boundingBox())!;
+  const rowBox = (await row.boundingBox())!;
+  expect(rowBox.y).toBeGreaterThanOrEqual(listBox.y);
+  expect(rowBox.y + rowBox.height).toBeLessThanOrEqual(
+    listBox.y + listBox.height,
+  );
+}
 
 async function cleanupImportedFixture() {
   if (!fixtureOwnsSources) return;
@@ -254,6 +269,136 @@ test.describe
         CAMPUS_MAP_CATEGORY_PREVIEW_LIMIT,
       );
     });
+  }
+
+  // ref #925: short screens must leave room for a complete, clickable row.
+  for (const viewport of [
+    { width: 568, height: 320 },
+    { width: 852, height: 320 },
+  ]) {
+    test(`short classroom list remains usable at ${viewport.width}x${viewport.height}`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize(viewport);
+      await installFakeCampusMapAmap(page);
+      await loginAsAdmin(page);
+      await page.goto("/campus-map");
+      await page.getByRole("button", { name: "课室", exact: true }).click();
+      const list = page.locator('[data-campus-map-results="category"]');
+      await expectReadableClassroomRow(list);
+      await page
+        .getByRole("button", { name: `查看全部 ${classroomCount} 处设施` })
+        .click();
+      await expectReadableClassroomRow(list);
+      await page
+        .getByRole("combobox", { name: "查找建筑分组" })
+        .selectOption(`campus-map-category-building-${yiaBuilding}`);
+      const row = list.getByRole("button", { name: /^YIA 201，/ });
+      await row.scrollIntoViewIfNeeded();
+      const scrollTop = await list.evaluate((element) => element.scrollTop);
+      await row.click();
+      await expect(
+        page.getByRole("heading", { name: "YIA 201", exact: true }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "返回课室列表" }).click();
+      await expect(row).toBeFocused();
+      await expect
+        .poll(() => list.evaluate((element) => element.scrollTop))
+        .toBeCloseTo(scrollTop, 0);
+      await page.screenshot({
+        path: testInfo.outputPath(
+          `classrooms-${viewport.width}x${viewport.height}.png`,
+        ),
+      });
+      await page.getByRole("button", { name: "新增课室", exact: true }).click();
+      await expect(
+        page.getByRole("heading", { name: "设施在哪里？", exact: true }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "关闭地图编辑" }).click();
+      await page.getByRole("button", { name: "收起至预览" }).click();
+      await expectReadableClassroomRow(list);
+      await page.getByRole("button", { name: "关闭课室列表" }).click();
+      await expect(page).toHaveURL(/campus-map\?v=1$/);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(viewport.width);
+    });
+
+    test(`short classroom return preserves its row when markers finish loading at ${viewport.width}x${viewport.height}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await installFakeCampusMapAmap(page, "loading");
+      await loginAsAdmin(page);
+      await page.goto("/campus-map");
+      await page.getByRole("button", { name: "课室", exact: true }).click();
+      await page
+        .getByRole("button", { name: `查看全部 ${classroomCount} 处设施` })
+        .click();
+      const list = page.locator('[data-campus-map-results="category"]');
+      const row = list.getByRole("button", { name: /^YIA 201，/ });
+      await row.evaluate((element) =>
+        element.scrollIntoView({ block: "start" }),
+      );
+      const rowOffset =
+        (await row.boundingBox())!.y - (await list.boundingBox())!.y;
+      await row.click();
+      await expect(
+        page.getByRole("heading", { name: "YIA 201", exact: true }),
+      ).toBeVisible();
+      await completeAmapMarkerClusterLoad(page);
+      await page.goBack();
+      await expect(page.getByText("地图标记正在加载")).toHaveCount(0);
+      await expect(row).toBeFocused();
+      await expect
+        .poll(
+          async () =>
+            (await row.boundingBox())!.y - (await list.boundingBox())!.y,
+        )
+        .toBeCloseTo(rowOffset, 0);
+      await page.goForward();
+      await expect(
+        page.getByRole("heading", { name: "YIA 201", exact: true }),
+      ).toBeVisible();
+      await page.goBack();
+      await expect(row).toBeFocused();
+      await expect
+        .poll(
+          async () =>
+            (await row.boundingBox())!.y - (await list.boundingBox())!.y,
+        )
+        .toBeCloseTo(rowOffset, 0);
+    });
+
+    for (const clusterStatus of ["loading", "error"] as const) {
+      test(`short classroom list survives ${clusterStatus} markers at ${viewport.width}x${viewport.height}`, async ({
+        page,
+      }) => {
+        await page.setViewportSize(viewport);
+        await installFakeCampusMapAmap(page, clusterStatus);
+        await loginAsAdmin(page);
+        await page.goto("/campus-map");
+        await page.getByRole("button", { name: "课室", exact: true }).click();
+        const list = page.locator('[data-campus-map-results="category"]');
+        await expect(
+          page.getByRole("status").filter({
+            hasText:
+              clusterStatus === "error"
+                ? "地图标记加载失败，列表仍可使用"
+                : "地图标记正在加载",
+          }),
+        ).toBeVisible();
+        await expectReadableClassroomRow(list);
+        await page
+          .getByRole("button", { name: `查看全部 ${classroomCount} 处设施` })
+          .click();
+        await expectReadableClassroomRow(list);
+        await list.getByRole("button", { name: /^ELB LT1，/ }).click();
+        await expect(
+          page.getByRole("heading", { name: "ELB LT1", exact: true }),
+        ).toBeVisible();
+      });
+    }
   }
 
   test("More exposes outpatient and pool, and empty data offers another category", async ({

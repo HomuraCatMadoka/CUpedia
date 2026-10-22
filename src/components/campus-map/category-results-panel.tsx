@@ -139,6 +139,17 @@ export function CampusMapCategoryResultsPanel({
             )}
           </button>
         ) : null}
+        {facilities.length > 0 && canAdd ? (
+          <button
+            type="button"
+            aria-label={`新增${style.label}`}
+            title={`新增${style.label}`}
+            className="grid size-11 shrink-0 place-items-center rounded-full text-[#176346] hover:bg-neutral-100 dark:text-emerald-300 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
+            onClick={onAdd}
+          >
+            <PlusIcon aria-hidden="true" className="size-5" />
+          </button>
+        ) : null}
         <button
           type="button"
           aria-label={`关闭${style.label}列表`}
@@ -148,58 +159,58 @@ export function CampusMapCategoryResultsPanel({
           <XIcon aria-hidden="true" className="size-5" />
         </button>
       </div>
-      {category === "classroom" && facilities.length > 0 ? (
-        <div className="shrink-0 px-5 pt-3">
-          <p className="text-[13px] leading-5 text-neutral-600 dark:text-neutral-300">
-            全校园课室 · 按建筑、已知楼层与课室编号排列
-          </p>
-          {expanded && classroomGroups.length > 1 ? (
-            <select
-              aria-label="查找建筑分组"
-              defaultValue=""
-              className="mt-2 min-h-11 w-full min-w-0 rounded-xl border border-black/15 bg-white px-3 text-sm dark:border-white/20 dark:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
-              onChange={(event) => {
-                const heading = document.getElementById(
-                  event.currentTarget.value,
-                );
-                event.currentTarget.value = "";
-                heading?.scrollIntoView({
-                  block: "start",
-                  behavior: "instant",
-                });
-                heading?.focus({ preventScroll: true });
-              }}
-            >
-              <option value="">跳至建筑…</option>
-              {classroomGroups.map((group) => (
-                <option
-                  key={group.buildingId ?? "standalone"}
-                  value={`campus-map-category-building-${group.buildingId ?? "standalone"}`}
-                >
-                  {groupLabel(group.building, group.buildingId)} ·{" "}
-                  {group.places.length} 间
-                </option>
-              ))}
-            </select>
-          ) : null}
-        </div>
-      ) : null}
-      {clusterStatus !== "ready" ? (
-        <p
-          role="status"
-          className="mx-5 mt-3 shrink-0 rounded-lg bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
-        >
-          {clusterStatus === "error"
-            ? "地图标记加载失败，列表仍可使用"
-            : "地图标记正在加载"}
-        </p>
-      ) : null}
       <div
         ref={resultsRef}
         id="campus-map-category-results"
         data-campus-map-results="category"
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-2"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(0.5rem,var(--campus-map-safe-area-bottom))]"
       >
+        {category === "classroom" && facilities.length > 0 ? (
+          <div className="px-1 pt-3 [@media(max-height:480px)]:pt-0">
+            <p className="text-[13px] leading-5 text-neutral-600 dark:text-neutral-300 [@media(max-height:480px)]:sr-only">
+              全校园课室 · 按建筑、已知楼层与课室编号排列
+            </p>
+            {expanded && classroomGroups.length > 1 ? (
+              <select
+                aria-label="查找建筑分组"
+                defaultValue=""
+                className="mt-2 min-h-11 w-full min-w-0 rounded-xl border border-black/15 bg-white px-3 text-sm dark:border-white/20 dark:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
+                onChange={(event) => {
+                  const heading = document.getElementById(
+                    event.currentTarget.value,
+                  );
+                  event.currentTarget.value = "";
+                  heading?.scrollIntoView({
+                    block: "start",
+                    behavior: "instant",
+                  });
+                  heading?.focus({ preventScroll: true });
+                }}
+              >
+                <option value="">跳至建筑…</option>
+                {classroomGroups.map((group) => (
+                  <option
+                    key={group.buildingId ?? "standalone"}
+                    value={`campus-map-category-building-${group.buildingId ?? "standalone"}`}
+                  >
+                    {groupLabel(group.building, group.buildingId)} ·{" "}
+                    {group.places.length} 间
+                  </option>
+                ))}
+              </select>
+            ) : null}
+          </div>
+        ) : null}
+        {clusterStatus !== "ready" ? (
+          <p
+            role="status"
+            className="mx-1 mt-3 rounded-lg bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+          >
+            {clusterStatus === "error"
+              ? "地图标记加载失败，列表仍可使用"
+              : "地图标记正在加载"}
+          </p>
+        ) : null}
         {featuredFacilities.length > 0 ? (
           <section
             data-campus-map-cluster-members
@@ -232,7 +243,7 @@ export function CampusMapCategoryResultsPanel({
                   <h3
                     id={`campus-map-category-building-${group.buildingId ?? "standalone"}`}
                     tabIndex={-1}
-                    className="pt-4 pb-1 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
+                    className="pt-4 pb-1 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400 [@media(max-height:480px)]:pt-2"
                   >
                     {groupLabel(group.building, group.buildingId)}
                     <span className="ml-2 text-xs font-normal text-neutral-500 dark:text-neutral-400">
@@ -273,16 +284,6 @@ export function CampusMapCategoryResultsPanel({
           </div>
         ) : null}
       </div>
-      {facilities.length && canAdd ? (
-        <button
-          type="button"
-          className="mx-4 mb-[max(0.25rem,var(--campus-map-safe-area-bottom))] border-t border-black/8 dark:border-white/10 flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full px-3 text-sm font-medium text-[#176346] hover:bg-neutral-100 dark:text-emerald-300 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
-          onClick={onAdd}
-        >
-          <PlusIcon aria-hidden="true" className="size-4" />
-          新增{style.label}
-        </button>
-      ) : null}
     </div>
   );
 }
