@@ -17,7 +17,9 @@ services:
       retries: 20
 
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    build:
+      context: ./docker/minio
+      target: server
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -35,7 +37,9 @@ services:
 
   # One-shot: wait for MinIO, create the uploads bucket, allow public reads.
   createbuckets:
-    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+    build:
+      context: ./docker/minio
+      target: client
     depends_on:
       minio:
         condition: service_healthy

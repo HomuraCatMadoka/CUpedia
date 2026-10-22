@@ -68,6 +68,12 @@ docker compose up -d --wait db minio
 
 These credentials are development defaults. Production must use separate secrets.
 
+The first MinIO start builds the server and bucket client from the same official
+release sources previously used by Compose. The upstream community image
+registries no longer allow public pulls. `docker/minio/Dockerfile` pins each
+source commit and archive checksum; Docker caches subsequent builds. Allow extra
+time and network access for the first Go dependency download and compilation.
+
 ## Environment variables
 
 `.env.example` is the local template. `pnpm bootstrap` creates `.env.local`; edit that local file for machine-specific values.
