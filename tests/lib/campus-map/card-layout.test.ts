@@ -33,13 +33,13 @@ describe("Campus Map card layout policy", () => {
   it("grows a short category preview with its visible rows", () => {
     expect(
       campusMapMobilePanelHeight({ kind: "category", resultCount: 0 }),
-    ).toBe("min(208px, 44dvh)");
+    ).toBe("min(208px, max(160px, 44dvh), calc(100dvh - 80px))");
     expect(
       campusMapMobilePanelHeight({
         kind: "category",
         resultCount: 2,
       }),
-    ).toBe("min(236px, 44dvh)");
+    ).toBe("min(236px, max(160px, 44dvh), calc(100dvh - 80px))");
   });
 
   it("caps a long category list so all rows remain scrollable", () => {
@@ -48,6 +48,6 @@ describe("Campus Map card layout policy", () => {
         kind: "category",
         resultCount: 7,
       }),
-    ).toBe("min(352px, 44dvh)");
+    ).toBe("min(352px, max(160px, 44dvh), calc(100dvh - 80px))");
   });
 });

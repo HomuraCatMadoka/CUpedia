@@ -64,7 +64,7 @@ export function campusMapMobilePanelHeight(
         208,
         Math.min(352, 124 + layout.resultCount * 56),
       );
-      return `min(${contentHeight}px, 44dvh)`;
+      return `min(${contentHeight}px, max(160px, 44dvh), calc(100dvh - 80px))`;
     }
     case "default":
       return "var(--campus-map-peek-height)";

@@ -10,6 +10,7 @@ export type CampusMapE2eMapSnapshot = {
 
 type CampusMapE2eMap = {
   emit(event: string, payload: Record<string, unknown>): void;
+  completeMarkerClusterLoad(): void;
   project(position: readonly [number, number]): readonly [number, number];
   snapshot(): CampusMapE2eMapSnapshot;
 };
@@ -59,6 +60,16 @@ export async function readAmapSnapshot(page: Page) {
   });
 }
 
+export async function completeAmapMarkerClusterLoad(page: Page) {
+  await waitForFakeMap(page);
+  await page.evaluate(() => {
+    const runtime = window as typeof window & {
+      __campusMapE2eMap: CampusMapE2eMap;
+    };
+    runtime.__campusMapE2eMap.completeMarkerClusterLoad();
+  });
+}
+
 export async function readAmapProjectedPoint(
   page: Page,
   position: readonly [number, number],
@@ -72,8 +83,11 @@ export async function readAmapProjectedPoint(
   }, position);
 }
 
-export async function installFakeCampusMapAmap(page: Page) {
-  await page.addInitScript(() => {
+export async function installFakeCampusMapAmap(
+  page: Page,
+  clusterStatus: "ready" | "loading" | "error" = "ready",
+) {
+  await page.addInitScript((clusterStatus) => {
     class FakeLngLat {
       constructor(
         public lng: number,
@@ -89,6 +103,7 @@ export async function installFakeCampusMapAmap(page: Page) {
     }
 
     class FakeMap {
+      private pendingMarkerClusterLoad: (() => void) | null = null;
       private readonly handlers = new Map<
         string,
         Array<(payload: Record<string, unknown>) => void>
@@ -181,7 +196,21 @@ export async function installFakeCampusMapAmap(page: Page) {
       }
 
       plugin(_plugins: readonly string[], callback: () => void) {
+        if (_plugins.includes("AMap.MarkerCluster")) {
+          if (clusterStatus === "error")
+            throw new Error("Fixture cluster failure");
+          if (clusterStatus === "loading") {
+            this.pendingMarkerClusterLoad = callback;
+            return;
+          }
+        }
         callback();
+      }
+
+      completeMarkerClusterLoad() {
+        clusterStatus = "ready";
+        this.pendingMarkerClusterLoad?.();
+        this.pendingMarkerClusterLoad = null;
       }
 
       getZoom() {
@@ -457,5 +486,5 @@ export async function installFakeCampusMapAmap(page: Page) {
         },
       },
     });
-  });
+  }, clusterStatus);
 }
