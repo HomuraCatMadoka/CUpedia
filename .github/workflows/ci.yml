@@ -15,7 +15,7 @@ jobs:
     # Keep the legacy required context until CI gate has been observed and
     # added to branch protection. The migration then removes this requirement.
     name: lint-and-test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       plan: ${{ steps.plan.outputs.plan }}
     steps:
@@ -224,7 +224,7 @@ jobs:
 
   build:
     name: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       plan: ${{ steps.plan.outputs.plan }}
       e2e_matrix: ${{ steps.plan.outputs.e2e_matrix }}
@@ -298,7 +298,7 @@ jobs:
   # Full runs retain the measured Chromium lanes. Ordinary runtime changes get
   # one capability-selected lane independent of those elapsed-time shards.
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build
     if: ${{ fromJSON(needs.build.outputs.plan).chromium }}
     strategy:
@@ -372,7 +372,7 @@ jobs:
           retention-days: 7
 
   browser-third:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build
     if: ${{ fromJSON(needs.build.outputs.plan).tier == 'full' || fromJSON(needs.build.outputs.plan).webkit }}
     container: mcr.microsoft.com/playwright:v1.60.0-noble
@@ -446,7 +446,7 @@ jobs:
 
   gate:
     name: CI gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ always() }}
     needs: [quality, build, e2e, browser-third]
     steps:
