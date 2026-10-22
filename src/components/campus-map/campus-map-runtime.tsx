@@ -149,6 +149,7 @@ import {
 } from "@/lib/campus-map/scene-codec";
 import {
   EMPTY_CAMPUS_MAP_SCENE_SESSION,
+  type CampusMapBrowseSheetSnap,
   type CampusMapFocusTarget,
   type CampusMapSceneCatalog,
   type CampusMapSheetSnap,
@@ -660,6 +661,8 @@ export function CampusMapRuntime({
       CampusMapProviderHotspotResolution,
       { kind: "transient" }
     > | null>(null);
+  const [transientCardSnap, setTransientCardSnap] =
+    useState<CampusMapBrowseSheetSnap>("peek");
   const selectedTransientHotspotRef = useRef(selectedTransientHotspot);
   useEffect(() => {
     selectedTransientHotspotRef.current = selectedTransientHotspot;
@@ -1550,7 +1553,9 @@ export function CampusMapRuntime({
     : buildingFor(state.selection, buildings);
   const activeCategory = knownBrowseCategory(state.mapFilter.category);
   const categoryPanelActive =
-    session.mode === "browse" && session.scene.kind === "category-results";
+    !selectedTransientHotspot &&
+    session.mode === "browse" &&
+    session.scene.kind === "category-results";
   const selectedMarkerPlaceId = selectedFacility?.placeId ?? null;
   useLayoutEffect(() => {
     selectedPlaceCameraRef.current = selectedMarkerPlaceId !== null;
@@ -2345,6 +2350,7 @@ export function CampusMapRuntime({
           ? approximateWgs84Position(hotspot.providerPosition)
           : null;
         selectedTransientHotspotRef.current = target;
+        setTransientCardSnap("peek");
         setSelectedTransientHotspot(target);
       },
       onIntent: (intent) => {
@@ -2952,7 +2958,11 @@ export function CampusMapRuntime({
     !editSession &&
     (selectedTransientHotspot || selectedBuilding || selectedFacility),
   );
-  const cardSnap = state.sheet.snap === "hidden" ? "peek" : state.sheet.snap;
+  const cardSnap = selectedTransientHotspot
+    ? transientCardSnap
+    : state.sheet.snap === "hidden"
+      ? "peek"
+      : state.sheet.snap;
   const shareHref = canonicalCardVisible
     ? `/campus-map?${encodeCampusMapUrl(
         selectedFacility
@@ -3541,6 +3551,8 @@ export function CampusMapRuntime({
           browseCardVisible
             ? "h-[var(--campus-map-drag-height,var(--campus-map-panel-height))] border-border bg-white text-[#202124] shadow-[0_2px_8px_rgba(32,33,36,.15)] [--border:#dadce0] [--foreground:#202124] [--muted:#f1f3f4] [--muted-foreground:#5f6368] dark:bg-[#202124] dark:text-[#e8eaed] dark:[--border:#5f6368] dark:[--foreground:#e8eaed] dark:[--muted:#303134] dark:[--muted-foreground:#bdc1c6]"
             : "h-[var(--campus-map-panel-height)]",
+          selectedTransientHotspot &&
+            "max-h-[calc(var(--campus-map-browse-viewport-height,100dvh)-80px)]",
           categoryPanelActive &&
             "dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-100",
           editSession &&
@@ -3652,15 +3664,16 @@ export function CampusMapRuntime({
           >
             <CampusMapBrowseSheetControls
               snap={cardSnap}
-              onSnap={(snap) => dispatch({ type: "SET_SNAP", snap })}
+              onSnap={setTransientCardSnap}
             >
-              <div className="flex shrink-0 items-start gap-2 p-5">
+              <div className="flex shrink-0 items-start gap-2 px-5 py-3 md:py-5">
                 <div className="min-w-0 flex-1">
                   <h2
                     id="campus-map-panel-title"
                     ref={panelTitleRef}
                     tabIndex={-1}
-                    className="-ml-2 break-words pl-2 text-[23px] leading-[1.4] font-medium tracking-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    title={selectedTransientHotspot.name}
+                    className="-ml-2 line-clamp-2 break-words pl-2 text-[23px] leading-[1.4] font-medium tracking-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {selectedTransientHotspot.name}
                   </h2>
@@ -3678,32 +3691,40 @@ export function CampusMapRuntime({
                 </button>
               </div>
 
-              <div className="shrink-0 border-t border-border px-5 pt-3 pb-[max(1.125rem,var(--campus-map-safe-area-bottom))] md:pb-[18px]">
-                <button
-                  type="button"
-                  className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#176346]/25 bg-[#edf5f1] px-4 text-sm font-semibold text-[#174b38] hover:bg-[#e4f1eb] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 motion-reduce:transform-none"
-                  onClick={startGlobalFacilityAdd}
-                >
-                  <PlusIcon aria-hidden="true" className="size-4" />
-                  新增设施
-                </button>
-                {hotspotBuildingSuggestions.length > 0 ? (
-                  <div
-                    className="mt-2 flex flex-wrap gap-1.5"
-                    aria-label="可能对应的建筑"
+              <div
+                id="campus-map-card-details"
+                data-campus-map-card-scroll
+                tabIndex={0}
+                aria-label="高德地点操作"
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              >
+                <div className="flow-root px-5 pt-3 pb-[max(1.125rem,var(--campus-map-safe-area-bottom))] md:pb-[18px]">
+                  <button
+                    type="button"
+                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#176346]/25 bg-[#edf5f1] px-4 text-sm font-semibold text-[#174b38] hover:bg-[#e4f1eb] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 motion-reduce:transform-none"
+                    onClick={startGlobalFacilityAdd}
                   >
-                    {hotspotBuildingSuggestions.map((building) => (
-                      <button
-                        key={building.buildingId}
-                        type="button"
-                        className="min-h-11 rounded-lg px-2 text-left text-sm font-medium text-[#235741] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-[#a9ddbc]"
-                        onClick={() => selectBuilding(building)}
-                      >
-                        查看{building.name}设施
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
+                    <PlusIcon aria-hidden="true" className="size-4" />
+                    新增设施
+                  </button>
+                  {hotspotBuildingSuggestions.length > 0 ? (
+                    <div
+                      className="mt-2 flex flex-wrap gap-1.5"
+                      aria-label="可能对应的建筑"
+                    >
+                      {hotspotBuildingSuggestions.map((building) => (
+                        <button
+                          key={building.buildingId}
+                          type="button"
+                          className="min-h-11 rounded-lg px-2 text-left text-sm font-medium text-[#235741] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-[#a9ddbc]"
+                          onClick={() => selectBuilding(building)}
+                        >
+                          查看{building.name}设施
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </CampusMapBrowseSheetControls>
           </div>
