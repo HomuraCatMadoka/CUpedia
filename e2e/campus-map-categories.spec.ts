@@ -266,8 +266,8 @@ test.describe
     const more = page.getByRole("button", { name: "更多", exact: true });
     await more.focus();
     await more.press("Enter");
-    await page.getByRole("menuitem", { name: "体育设施" }).press("End");
-    await page.getByRole("menuitem", { name: "医疗服务" }).press("Enter");
+    await page.getByRole("menuitemradio", { name: "体育设施" }).press("End");
+    await page.getByRole("menuitemradio", { name: "医疗服务" }).press("Enter");
     const categoryList = page.locator('[data-campus-map-results="category"]');
     const clinic = categoryList.getByRole("button", {
       name: /门诊（Outpatient Service）/,
@@ -286,7 +286,7 @@ test.describe
       page.getByRole("button", { name: "医疗服务", pressed: true }),
     ).toBeVisible();
     await more.click();
-    await page.getByRole("menuitem", { name: "体育设施" }).click();
+    await page.getByRole("menuitemradio", { name: "体育设施" }).click();
     await categoryList
       .getByRole("button", { name: /大学游泳池（University Swimming Pool）/ })
       .click();
