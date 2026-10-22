@@ -1,3 +1,4 @@
+import { campusMapPlaceName } from "@/lib/campus-map/place-name";
 import type { CampusMapPublicPlaceType } from "@/lib/campus-map/place-type-contract";
 import type { CampusMapMarkerLabelPlacement } from "@/lib/campus-map/marker-label-layout";
 
@@ -44,8 +45,8 @@ function escapeAttribute(value: string) {
 }
 
 function compactMarkerName(value: string) {
-  const withoutEnglishTranslation = value
-    .replace(/\s*[（(][^（）()]*[a-z][^（）()]*[）)]\s*$/iu, "")
+  const withoutEnglishTranslation = campusMapPlaceName(value)
+    .primary.replace(/\s*[（(][^（）()]*[a-z][^（）()]*[）)]\s*$/iu, "")
     .trim();
   const characters = [...(withoutEnglishTranslation || value)];
   return characters.length > 24
@@ -131,5 +132,5 @@ export function placeClusterMarkerContent(input: {
     : icon(
         '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
       );
-  return `<button type="button" class="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black" data-cupedia-marker="true" data-campus-map-cluster aria-label="${escapeAttribute(input.label)}" style="display:flex;min-width:64px;min-height:48px;align-items:center;justify-content:center;gap:6px;padding:5px 10px;border:3px solid white;border-radius:14px;background:${safeColor};color:white;box-shadow:0 3px 12px rgba(0,0,0,.22)">${iconContent}<span style="font:700 14px/16px system-ui">${input.count ?? "聚合"}<span style="display:block;font-size:10px;font-weight:400">${input.measure}</span></span></button>`;
+  return `<button type="button" class="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black" data-cupedia-marker="true" data-campus-map-cluster aria-label="${escapeAttribute(input.label)}" style="display:flex;width:max-content;min-width:64px;min-height:48px;white-space:nowrap;align-items:center;justify-content:center;gap:6px;padding:5px 10px;border:3px solid white;border-radius:14px;background:${safeColor};color:white;box-shadow:0 3px 12px rgba(0,0,0,.22)"><span style="display:flex;flex-shrink:0">${iconContent}</span><span style="flex-shrink:0;font:700 14px/16px system-ui">${input.count ?? "聚合"}<span style="display:block;font-size:10px;font-weight:400">${input.measure}</span></span></button>`;
 }

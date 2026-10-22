@@ -3644,12 +3644,40 @@ describe("CampusMapRuntime", () => {
     await waitFor(() => expect(document.activeElement).toBe(activeFilter));
   });
 
+  it("makes every category reachable from More, including clipped primary filters", async () => {
+    render(<CampusMapRuntime />);
+    fireEvent.click(screen.getByRole("button", { name: "更多" }));
+    for (const name of [
+      "课室",
+      "公共空间",
+      "饮水点",
+      "洗手间",
+      "体育设施",
+      "医疗服务",
+    ]) {
+      expect(await screen.findByRole("menuitemradio", { name })).not.toBeNull();
+    }
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "洗手间" }));
+    expect(
+      await screen.findByRole("heading", { name: "洗手间" }),
+    ).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "更多" }));
+    expect(
+      await screen.findByRole("menuitemradio", {
+        name: "洗手间",
+        checked: true,
+      }),
+    ).not.toBeNull();
+  });
+
   it("returns focus to More when dismissing a category discovered there", async () => {
     render(<CampusMapRuntime />);
 
     const moreFilter = screen.getByRole("button", { name: "更多" });
     fireEvent.click(moreFilter);
-    fireEvent.click(await screen.findByRole("menuitem", { name: "医疗服务" }));
+    fireEvent.click(
+      await screen.findByRole("menuitemradio", { name: "医疗服务" }),
+    );
     await screen.findByRole("heading", { name: "医疗服务" });
 
     fireEvent.click(screen.getByRole("button", { name: "关闭医疗服务列表" }));
@@ -3803,7 +3831,9 @@ describe("CampusMapRuntime", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "更多" }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "医疗服务" }));
+    fireEvent.click(
+      await screen.findByRole("menuitemradio", { name: "医疗服务" }),
+    );
     expect(
       await screen.findByRole("heading", { name: "医疗服务" }),
     ).toBeTruthy();
@@ -3822,7 +3852,9 @@ describe("CampusMapRuntime", () => {
     expect(restored.closest("[data-campus-map-results]")?.scrollTop).toBe(40);
     await waitFor(() => expect(document.activeElement).toBe(restored));
     fireEvent.click(screen.getByRole("button", { name: "更多" }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "体育设施" }));
+    fireEvent.click(
+      await screen.findByRole("menuitemradio", { name: "体育设施" }),
+    );
     expect(
       await screen.findByRole("button", { name: /大学游泳池/ }),
     ).toBeTruthy();

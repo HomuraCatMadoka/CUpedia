@@ -1,4 +1,4 @@
-// refs #646, #649, #799, #838, #878, #880, #888, #889, #908, #916
+// refs #646, #649, #799, #838, #878, #880, #888, #889, #908, #916, #921
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { loginWithPassword } from "./helpers/auth";
@@ -420,11 +420,13 @@ test("search and marker open one canonical Place card", async ({ page }) => {
   await page.getByRole("button", { name: "清除搜索" }).click();
   await expect(search).toHaveValue("");
   await page.getByRole("button", { name: "饮水点", exact: true }).click();
+  // The fake map only projects selected labels; activate this marker with
+  // the keyboard so its synthetic default position does not overlap chrome.
   await page
     .locator(
       '[data-cupedia-marker="true"][aria-label*="正式测试楼有 1 个饮水点"]',
     )
-    .click();
+    .press("Enter");
   await expect(page).toHaveURL(canonicalUrl);
   await expect(
     page.getByRole("heading", { name: "正式测试饮水点" }),
@@ -949,12 +951,18 @@ test("mapped and unmapped AMap hotspots keep canonical and transient cards separ
   ).toHaveCount(0);
 });
 
-test("the transient provider action stays inside the card on a short mobile viewport", async ({
+test("the transient card expands independently after an expanded category on a short mobile viewport", async ({
   page,
 }) => {
   const providerName = "未映射高德参考点（科学馆东座临时入口）";
   await page.setViewportSize({ width: 568, height: 320 });
-  await page.goto("/campus-map");
+  await page.goto("/campus-map?v=1&scene=category&id=water&snap=full");
+  await page
+    .getByRole("button", { name: /正式测试饮水点.*正式测试楼/ })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "正式测试饮水点" }),
+  ).toBeVisible();
 
   await emitAmapEvent(page, "hotspotclick", {
     id: unmappedProviderId,
@@ -967,6 +975,19 @@ test("the transient provider action stays inside the card on a short mobile view
     name: "新增设施",
   });
   await expect(card).toBeVisible();
+  const transientUrl = page.url();
+  const historyLength = await page.evaluate(() => window.history.length);
+  const peekBox = await card.boundingBox();
+  await card.getByRole("button", { name: "展开详情", exact: true }).click();
+  await expect(
+    card.getByRole("button", { name: "拖动或点击展开卡片" }),
+  ).toHaveAttribute("aria-expanded", "true");
+  await expect
+    .poll(async () => (await card.boundingBox())!.height)
+    .toBeGreaterThan(peekBox!.height);
+  await expect(page).toHaveURL(transientUrl);
+  expect(await page.evaluate(() => window.history.length)).toBe(historyLength);
+  await action.scrollIntoViewIfNeeded();
   await expect(action).toBeVisible();
   const cardBox = await card.boundingBox();
   const actionBox = await action.boundingBox();
@@ -985,6 +1006,35 @@ test("the transient provider action stays inside the card on a short mobile view
       name: "发布设施",
     }),
   ).toHaveCount(0);
+});
+
+test("transient provider actions remain reachable in a short desktop card", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 852, height: 320 });
+  await page.goto("/campus-map");
+  await emitAmapEvent(page, "hotspotclick", {
+    id: unmappedProviderId,
+    name: "Canonical Test Building",
+    lnglat: { lng: 114.2074, lat: 22.4193 },
+  });
+  const card = page.getByRole("region", { name: "Canonical Test Building" });
+  const buildingAction = card.getByRole("button", {
+    name: "查看正式测试楼设施",
+  });
+  await expect(card).toBeVisible();
+  await buildingAction.scrollIntoViewIfNeeded();
+  const cardBox = (await card.boundingBox())!;
+  const actionBox = (await buildingAction.boundingBox())!;
+  expect(actionBox.y).toBeGreaterThanOrEqual(cardBox.y);
+  expect(actionBox.y + actionBox.height).toBeLessThanOrEqual(
+    cardBox.y + cardBox.height,
+  );
+  await buildingAction.click();
+  await expect(page.getByRole("heading", { name: "正式测试楼" })).toBeVisible();
+  await expect(page).toHaveURL(
+    new RegExp(`scene=building&id=${browseIds.building}`),
+  );
 });
 
 test("publish handoff shows one success prompt and never restores the form", async ({
@@ -1131,8 +1181,13 @@ test("cards remain usable across short phones, tablets, and desktop", async ({
         .boundingBox();
       expect(searchBox).not.toBeNull();
       expect(filterBox).not.toBeNull();
-      expect(searchBox!.x + searchBox!.width).toBeLessThanOrEqual(cardBox!.x);
-      expect(filterBox!.x + filterBox!.width).toBeLessThanOrEqual(cardBox!.x);
+      for (const controls of [searchBox!, filterBox!]) {
+        expect(controls.x).toBeGreaterThanOrEqual(cardBox!.x);
+        expect(controls.x + controls.width).toBeLessThanOrEqual(
+          cardBox!.x + cardBox!.width,
+        );
+        expect(controls.y + controls.height).toBeLessThanOrEqual(cardBox!.y);
+      }
     } else {
       // Short cards fit their fixed 44px controls even above the 45% target.
       expect(cardBox!.height).toBeLessThanOrEqual(

@@ -1,4 +1,4 @@
-import { PlusIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from "lucide-react";
 import { useMemo, type Ref } from "react";
 import {
   CampusMapFacilityResultButton,
@@ -99,30 +99,46 @@ export function CampusMapCategoryResultsPanel({
     />
   );
   return (
-    <div
-      id="campus-map-panel-content"
-      className="flex h-full flex-col md:max-h-[calc(100dvh-32px)]"
-    >
-      <div className="flex shrink-0 items-center border-b border-black/10 px-5 pb-3 dark:border-white/10">
+    <div id="campus-map-panel-content" className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 items-center gap-1 border-b border-black/10 px-4 py-2 dark:border-white/10">
         <h2
           id="campus-map-panel-title"
           ref={titleRef}
           tabIndex={-1}
           aria-label={style.label}
           aria-describedby="campus-map-category-count"
-          className="-ml-2 min-w-0 flex-1 break-words pl-2 text-[22px] font-medium focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346] dark:focus-visible:shadow-[inset_3px_0_0_#34d399]"
+          className="-ml-2 min-w-0 flex-1 break-words pl-2 text-lg font-medium focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346] dark:focus-visible:shadow-[inset_3px_0_0_#34d399]"
         >
           {style.label}
           {facilities.length > 0 ? (
             <span
               aria-hidden="true"
-              className="font-normal text-neutral-500 dark:text-neutral-400"
+              className="text-sm font-normal text-neutral-500 dark:text-neutral-400"
             >{` · ${facilities.length} 处`}</span>
           ) : null}
         </h2>
         <span id="campus-map-category-count" className="sr-only">
           {facilities.length} 处设施
         </span>
+        {hasMore ? (
+          <button
+            type="button"
+            aria-label={
+              expanded ? "收起至预览" : `查看全部 ${facilities.length} 处设施`
+            }
+            aria-expanded={expanded}
+            aria-controls="campus-map-category-results"
+            className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 text-[13px] font-medium text-[#176346] hover:bg-neutral-100 dark:text-emerald-300 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+            onClick={() => onExpand(!expanded)}
+          >
+            {expanded ? "收起" : "查看全部"}
+            {expanded ? (
+              <ChevronDownIcon aria-hidden="true" className="size-4" />
+            ) : (
+              <ChevronUpIcon aria-hidden="true" className="size-4" />
+            )}
+          </button>
+        ) : null}
         <button
           type="button"
           aria-label={`关闭${style.label}列表`}
@@ -182,7 +198,7 @@ export function CampusMapCategoryResultsPanel({
         ref={resultsRef}
         id="campus-map-category-results"
         data-campus-map-results="category"
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-3"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-2"
       >
         {featuredFacilities.length > 0 ? (
           <section
@@ -257,28 +273,10 @@ export function CampusMapCategoryResultsPanel({
           </div>
         ) : null}
       </div>
-      {hasMore ? (
-        <div className="shrink-0 border-t border-black/10 px-5 pt-3 dark:border-white/10">
-          <p className="mb-2 text-xs text-neutral-500 dark:text-neutral-400">
-            {expanded
-              ? `已显示全部 ${facilities.length} 处`
-              : `先显示 ${visiblePlaces.length} 处，共 ${facilities.length} 处`}
-          </p>
-          <button
-            type="button"
-            aria-expanded={expanded}
-            aria-controls="campus-map-category-results"
-            className="min-h-11 w-full rounded-full bg-[#174b38] px-4 text-sm font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
-            onClick={() => onExpand(!expanded)}
-          >
-            {expanded ? "收起至预览" : `查看全部 ${facilities.length} 处设施`}
-          </button>
-        </div>
-      ) : null}
       {facilities.length && canAdd ? (
         <button
           type="button"
-          className="mx-5 mt-2 mb-[max(0.75rem,var(--campus-map-safe-area-bottom))] flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full px-3 text-sm font-medium text-[#176346] hover:bg-neutral-100 dark:text-emerald-300 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
+          className="mx-4 mb-[max(0.25rem,var(--campus-map-safe-area-bottom))] border-t border-black/8 dark:border-white/10 flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full px-3 text-sm font-medium text-[#176346] hover:bg-neutral-100 dark:text-emerald-300 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
           onClick={onAdd}
         >
           <PlusIcon aria-hidden="true" className="size-4" />

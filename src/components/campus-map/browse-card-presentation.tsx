@@ -19,6 +19,7 @@ import type { CampusMapPublicPlaceType } from "@/lib/campus-map/place-type-contr
 import type { CampusMapPlaceFeedbackSummary } from "@/lib/campus-map/place-feedback";
 import type { CampusMapPlacePhotoView } from "@/lib/campus-map/place-photos-contract";
 import { cn } from "@/lib/utils";
+import { campusMapPlaceName } from "@/lib/campus-map/place-name";
 
 const PLACE_TYPE_PRESENTATION = {
   toilet: { icon: ToiletIcon, color: "#1b6f55" },
@@ -103,6 +104,8 @@ export function CampusMapFacilityResultButton({
   return (
     <button
       data-return-result={facility.placeId}
+      aria-label={[facility.name, location, summary].filter(Boolean).join("，")}
+      title={facility.name}
       type="button"
       className={cn(
         "flex w-full items-center text-left text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
@@ -150,18 +153,18 @@ export function CampusMapFacilityResultButton({
       <span className="min-w-0 flex-1">
         <strong
           className={cn(
-            "block break-words text-sm",
+            "block line-clamp-2 break-words text-sm leading-5",
             variant === "category" && "font-medium [overflow-wrap:anywhere]",
           )}
         >
-          {facility.name}
+          {campusMapPlaceName(facility.name).primary}
         </strong>
         {location ? (
           <span
             className={cn(
               "mt-0.5 block text-muted-foreground",
               variant === "category"
-                ? "break-words text-[13px] leading-5"
+                ? "truncate text-[13px] leading-5"
                 : "truncate text-xs",
             )}
           >
@@ -173,7 +176,7 @@ export function CampusMapFacilityResultButton({
             className={cn(
               "mt-0.5 block text-muted-foreground",
               variant === "category"
-                ? "break-words text-[13px] leading-5"
+                ? "truncate text-[13px] leading-5"
                 : "break-words text-xs",
             )}
           >
