@@ -31,6 +31,11 @@ to select full regression with real PostgreSQL.
 
 ## Capability selection
 
+Hosted jobs use Ubuntu 24.04 explicitly so a change to `ubuntu-latest` cannot
+move Playwright onto an unsupported system. The MinIO server and bucket client
+are built from the pinned official sources in `docker/minio/Dockerfile` because
+the upstream community image registries no longer allow public pulls.
+
 Risk classification is independent of the full suite's elapsed-time shards.
 The full plan retains `chromium-general`, `chromium-wiki-media`, and the
 `chromium-balanced` portion of the third runner. An ordinary runtime change
