@@ -48,8 +48,23 @@ async function expectReadableClassroomRow(list: Locator) {
   await expect
     .poll(() => list.evaluate((element) => element.clientHeight))
     .toBeGreaterThanOrEqual(96);
+  // WebKit rounds intersection pixels; also check the exact DOM bounds below.
+  await expect(list).toBeInViewport({ ratio: 0.99 });
+  expect(
+    await list.evaluate((element) => {
+      const { top, left, bottom, right } = element.getBoundingClientRect();
+      return (
+        top >= 0 &&
+        left >= 0 &&
+        bottom <= innerHeight &&
+        right <= innerWidth &&
+        document.documentElement.scrollWidth <= innerWidth
+      );
+    }),
+  ).toBe(true);
   const row = list.locator("[data-return-result]").first();
   await row.scrollIntoViewIfNeeded();
+  await expect(row).toBeInViewport({ ratio: 1 });
   const listBox = (await list.boundingBox())!;
   const rowBox = (await row.boundingBox())!;
   expect(rowBox.y).toBeGreaterThanOrEqual(listBox.y);
@@ -324,51 +339,70 @@ test.describe
       ).toBeLessThanOrEqual(viewport.width);
     });
 
-    test(`short classroom return preserves its row when markers finish loading at ${viewport.width}x${viewport.height}`, async ({
-      page,
-    }) => {
-      await page.setViewportSize(viewport);
-      await installFakeCampusMapAmap(page, "loading");
-      await loginAsAdmin(page);
-      await page.goto("/campus-map");
-      await page.getByRole("button", { name: "课室", exact: true }).click();
-      await page
-        .getByRole("button", { name: `查看全部 ${classroomCount} 处设施` })
-        .click();
-      const list = page.locator('[data-campus-map-results="category"]');
-      const row = list.getByRole("button", { name: /^YIA 201，/ });
-      await row.evaluate((element) =>
-        element.scrollIntoView({ block: "start" }),
-      );
-      const rowOffset =
-        (await row.boundingBox())!.y - (await list.boundingBox())!.y;
-      await row.click();
-      await expect(
-        page.getByRole("heading", { name: "YIA 201", exact: true }),
-      ).toBeVisible();
-      await completeAmapMarkerClusterLoad(page);
-      await page.goBack();
-      await expect(page.getByText("地图标记正在加载")).toHaveCount(0);
-      await expect(row).toBeFocused();
-      await expect
-        .poll(
-          async () =>
-            (await row.boundingBox())!.y - (await list.boundingBox())!.y,
-        )
-        .toBeCloseTo(rowOffset, 0);
-      await page.goForward();
-      await expect(
-        page.getByRole("heading", { name: "YIA 201", exact: true }),
-      ).toBeVisible();
-      await page.goBack();
-      await expect(row).toBeFocused();
-      await expect
-        .poll(
-          async () =>
-            (await row.boundingBox())!.y - (await list.boundingBox())!.y,
-        )
-        .toBeCloseTo(rowOffset, 0);
-    });
+    for (const loadingCompletes of [
+      "before return",
+      "after return",
+      "after forward",
+    ] as const) {
+      test(`short classroom return preserves its row when markers finish ${loadingCompletes} at ${viewport.width}x${viewport.height}`, async ({
+        page,
+      }) => {
+        await page.setViewportSize(viewport);
+        await installFakeCampusMapAmap(page, "loading");
+        await loginAsAdmin(page);
+        await page.goto("/campus-map");
+        await page.getByRole("button", { name: "课室", exact: true }).click();
+        await page
+          .getByRole("button", { name: `查看全部 ${classroomCount} 处设施` })
+          .click();
+        const list = page.locator('[data-campus-map-results="category"]');
+        const row = list.getByRole("button", { name: /^YIA 201，/ });
+        // Keep the row clear of fractional edges so clicking does not scroll it.
+        await row.evaluate((element) =>
+          element.scrollIntoView({ block: "center" }),
+        );
+        const rowOffset =
+          (await row.boundingBox())!.y - (await list.boundingBox())!.y;
+        await row.click();
+        await expect(
+          page.getByRole("heading", { name: "YIA 201", exact: true }),
+        ).toBeVisible();
+        if (loadingCompletes === "before return")
+          await completeAmapMarkerClusterLoad(page);
+        await page.goBack();
+        await expect(row).toBeFocused();
+        if (loadingCompletes === "after return")
+          await completeAmapMarkerClusterLoad(page);
+        if (loadingCompletes === "after forward") {
+          await page.goForward();
+          await expect(
+            page.getByRole("heading", { name: "YIA 201", exact: true }),
+          ).toBeVisible();
+          await completeAmapMarkerClusterLoad(page);
+          await page.goBack();
+        }
+        await expect(page.getByText("地图标记正在加载")).toHaveCount(0);
+        await expect(row).toBeFocused();
+        await expect
+          .poll(
+            async () =>
+              (await row.boundingBox())!.y - (await list.boundingBox())!.y,
+          )
+          .toBeCloseTo(rowOffset, 0);
+        await page.goForward();
+        await expect(
+          page.getByRole("heading", { name: "YIA 201", exact: true }),
+        ).toBeVisible();
+        await page.goBack();
+        await expect(row).toBeFocused();
+        await expect
+          .poll(
+            async () =>
+              (await row.boundingBox())!.y - (await list.boundingBox())!.y,
+          )
+          .toBeCloseTo(rowOffset, 0);
+      });
+    }
 
     for (const clusterStatus of ["loading", "error"] as const) {
       test(`short classroom list survives ${clusterStatus} markers at ${viewport.width}x${viewport.height}`, async ({

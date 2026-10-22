@@ -181,7 +181,6 @@ const MAP_NUDGE_OFFSETS = {
 type CampusMapListReturn = {
   returnTo: string;
   scrollTop: number;
-  rowAnchor?: { placeId: string; offsetTop: number };
 };
 type UserLocationState =
   | { status: "idle" }
@@ -1590,20 +1589,6 @@ export function CampusMapRuntime({
     const scroller = listResultsRef.current;
     if (!scroller) return;
     scroller.scrollTop = scrollTop ?? 0;
-    const anchor = inMemoryReturn?.rowAnchor;
-    const row = anchor
-      ? scroller.querySelector<HTMLElement>(
-          `[data-return-result="${anchor.placeId}"]`,
-        )
-      : null;
-    if (row && anchor) {
-      // Loading notices can disappear while a Place card is open.
-      scroller.scrollTop +=
-        row.getBoundingClientRect().top -
-        scroller.getBoundingClientRect().top -
-        anchor.offsetTop;
-      driver.rememberResultsScroll(scroller.scrollTop);
-    }
     if (inMemoryReturn) listReturnRef.current = null;
   }, [activeListReturnTo, browseAllSearchQuery, driver]);
 
@@ -2121,26 +2106,10 @@ export function CampusMapRuntime({
       const sourceSession = driver.getSnapshot().session;
       const returnTo = campusMapListPath(sourceSession, sceneCatalog);
       if (returnTo) {
-        const scroller = listResultsRef.current;
-        const row =
-          source === "category"
-            ? scroller?.querySelector<HTMLElement>(
-                `[data-return-result="${facility.placeId}"]`,
-              )
-            : null;
-        driver.rememberResultsScroll(scroller?.scrollTop ?? 0);
+        driver.rememberResultsScroll(listResultsRef.current?.scrollTop ?? 0);
         listReturnRef.current = {
           returnTo,
-          scrollTop: scroller?.scrollTop ?? 0,
-          rowAnchor:
-            row && scroller
-              ? {
-                  placeId: facility.placeId,
-                  offsetTop:
-                    row.getBoundingClientRect().top -
-                    scroller.getBoundingClientRect().top,
-                }
-              : undefined,
+          scrollTop: listResultsRef.current?.scrollTop ?? 0,
         };
       }
       clearTransientHotspot();

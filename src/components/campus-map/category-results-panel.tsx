@@ -101,22 +101,39 @@ export function CampusMapCategoryResultsPanel({
   return (
     <div id="campus-map-panel-content" className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-1 border-b border-black/10 px-4 py-2 dark:border-white/10">
-        <h2
-          id="campus-map-panel-title"
-          ref={titleRef}
-          tabIndex={-1}
-          aria-label={style.label}
-          aria-describedby="campus-map-category-count"
-          className="-ml-2 min-w-0 flex-1 break-words pl-2 text-lg font-medium focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346] dark:focus-visible:shadow-[inset_3px_0_0_#34d399]"
-        >
-          {style.label}
-          {facilities.length > 0 ? (
-            <span
-              aria-hidden="true"
-              className="text-sm font-normal text-neutral-500 dark:text-neutral-400"
-            >{` · ${facilities.length} 处`}</span>
+        <div className="min-w-0 flex-1">
+          <h2
+            id="campus-map-panel-title"
+            ref={titleRef}
+            tabIndex={-1}
+            aria-label={style.label}
+            aria-describedby="campus-map-category-count"
+            className="-ml-2 min-w-0 flex-1 break-words pl-2 text-lg font-medium focus-visible:outline-none focus-visible:shadow-[inset_3px_0_0_#176346] dark:focus-visible:shadow-[inset_3px_0_0_#34d399]"
+          >
+            {style.label}
+            {facilities.length > 0 ? (
+              <span
+                aria-hidden="true"
+                className="text-sm font-normal text-neutral-500 dark:text-neutral-400"
+              >{` · ${facilities.length} 处`}</span>
+            ) : null}
+          </h2>
+          {clusterStatus !== "ready" ? (
+            <p
+              role="status"
+              className="text-xs leading-4 text-neutral-600 dark:text-neutral-300"
+            >
+              <span aria-hidden="true">
+                {clusterStatus === "error" ? "标记加载失败" : "标记加载中"}
+              </span>
+              <span className="sr-only">
+                {clusterStatus === "error"
+                  ? "地图标记加载失败，列表仍可使用"
+                  : "地图标记正在加载"}
+              </span>
+            </p>
           ) : null}
-        </h2>
+        </div>
         <span id="campus-map-category-count" className="sr-only">
           {facilities.length} 处设施
         </span>
@@ -174,7 +191,7 @@ export function CampusMapCategoryResultsPanel({
               <select
                 aria-label="查找建筑分组"
                 defaultValue=""
-                className="mt-2 min-h-11 w-full min-w-0 rounded-xl border border-black/15 bg-white px-3 text-sm dark:border-white/20 dark:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
+                className="mt-2 min-h-11 w-full min-w-0 rounded-xl border border-black/15 bg-white px-3 text-base md:text-sm dark:border-white/20 dark:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:focus-visible:ring-emerald-400"
                 onChange={(event) => {
                   const heading = document.getElementById(
                     event.currentTarget.value,
@@ -200,16 +217,6 @@ export function CampusMapCategoryResultsPanel({
               </select>
             ) : null}
           </div>
-        ) : null}
-        {clusterStatus !== "ready" ? (
-          <p
-            role="status"
-            className="mx-1 mt-3 rounded-lg bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
-          >
-            {clusterStatus === "error"
-              ? "地图标记加载失败，列表仍可使用"
-              : "地图标记正在加载"}
-          </p>
         ) : null}
         {featuredFacilities.length > 0 ? (
           <section
