@@ -322,7 +322,7 @@ class TestMarkerCluster {
 }
 
 class TestMap {
-  readonly overlays: Array<{ content: string; zIndex: number }> = [];
+  readonly overlays: TestMarker[] = [];
   add(marker: TestMarker) {
     this.overlays.push(marker);
   }
@@ -529,6 +529,127 @@ describe("AmapCanonicalBrowseLayer", () => {
     expect(marker.content).toContain("打开建筑目录");
     marker.emitClickWithoutPointerGesture();
     expect(runtime.intents).toEqual([{ type: "OPEN_BUILDING", buildingId }]);
+    runtime.layer.destroy();
+  });
+
+  it("excludes mapped services from a shared building marker without hiding unmapped neighbours", () => {
+    const projection = healthBuildingProjection(2);
+    const [outpatient, dental] = projection.places;
+    const runtime = renderClusterProjection(projection);
+    const nativePlaceIds = new Set([outpatient!.placeId]);
+
+    runtime.layer.render({ ...runtime.input, nativePlaceIds });
+    const remaining = TestMarkerCluster.instances.at(-1)!;
+    expect(remaining.singleMarkers[0]!.content).toContain("有 1 个医疗服务");
+    remaining.singleMarkers[0]!.emitClickWithoutPointerGesture();
+    expect(runtime.intents).toEqual([
+      { type: "OPEN_PLACE", placeId: dental!.placeId },
+    ]);
+
+    runtime.layer.render({
+      ...runtime.input,
+      nativePlaceIds,
+      mode: { ...runtime.input.mode, selectedPlaceId: outpatient!.placeId },
+    });
+    expect(runtime.map.overlays).toHaveLength(1);
+    expect(runtime.map.overlays[0]!.content).toContain(
+      "data-campus-map-selection-hint",
+    );
+    expect(runtime.map.overlays[0]!.content).toContain("已选 · 门诊");
+    expect(runtime.map.overlays[0]!.content).toContain(
+      "所属建筑 · 非室内精确位置",
+    );
+    expect(runtime.map.overlays[0]!.content).not.toContain(
+      "data-place-type-icon",
+    );
+    expect(TestMarkerCluster.instances.at(-1)).toBe(remaining);
+
+    const detach = vi.spyOn(remaining, "setMap");
+    runtime.layer.render({
+      ...runtime.input,
+      nativePlaceIds: new Set(projection.places.map((place) => place.placeId)),
+    });
+    expect(detach).toHaveBeenCalledWith(null);
+    expect(runtime.map.overlays).toHaveLength(0);
+    runtime.layer.destroy();
+  });
+
+  it("uses a light selection hint for a mapped standalone Place and a normal icon without a mapping", () => {
+    const runtime = renderClusterProjection(placeProjection);
+    const selected = {
+      ...runtime.input,
+      mode: { ...runtime.input.mode, selectedPlaceId: placeId },
+    };
+    runtime.layer.render(selected);
+    expect(runtime.map.overlays).toHaveLength(1);
+
+    runtime.layer.render({ ...selected, nativePlaceIds: new Set([placeId]) });
+    expect(runtime.map.overlays).toHaveLength(1);
+    expect(runtime.map.overlays[0]!.content).toContain(
+      "data-campus-map-selection-hint",
+    );
+    expect(runtime.map.overlays[0]!.content).toContain("约略室外位置");
+    expect(runtime.map.overlays[0]!.content).not.toContain(
+      "data-place-type-icon",
+    );
+
+    runtime.layer.render(selected);
+    expect(runtime.map.overlays).toHaveLength(1);
+    expect(runtime.map.overlays[0]!.content).toContain("打印站");
+    expect(runtime.map.overlays[0]!.content).toContain(
+      'data-place-type-icon="printer"',
+    );
+    expect(runtime.map.overlays[0]!.content).not.toContain(
+      "data-campus-map-selection-hint",
+    );
+    runtime.layer.destroy();
+  });
+
+  it("keeps provider selection coordinates transient and clears the hint when selection ends", () => {
+    installTestDocument();
+    const projection = healthBuildingProjection(2);
+    const [outpatient, dental] = projection.places;
+    const original = JSON.stringify(projection);
+    const runtime = renderClusterProjection(projection);
+    const mapped = {
+      ...runtime.input,
+      nativePlaceIds: new Set(projection.places.map((place) => place.placeId)),
+      selectedProviderPosition: {
+        placeId: outpatient!.placeId,
+        position: asAmapPosition([114.2099, 22.4201]),
+      },
+    };
+    runtime.layer.render({
+      ...mapped,
+      mode: { ...mapped.mode, selectedPlaceId: outpatient!.placeId },
+    });
+    expect(runtime.map.overlays).toHaveLength(1);
+    const hint = runtime.map.overlays[0]!;
+    expect(hint.getPosition()).toEqual({ lng: 114.2099, lat: 22.4201 });
+    expect(hint.content).toContain("地图位置参考 · 非室内精确位置");
+    hint.emitContentClick(0);
+    expect(runtime.intents).toEqual([
+      { type: "OPEN_PLACE", placeId: outpatient!.placeId },
+    ]);
+
+    runtime.layer.render({
+      ...mapped,
+      mode: { ...mapped.mode, selectedPlaceId: dental!.placeId },
+    });
+    expect(runtime.map.overlays).toHaveLength(1);
+    expect(runtime.map.overlays[0]!.getPosition()).toEqual({
+      lng: position[0],
+      lat: position[1],
+    });
+    expect(runtime.map.overlays[0]!.content).toContain("已选 · 牙科");
+    expect(runtime.map.overlays[0]!.content).toContain(
+      "所属建筑 · 非室内精确位置",
+    );
+    expect(runtime.map.overlays[0]!.content).not.toContain("门诊");
+    expect(JSON.stringify(projection)).toBe(original);
+
+    runtime.layer.render(mapped);
+    expect(runtime.map.overlays).toHaveLength(0);
     runtime.layer.destroy();
   });
 

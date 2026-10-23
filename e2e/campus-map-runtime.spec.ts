@@ -368,7 +368,9 @@ test("Campus Map and its AMap config require authentication", async ({
   await expect(page.getByText("地点资料已发布")).toHaveCount(0);
 });
 
-test("search and marker open one canonical Place card", async ({ page }) => {
+test("search and native hotspot open one canonical Place card", async ({
+  page,
+}) => {
   await page.goto("/campus-map");
   const search = page.locator('input[placeholder="搜索建筑或地点…"]:visible');
   await search.fill("正式测试饮水点");
@@ -420,17 +422,30 @@ test("search and marker open one canonical Place card", async ({ page }) => {
   await page.getByRole("button", { name: "清除搜索" }).click();
   await expect(search).toHaveValue("");
   await page.getByRole("button", { name: "饮水点", exact: true }).click();
-  // The fake map only projects selected labels; activate this marker with
-  // the keyboard so its synthetic default position does not overlap chrome.
-  await page
-    .locator(
-      '[data-cupedia-marker="true"][aria-label*="正式测试楼有 1 个饮水点"]',
-    )
-    .press("Enter");
+  // This Place has a reviewed native mapping, so browsing reuses AMap's icon.
+  await expect(currentPlaceMarker).toHaveCount(0);
+  await emitAmapEvent(page, "hotspotclick", {
+    id: mappedPlaceProviderId,
+    name: "高德测试饮水点",
+    lnglat: { lng: 114.2099, lat: 22.4201 },
+  });
   await expect(page).toHaveURL(canonicalUrl);
   await expect(
     page.getByRole("heading", { name: "正式测试饮水点" }),
   ).toBeVisible();
+  await expect(currentPlaceMarker).toHaveAttribute(
+    "data-campus-map-selection-hint",
+    "",
+  );
+  await expect(
+    currentPlaceMarker.locator("[data-place-type-icon]"),
+  ).toHaveCount(0);
+  await expect(currentPlaceMarker).toContainText(
+    "地图位置参考 · 非室内精确位置",
+  );
+  await currentPlaceMarker.press("Enter");
+  await expect(page).toHaveURL(canonicalUrl);
+  await expect(currentPlaceMarker).toHaveCount(1);
 });
 
 // ref #911: exercise the real scene/history owner with a deterministic AMap adapter.

@@ -657,6 +657,15 @@ export function CampusMapRuntime({
     projectionStore.getSnapshot,
   );
   const browseProjection = browseSnapshot.projection;
+  const nativePlaceIds = useMemo(
+    () =>
+      new Set(
+        initialAmapHotspotMappings.flatMap(({ target }) =>
+          target.kind === "place" ? [target.placeId] : [],
+        ),
+      ),
+    [initialAmapHotspotMappings],
+  );
   const [placeCovers, setPlaceCovers] = useState(initialPlaceCovers);
   const [selectedTransientHotspot, setSelectedTransientHotspot] =
     useState<Extract<
@@ -804,6 +813,10 @@ export function CampusMapRuntime({
   const providerBuildingPositionsRef = useRef<
     Record<string, CampusMapAmapPosition>
   >({});
+  const providerPlaceSelectionRef = useRef<{
+    placeId: string;
+    position: CampusMapAmapPosition;
+  } | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const listResultsRef = useRef<HTMLDivElement | null>(null);
   const activeCategoryFilterRef = useRef<HTMLButtonElement | null>(null);
@@ -849,6 +862,7 @@ export function CampusMapRuntime({
     userGestureAwaitingMoveEndRef.current = false;
     pendingSelectionTokenRef.current = null;
     providerBuildingPositionsRef.current = {};
+    providerPlaceSelectionRef.current = null;
     didSetInitialCenterRef.current = false;
     setMapReady(false);
     setMapMoving(false);
@@ -1390,8 +1404,20 @@ export function CampusMapRuntime({
               (item) => item.buildingId === camera.buildingId,
             )
           : null;
-      const position =
-        camera.kind === "focus-place"
+      const reference = providerPlaceSelectionRef.current;
+      const referenceOwnsCamera =
+        reference &&
+        ((camera.kind === "focus-place" &&
+          camera.placeId === reference.placeId) ||
+          (building &&
+            facilitiesRef.current.some(
+              (place) =>
+                place.placeId === reference.placeId &&
+                place.buildingId === building.buildingId,
+            )));
+      const position = referenceOwnsCamera
+        ? reference.position
+        : camera.kind === "focus-place"
           ? (amapPositionsRef.current[`place:${camera.placeId}`] ?? null)
           : building
             ? positionFor(building)
@@ -1628,6 +1654,14 @@ export function CampusMapRuntime({
       setPublishNotice(null);
       if (intent.type === "SEARCH" || intent.type === "SET_BUILDING_FLOOR") {
         listReturnRef.current = null;
+      }
+      if (
+        intent.type !== "SET_SNAP" &&
+        intent.type !== "OPEN_PLACE" &&
+        providerPlaceSelectionRef.current
+      ) {
+        providerPlaceSelectionRef.current = null;
+        setMarkerLayoutVersion((version) => version + 1);
       }
       return driver.dispatch(intent);
     },
@@ -2108,7 +2142,11 @@ export function CampusMapRuntime({
   );
 
   const selectFacility = useCallback(
-    (facility: Place, source: "category" | "building" | "search") => {
+    (
+      facility: Place,
+      source: "category" | "building" | "search",
+      providerPosition?: CampusMapAmapPosition | null,
+    ) => {
       const sourceSession = driver.getSnapshot().session;
       const returnTo = campusMapListPath(sourceSession, sceneCatalog);
       if (returnTo) {
@@ -2119,6 +2157,12 @@ export function CampusMapRuntime({
         };
       }
       clearTransientHotspot();
+      // The native icon remains the browse entrance. Its click position only
+      // frames this selection and hint, never canonical geometry or history.
+      providerPlaceSelectionRef.current = providerPosition
+        ? { placeId: facility.placeId, position: providerPosition }
+        : null;
+      setMarkerLayoutVersion((version) => version + 1);
       dispatch({
         type: "OPEN_PLACE",
         placeId: facility.placeId,
@@ -2172,6 +2216,8 @@ export function CampusMapRuntime({
     const handlePopState = (event: PopStateEvent) => {
       cancelPendingUserLocation();
       setPublishNotice(null);
+      providerPlaceSelectionRef.current = null;
+      setMarkerLayoutVersion((version) => version + 1);
       const restored = driver.restore(window.location.search, event.state);
       if (editSession && !restored.preservedReplacementTask) {
         dispatchEditEvent({ type: "REQUEST_CLOSE" });
@@ -2347,7 +2393,7 @@ export function CampusMapRuntime({
           return;
         }
         if (target.kind === "place") {
-          selectFacility(target.place, "category");
+          selectFacility(target.place, "category", hotspot.providerPosition);
           return;
         }
         cancelPendingUserLocation();
@@ -2371,7 +2417,14 @@ export function CampusMapRuntime({
           const place = facilitiesRef.current.find(
             (candidate) => candidate.placeId === intent.placeId,
           );
-          if (place) selectFacility(place, "category");
+          if (place) {
+            const reference = providerPlaceSelectionRef.current;
+            selectFacility(
+              place,
+              "category",
+              reference?.placeId === place.placeId ? reference.position : null,
+            );
+          }
           return;
         }
         if (intent.type === "EXPAND_CLUSTER") {
@@ -2724,6 +2777,8 @@ export function CampusMapRuntime({
     const synced = canonicalBrowseLayerRef.current.render({
       projection: browseProjection,
       providerPositions: amapPositionsRef.current,
+      nativePlaceIds,
+      selectedProviderPosition: providerPlaceSelectionRef.current,
       mode:
         clusterStatus === "ready"
           ? markerMode
@@ -2742,6 +2797,7 @@ export function CampusMapRuntime({
     mapReady,
     markerLayoutVersion,
     markerMode,
+    nativePlaceIds,
   ]);
 
   useEffect(() => {
@@ -3764,11 +3820,22 @@ export function CampusMapRuntime({
                   <button
                     type="button"
                     className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#176346]/25 bg-[#edf5f1] px-4 text-sm font-semibold text-[#174b38] hover:bg-[#e4f1eb] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2 motion-reduce:transform-none"
-                    onClick={startGlobalFacilityAdd}
+                    onClick={() => {
+                      const query = selectedTransientHotspot.name;
+                      clearTransientHotspot();
+                      setQueryDraft(query);
+                      setBrowseAllSearchQuery(null);
+                      dispatch({ type: "SEARCH", query });
+                      searchInputRef.current?.focus({ preventScroll: true });
+                      searchInputRef.current?.select();
+                    }}
                   >
-                    <PlusIcon aria-hidden="true" className="size-4" />
-                    新增设施
+                    <SearchIcon aria-hidden="true" className="size-4" />
+                    查找本站已有地点
                   </button>
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                    此地图标签尚未关联本站资料，可先搜索已有地点。
+                  </p>
                   {hotspotBuildingSuggestions.length > 0 ? (
                     <div
                       className="mt-2 flex flex-wrap gap-1.5"
@@ -3786,6 +3853,14 @@ export function CampusMapRuntime({
                       ))}
                     </div>
                   ) : null}
+                  <button
+                    type="button"
+                    className="mt-1 flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-[#235741] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-[#a9ddbc]"
+                    onClick={startGlobalFacilityAdd}
+                  >
+                    <PlusIcon aria-hidden="true" className="size-4" />
+                    新增设施
+                  </button>
                 </div>
               </div>
             </CampusMapBrowseSheetControls>

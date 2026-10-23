@@ -2018,6 +2018,176 @@ describe("Campus Map AMap runtime effects", () => {
     expect(document.body.textContent).not.toContain("定位精度约");
   });
 
+  it.each([
+    ["map", "locate"],
+    ["map", "history"],
+    ["canonical", "locate"],
+    ["canonical", "history"],
+  ])(
+    "keeps one light selection hint from %s and restores canonical geometry after %s",
+    async (entry, nextAction) => {
+      const projection = createCampusMapBrowseFixture();
+      const place = projection.places.find(
+        (p) => p.buildingId === "science-centre",
+      )!;
+      const original = JSON.stringify(projection);
+      const { runtime, map } = await renderWithRuntime({
+        projection,
+        projectedPoint: { x: 700, y: 800 },
+        initialSearch:
+          entry === "canonical"
+            ? `?v=1&scene=place&id=${place.placeId}&snap=peek`
+            : undefined,
+        hotspotMappings: [
+          {
+            providerObjectId: "reviewed-service",
+            target: { kind: "place", placeId: place.placeId },
+          },
+        ],
+      });
+      const projectPosition = vi.spyOn(map, "lngLatToContainer");
+      const expectCameraAt = (lng: number, lat: number) => {
+        // The offscreen projection forces a camera pan. Check every projection
+        // so a correct label cannot conceal a camera using the wrong position.
+        expect(map.panTo).toHaveBeenCalled();
+        expect(projectPosition).toHaveBeenCalled();
+        for (const call of projectPosition.mock.calls) {
+          expect(call).toEqual([expect.objectContaining({ lng, lat })]);
+        }
+      };
+      await runtime.flushAnimationFrames();
+      expect(runtime.markers).toHaveLength(entry === "canonical" ? 1 : 0);
+      const canonicalPosition = projection.buildings.find(
+        (building) => building.buildingId === place.buildingId,
+      )!.anchor!;
+      const selectedHint = () => runtime.markers.at(-1)!;
+      if (entry === "canonical") {
+        expectCameraAt(canonicalPosition.longitude, canonicalPosition.latitude);
+        expect(selectedHint().content).toContain(
+          "data-campus-map-selection-hint",
+        );
+        expect(selectedHint().content).toContain("所属建筑 · 非室内精确位置");
+        expect(selectedHint().getPosition()).toMatchObject({
+          lng: canonicalPosition.longitude,
+          lat: canonicalPosition.latitude,
+        });
+      }
+      const clickNativeIcon = () =>
+        map.emit("hotspotclick", {
+          id: "reviewed-service",
+          name: "Provider service name",
+          lnglat: { lng: 114.2099, lat: 22.4201 },
+        });
+      projectPosition.mockClear();
+      map.panTo.mockClear();
+      await act(async () => clickNativeIcon());
+      await runtime.flushAnimationFrames();
+      // Opening an already selected Place is intentionally a scene no-op.
+      if (entry === "map") expectCameraAt(114.2099, 22.4201);
+      expect(window.location.search).toContain(
+        `scene=place&id=${place.placeId}`,
+      );
+      expect(screen.queryByText("高德地图地点")).toBeNull();
+      expect(screen.getByRole("heading", { name: place.name })).toBeTruthy();
+      const providerHint = selectedHint();
+      expect(providerHint.content).toContain("data-campus-map-selection-hint");
+      expect(providerHint.content).toContain("已选 ·");
+      expect(providerHint.content).toContain("地图位置参考 · 非室内精确位置");
+      expect(providerHint.content).not.toContain("data-place-type-icon");
+      expect(providerHint.getPosition()).toMatchObject({
+        lng: 114.2099,
+        lat: 22.4201,
+      });
+      expect(runtime.clusters).toHaveLength(0);
+      expect(JSON.stringify(projection)).toBe(original);
+
+      // Reclicking the hint or native icon and changing layout must keep the
+      // same hint at the provider point, without introducing another icon.
+      await act(async () => providerHint.emit("click"));
+      await runtime.flushAnimationFrames();
+      expect(selectedHint()).toBe(providerHint);
+      runtime.mapRect.right = 390;
+      runtime.panelRect.right = 390;
+      runtime.panelRect.top = 460;
+      await runtime.triggerResize();
+      await act(async () => clickNativeIcon());
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "拖动或点击展开卡片",
+          hidden: true,
+        }),
+      );
+      await runtime.flushAnimationFrames();
+      expect(selectedHint()).toBe(providerHint);
+      const remove = vi.spyOn(map, "remove");
+      projectPosition.mockClear();
+      map.panTo.mockClear();
+
+      if (nextAction === "locate") {
+        fireEvent.click(screen.getByRole("button", { name: "定位所属建筑" }));
+      } else {
+        await act(async () => {
+          window.history.replaceState(
+            null,
+            "",
+            `?v=1&scene=place&id=${place.placeId}&snap=peek`,
+          );
+          window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
+        });
+        await runtime.flushAnimationFrames();
+        expectCameraAt(canonicalPosition.longitude, canonicalPosition.latitude);
+        // Restoring a URL must retain feedback even if AMap hides the label.
+        fireEvent.click(
+          screen.getByRole("button", {
+            name: "拖动或点击展开卡片",
+            hidden: true,
+          }),
+        );
+      }
+      await runtime.flushAnimationFrames();
+      expectCameraAt(canonicalPosition.longitude, canonicalPosition.latitude);
+      expect(remove).toHaveBeenCalledWith([providerHint]);
+      const canonicalHint = selectedHint();
+      expect(canonicalHint.content).toContain("data-campus-map-selection-hint");
+      expect(canonicalHint.content).toContain("所属建筑 · 非室内精确位置");
+      expect(canonicalHint.getPosition()).toMatchObject({
+        lng: canonicalPosition.longitude,
+        lat: canonicalPosition.latitude,
+      });
+      expect(JSON.stringify(projection)).toBe(original);
+      expect(window.location.search).not.toContain("reviewed-service");
+      expect(window.location.search).not.toContain("114.2099");
+
+      fireEvent.click(screen.getByRole("button", { name: "关闭地点详情" }));
+      await runtime.flushAnimationFrames();
+      expect(remove).toHaveBeenCalledWith([canonicalHint]);
+    },
+  );
+
+  it("lets an unlinked hotspot search existing places without creating an identity", async () => {
+    const { runtime, map } = await renderWithRuntime();
+    await act(async () =>
+      map.emit("hotspotclick", {
+        id: "unreviewed-water",
+        name: "饮水",
+        lnglat: { lng: 114.2084, lat: 22.4198 },
+      }),
+    );
+    expect(window.location.search).toBe("?v=1");
+    const card = screen.getByRole("region", { name: "饮水" });
+    fireEvent.click(
+      within(card).getByRole("button", { name: "查找本站已有地点" }),
+    );
+    await runtime.flushAnimationFrames();
+    expect(screen.queryByText("高德地图地点")).toBeNull();
+    const search = screen.getByRole("textbox", { name: "搜索建筑或地点" });
+    expect((search as HTMLInputElement).value).toBe("饮水");
+    expect(document.activeElement).toBe(search);
+    expect(screen.getByRole("region", { name: "搜索结果" })).toBeTruthy();
+    expect(window.location.search).not.toContain("unreviewed-water");
+    expect(screen.queryByRole("heading", { name: "新增设施" })).toBeNull();
+  });
+
   it("lets the user open a same-name building from an unmapped hotspot", async () => {
     const { map } = await renderWithRuntime();
     await act(async () =>

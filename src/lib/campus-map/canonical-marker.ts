@@ -65,6 +65,7 @@ function markerButton(input: {
   selectedLabel?: string;
   precisionLabel?: string;
   selectedLabelPlacement?: CampusMapMarkerLabelPlacement;
+  selectionHint?: boolean;
 }) {
   const safeColor = /^#[\da-f]{3,8}$/i.test(input.color)
     ? input.color
@@ -83,9 +84,33 @@ function markerButton(input: {
           ? "left:calc(100% + 10px);top:50%;transform:translateY(-50%)"
           : "bottom:calc(100% + 10px);left:50%;transform:translateX(-50%)";
   const selectedLabel = input.selected
-    ? `<span data-campus-map-selected-label data-campus-map-label-placement="${placement}" style="position:absolute;${labelPosition};width:max-content;max-width:180px;box-sizing:border-box;border:2px solid ${safeColor};border-radius:12px;padding:6px 10px;background:white;color:#17211c;font:600 13px/18px system-ui;box-shadow:0 3px 12px rgba(0,0,0,.2);overflow-wrap:anywhere;white-space:normal"><span style="display:block;max-height:36px;overflow:hidden">已选 · ${escapeAttribute(compactMarkerName(input.selectedLabel ?? input.label))}</span><span style="display:block;font-size:11px;font-weight:400">${escapeAttribute(input.precisionLabel ?? "")}</span></span>`
+    ? `<span data-campus-map-selected-label data-campus-map-label-placement="${placement}" style="position:absolute;${labelPosition};width:max-content;max-width:180px;box-sizing:border-box;border:${input.selectionHint ? 1 : 2}px solid ${safeColor};border-radius:${input.selectionHint ? 8 : 12}px;padding:${input.selectionHint ? "4px 8px" : "6px 10px"};background:white;color:#17211c;font:600 13px/18px system-ui;box-shadow:0 3px 12px rgba(0,0,0,.2);overflow-wrap:anywhere;white-space:normal"><span style="display:block;max-height:36px;overflow:hidden">已选 · ${escapeAttribute(compactMarkerName(input.selectedLabel ?? input.label))}</span><span style="display:block;font-size:11px;font-weight:400">${escapeAttribute(input.precisionLabel ?? "")}</span></span>`
     : "";
+  if (input.selectionHint) {
+    return `<button type="button" class="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black" data-cupedia-marker="true" data-campus-map-selection-hint ${input.identityAttribute}="${escapeAttribute(input.identity)}" aria-label="${escapeAttribute(input.label)}" aria-pressed="true" style="position:relative;display:grid;width:44px;height:44px;place-items:center;border:0;padding:0;border-radius:999px;background:transparent"><span aria-hidden="true" style="box-sizing:border-box;width:32px;height:32px;border:2px solid ${safeColor};border-radius:999px;box-shadow:0 0 0 2px white,0 2px 6px rgba(0,0,0,.18)"></span>${selectedLabel}</button>`;
+  }
   return `<button type="button" class="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black" data-cupedia-marker="true" ${input.identityAttribute}="${escapeAttribute(input.identity)}" aria-label="${escapeAttribute(input.label)}" aria-pressed="${input.selected}" style="position:relative;display:grid;width:44px;height:44px;place-items:center;border:${input.selected ? 4 : 3}px solid white;border-radius:${input.selected ? "12px" : "999px"};background:${safeColor};color:white;box-shadow:${input.selected ? "0 0 0 4px rgba(23,75,56,.28),0 5px 16px rgba(0,0,0,.3)" : "0 3px 12px rgba(0,0,0,.22)"}">${input.icon}${count}${selectedLabel}</button>`;
+}
+
+export function placeSelectionMarkerContent(input: {
+  markerKey: string;
+  name: string;
+  color: string;
+  precisionLabel: string;
+  selectedLabelPlacement: CampusMapMarkerLabelPlacement;
+}) {
+  return markerButton({
+    identityAttribute: "data-canonical-marker-key",
+    identity: input.markerKey,
+    label: `已选 ${input.name}，${input.precisionLabel}`,
+    selected: true,
+    selectionHint: true,
+    color: input.color,
+    icon: "",
+    selectedLabel: input.name,
+    precisionLabel: input.precisionLabel,
+    selectedLabelPlacement: input.selectedLabelPlacement,
+  });
 }
 
 export function placeTypeMarkerContent(input: {

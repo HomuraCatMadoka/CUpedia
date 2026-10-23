@@ -1,11 +1,31 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  placeSelectionMarkerContent,
   placeTypeMarkerContent,
   placeTypeMarkerIcon,
 } from "@/lib/campus-map/canonical-marker";
 
 describe("canonical Place-type marker", () => {
+  it("labels a mapped selection accessibly without a second category icon", () => {
+    const content = placeSelectionMarkerContent({
+      markerKey: 'dental" onclick="alert(1)',
+      name: "牙科（Dental Service）<test>",
+      color: "red;position:fixed",
+      precisionLabel: "所属建筑 · 非室内精确位置",
+      selectedLabelPlacement: "left",
+    });
+    expect(content).toContain('aria-pressed="true"');
+    expect(content).toContain('data-campus-map-label-placement="left"');
+    expect(content).toContain("已选 · 牙科");
+    expect(content).toContain("所属建筑 · 非室内精确位置");
+    expect(content).toContain("background:transparent");
+    expect(content).not.toContain("<svg");
+    expect(content).not.toContain('onclick="alert(1)');
+    expect(content).toContain("&lt;test&gt;");
+    expect(content).toContain("2px solid #176346");
+  });
+
   it("renders a water icon instead of a text glyph or cluster count", () => {
     const icon = placeTypeMarkerIcon("water");
 
