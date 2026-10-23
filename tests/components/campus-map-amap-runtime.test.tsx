@@ -2033,6 +2033,7 @@ describe("Campus Map AMap runtime effects", () => {
       const original = JSON.stringify(projection);
       const { runtime, map } = await renderWithRuntime({
         projection,
+        projectedPoint: { x: 700, y: 800 },
         initialSearch:
           entry === "canonical"
             ? `?v=1&scene=place&id=${place.placeId}&snap=peek`
@@ -2044,6 +2045,16 @@ describe("Campus Map AMap runtime effects", () => {
           },
         ],
       });
+      const projectPosition = vi.spyOn(map, "lngLatToContainer");
+      const expectCameraAt = (lng: number, lat: number) => {
+        // The offscreen projection forces a camera pan. Check every projection
+        // so a correct label cannot conceal a camera using the wrong position.
+        expect(map.panTo).toHaveBeenCalled();
+        expect(projectPosition).toHaveBeenCalled();
+        for (const call of projectPosition.mock.calls) {
+          expect(call).toEqual([expect.objectContaining({ lng, lat })]);
+        }
+      };
       await runtime.flushAnimationFrames();
       expect(runtime.markers).toHaveLength(entry === "canonical" ? 1 : 0);
       const canonicalPosition = projection.buildings.find(
@@ -2051,6 +2062,7 @@ describe("Campus Map AMap runtime effects", () => {
       )!.anchor!;
       const selectedHint = () => runtime.markers.at(-1)!;
       if (entry === "canonical") {
+        expectCameraAt(canonicalPosition.longitude, canonicalPosition.latitude);
         expect(selectedHint().content).toContain(
           "data-campus-map-selection-hint",
         );
@@ -2066,8 +2078,12 @@ describe("Campus Map AMap runtime effects", () => {
           name: "Provider service name",
           lnglat: { lng: 114.2099, lat: 22.4201 },
         });
+      projectPosition.mockClear();
+      map.panTo.mockClear();
       await act(async () => clickNativeIcon());
       await runtime.flushAnimationFrames();
+      // Opening an already selected Place is intentionally a scene no-op.
+      if (entry === "map") expectCameraAt(114.2099, 22.4201);
       expect(window.location.search).toContain(
         `scene=place&id=${place.placeId}`,
       );
@@ -2104,6 +2120,8 @@ describe("Campus Map AMap runtime effects", () => {
       await runtime.flushAnimationFrames();
       expect(selectedHint()).toBe(providerHint);
       const remove = vi.spyOn(map, "remove");
+      projectPosition.mockClear();
+      map.panTo.mockClear();
 
       if (nextAction === "locate") {
         fireEvent.click(screen.getByRole("button", { name: "定位所属建筑" }));
@@ -2116,6 +2134,8 @@ describe("Campus Map AMap runtime effects", () => {
           );
           window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
         });
+        await runtime.flushAnimationFrames();
+        expectCameraAt(canonicalPosition.longitude, canonicalPosition.latitude);
         // Restoring a URL must retain feedback even if AMap hides the label.
         fireEvent.click(
           screen.getByRole("button", {
@@ -2125,6 +2145,7 @@ describe("Campus Map AMap runtime effects", () => {
         );
       }
       await runtime.flushAnimationFrames();
+      expectCameraAt(canonicalPosition.longitude, canonicalPosition.latitude);
       expect(remove).toHaveBeenCalledWith([providerHint]);
       const canonicalHint = selectedHint();
       expect(canonicalHint.content).toContain("data-campus-map-selection-hint");
