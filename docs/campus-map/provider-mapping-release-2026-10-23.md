@@ -17,7 +17,7 @@ The complete provider IDs below were captured from real AMap JSAPI 2.0
 
 | Provider label                    | Exact AMap ID | Canonical target                                | Local rehearsal result                                                   |
 | --------------------------------- | ------------- | ----------------------------------------------- | ------------------------------------------------------------------------ |
-| 大学保健医疗中心                  | `B073C0328Q`  | Building `a8bfebbd-87bf-5ac9-a089-446c4198e38d` | Direct Building card; outpatient and dental buttons in the first screen  |
+| 大学保健医疗中心                  | `B073C0328Q`  | Place `a1906459-8a4c-4433-a445-e60f6a92c795`    | Direct Outpatient Service card with booking, hours, and phone            |
 | 大学保健处-牙医                   | `B0LKXDMIQV`  | Place `0f7d7cc3-07a9-43a1-93c4-fef56f1ae299`    | Direct Dental Service card                                               |
 | 游泳池                            | `B0J2R1VCLC`  | Place `e6209a52-f7d2-4edf-820d-50630fff480c`    | Direct University Swimming Pool card                                     |
 | 李兆基楼                          | `B0LA5CTLBJ`  | Building `9c77d3f7-37d1-504f-a0b6-51f536a3ff7d` | Direct directory with 28 classrooms                                      |
@@ -26,10 +26,14 @@ The complete provider IDs below were captured from real AMap JSAPI 2.0
 | 康本国际学术园 (existing control) | `B0FFFS94ZL`  | Building `545893b6-b89b-5067-aba0-c86518aa8fa8` | Existing direct entrance preserved                                       |
 | 何草 (unresolved control)         | `B0L6ARP6GN`  | No reviewed target                              | Remains a transient reference; explicit search does not create a mapping |
 
-The health-centre label identifies the Building. It is not permanently equated
-with outpatient care. Dental Service retains its existing health-centre
-containment and unknown indoor position. No Building, Place, floor, fact, or
-canonical coordinate is created or changed by this release.
+The medical-centre label is the clinic entrance and opens Outpatient Service;
+the separate dental label opens Dental Service. This follows the requesting
+user's explicit clarification of the two destinations. UMSO publishes separate
+[medical](https://www.umso.cuhk.edu.hk/medical-service/) and
+[dental](https://www.umso.cuhk.edu.hk/dental-service/) service information.
+The existing health-centre Building remains the shared containment record;
+neither entrance requires the user to choose a service from a Building card.
+No Building, Place, floor, fact, or canonical coordinate is created or changed.
 
 The manifest records source access, SDK observation, and review dates separately.
 Its `reviewedBy` names the Codex evidence review performed for this implementation;
@@ -41,9 +45,9 @@ September provenance is preserved rather than replaced by the October observatio
 
 - Reviewed service labels open their existing Place; reviewed Building labels
   open the existing directory. All entrances use the canonical URL identity.
-- A small Building directory containing only health services shows service
-  buttons together, without a redundant unknown-floor section. Returning from
-  a service restores the Building and the chosen button's focus.
+- Medical centre → Outpatient Service; dental label → Dental Service. Both
+  immediately expose the relevant booking/contact information. Explicitly
+  browsing the Building still uses the normal directory.
 - An unmapped label offers **查找本站已有地点** as its primary action. That action
   searches the visible label through normal CUpedia search. Existing explicit
   Building suggestions remain available and **新增设施** is secondary.
@@ -64,11 +68,11 @@ An isolated local database was cloned from the existing Campus Map QA snapshot
 and migrated. Existing QA databases were not reset. The snapshot has the same
 Building UUIDs but different service UUIDs, so a disposable local manifest used:
 
-| Service                                                | Local UUID (not used by the checked-in production manifest) |
-| ------------------------------------------------------ | ----------------------------------------------------------- |
-| Dental Service                                         | `2fa4ba22-8795-4056-bf3e-b21edba243d2`                      |
-| University Swimming Pool                               | `f974594b-23b4-48e1-83c2-92c5f81b4614`                      |
-| Outpatient Service (directory control; no new mapping) | `5a550962-4d51-4765-9602-c5e64205989d`                      |
+| Service                  | Local UUID (not used by the checked-in production manifest) |
+| ------------------------ | ----------------------------------------------------------- |
+| Dental Service           | `2fa4ba22-8795-4056-bf3e-b21edba243d2`                      |
+| University Swimming Pool | `f974594b-23b4-48e1-83c2-92c5f81b4614`                      |
+| Outpatient Service       | `5a550962-4d51-4765-9602-c5e64205989d`                      |
 
 YIA was first installed as a local prerequisite through the formal registry,
 using its original September source and reason. The full September rehearsal
@@ -76,21 +80,25 @@ manifest initially refused the snapshot's unrelated Science Centre row with
 `mapping-audit-missing`; no audit record was fabricated or bypassed. A manifest
 limited to the required YIA prerequisite then succeeded.
 
-The October local manifest used version `2026-10-23.1-local-qa` and hash
-`f17a723ec24e4f02b3ffc86fd51e5f7a051a811766205a89446460e5850e3153`.
-The formal CLI and real registry/database path reported:
+The corrected local manifest uses version `2026-10-23.2-local-qa` and hash
+`3756a5b9064dbaa90302e13e750c7026f89a60f72753fae929f640a91d549df3`.
+The initial local rehearsal had six mappings, including a medical-centre
+Building target. That target was removed through a formal audited `unlink`
+after the user clarified the clinic entrance. The revised manifest uses a new
+medical provenance reference and binds that label to the existing outpatient
+Place. No production binding from the earlier version was applied.
 
-| Operation        | Changed | Verified |
-| ---------------- | ------- | -------- |
-| First apply      | 6       | 8        |
-| Repeated apply   | 0       | 8        |
-| Read-only verify | 0       | 8        |
+| Operation on corrected local manifest       | Changed | Verified |
+| ------------------------------------------- | ------- | -------- |
+| Apply (other five bindings already present) | 1       | 8        |
+| Repeated apply                              | 0       | 8        |
+| Read-only verify                            | 0       | 8        |
 
 The eight checks cover six bindings, the existing YIA binding, and the unbound
 negative control. This demonstrates local lifecycle audit, exact resolution,
 and a zero-write retry. It does not establish the current production registry
-state. The production-target manifest passed strict validation with hash
-`4be62e9744ffe447a4093c4dc3254f6144cdd6f8cee3f5ebadcf69290770ecaf`.
+state. The production-target manifest `2026-10-23.2` passed strict validation
+with hash `decfc25809308c0d6f41139dfa1fdb14a86e3b79343e577cdcf9c5aa673c0a5d`.
 
 ## Browser acceptance
 
@@ -99,12 +107,15 @@ Real AMap canvas clicks were exercised on desktop (1280 × 720) and mobile
 A temporary local camera selector made the areas reachable, and an event readout
 captured the full IDs and observation times. Both helpers were removed from the
 source before final validation; no synthetic hotspot IDs were used for these
-browser checks.
+browser checks. After correcting the clinic target, both medical labels were
+clicked again on desktop and mobile without temporary helpers; each opened its
+own service directly.
 
 Additional checks passed:
 
-- Medical centre → outpatient → return to Building, with both services visible
-  in the mobile first screen and focus restored on return.
+- Medical centre → Outpatient Service directly; dental label → Dental Service
+  directly. No transient or Building directory card is shown between the click
+  and the service details.
 - Dental hotspot, search, medical category, and refreshed canonical URL resolve
   to the same local Dental Service UUID. Phone and official-details actions remain
   available. The native operating-system share dialog was not verified; canonical
@@ -114,24 +125,26 @@ Additional checks passed:
 - The unresolved 何草 label retains a reference card and the base URL. Its lookup
   action opens a search for 何草 without starting Add or inventing an identity.
 
-The regression tests cover compact medical entrances and return, explicit lookup
-from a transient card, and provider marker feedback across reclick, sheet
-expansion, Locate, and history restoration without changing canonical geometry.
+The regression tests load the checked release manifest and verify both real
+medical provider IDs open the correct service and telephone action in one click.
+They also cover explicit lookup from a transient card and provider marker
+feedback across reclick, expansion, Locate, and history restoration without
+changing canonical geometry.
 
 ## Verification record
 
 - `pnpm install --frozen-lockfile`: passed; no dependency or lockfile change.
 - `pnpm exec drizzle-kit migrate`: passed against the isolated local clone;
   this PR adds no schema or migration.
-- Targeted runtime, AMap runtime, and hotspot tests: 187 passed before the final
-  marker-reclick/history cases. The two added feedback cases were observed
-  failing before the fix and passing afterward; the full suite includes them.
+- Targeted runtime, AMap runtime, release-runner, and hotspot tests:
+  **205 passed**. Before the correction, the new checked-manifest clinic test
+  failed by opening the Building while the dental case passed. Both now pass.
 - `pnpm lint`: passed with 0 errors and 13 warnings in unchanged files.
 - `pnpm typecheck`: passed.
-- Initial `pnpm test`: two unrelated 5-second timeouts in `eslint-config` and
-  `canteen-menu-view`; their focused rerun passed all 27 tests. Final
-  `pnpm test --maxWorkers=2`: **340 files / 3,088 tests passed**, 32 files / 429
-  tests skipped by the existing environment gates. No test timeout was relaxed.
+- Final `pnpm test`: **340 files / 3,089 tests passed**, 32 files / 429 tests
+  skipped by the existing environment gates. The earlier implementation's
+  initial run had two unrelated 5-second timeouts; focused and subsequent full
+  runs passed without relaxing a timeout.
 - Strict production-manifest validation and the local registry apply/reapply/
   verify sequence passed as recorded above. Desktop/mobile checks passed.
 - `git diff --check`: passed. Build and full Playwright suite were not run;

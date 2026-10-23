@@ -2888,14 +2888,6 @@ export function CampusMapRuntime({
       : buildingOverviewDirectory
     : null;
   const buildingFacilities = buildingDirectory?.places ?? [];
-  const compactHealthServices =
-    buildingDirectory?.status === "ready" &&
-    buildingFacilities.length <= 3 &&
-    buildingFacilities.every(
-      (place) => place.placeType === "health-service" && !place.floorId,
-    )
-      ? buildingFacilities
-      : [];
   const buildingFacilityGroups = selectedBuilding
     ? groupBuildingFacilities(selectedBuilding, buildingFacilities)
     : [];
@@ -4214,26 +4206,6 @@ export function CampusMapRuntime({
                               >
                                 重新读取
                               </button>
-                            </div>
-                          ) : compactHealthServices.length > 0 ? (
-                            <div
-                              role="group"
-                              aria-label="楼内医疗服务"
-                              className="grid grid-cols-2 gap-2"
-                            >
-                              {compactHealthServices.map((facility) => (
-                                <button
-                                  key={facility.placeId}
-                                  type="button"
-                                  data-return-result={facility.placeId}
-                                  className="min-h-12 rounded-xl border border-[#176346]/25 bg-[#edf5f1] px-3 py-2 text-sm font-semibold text-[#174b38] hover:bg-[#e4f1eb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-                                  onClick={() =>
-                                    selectFacility(facility, "building")
-                                  }
-                                >
-                                  {campusMapPlaceName(facility.name).primary}
-                                </button>
-                              ))}
                             </div>
                           ) : buildingDirectory?.status === "ready" &&
                             buildingFacilityGroups.length > 0 ? (

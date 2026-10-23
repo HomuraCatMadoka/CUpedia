@@ -1,10 +1,10 @@
 {
   "schemaVersion": "cuhk-campus-map-provider-mapping-release/2",
-  "manifestVersion": "2026-10-23.1",
+  "manifestVersion": "2026-10-23.2",
   "accessedOn": "2026-10-23",
   "approval": {
     "status": "approved",
-    "reviewedBy": "Codex exact-ID and canonical-target review for issue #929",
+    "reviewedBy": "Codex exact-ID and canonical-target review; clinic and dental entrance semantics clarified by the requesting user for issue #929",
     "reviewedOn": "2026-10-23"
   },
   "reason": "Issue #929 reviewed exact AMap Building and Place entrances; preserve canonical containment and geometry.",
@@ -16,24 +16,24 @@
         "providerObjectId": "B073C0328Q"
       },
       "target": {
-        "kind": "building",
-        "buildingId": "a8bfebbd-87bf-5ac9-a089-446c4198e38d"
+        "kind": "place",
+        "placeId": "a1906459-8a4c-4433-a445-e60f6a92c795"
       },
       "evidence": {
         "providerLabel": "大学保健医疗中心",
         "verificationMethod": "real-amap-sdk-hotspotclick",
         "observedAt": "2026-10-23T06:16:18.241Z",
-        "note": "The live label identifies the University Health Centre building, which contains separate outpatient and dental services. Keep the Building identity; do not equate the entire centre with outpatient care."
+        "note": "The requesting user clarified that this map label is the clinic entrance, separate from the dental label. Open the existing Outpatient Service directly. Official UMSO medical and dental pages establish separate service records; the health-centre Building remains their containment record, not an intermediate browse destination."
       },
       "provenance": {
-        "sourceRef": "amap:poi:B073C0328Q:hotspotclick:2026-10-23",
+        "sourceRef": "amap:poi:B073C0328Q:hotspotclick:2026-10-23:clinic-entrance-review",
         "sourceOwner": "AutoNavi",
         "sourceVersion": "AMap JavaScript API 2.0 live hotspot",
         "accessedOn": "2026-10-23",
         "observedAt": "2026-10-23T06:16:18.241Z",
         "rightsStatus": "restricted",
         "limitations": "The exact provider ID is foreign identity evidence only. The label and GCJ-02 click position do not establish canonical facts, Building containment, or service geometry.",
-        "note": "The live label identifies the University Health Centre building, which contains separate outpatient and dental services. Keep the Building identity; do not equate the entire centre with outpatient care."
+        "note": "The requesting user clarified that this map label is the clinic entrance, separate from the dental label. Open the existing Outpatient Service directly. Official UMSO medical and dental pages establish separate service records; the health-centre Building remains their containment record, not an intermediate browse destination."
       }
     },
     {
