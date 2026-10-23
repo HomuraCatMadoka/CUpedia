@@ -15,6 +15,8 @@
   --canteen-morning: #8e8e93;
   --canteen-noon: var(--canteen-accent);
   --canteen-evening: #3a3a3c;
+  /* Open/closed dot: unknown reuses --canteen-bamboo, closed --canteen-accent. */
+  --canteen-open: #1a7f43;
   --canteen-ink: var(--canteen-text);
   --canteen-muted: var(--canteen-text-secondary);
   --canteen-surface: rgba(255, 255, 255, 0.78);
@@ -267,6 +269,138 @@
     max-width: 7.5rem;
     font-size: 0.8rem;
   }
+}
+
+/* Keeps the clamped name and the status dot on one centred line. */
+.canteen-zone .canteen-icon-name-row {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+}
+
+.canteen-zone .canteen-icon-name-row .canteen-icon-label {
+  min-width: 0;
+  /* Narrower than the standalone label so the dot still fits the cell. */
+  max-width: 6.25rem;
+}
+
+@media (min-width: 640px) {
+  .canteen-zone .canteen-icon-name-row .canteen-icon-label {
+    max-width: 7rem;
+  }
+}
+
+/* Status dot: colour is a cue only; the label is exposed to assistive tech. */
+.canteen-zone .canteen-open-dot {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.canteen-zone .canteen-open-dot-mark {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  background: var(--canteen-open-dot-colour, var(--canteen-bamboo));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.canteen-zone .canteen-open-dot--open {
+  --canteen-open-dot-colour: var(--canteen-open);
+}
+
+.canteen-zone .canteen-open-dot--closed {
+  --canteen-open-dot-colour: var(--canteen-accent);
+}
+
+.canteen-zone .canteen-open-dot--unknown {
+  --canteen-open-dot-colour: var(--canteen-bamboo);
+}
+
+/* Weekly opening-hours box on the canteen detail page. */
+.canteen-zone .canteen-hours-panel {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--canteen-line);
+  border-radius: 1rem;
+  background: var(--canteen-tray);
+}
+
+.canteen-zone .canteen-hours-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.canteen-zone .canteen-hours-title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--canteen-muted);
+}
+
+.canteen-zone .canteen-hours-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--canteen-ink);
+}
+
+.canteen-zone .canteen-hours-week {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0.7rem 0 0;
+}
+
+.canteen-zone .canteen-hours-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.28rem 0.45rem;
+  border-radius: 0.5rem;
+}
+
+.canteen-zone .canteen-hours-row--today {
+  background: var(--canteen-fill);
+}
+
+.canteen-zone .canteen-hours-day {
+  flex: none;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--canteen-muted);
+}
+
+.canteen-zone .canteen-hours-row--today .canteen-hours-day {
+  color: var(--canteen-ink);
+}
+
+.canteen-zone .canteen-hours-windows {
+  margin: 0;
+  text-align: right;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--canteen-ink);
+}
+
+.canteen-zone .canteen-hours-windows--closed {
+  color: var(--canteen-bamboo);
+}
+
+.canteen-zone .canteen-hours-note {
+  margin: 0.7rem 0 0;
+  font-size: 0.78rem;
+  color: var(--canteen-muted);
 }
 
 .canteen-zone .canteen-icon-link:focus-visible {

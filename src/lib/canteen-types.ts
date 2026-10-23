@@ -20,11 +20,19 @@ import {
   parseMenuSnapshotCompleteness,
   type MenuSnapshotCompleteness,
 } from "./canteen-menu-snapshot-completeness";
+import type { CanteenOpeningHours } from "./canteen-opening-hours";
 
 export {
   MENU_SNAPSHOT_COMPLETENESS,
   type MenuSnapshotCompleteness,
 } from "./canteen-menu-snapshot-completeness";
+
+export type {
+  CanteenOpeningHours,
+  CanteenOpeningInterval,
+  CanteenOpenState,
+  CanteenOpenStatus,
+} from "./canteen-opening-hours";
 
 export {
   MEAL_PERIODS,
@@ -48,6 +56,11 @@ export type Canteen = {
   location: string | null;
   /** Optional notice under the name (takeaway fee, drink add-on, etc.). */
   announcement: string | null;
+  /**
+   * Opening hours, when known. Absent means "not recorded yet", which the UI
+   * must render as unknown rather than as closed.
+   */
+  openingHours?: CanteenOpeningHours | null;
   createdAt: Date;
   updatedAt: Date;
 };
