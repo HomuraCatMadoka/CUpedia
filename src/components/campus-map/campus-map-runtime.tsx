@@ -171,6 +171,8 @@ type Place = CampusMapBrowsePlace;
 const EMPTY_PLACE_COVERS: Record<string, CampusMapPlacePhotoView> = {};
 const CAMPUS_MAP_LIST_RETURN_STORAGE_KEY = "cupedia:campus-map:list-return:v1";
 const SEARCH_SUGGESTION_LIMIT = 8;
+const MAP_NAVIGATION_BUTTON_CLASS_NAME =
+  "pointer-events-auto grid size-12 shrink-0 place-items-center rounded-xl border border-black/5 bg-white text-[#176346] shadow-sm hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:border-white/10 dark:bg-neutral-900 dark:text-emerald-300";
 const MAP_NUDGE_OFFSETS = {
   north: [0, 0.00005],
   south: [0, -0.00005],
@@ -1726,6 +1728,10 @@ export function CampusMapRuntime({
   const browseMarkersHidden = editSession !== null;
   const locationSelectionActive = editSessionStatus === "selecting-location";
   const activeSearchQuery = state.mapFilter.query;
+  const searchResultsVisible = Boolean(
+    activeSearchQuery && state.selection.kind === "none" && !editSession,
+  );
+  const mapUnavailable = config.status === "missing" || mapLoadError;
   const searchResults = useMemo(
     () =>
       activeSearchQuery.trim()
@@ -3096,7 +3102,8 @@ export function CampusMapRuntime({
         </div>
       ) : null}
 
-      {(config.status === "missing" || mapLoadError) &&
+      {mapUnavailable &&
+      !searchResultsVisible &&
       (!editSession ||
         editSession.status === "selecting-location" ||
         editSession.status === "placing") ? (
@@ -3136,15 +3143,30 @@ export function CampusMapRuntime({
           browseChromeHidden && "invisible pointer-events-none opacity-0",
         )}
       >
-        <Link
-          href="/"
-          prefetch={false}
-          aria-label="返回 CUpedia 首页"
-          title="返回 CUpedia 首页"
-          className="pointer-events-auto grid size-12 shrink-0 place-items-center rounded-xl border border-black/5 bg-white text-[#176346] shadow-sm hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:border-white/10 dark:bg-neutral-900 dark:text-emerald-300"
-        >
-          <HomeIcon aria-hidden="true" className="size-5" />
-        </Link>
+        {searchResultsVisible ? (
+          <button
+            type="button"
+            aria-label="关闭搜索"
+            title="关闭搜索"
+            className={MAP_NAVIGATION_BUTTON_CLASS_NAME}
+            onClick={() => {
+              clearTransientHotspot();
+              closeSelection();
+            }}
+          >
+            <ArrowLeftIcon aria-hidden="true" className="size-5" />
+          </button>
+        ) : (
+          <Link
+            href="/"
+            prefetch={false}
+            aria-label="返回 CUpedia 首页"
+            title="返回 CUpedia 首页"
+            className={MAP_NAVIGATION_BUTTON_CLASS_NAME}
+          >
+            <HomeIcon aria-hidden="true" className="size-5" />
+          </Link>
+        )}
         <form
           className="pointer-events-auto min-w-0 flex-1"
           onSubmit={(event) => {
@@ -3161,23 +3183,31 @@ export function CampusMapRuntime({
             dispatch({ type: "SEARCH", query: queryDraft });
           }}
         >
-          <label className="flex h-12 items-center gap-3 rounded-xl bg-white px-4 shadow-[0_3px_14px_rgba(23,33,28,.18)] focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 dark:bg-neutral-900 dark:text-neutral-100 dark:focus-within:ring-emerald-300 dark:focus-within:ring-offset-neutral-900">
+          <div className="flex h-12 items-center gap-3 rounded-xl bg-white px-4 shadow-[0_3px_14px_rgba(23,33,28,.18)] focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2 dark:bg-neutral-900 dark:text-neutral-100 dark:focus-within:ring-emerald-300 dark:focus-within:ring-offset-neutral-900">
             <SearchIcon
               aria-hidden="true"
               className="size-5 text-neutral-500"
             />
-            <span className="sr-only">搜索建筑或地点</span>
+            <label htmlFor="campus-map-search" className="sr-only">
+              搜索建筑或地点
+            </label>
             <input
               ref={searchInputRef}
+              id="campus-map-search"
               name="campus-map-search"
               autoComplete="off"
               value={queryDraft}
               aria-describedby="campus-map-search-help"
               aria-controls={
-                activeSearchQuery && state.selection.kind === "none"
-                  ? "campus-map-search-results"
-                  : undefined
+                searchResultsVisible ? "campus-map-search-results" : undefined
               }
+              onFocus={() => {
+                if (!searchResultsVisible && queryDraft.trim()) {
+                  clearTransientHotspot();
+                  setClusterMemberSelection(null);
+                  dispatch({ type: "SEARCH", query: queryDraft });
+                }
+              }}
               onKeyDown={(event) => {
                 if (event.key !== "ArrowDown" && event.key !== "ArrowUp")
                   return;
@@ -3204,8 +3234,9 @@ export function CampusMapRuntime({
               <button
                 type="button"
                 aria-label="清除搜索"
-                className="grid size-11 place-items-center rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                className="grid size-11 shrink-0 place-items-center rounded-full hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:hover:bg-neutral-800 dark:focus-visible:ring-emerald-300"
                 onClick={() => {
+                  searchInputRef.current?.focus({ preventScroll: true });
                   setQueryDraft("");
                   setBrowseAllSearchQuery(null);
                   dispatch({ type: "SEARCH", query: "" });
@@ -3214,16 +3245,19 @@ export function CampusMapRuntime({
                 <XIcon aria-hidden="true" className="size-4" />
               </button>
             ) : null}
-          </label>
+          </div>
           <p id="campus-map-search-help" className="sr-only">
             上下方向键选择建议，Enter 打开，Escape
             关闭。精确地点优先，其次建筑；同组按名称和编号排序。
           </p>
-          {activeSearchQuery && state.selection.kind === "none" ? (
+          {searchResultsVisible ? (
             <div
               ref={listResultsRef}
               id="campus-map-search-results"
               data-campus-map-results="search"
+              data-campus-map-marker-obstacle
+              role="region"
+              aria-label="搜索结果"
               onScroll={(event) =>
                 driver.rememberResultsScroll(event.currentTarget.scrollTop)
               }
@@ -3244,8 +3278,34 @@ export function CampusMapRuntime({
                   buttons[index + (event.key === "ArrowDown" ? 1 : -1)];
                 (next ?? searchInputRef.current)?.focus();
               }}
-              className="mt-2 max-h-[calc(100dvh-76px)] overflow-y-auto overscroll-contain rounded-xl bg-white py-1 shadow-[0_8px_28px_rgba(23,33,28,.22)] dark:bg-neutral-900 dark:text-neutral-100"
+              className="absolute inset-x-3 top-[68px] max-h-[calc(100dvh-80px-env(safe-area-inset-bottom))] scroll-py-12 overflow-y-auto overscroll-contain rounded-xl bg-white pb-1 shadow-[0_8px_28px_rgba(23,33,28,.22)] dark:bg-neutral-900 dark:text-neutral-100 md:inset-x-4 md:top-[72px] md:max-h-[calc(100dvh-88px)]"
             >
+              <div className="sticky top-0 z-10 flex min-h-11 items-center justify-between gap-3 border-b border-black/8 bg-white px-4 dark:border-white/10 dark:bg-neutral-900">
+                <span className="text-sm font-semibold">搜索结果</span>
+                <span
+                  role="status"
+                  aria-label="搜索结果数量"
+                  aria-live="polite"
+                  aria-atomic="true"
+                  className="text-xs tabular-nums text-neutral-500 dark:text-neutral-400"
+                >
+                  {searchResults.length} 个匹配
+                </span>
+              </div>
+              {mapUnavailable ? (
+                <div className="flex flex-wrap items-center gap-x-2 border-b border-black/8 bg-neutral-50 px-4 py-2 text-xs leading-5 text-neutral-600 dark:border-white/10 dark:bg-neutral-800 dark:text-neutral-300">
+                  <p role="status">底图暂不可用，仍可查看搜索结果。</p>
+                  {mapLoadError ? (
+                    <button
+                      type="button"
+                      className="min-h-11 rounded-lg px-2 font-medium text-[#176346] hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:text-emerald-300 dark:hover:bg-neutral-700"
+                      onClick={retryMapLoad}
+                    >
+                      重新加载地图
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
               {searchResults.length ? (
                 visibleSearchResults.map((result, index) => {
                   const id = result.resultId;
@@ -3307,20 +3367,20 @@ export function CampusMapRuntime({
                         <ResultIcon aria-hidden="true" className="size-4" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <strong className="flex min-w-0 items-center gap-1.5 text-sm">
-                          <span className="truncate">
+                        <strong className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-sm leading-5">
+                          <span className="break-words [overflow-wrap:anywhere]">
                             {result.kind === "building"
                               ? result.building.name
                               : result.place.name}
                           </span>
                           {visibleBuildingQualifier ? (
-                            <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-600">
+                            <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
                               {visibleBuildingQualifier}
                             </span>
                           ) : null}
                         </strong>
                         {subtitle ? (
-                          <span className="block truncate text-xs text-neutral-500 dark:text-neutral-400">
+                          <span className="mt-0.5 block break-words text-xs leading-5 text-neutral-500 dark:text-neutral-400 [overflow-wrap:anywhere]">
                             {subtitle}
                           </span>
                         ) : null}
@@ -3354,7 +3414,7 @@ export function CampusMapRuntime({
                 })
               ) : (
                 <div className="px-4 py-4 text-sm text-neutral-600 dark:text-neutral-300">
-                  <p>{`没有找到“${activeSearchQuery}”`}</p>
+                  <p className="break-words [overflow-wrap:anywhere]">{`没有找到“${activeSearchQuery}”`}</p>
                   <p className="mt-1 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
                     试试缩短名称、切换中英文，或输入建筑代码。
                   </p>
@@ -3371,7 +3431,7 @@ export function CampusMapRuntime({
                     </button>
                     <button
                       type="button"
-                      className="min-h-11 rounded-xl border border-black/15 px-3 font-semibold text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+                      className="min-h-11 rounded-xl border border-black/15 px-3 font-semibold text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] dark:border-white/20 dark:text-neutral-100"
                       onClick={startGlobalFacilityAdd}
                     >
                       补充地点
@@ -3411,6 +3471,7 @@ export function CampusMapRuntime({
 
       <div
         data-campus-map-marker-obstacle
+        hidden={searchResultsVisible}
         aria-hidden={editSession ? true : undefined}
         inert={editSession ? true : undefined}
         className={cn(
@@ -3444,6 +3505,7 @@ export function CampusMapRuntime({
         inert={editSession ? true : undefined}
         className={cn(
           "absolute top-[124px] right-3 z-20 flex flex-col items-end gap-2 md:top-4 md:right-4",
+          searchResultsVisible && "hidden md:flex",
           editSession && "invisible pointer-events-none opacity-0",
         )}
       >

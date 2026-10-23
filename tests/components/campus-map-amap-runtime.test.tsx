@@ -1062,6 +1062,32 @@ describe("Campus Map AMap runtime effects", () => {
     expect(screen.queryByRole("heading", { name: "尚未收录地点" })).toBeNull();
   });
 
+  it("closes search even when an unmapped hotspot is open (#926)", async () => {
+    const { map } = await renderWithRuntime();
+    const search = screen.getByRole("textbox", { name: "搜索建筑或地点" });
+    fireEvent.change(search, { target: { value: "科学馆" } });
+    fireEvent.click(await screen.findByRole("button", { name: /科学馆/u }));
+    await screen.findByRole("heading", { name: "科学馆" });
+
+    await act(async () => {
+      map.emit("hotspotclick", {
+        id: "unreviewed-poi",
+        name: "尚未收录地点",
+        lnglat: { lng: 114.20801, lat: 22.41966 },
+      });
+    });
+    await screen.findByRole("heading", { name: "尚未收录地点" });
+    expect(screen.getByRole("region", { name: "搜索结果" })).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭搜索" }));
+
+    await waitFor(() => expect((search as HTMLInputElement).value).toBe(""));
+    expect(screen.queryByRole("region", { name: "搜索结果" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "尚未收录地点" })).toBeNull();
+    expect(screen.getByRole("navigation", { name: "设施筛选" })).not.toBeNull();
+    expect(window.location.search).toBe("?v=1");
+  });
+
   it("opens a canonical Building card from an exactly mapped hotspot", async () => {
     const push = vi.spyOn(window.history, "pushState");
     const { runtime } = await renderWithRuntime();
@@ -1711,6 +1737,7 @@ describe("Campus Map AMap runtime effects", () => {
       target: { value: "科学馆" },
     });
     expect(getCurrentPosition).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "关闭搜索" }));
     fireEvent.click(screen.getByRole("button", { name: "饮水点" }));
     expect(getCurrentPosition).not.toHaveBeenCalled();
 

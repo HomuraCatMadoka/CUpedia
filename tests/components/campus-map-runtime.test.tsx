@@ -875,6 +875,83 @@ describe("CampusMapRuntime", () => {
     expect(search.className).not.toContain("md:text-sm");
   });
 
+  it("keeps a stable search label and returns focus after clearing (#926)", async () => {
+    render(<CampusMapRuntime />);
+    const search = screen.getByRole("textbox", { name: "搜索建筑或地点" });
+    fireEvent.change(search, { target: { value: "科学馆" } });
+    expect(screen.getByRole("textbox", { name: "搜索建筑或地点" })).toBe(
+      search,
+    );
+    const clear = screen.getByRole("button", { name: "清除搜索" });
+    clear.focus();
+    fireEvent.click(clear);
+    await waitFor(() => expect(document.activeElement).toBe(search));
+    expect((search as HTMLInputElement).value).toBe("");
+    expect(
+      document.querySelector("[data-campus-map-results=search]"),
+    ).toBeNull();
+  });
+
+  it("reopens the same query when focusing search from a Building card (#926)", async () => {
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={createCampusMapSearchDirectoryFixture()}
+      />,
+    );
+    const search = screen.getByPlaceholderText("搜索建筑或地点…");
+    fireEvent.change(search, { target: { value: "YIA" } });
+    fireEvent.click(
+      await screen.findByRole("button", { name: /康本国际学术园.*Yasumoto/ }),
+    );
+    await screen.findByRole("heading", { name: "康本国际学术园" });
+    expect(
+      document.querySelector("[data-campus-map-results=search]"),
+    ).toBeNull();
+    fireEvent.focus(search);
+    expect(
+      await screen.findByRole("button", { name: /康本国际学术园.*Yasumoto/ }),
+    ).not.toBeNull();
+    expect(window.location.search).toContain("scene=search");
+    expect((search as HTMLInputElement).value).toBe("YIA");
+  });
+
+  it("keeps map failure and retry inside searchable results (#926)", async () => {
+    render(<CampusMapRuntime />);
+    const script = await waitFor(() => {
+      const script = document.querySelector<HTMLScriptElement>(
+        "script[data-amap-campus]",
+      );
+      expect(script).not.toBeNull();
+      return script!;
+    });
+    fireEvent.error(script);
+    await screen.findByRole("heading", { name: "地图暂时不可用" });
+    fireEvent.change(screen.getByPlaceholderText("搜索建筑或地点…"), {
+      target: { value: "科学馆" },
+    });
+    const results = document.querySelector<HTMLElement>(
+      "[data-campus-map-results=search]",
+    )!;
+    expect(
+      within(results).getByText("底图暂不可用，仍可查看搜索结果。"),
+    ).not.toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "地图暂时不可用" }),
+    ).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "设施筛选" })).toBeNull();
+    fireEvent.click(
+      within(results).getByRole("button", { name: "重新加载地图" }),
+    );
+    await waitFor(() =>
+      expect(document.querySelector("script[data-amap-campus]")).not.toBe(
+        script,
+      ),
+    );
+    expect(
+      within(results).getByRole("button", { name: /科学馆/ }),
+    ).not.toBeNull();
+  });
+
   it("uses plain language when search has no results", async () => {
     render(<CampusMapRuntime />);
 
@@ -1411,7 +1488,7 @@ describe("CampusMapRuntime", () => {
     await waitFor(() =>
       expect(window.location.search).toContain("scene=search"),
     );
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(publishStatus.isConnected).toBe(false);
     expect(
       document.querySelector('[aria-live="polite"]')?.textContent,
     ).not.toContain("正在发布地点资料");
