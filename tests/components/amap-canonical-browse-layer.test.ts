@@ -532,6 +532,55 @@ describe("AmapCanonicalBrowseLayer", () => {
     runtime.layer.destroy();
   });
 
+  it("excludes mapped services from a shared building marker without hiding unmapped neighbours", () => {
+    const projection = healthBuildingProjection(2);
+    const [outpatient, dental] = projection.places;
+    const runtime = renderClusterProjection(projection);
+    const nativePlaceIds = new Set([outpatient!.placeId]);
+
+    runtime.layer.render({ ...runtime.input, nativePlaceIds });
+    const remaining = TestMarkerCluster.instances.at(-1)!;
+    expect(remaining.singleMarkers[0]!.content).toContain("有 1 个医疗服务");
+    remaining.singleMarkers[0]!.emitClickWithoutPointerGesture();
+    expect(runtime.intents).toEqual([
+      { type: "OPEN_PLACE", placeId: dental!.placeId },
+    ]);
+
+    runtime.layer.render({
+      ...runtime.input,
+      nativePlaceIds,
+      mode: { ...runtime.input.mode, selectedPlaceId: outpatient!.placeId },
+    });
+    expect(runtime.map.overlays).toHaveLength(0);
+
+    const detach = vi.spyOn(remaining, "setMap");
+    runtime.layer.render({
+      ...runtime.input,
+      nativePlaceIds: new Set(projection.places.map((place) => place.placeId)),
+    });
+    expect(detach).toHaveBeenCalledWith(null);
+    expect(runtime.map.overlays).toHaveLength(0);
+    runtime.layer.destroy();
+  });
+
+  it("removes a selected standalone marker when a native mapping is available and restores it without a mapping", () => {
+    const runtime = renderClusterProjection(placeProjection);
+    const selected = {
+      ...runtime.input,
+      mode: { ...runtime.input.mode, selectedPlaceId: placeId },
+    };
+    runtime.layer.render(selected);
+    expect(runtime.map.overlays).toHaveLength(1);
+
+    runtime.layer.render({ ...selected, nativePlaceIds: new Set([placeId]) });
+    expect(runtime.map.overlays).toHaveLength(0);
+
+    runtime.layer.render(selected);
+    expect(runtime.map.overlays).toHaveLength(1);
+    expect(runtime.map.overlays[0]!.content).toContain("打印站");
+    runtime.layer.destroy();
+  });
+
   it("keeps category styling while counting distinct cluster positions", () => {
     const projection = healthBuildingProjection(2);
     const otherId = projection.buildings[1]!.buildingId;

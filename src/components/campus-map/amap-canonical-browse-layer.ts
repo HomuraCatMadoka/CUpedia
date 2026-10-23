@@ -120,10 +120,7 @@ export interface AmapCanonicalBrowseRenderInput {
   projection: CampusMapBrowseProjection;
   providerPositions: Readonly<Record<string, CampusMapAmapPosition>>;
   mode: CampusMapCanonicalBrowseMode;
-  selectedPlaceReference?: {
-    placeId: string;
-    position: CampusMapAmapPosition;
-  } | null;
+  nativePlaceIds?: ReadonlySet<string>;
 }
 
 type MarkerIdentity = {
@@ -134,7 +131,6 @@ type MarkerIdentity = {
 type MarkerTarget = MarkerIdentity & {
   position: CampusMapAmapPosition;
   visiblePlaceIds: readonly string[];
-  providerReference?: boolean;
 };
 
 type CanonicalPositionGroup = {
@@ -350,17 +346,13 @@ function targetContent(
         (candidate) => candidate.placeId === selectedPlaceId,
       )
     : null;
-  const precisionLabel = target.providerReference
-    ? "高德标签位置 · 非实测服务位置"
-    : view.precisionLabel;
   return placeTypeMarkerContent({
     ...view,
-    precisionLabel,
     selected,
     ...(selected && place
       ? {
           name: place.name,
-          markerLabel: `已选 ${place.name}，${view.buildingName}，${precisionLabel}`,
+          markerLabel: `已选 ${place.name}，${view.buildingName}，${view.precisionLabel}`,
         }
       : {}),
     selectedLabelPlacement,
@@ -430,12 +422,19 @@ export class AmapCanonicalBrowseLayer<
     const visibleTargets = markerTargets({
       projection: input.projection,
       providerPositions: input.providerPositions,
-      mode,
+      mode: {
+        ...mode,
+        // Exact provider mappings reuse the basemap entrance in every scene,
+        // including search, categories, selection, and restored URLs.
+        placeIds: mode.placeIds.filter(
+          (placeId) => !input.nativePlaceIds?.has(placeId),
+        ),
+      },
     });
     const selectedTarget = visibleTargets.find((target) =>
       isTargetSelected(target, mode.selectedPlaceId),
     );
-    // A selected Place stays visible even while its neighbours are clustered.
+    // An unmapped selected Place stays visible while neighbours are clustered.
     const targets = visibleTargets.filter(
       (target) => target !== selectedTarget,
     );
@@ -468,15 +467,8 @@ export class AmapCanonicalBrowseLayer<
 
     try {
       this.projection = input.projection;
-      const reference = input.selectedPlaceReference;
       this.syncSelectedMarker(
-        selectedTarget && reference?.placeId === mode.selectedPlaceId
-          ? {
-              ...selectedTarget,
-              position: reference.position,
-              providerReference: true,
-            }
-          : selectedTarget,
+        selectedTarget,
         input.projection,
         buildingDisplay,
       );

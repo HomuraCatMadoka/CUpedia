@@ -2018,9 +2018,14 @@ describe("Campus Map AMap runtime effects", () => {
     expect(document.body.textContent).not.toContain("定位精度约");
   });
 
-  it.each(["locate", "history"])(
-    "keeps a mapped Place highlight local to its click until %s restores canonical geometry",
-    async (nextAction) => {
+  it.each([
+    ["map", "locate"],
+    ["map", "history"],
+    ["canonical", "locate"],
+    ["canonical", "history"],
+  ])(
+    "reuses a mapped Place's native icon from %s and after %s",
+    async (entry, nextAction) => {
       const projection = createCampusMapBrowseFixture();
       const place = projection.places.find(
         (p) => p.buildingId === "science-centre",
@@ -2028,6 +2033,10 @@ describe("Campus Map AMap runtime effects", () => {
       const original = JSON.stringify(projection);
       const { runtime, map } = await renderWithRuntime({
         projection,
+        initialSearch:
+          entry === "canonical"
+            ? `?v=1&scene=place&id=${place.placeId}&snap=peek`
+            : undefined,
         hotspotMappings: [
           {
             providerObjectId: "reviewed-service",
@@ -2035,27 +2044,31 @@ describe("Campus Map AMap runtime effects", () => {
           },
         ],
       });
-      await act(async () =>
+      await runtime.flushAnimationFrames();
+      expect(runtime.markers).toHaveLength(0);
+      const clickNativeIcon = () =>
         map.emit("hotspotclick", {
           id: "reviewed-service",
           name: "Provider service name",
           lnglat: { lng: 114.2099, lat: 22.4201 },
-        }),
-      );
+        });
+      await act(async () => clickNativeIcon());
       await runtime.flushAnimationFrames();
       expect(window.location.search).toContain(
         `scene=place&id=${place.placeId}`,
       );
       expect(screen.queryByText("高德地图地点")).toBeNull();
-      const marker = runtime.markers.findLast((m) => m.zIndex === 240);
-      expect(marker?.getPosition()).toEqual({ lng: 114.2099, lat: 22.4201 });
-      expect(marker?.content).toContain("高德标签位置");
-      expect(marker?.content).toContain(place.name);
+      expect(screen.getByRole("heading", { name: place.name })).toBeTruthy();
+      expect(runtime.markers).toHaveLength(0);
       expect(JSON.stringify(projection)).toBe(original);
 
-      // Reopening the visible selected marker and expanding its card must not
-      // move the feedback to another point on the same building.
-      await act(async () => marker!.emit("click"));
+      // Resizing, expanding the card, and reclicking the same native icon
+      // must not bring the duplicate selected marker back.
+      runtime.mapRect.right = 390;
+      runtime.panelRect.right = 390;
+      runtime.panelRect.top = 460;
+      await runtime.triggerResize();
+      await act(async () => clickNativeIcon());
       fireEvent.click(
         screen.getByRole("button", {
           name: "拖动或点击展开卡片",
@@ -2063,9 +2076,7 @@ describe("Campus Map AMap runtime effects", () => {
         }),
       );
       await runtime.flushAnimationFrames();
-      expect(
-        runtime.markers.findLast((m) => m.zIndex === 240)?.getPosition(),
-      ).toEqual({ lng: 114.2099, lat: 22.4201 });
+      expect(runtime.markers).toHaveLength(0);
 
       if (nextAction === "locate") {
         fireEvent.click(screen.getByRole("button", { name: "定位所属建筑" }));
@@ -2078,7 +2089,7 @@ describe("Campus Map AMap runtime effects", () => {
           );
           window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
         });
-        // A later expansion must not revive the old provider click reference.
+        // Restoring a URL must also reuse the existing native entrance.
         fireEvent.click(
           screen.getByRole("button", {
             name: "拖动或点击展开卡片",
@@ -2087,12 +2098,10 @@ describe("Campus Map AMap runtime effects", () => {
         );
       }
       await runtime.flushAnimationFrames();
-      const located = runtime.markers.findLast((m) => m.zIndex === 240);
-      expect(located?.content).toContain("非室内精确位置");
-      expect(located?.getPosition()).not.toEqual({
-        lng: 114.2099,
-        lat: 22.4201,
-      });
+      expect(runtime.markers).toHaveLength(0);
+      expect(JSON.stringify(projection)).toBe(original);
+      expect(window.location.search).not.toContain("reviewed-service");
+      expect(window.location.search).not.toContain("114.2099");
     },
   );
 
