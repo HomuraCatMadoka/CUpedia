@@ -51,7 +51,11 @@ for (const viewport of [
       name: "崇基学院行政楼 Chung Chi College Administration Building",
       exact: true,
     });
-    // Neither the row nor its full English name may be clipped horizontally.
+    const englishName = longName.getByText(
+      "Chung Chi College Administration Building",
+      { exact: true },
+    );
+    // Neither the row nor its full English name may be clipped in either axis.
     await expect(longName).toBeVisible();
     expect(
       await longName.evaluate(
@@ -59,9 +63,19 @@ for (const viewport of [
       ),
     ).toBe(true);
     expect(
-      await longName
-        .getByText("Chung Chi College Administration Building", { exact: true })
-        .evaluate((text) => text.scrollWidth <= text.clientWidth),
+      await englishName.evaluate(
+        (text) => text.scrollWidth <= text.clientWidth,
+      ),
+    ).toBe(true);
+    expect(
+      await longName.evaluate(
+        (button) => button.scrollHeight <= button.clientHeight,
+      ),
+    ).toBe(true);
+    expect(
+      await englishName.evaluate(
+        (text) => text.scrollHeight <= text.clientHeight,
+      ),
     ).toBe(true);
 
     await longName.click();
