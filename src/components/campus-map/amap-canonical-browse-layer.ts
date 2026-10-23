@@ -120,6 +120,10 @@ export interface AmapCanonicalBrowseRenderInput {
   projection: CampusMapBrowseProjection;
   providerPositions: Readonly<Record<string, CampusMapAmapPosition>>;
   mode: CampusMapCanonicalBrowseMode;
+  selectedPlaceReference?: {
+    placeId: string;
+    position: CampusMapAmapPosition;
+  } | null;
 }
 
 type MarkerIdentity = {
@@ -130,6 +134,7 @@ type MarkerIdentity = {
 type MarkerTarget = MarkerIdentity & {
   position: CampusMapAmapPosition;
   visiblePlaceIds: readonly string[];
+  providerReference?: boolean;
 };
 
 type CanonicalPositionGroup = {
@@ -345,13 +350,17 @@ function targetContent(
         (candidate) => candidate.placeId === selectedPlaceId,
       )
     : null;
+  const precisionLabel = target.providerReference
+    ? "高德标签位置 · 非实测服务位置"
+    : view.precisionLabel;
   return placeTypeMarkerContent({
     ...view,
+    precisionLabel,
     selected,
     ...(selected && place
       ? {
           name: place.name,
-          markerLabel: `已选 ${place.name}，${view.buildingName}，${view.precisionLabel}`,
+          markerLabel: `已选 ${place.name}，${view.buildingName}，${precisionLabel}`,
         }
       : {}),
     selectedLabelPlacement,
@@ -459,8 +468,15 @@ export class AmapCanonicalBrowseLayer<
 
     try {
       this.projection = input.projection;
+      const reference = input.selectedPlaceReference;
       this.syncSelectedMarker(
-        selectedTarget,
+        selectedTarget && reference?.placeId === mode.selectedPlaceId
+          ? {
+              ...selectedTarget,
+              position: reference.position,
+              providerReference: true,
+            }
+          : selectedTarget,
         input.projection,
         buildingDisplay,
       );

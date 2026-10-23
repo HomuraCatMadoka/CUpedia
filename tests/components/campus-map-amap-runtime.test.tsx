@@ -2018,6 +2018,108 @@ describe("Campus Map AMap runtime effects", () => {
     expect(document.body.textContent).not.toContain("定位精度约");
   });
 
+  it.each(["locate", "history"])(
+    "keeps a mapped Place highlight local to its click until %s restores canonical geometry",
+    async (nextAction) => {
+      const projection = createCampusMapBrowseFixture();
+      const place = projection.places.find(
+        (p) => p.buildingId === "science-centre",
+      )!;
+      const original = JSON.stringify(projection);
+      const { runtime, map } = await renderWithRuntime({
+        projection,
+        hotspotMappings: [
+          {
+            providerObjectId: "reviewed-service",
+            target: { kind: "place", placeId: place.placeId },
+          },
+        ],
+      });
+      await act(async () =>
+        map.emit("hotspotclick", {
+          id: "reviewed-service",
+          name: "Provider service name",
+          lnglat: { lng: 114.2099, lat: 22.4201 },
+        }),
+      );
+      await runtime.flushAnimationFrames();
+      expect(window.location.search).toContain(
+        `scene=place&id=${place.placeId}`,
+      );
+      expect(screen.queryByText("高德地图地点")).toBeNull();
+      const marker = runtime.markers.findLast((m) => m.zIndex === 240);
+      expect(marker?.getPosition()).toEqual({ lng: 114.2099, lat: 22.4201 });
+      expect(marker?.content).toContain("高德标签位置");
+      expect(marker?.content).toContain(place.name);
+      expect(JSON.stringify(projection)).toBe(original);
+
+      // Reopening the visible selected marker and expanding its card must not
+      // move the feedback to another point on the same building.
+      await act(async () => marker!.emit("click"));
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "拖动或点击展开卡片",
+          hidden: true,
+        }),
+      );
+      await runtime.flushAnimationFrames();
+      expect(
+        runtime.markers.findLast((m) => m.zIndex === 240)?.getPosition(),
+      ).toEqual({ lng: 114.2099, lat: 22.4201 });
+
+      if (nextAction === "locate") {
+        fireEvent.click(screen.getByRole("button", { name: "定位所属建筑" }));
+      } else {
+        await act(async () => {
+          window.history.replaceState(
+            null,
+            "",
+            `?v=1&scene=place&id=${place.placeId}&snap=peek`,
+          );
+          window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
+        });
+        // A later expansion must not revive the old provider click reference.
+        fireEvent.click(
+          screen.getByRole("button", {
+            name: "拖动或点击展开卡片",
+            hidden: true,
+          }),
+        );
+      }
+      await runtime.flushAnimationFrames();
+      const located = runtime.markers.findLast((m) => m.zIndex === 240);
+      expect(located?.content).toContain("非室内精确位置");
+      expect(located?.getPosition()).not.toEqual({
+        lng: 114.2099,
+        lat: 22.4201,
+      });
+    },
+  );
+
+  it("lets an unlinked hotspot search existing places without creating an identity", async () => {
+    const { runtime, map } = await renderWithRuntime();
+    await act(async () =>
+      map.emit("hotspotclick", {
+        id: "unreviewed-water",
+        name: "饮水",
+        lnglat: { lng: 114.2084, lat: 22.4198 },
+      }),
+    );
+    expect(window.location.search).toBe("?v=1");
+    const card = screen.getByRole("region", { name: "饮水" });
+    fireEvent.click(
+      within(card).getByRole("button", { name: "查找本站已有地点" }),
+    );
+    await runtime.flushAnimationFrames();
+    expect(screen.queryByText("高德地图地点")).toBeNull();
+    const search = screen.getByRole("textbox", { name: "搜索建筑或地点" });
+    expect((search as HTMLInputElement).value).toBe("饮水");
+    expect(document.activeElement).toBe(search);
+    expect(screen.getByRole("region", { name: "搜索结果" })).toBeTruthy();
+    expect(window.location.search).not.toContain("unreviewed-water");
+    expect(screen.queryByRole("heading", { name: "新增设施" })).toBeNull();
+  });
+
   it("lets the user open a same-name building from an unmapped hotspot", async () => {
     const { map } = await renderWithRuntime();
     await act(async () =>

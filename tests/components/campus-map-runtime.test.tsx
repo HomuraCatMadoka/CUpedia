@@ -1083,6 +1083,36 @@ describe("CampusMapRuntime", () => {
     expect(document.body.textContent).not.toContain("营业中");
   });
 
+  it("shows both health-service entrances in the compact Building card and returns to that Building", async () => {
+    render(
+      <CampusMapRuntime
+        initialBrowseProjection={representativeV2Projection()}
+        initialSearch="?v=1&scene=building&id=a8bfebbd-87bf-5ac9-a089-446c4198e38d&snap=peek"
+      />,
+    );
+    const entrances = await screen.findByRole("group", {
+      name: "楼内医疗服务",
+    });
+    expect(
+      within(entrances).getByRole("button", {
+        name: "门诊（Outpatient Service）",
+      }),
+    ).toBeTruthy();
+    fireEvent.click(
+      within(entrances).getByRole("button", { name: "牙科（Dental Service）" }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "牙科（Dental Service）" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "返回建筑" }));
+    expect(
+      await screen.findByRole("group", { name: "楼内医疗服务" }),
+    ).toBeTruthy();
+    expect(window.location.search).toContain(
+      "scene=building&id=a8bfebbd-87bf-5ac9-a089-446c4198e38d",
+    );
+  });
+
   it("lists co-located health services separately and opens booking directly", async () => {
     render(
       <CampusMapRuntime

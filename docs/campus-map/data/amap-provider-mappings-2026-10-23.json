@@ -1,0 +1,220 @@
+{
+  "schemaVersion": "cuhk-campus-map-provider-mapping-release/2",
+  "manifestVersion": "2026-10-23.1",
+  "accessedOn": "2026-10-23",
+  "approval": {
+    "status": "approved",
+    "reviewedBy": "Codex exact-ID and canonical-target review for issue #929",
+    "reviewedOn": "2026-10-23"
+  },
+  "reason": "Issue #929 reviewed exact AMap Building and Place entrances; preserve canonical containment and geometry.",
+  "mappings": [
+    {
+      "label": "大学保健医疗中心",
+      "identity": {
+        "provider": "amap",
+        "providerObjectId": "B073C0328Q"
+      },
+      "target": {
+        "kind": "building",
+        "buildingId": "a8bfebbd-87bf-5ac9-a089-446c4198e38d"
+      },
+      "evidence": {
+        "providerLabel": "大学保健医疗中心",
+        "verificationMethod": "real-amap-sdk-hotspotclick",
+        "observedAt": "2026-10-23T06:16:18.241Z",
+        "note": "The live label identifies the University Health Centre building, which contains separate outpatient and dental services. Keep the Building identity; do not equate the entire centre with outpatient care."
+      },
+      "provenance": {
+        "sourceRef": "amap:poi:B073C0328Q:hotspotclick:2026-10-23",
+        "sourceOwner": "AutoNavi",
+        "sourceVersion": "AMap JavaScript API 2.0 live hotspot",
+        "accessedOn": "2026-10-23",
+        "observedAt": "2026-10-23T06:16:18.241Z",
+        "rightsStatus": "restricted",
+        "limitations": "The exact provider ID is foreign identity evidence only. The label and GCJ-02 click position do not establish canonical facts, Building containment, or service geometry.",
+        "note": "The live label identifies the University Health Centre building, which contains separate outpatient and dental services. Keep the Building identity; do not equate the entire centre with outpatient care."
+      }
+    },
+    {
+      "label": "大学保健处-牙医",
+      "identity": {
+        "provider": "amap",
+        "providerObjectId": "B0LKXDMIQV"
+      },
+      "target": {
+        "kind": "place",
+        "placeId": "0f7d7cc3-07a9-43a1-93c4-fef56f1ae299"
+      },
+      "evidence": {
+        "providerLabel": "大学保健处-牙医",
+        "verificationMethod": "real-amap-sdk-hotspotclick",
+        "observedAt": "2026-10-23T06:16:43.974Z",
+        "note": "The live dental label identifies the existing Dental Service. Its official service details and production Place link were checked in issue #929. Building containment and unknown indoor position are unchanged."
+      },
+      "provenance": {
+        "sourceRef": "amap:poi:B0LKXDMIQV:hotspotclick:2026-10-23",
+        "sourceOwner": "AutoNavi",
+        "sourceVersion": "AMap JavaScript API 2.0 live hotspot",
+        "accessedOn": "2026-10-23",
+        "observedAt": "2026-10-23T06:16:43.974Z",
+        "rightsStatus": "restricted",
+        "limitations": "The exact provider ID is foreign identity evidence only. The label and GCJ-02 click position do not establish canonical facts, Building containment, or service geometry.",
+        "note": "The live dental label identifies the existing Dental Service. Its official service details and production Place link were checked in issue #929. Building containment and unknown indoor position are unchanged."
+      }
+    },
+    {
+      "label": "游泳池",
+      "identity": {
+        "provider": "amap",
+        "providerObjectId": "B0J2R1VCLC"
+      },
+      "target": {
+        "kind": "place",
+        "placeId": "e6209a52-f7d2-4edf-820d-50630fff480c"
+      },
+      "evidence": {
+        "providerLabel": "游泳池",
+        "verificationMethod": "real-amap-sdk-hotspotclick",
+        "observedAt": "2026-10-23T06:17:02.459Z",
+        "note": "The live swimming-pool label identifies the existing University Swimming Pool. Its production Place link and official facility import were checked in issue #929. The canonical approximate outdoor point remains unchanged."
+      },
+      "provenance": {
+        "sourceRef": "amap:poi:B0J2R1VCLC:hotspotclick:2026-10-23",
+        "sourceOwner": "AutoNavi",
+        "sourceVersion": "AMap JavaScript API 2.0 live hotspot",
+        "accessedOn": "2026-10-23",
+        "observedAt": "2026-10-23T06:17:02.459Z",
+        "rightsStatus": "restricted",
+        "limitations": "The exact provider ID is foreign identity evidence only. The label and GCJ-02 click position do not establish canonical facts, Building containment, or service geometry.",
+        "note": "The live swimming-pool label identifies the existing University Swimming Pool. Its production Place link and official facility import were checked in issue #929. The canonical approximate outdoor point remains unchanged."
+      }
+    },
+    {
+      "label": "李兆基楼",
+      "identity": {
+        "provider": "amap",
+        "providerObjectId": "B0LA5CTLBJ"
+      },
+      "target": {
+        "kind": "building",
+        "buildingId": "9c77d3f7-37d1-504f-a0b6-51f536a3ff7d"
+      },
+      "evidence": {
+        "providerLabel": "李兆基楼",
+        "verificationMethod": "real-amap-sdk-hotspotclick",
+        "observedAt": "2026-10-23T06:17:18.164Z",
+        "note": "The live label identifies Lee Shau Kee Building, whose existing directory contains 28 classrooms. It does not identify any one room."
+      },
+      "provenance": {
+        "sourceRef": "amap:poi:B0LA5CTLBJ:hotspotclick:2026-10-23",
+        "sourceOwner": "AutoNavi",
+        "sourceVersion": "AMap JavaScript API 2.0 live hotspot",
+        "accessedOn": "2026-10-23",
+        "observedAt": "2026-10-23T06:17:18.164Z",
+        "rightsStatus": "restricted",
+        "limitations": "The exact provider ID is foreign identity evidence only. The label and GCJ-02 click position do not establish canonical facts, Building containment, or service geometry.",
+        "note": "The live label identifies Lee Shau Kee Building, whose existing directory contains 28 classrooms. It does not identify any one room."
+      }
+    },
+    {
+      "label": "蒙民伟工程学大楼",
+      "identity": {
+        "provider": "amap",
+        "providerObjectId": "B0HUNZACGR"
+      },
+      "target": {
+        "kind": "building",
+        "buildingId": "c2ddb931-ae2e-5804-a949-9d9a4432b139"
+      },
+      "evidence": {
+        "providerLabel": "蒙民伟工程学大楼",
+        "verificationMethod": "real-amap-sdk-hotspotclick",
+        "observedAt": "2026-10-23T06:17:36.835Z",
+        "note": "The live label identifies Mong Man Wai Engineering Building, whose existing directory contains 14 classrooms. It is distinct from similarly named campus buildings."
+      },
+      "provenance": {
+        "sourceRef": "amap:poi:B0HUNZACGR:hotspotclick:2026-10-23",
+        "sourceOwner": "AutoNavi",
+        "sourceVersion": "AMap JavaScript API 2.0 live hotspot",
+        "accessedOn": "2026-10-23",
+        "observedAt": "2026-10-23T06:17:36.835Z",
+        "rightsStatus": "restricted",
+        "limitations": "The exact provider ID is foreign identity evidence only. The label and GCJ-02 click position do not establish canonical facts, Building containment, or service geometry.",
+        "note": "The live label identifies Mong Man Wai Engineering Building, whose existing directory contains 14 classrooms. It is distinct from similarly named campus buildings."
+      }
+    },
+    {
+      "label": "庞万伦学生中心",
+      "identity": {
+        "provider": "amap",
+        "providerObjectId": "B0FFFSBNZR"
+      },
+      "target": {
+        "kind": "building",
+        "buildingId": "c25657cd-8d47-5e20-bdd5-8da984f77775"
+      },
+      "evidence": {
+        "providerLabel": "庞万伦学生中心",
+        "verificationMethod": "real-amap-sdk-hotspotclick",
+        "observedAt": "2026-10-23T06:18:02.515Z",
+        "note": "The live label identifies Pommerenke Student Centre, whose existing directory contains 13 common spaces. It does not identify any one room."
+      },
+      "provenance": {
+        "sourceRef": "amap:poi:B0FFFSBNZR:hotspotclick:2026-10-23",
+        "sourceOwner": "AutoNavi",
+        "sourceVersion": "AMap JavaScript API 2.0 live hotspot",
+        "accessedOn": "2026-10-23",
+        "observedAt": "2026-10-23T06:18:02.515Z",
+        "rightsStatus": "restricted",
+        "limitations": "The exact provider ID is foreign identity evidence only. The label and GCJ-02 click position do not establish canonical facts, Building containment, or service geometry.",
+        "note": "The live label identifies Pommerenke Student Centre, whose existing directory contains 13 common spaces. It does not identify any one room."
+      }
+    }
+  ],
+  "verifyExisting": [
+    {
+      "label": "康本国际学术园 / Yasumoto International Academic Park",
+      "identity": {
+        "provider": "amap",
+        "providerObjectId": "B0FFFS94ZL"
+      },
+      "target": {
+        "kind": "building",
+        "buildingId": "545893b6-b89b-5067-aba0-c86518aa8fa8"
+      },
+      "evidence": {
+        "providerLabel": "康本国际学术园",
+        "verificationMethod": "real-amap-sdk-hotspotclick",
+        "observedAt": "2026-10-23T06:18:27.768Z",
+        "note": "The live SDK still emits the exact ID released for YIA on 2026-09-17. Production canonical resolution was checked in issue #929. Preserve its existing mapping and provenance."
+      },
+      "provenance": {
+        "sourceRef": "amap:poi:B0FFFS94ZL:hotspotclick:2026-09-17",
+        "sourceOwner": "AutoNavi",
+        "sourceVersion": "AMap JavaScript API 2.0 live hotspot",
+        "accessedOn": "2026-09-17",
+        "observedAt": "2026-09-17T14:44:07+08:00",
+        "rightsStatus": "restricted",
+        "limitations": "The provider label and object ID are foreign identity evidence only. They do not define canonical Building facts, indoor Places, or geometry.",
+        "note": "Reviewed current AMap hotspot B0FFFS94ZL labelled 康本国际学术园 against canonical Building 545893b6-b89b-5067-aba0-c86518aa8fa8."
+      }
+    }
+  ],
+  "unresolved": [
+    {
+      "label": "何草 — negative control",
+      "identity": {
+        "provider": "amap",
+        "providerObjectId": "B0L6ARP6GN"
+      },
+      "evidence": {
+        "providerLabel": "何草",
+        "verificationMethod": "real-amap-sdk-hotspotclick",
+        "observedAt": "2026-10-23T06:18:35.225Z",
+        "note": "Real SDK click captured as a negative control; no canonical target was reviewed."
+      },
+      "reason": "No verified canonical target. Keep the transient reference card and explicit existing-place search; do not infer a binding."
+    }
+  ]
+}
