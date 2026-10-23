@@ -51,17 +51,20 @@ September provenance is preserved rather than replaced by the October observatio
 - An unmapped label offers **查找本站已有地点** as its primary action. That action
   searches the visible label through normal CUpedia search. Existing explicit
   Building suggestions remain available and **新增设施** is secondary.
-- Places with an exact reviewed AMap mapping reuse the native basemap icon in
-  every entrance: hotspot, search, category, Locate, restored history, and
-  refreshed URL. They are excluded from custom selected markers and category
-  clusters, including when they share a Building with unmapped facilities.
-  Unmapped facilities retain their own markers. The service card identifies
-  the current selection; native label visibility remains controlled by AMap's
-  zoom and label layout.
-- A clicked provider position only frames the current service card, including
-  after a resize or card expansion. Locate, navigation, history restoration,
-  and refresh use canonical geometry. Provider coordinates are neither saved
-  in the URL nor written to facts or Building anchors.
+- Places with an exact reviewed AMap mapping reuse the native basemap icon
+  while browsing and are excluded from custom category clusters. Unmapped
+  facilities retain their own markers, including neighbours in the same Building.
+- A selected mapped Place always has one temporary outline and a compact name
+  label, without a second category icon. Hotspot, search, category, Locate,
+  restored history, and refreshed URLs all retain this selection feedback,
+  even when AMap hides the native label at the current zoom. Closing the Place
+  card removes the hint.
+- A clicked provider position frames the current service card and selection
+  hint, including after a resize, card expansion, or repeated hint activation.
+  Its label says **地图位置参考 · 非室内精确位置**. Locate, navigation, history
+  restoration, and refresh use canonical geometry; Building-only locations
+  say **所属建筑 · 非室内精确位置**. Provider coordinates are neither saved in
+  the URL nor written to facts or Building anchors.
 
 ## Local registry rehearsal
 
@@ -122,11 +125,20 @@ Additional checks passed:
 - Medical centre → Outpatient Service directly; dental label → Dental Service
   directly. No transient or Building directory card is shown between the click
   and the service details.
-- After removing duplicate markers, both medical labels were clicked again on
-  desktop and mobile. Search, medical category, Locate, resize, card expansion,
-  refresh, and browser Back all retained zero CUpedia map markers for these
-  mapped services. The classroom category still rendered its own unmapped
-  facilities (257 results and 13 visible markers/clusters in the local view).
+- The earlier zero-marker policy reproduced a P2 regression: a mobile Dental
+  Service deep link opened the card while only the native medical-centre label
+  was visible. The corrected policy keeps a temporary labelled selection outline,
+  while ordinary browsing still reuses native icons. The classroom category
+  retains its own unmapped facility markers and clusters.
+- The corrected hint was verified with the real SDK at 390 × 844 and
+  1280 × 720: the Dental deep link now shows **已选 · 牙科** even without a native
+  dental label. Clicking the real dental/clinic labels places one hint at that
+  hotspot; keyboard activation and resizing retain it without a category icon.
+  Search, medical-category selection, Locate, refresh, card expansion, and
+  browser Forward retain one hint with the appropriate position description.
+  Close, Back to the category, and switching category remove it. Medical-category
+  browsing has zero custom markers; the classroom control still has 257 results
+  and 13 markers/clusters in the local view.
 - Dental hotspot, search, medical category, and refreshed canonical URL resolve
   to the same local Dental Service UUID. Phone and official-details actions remain
   available. The native operating-system share dialog was not verified; canonical
@@ -138,26 +150,27 @@ Additional checks passed:
 
 The regression tests load the checked release manifest and verify both real
 medical provider IDs open the correct service and telephone action in one click.
-They also cover explicit lookup from a transient card, native icon reuse across
-direct URLs, reclick, resize, expansion, Locate, and history restoration, and
-preserving unmapped neighbours in mixed Building clusters without changing
-canonical geometry.
+They also cover explicit lookup from a transient card, selection hints across
+direct URLs, reclick, resize, expansion, Locate, and history restoration. The
+hint is removed on dismissal; switching Places cannot reuse an earlier Place's
+provider point. Unmapped neighbours in mixed Building clusters stay visible,
+and canonical geometry remains unchanged.
 
 ## Verification record
 
 - `pnpm install --frozen-lockfile`: passed; no dependency or lockfile change.
 - `pnpm exec drizzle-kit migrate`: passed against the isolated local clone;
   this PR adds no schema or migration.
-- Targeted runtime, AMap runtime, and browse-layer tests: **209 passed**.
+- Targeted marker-content, runtime, AMap runtime, and browse-layer tests:
+  **214 passed**.
   Release-runner and hotspot tests also pass in the complete suite. Before the
   clinic correction, the checked-manifest clinic test failed by opening the
   Building while the dental case passed. Both now pass.
 - `pnpm lint`: passed with 0 errors and 13 warnings in unchanged files.
-- `pnpm typecheck`: passed.
-- Final `pnpm test`: **340 files / 3,093 tests passed**, 32 files / 429 tests
-  skipped by the existing environment gates. A run concurrent with lint and
-  typecheck hit four existing 5-second test timeouts; focused reruns and the
-  sequential full Ready run passed without relaxing a timeout.
+- `pnpm typecheck`: passed after correcting the test map's overly narrow
+  overlay type; the initial run identified three test-fixture type errors.
+- Final `pnpm test`: **340 files / 3,095 tests passed**, 32 files / 429 tests
+  skipped by the existing environment gates. No test timeout was relaxed.
 - Strict production-manifest validation and the local registry apply/reapply/
   verify sequence passed as recorded above. Desktop/mobile checks passed.
 - `git diff --check`: passed. Build and full Playwright suite were not run;

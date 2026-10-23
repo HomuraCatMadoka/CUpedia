@@ -24,6 +24,7 @@ import {
 } from "@/lib/campus-map/building-display";
 import {
   placeClusterMarkerContent,
+  placeSelectionMarkerContent,
   placeTypeMarkerContent,
 } from "@/lib/campus-map/canonical-marker";
 import type { CampusMapMarkerLabelPlacement } from "@/lib/campus-map/marker-label-layout";
@@ -121,6 +122,10 @@ export interface AmapCanonicalBrowseRenderInput {
   providerPositions: Readonly<Record<string, CampusMapAmapPosition>>;
   mode: CampusMapCanonicalBrowseMode;
   nativePlaceIds?: ReadonlySet<string>;
+  selectedProviderPosition?: {
+    placeId: string;
+    position: CampusMapAmapPosition;
+  } | null;
 }
 
 type MarkerIdentity = {
@@ -424,19 +429,31 @@ export class AmapCanonicalBrowseLayer<
       providerPositions: input.providerPositions,
       mode: {
         ...mode,
-        // Exact provider mappings reuse the basemap entrance in every scene,
-        // including search, categories, selection, and restored URLs.
+        // Reuse mapped basemap entrances for browsing. Selection is rendered
+        // separately because AMap may hide a native label at the current zoom.
         placeIds: mode.placeIds.filter(
           (placeId) => !input.nativePlaceIds?.has(placeId),
         ),
       },
     });
-    const selectedTarget = visibleTargets.find((target) =>
-      isTargetSelected(target, mode.selectedPlaceId),
+    const selectedTarget = mode.selectedPlaceId
+      ? markerTargets({
+          ...input,
+          mode: { ...mode, placeIds: [mode.selectedPlaceId] },
+        })[0]
+      : undefined;
+    const showSelectionHint = Boolean(
+      mode.selectedPlaceId && input.nativePlaceIds?.has(mode.selectedPlaceId),
     );
-    // An unmapped selected Place stays visible while neighbours are clustered.
+    const selectedProviderPosition =
+      showSelectionHint &&
+      input.selectedProviderPosition?.placeId === mode.selectedPlaceId
+        ? input.selectedProviderPosition.position
+        : null;
+    // Selection stays outside clustering, including mapped Places sharing a
+    // Building with unmapped facilities that still need their browse markers.
     const targets = visibleTargets.filter(
-      (target) => target !== selectedTarget,
+      (target) => !isTargetSelected(target, mode.selectedPlaceId),
     );
     const dataSignature = targets
       .map(
@@ -451,7 +468,7 @@ export class AmapCanonicalBrowseLayer<
     ) {
       this.clearMarkers();
     }
-    if (visibleTargets.length === 0) {
+    if (targets.length === 0 && !selectedTarget) {
       this.clearMarkers();
       return true;
     }
@@ -468,9 +485,13 @@ export class AmapCanonicalBrowseLayer<
     try {
       this.projection = input.projection;
       this.syncSelectedMarker(
-        selectedTarget,
+        selectedTarget && selectedProviderPosition
+          ? { ...selectedTarget, position: selectedProviderPosition }
+          : selectedTarget,
         input.projection,
         buildingDisplay,
+        showSelectionHint,
+        selectedProviderPosition !== null,
       );
       if (!this.cluster && targets.length > 0) {
         const cluster = new this.input.provider.MarkerCluster(
@@ -717,6 +738,8 @@ export class AmapCanonicalBrowseLayer<
     target: MarkerTarget | undefined,
     projection: CampusMapBrowseProjection,
     display: CampusMapBuildingDisplayProjection,
+    showSelectionHint: boolean,
+    usesProviderPosition: boolean,
   ) {
     const positionKey = target
       ? `${target.key}:${providerPositionKey(target.position)}`
@@ -744,14 +767,31 @@ export class AmapCanonicalBrowseLayer<
       this.selectedMarker = marker;
       this.input.map.add(marker);
     }
-    const content = targetContent(
-      target,
-      projection,
-      display,
-      true,
-      this.selectedPlaceId,
-      this.input.selectedLabelPlacement?.(target.position) ?? "top",
+    const placement =
+      this.input.selectedLabelPlacement?.(target.position) ?? "top";
+    const view = placeTypeMarkerView(target, projection, display);
+    const place = projection.places.find(
+      (candidate) => candidate.placeId === this.selectedPlaceId,
     );
+    const content =
+      showSelectionHint && view && place
+        ? placeSelectionMarkerContent({
+            markerKey: target.key,
+            name: place.name,
+            color: view.color,
+            precisionLabel: usesProviderPosition
+              ? "地图位置参考 · 非室内精确位置"
+              : view.precisionLabel,
+            selectedLabelPlacement: placement,
+          })
+        : targetContent(
+            target,
+            projection,
+            display,
+            true,
+            this.selectedPlaceId,
+            placement,
+          );
     if (content)
       this.selectedMarker.setContent(
         keyboardActivatableMarkerContent(content, this.selectedMarker),

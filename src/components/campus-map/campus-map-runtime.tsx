@@ -1655,8 +1655,13 @@ export function CampusMapRuntime({
       if (intent.type === "SEARCH" || intent.type === "SET_BUILDING_FLOOR") {
         listReturnRef.current = null;
       }
-      if (intent.type !== "SET_SNAP" && intent.type !== "OPEN_PLACE") {
+      if (
+        intent.type !== "SET_SNAP" &&
+        intent.type !== "OPEN_PLACE" &&
+        providerPlaceSelectionRef.current
+      ) {
         providerPlaceSelectionRef.current = null;
+        setMarkerLayoutVersion((version) => version + 1);
       }
       return driver.dispatch(intent);
     },
@@ -2152,11 +2157,12 @@ export function CampusMapRuntime({
         };
       }
       clearTransientHotspot();
-      // The native icon remains the map entrance. Its click position only
-      // frames this card; it never changes canonical geometry or history.
+      // The native icon remains the browse entrance. Its click position only
+      // frames this selection and hint, never canonical geometry or history.
       providerPlaceSelectionRef.current = providerPosition
         ? { placeId: facility.placeId, position: providerPosition }
         : null;
+      setMarkerLayoutVersion((version) => version + 1);
       dispatch({
         type: "OPEN_PLACE",
         placeId: facility.placeId,
@@ -2211,6 +2217,7 @@ export function CampusMapRuntime({
       cancelPendingUserLocation();
       setPublishNotice(null);
       providerPlaceSelectionRef.current = null;
+      setMarkerLayoutVersion((version) => version + 1);
       const restored = driver.restore(window.location.search, event.state);
       if (editSession && !restored.preservedReplacementTask) {
         dispatchEditEvent({ type: "REQUEST_CLOSE" });
@@ -2410,7 +2417,14 @@ export function CampusMapRuntime({
           const place = facilitiesRef.current.find(
             (candidate) => candidate.placeId === intent.placeId,
           );
-          if (place) selectFacility(place, "category");
+          if (place) {
+            const reference = providerPlaceSelectionRef.current;
+            selectFacility(
+              place,
+              "category",
+              reference?.placeId === place.placeId ? reference.position : null,
+            );
+          }
           return;
         }
         if (intent.type === "EXPAND_CLUSTER") {
@@ -2764,6 +2778,7 @@ export function CampusMapRuntime({
       projection: browseProjection,
       providerPositions: amapPositionsRef.current,
       nativePlaceIds,
+      selectedProviderPosition: providerPlaceSelectionRef.current,
       mode:
         clusterStatus === "ready"
           ? markerMode
