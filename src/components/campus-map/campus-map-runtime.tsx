@@ -2397,7 +2397,7 @@ export function CampusMapRuntime({
           return;
         }
         cancelPendingUserLocation();
-        dispatch({ type: "DISMISS" });
+        dispatch({ type: "OPEN_MAP" });
         transientPositionRef.current = hotspot.providerPosition
           ? approximateWgs84Position(hotspot.providerPosition)
           : null;
