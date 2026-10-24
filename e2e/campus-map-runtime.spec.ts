@@ -1,4 +1,4 @@
-// refs #646, #649, #799, #838, #878, #880, #888, #889, #908, #916, #921
+// refs #646, #649, #799, #838, #878, #880, #888, #889, #908, #916, #921, #929
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { loginWithPassword } from "./helpers/auth";
@@ -965,6 +965,55 @@ test("mapped and unmapped AMap hotspots keep canonical and transient cards separ
     page.getByRole("heading", { name: "未映射高德参考点" }),
   ).toHaveCount(0);
 });
+
+for (const viewport of [
+  { width: 1280, height: 720 },
+  { width: 390, height: 844 },
+]) {
+  test(`an unmapped hotspot clears the previous search at ${viewport.width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/campus-map");
+    const search = page.getByRole("textbox", { name: "搜索建筑或地点" });
+    await search.fill("正式测试楼");
+    await page
+      .getByRole("button", {
+        name: "正式测试楼 Canonical Test Building",
+        exact: true,
+      })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "正式测试楼" }),
+    ).toBeVisible();
+    const historyLength = await page.evaluate(() => window.history.length);
+
+    await emitAmapEvent(page, "hotspotclick", {
+      id: unmappedProviderId,
+      name: "未映射高德参考点",
+      lnglat: { lng: 114.2074, lat: 22.4193 },
+    });
+
+    await expect(page).toHaveURL(/\/campus-map\?v=1$/);
+    await expect(search).toHaveValue("");
+    await expect(page.getByRole("region", { name: "搜索结果" })).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "未映射高德参考点" }),
+    ).toBeInViewport();
+    expect(await page.evaluate(() => window.history.length)).toBe(
+      historyLength,
+    );
+
+    await page.getByRole("button", { name: "查找本站已有地点" }).click();
+    await expect(search).toHaveValue("未映射高德参考点");
+    await expect(page.getByRole("region", { name: "搜索结果" })).toBeVisible();
+    await expect(page.getByText("高德地图地点")).toHaveCount(0);
+    await page.getByRole("button", { name: "关闭搜索" }).click();
+    await expect(page).toHaveURL(/\/campus-map\?v=1$/);
+    await expect(search).toHaveValue("");
+    await expect(page.getByRole("region", { name: "搜索结果" })).toHaveCount(0);
+  });
+}
 
 test("the transient card expands independently after an expanded category on a short mobile viewport", async ({
   page,

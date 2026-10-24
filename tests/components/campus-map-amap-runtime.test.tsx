@@ -1062,12 +1062,13 @@ describe("Campus Map AMap runtime effects", () => {
     expect(screen.queryByRole("heading", { name: "尚未收录地点" })).toBeNull();
   });
 
-  it("closes search even when an unmapped hotspot is open (#926)", async () => {
+  it("opens an unmapped hotspot without restoring search over its card (#929)", async () => {
     const { map } = await renderWithRuntime();
     const search = screen.getByRole("textbox", { name: "搜索建筑或地点" });
     fireEvent.change(search, { target: { value: "科学馆" } });
     fireEvent.click(await screen.findByRole("button", { name: /科学馆/u }));
     await screen.findByRole("heading", { name: "科学馆" });
+    const push = vi.spyOn(window.history, "pushState");
 
     await act(async () => {
       map.emit("hotspotclick", {
@@ -1077,9 +1078,12 @@ describe("Campus Map AMap runtime effects", () => {
       });
     });
     await screen.findByRole("heading", { name: "尚未收录地点" });
-    expect(screen.getByRole("region", { name: "搜索结果" })).not.toBeNull();
+    expect(screen.queryByRole("region", { name: "搜索结果" })).toBeNull();
+    expect((search as HTMLInputElement).value).toBe("");
+    expect(window.location.search).toBe("?v=1");
+    expect(push).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "关闭搜索" }));
+    fireEvent.click(screen.getByRole("button", { name: "关闭地点详情" }));
 
     await waitFor(() => expect((search as HTMLInputElement).value).toBe(""));
     expect(screen.queryByRole("region", { name: "搜索结果" })).toBeNull();

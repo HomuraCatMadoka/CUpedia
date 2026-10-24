@@ -4,8 +4,9 @@ Issue [#929](https://github.com/HomuraCatMadoka/CUpedia/issues/929) covers six
 AMap entrances that previously opened a transient reference card even though
 CUpedia already contained the Building or service. This change prepares their
 exact-ID mappings and simplifies the remaining reference-card lookup path.
-**Production application and post-deployment acceptance are pending.** Merging
-the UI change alone does not install provider mappings in the production registry.
+**The six production mappings were applied on 2026-10-24.** The production
+record below separates registry verification from browser acceptance; final
+post-deployment acceptance is tracked in #929.
 
 ## Mapping decisions
 
@@ -37,8 +38,8 @@ No Building, Place, floor, fact, or canonical coordinate is created or changed.
 
 The manifest records source access, SDK observation, and review dates separately.
 Its `reviewedBy` names the Codex evidence review performed for this implementation;
-it does not claim a human approval or production release. Maintainer review and
-the trusted operator's production application remain outstanding. YIA's existing
+it does not claim a human approval or production release. PR #930 was subsequently
+merged and the production release was applied as recorded below. YIA's existing
 September provenance is preserved rather than replaced by the October observation.
 
 ## User-visible behavior
@@ -202,4 +203,60 @@ credentials and the operator UUID out of the manifest and logs.
 
 After application, record the production deployment SHA, manifest hash, command
 results, and repeat the desktop/mobile click and canonical-entrance checks before
-closing #929. No production mapping write was performed during this PR.
+closing #929. No production mapping write was performed while preparing PR #930.
+
+## Production release — 2026-10-24
+
+The production deployment serving `https://cupedia.org` was READY at commit
+`dfa8fd6770d3fb89b1f907c221cfdad18d88d6bc` (PR #930). Manifest
+`2026-10-23.2`, hash
+`decfc25809308c0d6f41139dfa1fdb14a86e3b79343e577cdcf9c5aa673c0a5d`,
+was applied to the `cupedia-sg` registry through the existing audited release
+runner using a verified administrator. No credential or operator identifier is
+part of this record.
+
+| Operation        | UTC time | Changed | Verified |
+| ---------------- | -------- | ------- | -------- |
+| Apply            | 06:22:43 | 6       | 8        |
+| Repeat apply     | 06:23:06 | 0       | 8        |
+| Read-only verify | 06:23:15 | 0       | 8        |
+
+Independent before/after snapshots show six new mappings and six lifecycle audit
+events. Building, Place, and current-fact snapshots and the 288 fact revisions
+are unchanged. YIA retains its September binding and provenance; 何草 remains
+unbound. The clinic and dental Place records still share the health-centre
+Building and retain their existing location precision.
+
+Real production AMap clicks passed for all six new mappings on desktop
+(1280 × 720) and mobile (390 × 844) viewports. Clinic, dental, and pool labels
+open their respective Place cards directly. LSK, ERB, and PSC open directories
+with 28 classrooms, 14 classrooms, and 13 common spaces respectively. Search,
+the medical/sports category entrances, canonical URLs, refresh, Locate, card
+expansion, and browser history preserve the checked identities and selection
+hint behavior. Unmapped rooms such as LSK LT1 and PSC 204 retain their markers.
+
+Acceptance also found a remaining reference-card bug: search for YIA, open its
+Building, then click the unbound 何草 hotspot. Dismissing the Building restored
+the previous search list over the reference-card title. The follow-up changes
+this transition to the empty map scene before displaying the transient card,
+without adding a history entry or publishing a provider identity. A component
+regression and desktop/mobile browser tests cover the transition, explicit
+lookup, and closing search. The component regression failed twice before the
+fix and passed afterward. The production rerun and final closure decision are
+recorded in #929 after deployment.
+
+Follow-up validation passed: `pnpm lint` (the same 13 existing warnings),
+`pnpm test --maxWorkers=2` (340 files / 3,095 tests; 32 files / 429 skipped),
+and `pnpm typecheck`. The production-mode Playwright build passed and all
+24 Campus Map runtime browser tests passed. The new tests' initial selector
+expected a Building code that the search button does not display; correcting
+the selector to its visible name resolved those two test failures. A resource-
+contended parallel baseline run was stopped and the complete baseline rerun
+serially without increasing timeouts. Manual real-SDK checks at
+`http://localhost:3000` also passed at 1280 × 720 and 390 × 844, including
+search → YIA → 何草 → explicit lookup → close search.
+
+The native operating-system share dialog and physical mobile touch hardware
+were not tested. Canonical share URLs were opened and refreshed; mobile checks
+used a browser viewport. The production registry release does not depend on the
+share-dialog integration.
