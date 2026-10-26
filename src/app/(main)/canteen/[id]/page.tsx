@@ -15,6 +15,7 @@ import { getOptionalUser, getSessionVoterUser } from "@/lib/auth-guard";
 import { CanteenShell } from "@/components/canteen/canteen-shell";
 import { CanteenOrderAction } from "@/components/canteen/canteen-order-action";
 import { CanteenMenuView } from "@/components/canteen/canteen-menu-view";
+import { CanteenOpeningHoursPanel } from "@/components/canteen/canteen-opening-hours-panel";
 import { DanmakuBanner } from "@/components/home/danmaku-banner";
 import { isCanteenMockMode } from "@/lib/canteen-mock";
 import { listCanteenDanmaku } from "@/lib/danmaku-actions";
@@ -144,6 +145,7 @@ export default async function CanteenMenuPage({
         />
       }
     >
+      <CanteenOpeningHoursPanel openingHours={canteen.openingHours} />
       <CanteenMenuView
         items={items}
         freshness={freshness}

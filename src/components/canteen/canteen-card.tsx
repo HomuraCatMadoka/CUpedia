@@ -3,7 +3,9 @@
 import Image from "next/image";
 import Link, { useLinkStatus } from "next/link";
 import type { CSSProperties } from "react";
-import type { Canteen } from "@/lib/canteen-types";
+import { CanteenOpenDot } from "@/components/canteen/canteen-open-dot";
+import { useCanteenOpenStatus } from "@/hooks/use-canteen-open-status";
+import type { Canteen, CanteenOpenStatus } from "@/lib/canteen-types";
 import { mockCanteenIcon } from "@/lib/canteen-icon-mock";
 import { cn } from "@/lib/utils";
 
@@ -55,6 +57,7 @@ export function CanteenCard({
   href,
   iconSrc,
   className,
+  showOpenState = false,
 }: {
   canteen: Canteen;
   /** Kept for call-site compatibility; icon launcher omits counts. */
@@ -63,8 +66,14 @@ export function CanteenCard({
   /** `/assets/canteen-icons/<id>.ext` when file exists; omit for mock. */
   iconSrc?: string | null;
   className?: string;
+  /**
+   * Render the open/closed dot beside the name. Off by default so admin
+   * surfaces and the takeout zone keep their existing markup.
+   */
+  showOpenState?: boolean;
 }) {
-  const accessibleName = [canteen.name, canteen.location]
+  const openStatus = useCanteenOpenStatus(canteen.openingHours, showOpenState);
+  const accessibleName = [canteen.name, canteen.location, openStatus?.label]
     .filter(Boolean)
     .join(" ");
 
@@ -79,6 +88,7 @@ export function CanteenCard({
         canteen={canteen}
         itemCount={itemCount}
         iconSrc={iconSrc}
+        openStatus={openStatus}
       />
     </Link>
   );
@@ -88,12 +98,17 @@ function CanteenCardSurface({
   canteen,
   itemCount,
   iconSrc,
+  openStatus,
 }: {
   canteen: Canteen;
   itemCount?: number;
   iconSrc?: string | null;
+  openStatus?: CanteenOpenStatus | null;
 }) {
   const { pending } = useLinkStatus();
+  const nameLabel = (
+    <span className="canteen-icon-label canteen-display">{canteen.name}</span>
+  );
 
   return (
     <span
@@ -101,7 +116,14 @@ function CanteenCardSurface({
       aria-busy={pending || undefined}
     >
       <CanteenIconOrb canteen={canteen} iconSrc={iconSrc} pending={pending} />
-      <span className="canteen-icon-label canteen-display">{canteen.name}</span>
+      {openStatus ? (
+        <span className="canteen-icon-name-row">
+          {nameLabel}
+          <CanteenOpenDot status={openStatus} />
+        </span>
+      ) : (
+        nameLabel
+      )}
       {canteen.location ? (
         <span className="sr-only">{canteen.location}</span>
       ) : null}

@@ -24,6 +24,29 @@ import type {
   DishCommentDeleteAuditDetails,
 } from "@/lib/admin-audit-types";
 import { DISH_COMMENT_DELETE_AUDIT_ACTION } from "@/lib/admin-audit-types";
+import { parseCanteenOpeningHours } from "@/lib/canteen-opening-hours";
+
+/**
+ * Opening-hours fixtures for the demo canteens, so all three dot states are
+ * reachable in `CANTEEN_MOCK_DATA=true` mode:
+ * 甲 daytime (green/red by clock), 乙 always (green), 丙 never (red).
+ * Undefined hours on the ranking canteens exercise the unknown (grey) state.
+ */
+const MOCK_OPENING_HOURS = {
+  daytime: parseCanteenOpeningHours({
+    kind: "weekly",
+    timezone: "Asia/Hong_Kong",
+    intervals: [
+      { days: [0, 1, 2, 3, 4, 5, 6], opensAt: "08:00", closesAt: "20:00" },
+    ],
+  }),
+  always: parseCanteenOpeningHours({ kind: "always" }),
+  never: parseCanteenOpeningHours({
+    kind: "weekly",
+    timezone: "Asia/Hong_Kong",
+    intervals: [],
+  }),
+};
 
 /** Dev/demo mode: in-memory canteen data, no PostgreSQL required. */
 export function isCanteenMockMode(): boolean {
@@ -92,6 +115,7 @@ function seedState(): MockState {
     name: "演示食堂",
     location: "演示区域 A",
     announcement: "外带加 $1 · 随餐饮品加 $3",
+    openingHours: MOCK_OPENING_HOURS.daytime,
     createdAt: t,
     updatedAt: t,
   };
@@ -100,6 +124,7 @@ function seedState(): MockState {
     name: "演示食堂乙",
     location: "演示区域 B",
     announcement: null,
+    openingHours: MOCK_OPENING_HOURS.always,
     createdAt: t,
     updatedAt: t,
   };
@@ -108,6 +133,7 @@ function seedState(): MockState {
     name: "演示食堂丙",
     location: null,
     announcement: "周末休息",
+    openingHours: MOCK_OPENING_HOURS.never,
     createdAt: t,
     updatedAt: t,
   };

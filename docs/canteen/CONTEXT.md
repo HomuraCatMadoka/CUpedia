@@ -10,6 +10,9 @@ _Avoid_: 仅因地址或营办方相同就合并独立档口；与「餐段」�
 **公告（Announcement）**: 管理员维护的短提示，展示在食堂详情页名称下方、弹幕上方（无边框灰底），用于外带加价、随餐饮品加价等说明；空则不展示。
 _Avoid_: 用弹幕或菜品名承载固定营运说明。
 
+**营业状态（Open state）**: 浏览页食堂名称旁的小圆点，以及详情页「营业时间」框内的状态文字，取值 `open` | `closed` | `unknown`，由港时（`Asia/Hong_Kong`）的星期与当日分钟推导。`unknown` 是一等公民：「没人录过」必须与「已录为不营业」区分，UI 不得把未知渲染成已打烊。`weekly` 已录但当前无命中时段即为 `closed`；`closesAt` 早于 `opensAt` 表示跨午夜，前一天的时段在次日 `closesAt` 之前仍然成立。推导（`canteen-opening-hours.ts`）是纯函数，时钟一律由调用方传入；`canteenOpenStatusForClock()` 额外接受「客户端还没有时钟」的 `null`，此时只有与时钟无关的排程能得出结果。客户端首帧只渲染与时钟无关的结果，挂载后再按港时求值，避免 hydration mismatch（见 [`LESSONS-187-188.md`](LESSONS-187-188.md)）；详情页的周表本身与时钟无关，只有「今天高亮」和状态文字等待客户端时钟。形状对齐校园地图已验证的 `access_schedule`，但星期用整数 `HktWeekday` 以对齐 `canteen_menu_sources.closed_weekdays`。**营业时间的来源尚未接入**，因此生产数据当前恒为 `unknown`；`closedWeekdays` / `syncMealPeriods` 的职责止于同步调度，不能当作对外营业事实。
+_Avoid_: 只用颜色承载状态（必须同时给出文字等价）；在 RSC 里用服务器时区判定营业或选「今天」；把「未知」当作「已打烊」；用同步调度字段充当顾客可见的营业时间；把某一周的记录顺序当成展示顺序（周表固定周一优先）。
+
 **菜品（Canonical dish / Menu item）**: 某食堂里用户可辨认的一道菜；一道菜一个 CUpedia UUID，赞踩与评论挂在该 UUID 上，跨餐段、分类、价格和供应商 offering 共享。相同食堂来源内的名称只转换全角字符、清理首尾空白、合并连续空白并折叠 ASCII 英文字母大小写；其他 Unicode 兼容字符与非英文大小写保持原样。归一化名称相同即为同一道菜。
 _Avoid_: 把菜品当成全局实体——菜品始终归属某个食堂。
 
