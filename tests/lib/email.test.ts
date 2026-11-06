@@ -167,6 +167,18 @@ describe("shouldRejectOtpRequest", () => {
     );
   });
 
+  it("leaves password recovery to the existing-account check", () => {
+    const email = "legacy@link.cuhk.edu.hk";
+    expect(
+      shouldRejectOtpRequest("/email-otp/request-password-reset", email),
+    ).toBe(false);
+    expect(shouldRejectOtpRequest("/email-otp/reset-password", email)).toBe(
+      false,
+    );
+    expect(shouldRejectOtpRequest(SEND, email, "forget-password")).toBe(false);
+    expect(shouldRejectOtpRequest(SEND, email, "sign-in")).toBe(true);
+  });
+
   it("defers missing/non-string email to better-auth validation", () => {
     expect(shouldRejectOtpRequest(SEND, undefined)).toBe(false);
     expect(shouldRejectOtpRequest(SEND, ["x@gmail.com"])).toBe(false);

@@ -6,6 +6,17 @@ Last verified: 2026-09-07
 The runtime source of truth is `src/lib/auth.ts`; the identity tables are in
 `src/db/schema.ts`.
 
+## Password registration and recovery
+
+Signup checks the CUHK email format and nickname on the server, stores a
+password, and signs in immediately. Contribution permissions use the account,
+role, and ban rules. Password recovery sends a code to the stored email of an
+existing account, including accounts created under earlier signup rules. The
+form shows the same confirmation for every address. The code lets the mailbox
+owner replace the password and revoke previous sessions. Session reads check
+the database so revocation applies on the next request. Email-code sign-in
+remains available for eligible accounts that have proven mailbox ownership.
+
 ## Better Auth 1.7 session refresh upgrade
 
 Issue [#893](https://github.com/HomuraCatMadoka/CUpedia/issues/893) upgrades
@@ -31,10 +42,6 @@ Two compatibility details are intentional:
   against the repository's transitive Zod 3 copy and reported an unmet peer, so
   Zod 4.5.4 is an explicit runtime dependency even though application source
   does not import it directly.
-
-An old cookie containing `user.name = null` can miss once immediately after the
-upgrade. The server then reads the database and replaces it with a valid cookie;
-subsequent reads use the cookie cache.
 
 ## Refresh behavior and evidence
 

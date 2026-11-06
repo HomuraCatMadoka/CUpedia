@@ -1,57 +1,53 @@
 import { randomInt } from "node:crypto";
 import { test, expect, type Page } from "@playwright/test";
-import {
-  expireLatestOtp,
-  insertOtp,
-  readLatestOtp,
-  userExists,
-} from "./helpers/otp";
-import { LOCAL_E2E_OTP } from "@/lib/e2e-otp";
+import { insertOtp, otpExists, userExists } from "./helpers/otp";
+import { loginWithPassword } from "./helpers/auth";
+
+const PASSWORD = "register-flow-pw";
+const NICKNAME = "注册测试";
 
 function freshEmail() {
   return `1155${randomInt(1_000_000).toString().padStart(6, "0")}@link.cuhk.edu.hk`;
 }
 
-async function startRegistration(
+async function submitRegistration(
   page: Page,
   email: string,
-  password = "register-flow-pw",
+  password = PASSWORD,
 ) {
   await page.goto("/register");
   await page.getByLabel("CUHK 邮箱").fill(email);
-  await page.getByLabel("昵称").fill("注册测试");
+  await page.getByLabel("昵称").fill(NICKNAME);
   await page.getByLabel("密码", { exact: true }).fill(password);
   await page.getByLabel("确认密码").fill(password);
   await page.getByRole("button", { name: "注册", exact: true }).click();
-  await expect(page.getByText(`验证码已发送至 ${email}`)).toBeVisible();
 }
 
 test("registration form rejects a non-CUHK email before account creation", async ({
   page,
 }) => {
-  await page.goto("/register");
-  await page.getByLabel("CUHK 邮箱").fill("student@gmail.com");
-  await page.getByLabel("昵称").fill("注册测试");
-  await page.getByLabel("密码", { exact: true }).fill("register-flow-pw");
-  await page.getByLabel("确认密码").fill("register-flow-pw");
-  await page.getByRole("button", { name: "注册", exact: true }).click();
+  const email = "student@gmail.com";
+  await submitRegistration(page, email);
 
   await expect(page.getByText("仅支持 CUHK 邮箱注册")).toBeVisible();
-  expect(await userExists("student@gmail.com")).toBe(false);
+  expect(await userExists(email)).toBe(false);
 });
 
-test("signup API rejects invalid nicknames without creating accounts", async ({
+test("signup API validates the CUHK email and nickname before creating an account", async ({
   request,
 }) => {
-  for (const nickname of ["", "x", "a".repeat(21), "bad-name", "ab\ncd"]) {
-    const email = freshEmail();
+  const invalidProfiles = [
+    { email: "direct-signup@gmail.com", nickname: NICKNAME },
+    { email: "1154123456@link.cuhk.edu.hk", nickname: NICKNAME },
+    ...["", "x", "a".repeat(21), "bad-name", "ab\ncd"].map((nickname) => ({
+      email: freshEmail(),
+      nickname,
+    })),
+  ];
+
+  for (const { email, nickname } of invalidProfiles) {
     const response = await request.post("/api/auth/sign-up/email", {
-      data: {
-        email,
-        password: "register-flow-pw",
-        name: "API caller",
-        nickname,
-      },
+      data: { email, password: PASSWORD, name: NICKNAME, nickname },
     });
 
     expect(response.status()).toBe(400);
@@ -59,96 +55,72 @@ test("signup API rejects invalid nicknames without creating accounts", async ({
   }
 });
 
-test("wrong registration OTP leaves the complete account unverified and retryable", async ({
+test("new CUHK user can contribute immediately and sign back in by password", async ({
   page,
 }) => {
   const email = freshEmail();
-  await startRegistration(page, email);
-  const actualOtp = LOCAL_E2E_OTP;
-  const wrongOtp = "000000";
-
-  await page.getByLabel("验证码").fill(wrongOtp);
-  await page.getByRole("button", { name: "验证并登录" }).click();
-
-  await expect(page.getByText(/验证码.*(?:无效|过期)/)).toBeVisible();
-  expect(await userExists(email)).toBe(true);
-  expect(
-    await (await page.request.get("/api/auth/get-session")).json(),
-  ).toBeNull();
-
-  await page.getByLabel("验证码").fill(actualOtp);
-  await page.getByRole("button", { name: "验证并登录" }).click();
-  await expect(page).toHaveURL("/");
-});
-
-test("expired registration OTP can be resent without recreating the account", async ({
-  page,
-}) => {
-  const email = freshEmail();
-  await startRegistration(page, email);
-  const otp = LOCAL_E2E_OTP;
-  await expireLatestOtp(email, "email-verification");
-
-  await page.getByLabel("验证码").fill(otp);
-  await page.getByRole("button", { name: "验证并登录" }).click();
-  await expect(page.getByText(/验证码.*(?:无效|过期)/)).toBeVisible();
-
-  await page.getByRole("button", { name: "重新发送" }).click();
-  const resentOtp = LOCAL_E2E_OTP;
-  await page.getByLabel("验证码").fill(resentOtp);
-  await page.getByRole("button", { name: "验证并登录" }).click();
-  await expect(page).toHaveURL("/");
-});
-
-test("an interrupted registration can resume after a full page reload", async ({
-  page,
-}) => {
-  const email = freshEmail();
-  const password = "register-flow-pw";
-  await startRegistration(page, email, password);
-
-  await page.reload();
-  await page.getByLabel("CUHK 邮箱").fill(email);
-  await page.getByLabel("昵称").fill("注册测试");
-  await page.getByLabel("密码", { exact: true }).fill(password);
-  await page.getByLabel("确认密码").fill(password);
-  await page.getByRole("button", { name: "注册", exact: true }).click();
-  await expect(page.getByLabel("验证码")).toBeVisible();
-
-  await page.getByRole("button", { name: "重新发送" }).click();
-  await page.getByLabel("验证码").fill(LOCAL_E2E_OTP);
-  await page.getByRole("button", { name: "验证并登录" }).click();
-
-  await expect(page).toHaveURL("/");
-  expect(await userExists(email)).toBe(true);
-});
-
-test("new CUHK user verifies email, enters the app, and can password-login independently", async ({
-  page,
-  browser,
-}) => {
-  const email = freshEmail();
-  const password = "register-flow-pw";
-  await startRegistration(page, email, password);
-  expect(await readLatestOtp(email, "email-verification")).toBe(LOCAL_E2E_OTP);
-  await page.getByLabel("验证码").fill(LOCAL_E2E_OTP);
-  await page.getByRole("button", { name: "验证并登录" }).click();
+  await submitRegistration(page, email);
 
   await expect(page).toHaveURL("/");
   const session = await page.request.get("/api/auth/get-session");
   expect((await session.json()).user).toMatchObject({
     email,
-    nickname: "注册测试",
+    nickname: NICKNAME,
+    emailVerified: false,
   });
+  expect(await otpExists(email, "email-verification")).toBe(false);
 
-  const context = await browser.newContext();
-  const loginPage = await context.newPage();
-  await loginPage.goto("/login");
-  await loginPage.getByLabel("邮箱").fill(email);
-  await loginPage.getByLabel("密码").fill(password);
-  await loginPage.getByRole("button", { name: "登录", exact: true }).click();
-  await expect(loginPage).toHaveURL("/");
-  await context.close();
+  await page.goto("/canteen");
+  const message = `注册即用-${randomInt(1_000_000)}`;
+  await page.getByLabel("弹幕内容").fill(message);
+  await page.getByRole("button", { name: "发送", exact: true }).click();
+  await expect(
+    page.locator(".danmaku-track-layer .danmaku-item", { hasText: message }),
+  ).toBeVisible();
+
+  await page.getByTestId("account-slot").getByRole("button").click();
+  await page.getByRole("menuitem", { name: "登出" }).click();
+  await expect(page).toHaveURL("/login");
+  await page.getByLabel("CUHK 邮箱").fill(email);
+  await page.getByLabel("密码").fill(PASSWORD);
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await expect(page).toHaveURL("/");
+  const nextSession = await page.request.get("/api/auth/get-session");
+  expect((await nextSession.json()).user).toMatchObject({
+    email,
+    nickname: NICKNAME,
+  });
+});
+
+test("duplicate registration points to login and recovery without replacing the password", async ({
+  page,
+  request,
+}) => {
+  const email = freshEmail();
+  const signup = await request.post("/api/auth/sign-up/email", {
+    data: { email, password: PASSWORD, name: NICKNAME, nickname: NICKNAME },
+  });
+  expect(signup.ok()).toBe(true);
+
+  await submitRegistration(page, email, "different-password");
+
+  const form = page.locator("form");
+  await expect(form.getByRole("alert")).toHaveText(
+    "这个邮箱已有账号，请登录或找回密码",
+  );
+  await expect(form.getByRole("link", { name: "登录" })).toHaveAttribute(
+    "href",
+    "/login",
+  );
+  await expect(form.getByRole("link", { name: "找回密码" })).toHaveAttribute(
+    "href",
+    "/reset-password",
+  );
+  expect(
+    await (await page.request.get("/api/auth/get-session")).json(),
+  ).toBeNull();
+
+  await loginWithPassword(page, email, PASSWORD);
 });
 
 test("OTP login cannot implicitly create an unknown user", async ({

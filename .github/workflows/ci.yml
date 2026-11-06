@@ -137,6 +137,12 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
         run: pnpm drizzle-kit migrate
 
+      - name: Test password recovery concurrency
+        if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
+        run: pnpm exec vitest run tests/db/auth-password-recovery.test.ts
+
       - name: Test Campus Map persistence
         if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
         env:

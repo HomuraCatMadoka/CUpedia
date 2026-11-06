@@ -1051,7 +1051,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     }
   }, 10_000);
 
-  it("freshly requires verified email ownership", async () => {
+  it("publishes for a password account before mailbox ownership is proven", async () => {
     const actorId = await createActor({ emailVerified: false });
 
     await expect(
@@ -1059,10 +1059,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
         actorId,
         clientIp: "203.0.113.7",
       }),
-    ).resolves.toEqual({
-      status: "forbidden",
-      code: "actor-not-eligible",
-    });
+    ).resolves.toMatchObject({ status: "published" });
   });
 
   it("does not reapply signup email-shape rules to a verified User", async () => {

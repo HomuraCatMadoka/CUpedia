@@ -504,7 +504,6 @@ async function readEligibleActor(
   const [actor] = await transaction
     .select({
       email: users.email,
-      emailVerified: users.emailVerified,
       nickname: users.nickname,
       role: users.role,
       banned: users.banned,
@@ -515,7 +514,6 @@ async function readEligibleActor(
     .limit(1);
   if (
     !actor ||
-    !actor.emailVerified ||
     !isAllowedEmail(actor.email) ||
     (actor.role !== "user" && actor.role !== "admin")
   ) {

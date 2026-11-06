@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { isAllowedEmail } from "@/lib/email";
 
 type Step = "email" | "reset" | "done";
 
@@ -40,10 +39,6 @@ export default function ResetPasswordPage() {
 
   const sendOtp = useCallback(async () => {
     setError("");
-    if (!isAllowedEmail(email)) {
-      setError("仅支持 CUHK 邮箱");
-      return false;
-    }
     setLoading(true);
     try {
       const { error: sendError } =
@@ -117,11 +112,10 @@ export default function ResetPasswordPage() {
         {step === "email" && (
           <form onSubmit={handleEmailSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="reset-email">CUHK 邮箱</Label>
+              <Label htmlFor="reset-email">注册邮箱</Label>
               <Input
                 id="reset-email"
                 type="email"
-                placeholder="1155xxxxxx@link.cuhk.edu.hk"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -144,7 +138,8 @@ export default function ResetPasswordPage() {
         {step === "reset" && (
           <form onSubmit={handleResetSubmit} className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              验证码已发送至 <span className="font-medium">{email}</span>
+              如果这个邮箱已注册，验证码将发送至{" "}
+              <span className="font-medium">{email}</span>
             </p>
             {/* Hidden username field so password managers update email+password. */}
             <input

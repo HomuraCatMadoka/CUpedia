@@ -30,7 +30,7 @@ async function announceVisibleReturn(page: Page) {
   });
 }
 
-async function revokeServerSessions(page: Page) {
+async function revokeServerSessions() {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
@@ -42,12 +42,6 @@ async function revokeServerSessions(page: Page) {
   } finally {
     await client.end();
   }
-
-  const cachedSession = (await page.context().cookies()).find((cookie) =>
-    cookie.name.endsWith("session_data"),
-  );
-  expect(cachedSession).toBeTruthy();
-  await page.context().clearCookies({ name: cachedSession!.name });
 }
 
 async function expectSignedIn(page: Page) {
@@ -85,18 +79,12 @@ test.describe("#893 session refresh request ownership", () => {
     page,
   }) => {
     await loginWithPassword(page, SEED_EMAIL, SEED_PASSWORD);
-    const cachedSession = await page.request.get("/api/auth/get-session");
-    expect(cachedSession.status()).toBe(200);
-    expect(cachedSession.headers()["set-cookie"] ?? "").not.toContain(
-      "session_data",
-    );
-
     const sessionRequests = trackSessionRequests(page);
     await page.goto("/");
     await expectSignedIn(page);
     await expect.poll(() => sessionRequests.length).toBe(1);
 
-    await revokeServerSessions(page);
+    await revokeServerSessions();
     await announceVisibleReturn(page);
     await expectSignedOut(page);
     await expect.poll(() => sessionRequests.length).toBe(2);
@@ -107,7 +95,7 @@ test.describe("#893 session refresh request ownership", () => {
     await expect.poll(() => sessionRequests.length).toBe(3);
 
     await page.context().setOffline(true);
-    await revokeServerSessions(page);
+    await revokeServerSessions();
     await announceVisibleReturn(page);
     expect(sessionRequests).toHaveLength(3);
     await page.context().setOffline(false);

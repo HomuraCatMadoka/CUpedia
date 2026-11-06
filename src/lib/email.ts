@@ -40,15 +40,21 @@ const OTP_WHITELIST_PATHS = new Set([
   "/sign-up/email",
   "/email-otp/send-verification-otp",
   "/sign-in/email-otp",
-  "/email-otp/request-password-reset",
-  "/email-otp/reset-password",
 ]);
 
-// Authoritative server-side eligible-account gate for account creation and
-// email-OTP endpoints.
-// The login/register pages also call isAllowedEmail, but that client check is
-// bypassable; this gate (wired in the auth.ts before-hook) is the real boundary.
-export function shouldRejectOtpRequest(path: string, email: unknown): boolean {
+// The server enforces email eligibility for registration and OTP sign-in.
+// Better Auth looks up the existing account for password recovery.
+export function shouldRejectOtpRequest(
+  path: string,
+  email: unknown,
+  type?: unknown,
+): boolean {
   if (!OTP_WHITELIST_PATHS.has(path)) return false;
+  if (
+    path === "/email-otp/send-verification-otp" &&
+    type === "forget-password"
+  ) {
+    return false;
+  }
   return typeof email === "string" && !isAllowedEmail(email);
 }

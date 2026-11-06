@@ -4,238 +4,99 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-const { push, refresh, signUpEmail, verifyEmail, sendVerificationOtp } =
-  vi.hoisted(() => ({
-    push: vi.fn(),
-    refresh: vi.fn(),
-    signUpEmail: vi.fn(),
-    verifyEmail: vi.fn(),
-    sendVerificationOtp: vi.fn(),
-  }));
+const { push, refresh, signUpEmail } = vi.hoisted(() => ({
+  push: vi.fn(),
+  refresh: vi.fn(),
+  signUpEmail: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, refresh }),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
-  authClient: {
-    signUp: { email: signUpEmail },
-    emailOtp: { verifyEmail, sendVerificationOtp },
-  },
+  authClient: { signUp: { email: signUpEmail } },
 }));
 
 import RegisterPage from "@/app/(auth)/register/page";
+
+const EMAIL = "1155123456@link.cuhk.edu.hk";
+const PASSWORD = "password123";
+
+function submitSignup(confirmPassword = PASSWORD) {
+  fireEvent.change(screen.getByLabelText("CUHK 邮箱"), {
+    target: { value: EMAIL },
+  });
+  fireEvent.change(screen.getByLabelText("昵称"), {
+    target: { value: "测试用户" },
+  });
+  fireEvent.change(screen.getByLabelText("密码", { selector: "input" }), {
+    target: { value: PASSWORD },
+  });
+  fireEvent.change(screen.getByLabelText("确认密码"), {
+    target: { value: confirmPassword },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "注册" }));
+}
 
 describe("RegisterPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.SKIP_EMAIL_WHITELIST;
     signUpEmail.mockResolvedValue({ error: null });
-    verifyEmail.mockResolvedValue({ error: null });
-    sendVerificationOtp.mockResolvedValue({ error: null });
   });
 
-  it("collects the complete account profile before email verification", () => {
+  it("submits the complete account and enters the app immediately", async () => {
     render(<RegisterPage />);
+    submitSignup();
 
-    expect(screen.getByLabelText("CUHK 邮箱")).toBeTruthy();
-    expect(screen.getByLabelText("昵称")).toBeTruthy();
-    expect(screen.getByLabelText("密码", { selector: "input" })).toBeTruthy();
-    expect(screen.getByLabelText("确认密码")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "注册" })).toBeTruthy();
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/"));
+    expect(refresh).toHaveBeenCalled();
+    expect(signUpEmail).toHaveBeenCalledExactlyOnceWith({
+      email: EMAIL,
+      password: PASSWORD,
+      name: "测试用户",
+      nickname: "测试用户",
+    });
     expect(screen.queryByLabelText("验证码")).toBeNull();
   });
 
-  it("creates a complete unverified account before asking for the OTP", async () => {
+  it("requires matching password confirmation before submitting", () => {
     render(<RegisterPage />);
-    fireEvent.change(screen.getByLabelText("CUHK 邮箱"), {
-      target: { value: "1155123456@link.cuhk.edu.hk" },
-    });
-    fireEvent.change(screen.getByLabelText("昵称"), {
-      target: { value: "测试用户" },
-    });
-    fireEvent.change(screen.getByLabelText("密码", { selector: "input" }), {
-      target: { value: "password123" },
-    });
-    fireEvent.change(screen.getByLabelText("确认密码"), {
-      target: { value: "password123" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "注册" }));
+    submitSignup("another-password");
 
-    await waitFor(() =>
-      expect(signUpEmail).toHaveBeenCalledWith({
-        email: "1155123456@link.cuhk.edu.hk",
-        password: "password123",
-        name: "测试用户",
-        nickname: "测试用户",
-      }),
-    );
-    expect(await screen.findByLabelText("验证码")).toBeTruthy();
+    expect(screen.getByText("两次输入的密码不一致")).toBeTruthy();
+    expect(signUpEmail).not.toHaveBeenCalled();
   });
 
-  it("verifies the registration OTP and enters the app", async () => {
-    render(<RegisterPage />);
-    fireEvent.change(screen.getByLabelText("CUHK 邮箱"), {
-      target: { value: "1155123456@link.cuhk.edu.hk" },
-    });
-    fireEvent.change(screen.getByLabelText("昵称"), {
-      target: { value: "测试用户" },
-    });
-    fireEvent.change(screen.getByLabelText("密码", { selector: "input" }), {
-      target: { value: "password123" },
-    });
-    fireEvent.change(screen.getByLabelText("确认密码"), {
-      target: { value: "password123" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "注册" }));
-
-    fireEvent.change(await screen.findByLabelText("验证码"), {
-      target: { value: "123456" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "验证并登录" }));
-
-    await waitFor(() =>
-      expect(verifyEmail).toHaveBeenCalledWith({
-        email: "1155123456@link.cuhk.edu.hk",
-        otp: "123456",
-      }),
-    );
-    expect(push).toHaveBeenCalledWith("/");
-    expect(refresh).toHaveBeenCalled();
-  });
-
-  it("maps provider OTP errors to an understandable message", async () => {
-    verifyEmail.mockResolvedValueOnce({
-      error: { message: "Invalid OTP" },
+  it("directs an existing user to login or recovery", async () => {
+    signUpEmail.mockResolvedValueOnce({
+      error: { code: "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL" },
     });
     render(<RegisterPage />);
-    fireEvent.change(screen.getByLabelText("CUHK 邮箱"), {
-      target: { value: "1155123456@link.cuhk.edu.hk" },
-    });
-    fireEvent.change(screen.getByLabelText("昵称"), {
-      target: { value: "测试用户" },
-    });
-    fireEvent.change(screen.getByLabelText("密码", { selector: "input" }), {
-      target: { value: "password123" },
-    });
-    fireEvent.change(screen.getByLabelText("确认密码"), {
-      target: { value: "password123" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "注册" }));
-    fireEvent.change(await screen.findByLabelText("验证码"), {
-      target: { value: "000000" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "验证并登录" }));
+    submitSignup();
 
-    expect(await screen.findByText("验证码无效或已过期")).toBeTruthy();
+    expect(
+      await screen.findByText("这个邮箱已有账号，请登录或找回密码"),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "登录" }).getAttribute("href"),
+    ).toBe("/login");
+    expect(
+      screen.getByRole("link", { name: "找回密码" }).getAttribute("href"),
+    ).toBe("/reset-password");
     expect(push).not.toHaveBeenCalled();
-  });
-
-  it("resends an email-verification OTP without creating another user", async () => {
-    render(<RegisterPage />);
-    fireEvent.change(screen.getByLabelText("CUHK 邮箱"), {
-      target: { value: "1155123456@link.cuhk.edu.hk" },
-    });
-    fireEvent.change(screen.getByLabelText("昵称"), {
-      target: { value: "测试用户" },
-    });
-    fireEvent.change(screen.getByLabelText("密码", { selector: "input" }), {
-      target: { value: "password123" },
-    });
-    fireEvent.change(screen.getByLabelText("确认密码"), {
-      target: { value: "password123" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "注册" }));
-    fireEvent.click(await screen.findByRole("button", { name: "重新发送" }));
-
-    await waitFor(() =>
-      expect(sendVerificationOtp).toHaveBeenCalledWith({
-        email: "1155123456@link.cuhk.edu.hk",
-        type: "email-verification",
-      }),
-    );
   });
 
   it("recovers the form when signup fails at the network boundary", async () => {
     signUpEmail.mockRejectedValueOnce(new Error("network down"));
     render(<RegisterPage />);
-    fireEvent.change(screen.getByLabelText("CUHK 邮箱"), {
-      target: { value: "1155123456@link.cuhk.edu.hk" },
-    });
-    fireEvent.change(screen.getByLabelText("昵称"), {
-      target: { value: "测试用户" },
-    });
-    fireEvent.change(screen.getByLabelText("密码", { selector: "input" }), {
-      target: { value: "password123" },
-    });
-    fireEvent.change(screen.getByLabelText("确认密码"), {
-      target: { value: "password123" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "注册" }));
+    submitSignup();
 
     expect(await screen.findByText("注册失败，请稍后重试")).toBeTruthy();
     expect(
       (screen.getByRole("button", { name: "注册" }) as HTMLButtonElement)
         .disabled,
-    ).toBe(false);
-  });
-
-  it("recovers the OTP form when verification fails at the network boundary", async () => {
-    verifyEmail.mockRejectedValueOnce(new Error("network down"));
-    render(<RegisterPage />);
-    fireEvent.change(screen.getByLabelText("CUHK 邮箱"), {
-      target: { value: "1155123456@link.cuhk.edu.hk" },
-    });
-    fireEvent.change(screen.getByLabelText("昵称"), {
-      target: { value: "测试用户" },
-    });
-    fireEvent.change(screen.getByLabelText("密码", { selector: "input" }), {
-      target: { value: "password123" },
-    });
-    fireEvent.change(screen.getByLabelText("确认密码"), {
-      target: { value: "password123" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "注册" }));
-    fireEvent.change(await screen.findByLabelText("验证码"), {
-      target: { value: "123456" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "验证并登录" }));
-
-    expect(await screen.findByText("验证失败，请稍后重试")).toBeTruthy();
-    expect(
-      (
-        screen.getByRole("button", {
-          name: "验证并登录",
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(false);
-  });
-
-  it("recovers the OTP form when resend fails at the network boundary", async () => {
-    sendVerificationOtp.mockRejectedValueOnce(new Error("network down"));
-    render(<RegisterPage />);
-    fireEvent.change(screen.getByLabelText("CUHK 邮箱"), {
-      target: { value: "1155123456@link.cuhk.edu.hk" },
-    });
-    fireEvent.change(screen.getByLabelText("昵称"), {
-      target: { value: "测试用户" },
-    });
-    fireEvent.change(screen.getByLabelText("密码", { selector: "input" }), {
-      target: { value: "password123" },
-    });
-    fireEvent.change(screen.getByLabelText("确认密码"), {
-      target: { value: "password123" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "注册" }));
-    fireEvent.click(await screen.findByRole("button", { name: "重新发送" }));
-
-    expect(await screen.findByText("验证码发送失败，请稍后重试")).toBeTruthy();
-    expect(
-      (
-        screen.getByRole("button", {
-          name: "重新发送",
-        }) as HTMLButtonElement
-      ).disabled,
     ).toBe(false);
   });
 });

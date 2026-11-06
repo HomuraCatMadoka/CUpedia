@@ -1,4 +1,3 @@
-import { expect } from "@playwright/test";
 import { Client } from "pg";
 
 type OtpType = "sign-in" | "forget-password" | "email-verification";
@@ -17,22 +16,12 @@ async function query<T>(text: string, values: unknown[] = []) {
   }
 }
 
-export async function readLatestOtp(email: string, type: OtpType) {
-  let otp = "";
-  await expect
-    .poll(async () => {
-      const result = await query<{ value: string }>(
-        `select value from verifications
-         where identifier = $1
-         order by created_at desc
-         limit 1`,
-        [identifier(email, type)],
-      );
-      otp = result.rows[0]?.value.split(":", 1)[0] ?? "";
-      return otp;
-    })
-    .toMatch(/^\d{6}$/);
-  return otp;
+export async function otpExists(email: string, type: OtpType) {
+  const result = await query(
+    "select 1 from verifications where identifier = $1 limit 1",
+    [identifier(email, type)],
+  );
+  return result.rowCount === 1;
 }
 
 export async function expireLatestOtp(email: string, type: OtpType) {

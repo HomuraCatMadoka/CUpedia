@@ -1,5 +1,7 @@
 # 原生注册与按需完善署名账户
 
+> 注册和密码登录的邮箱验证步骤由 [ADR 0044](0044-password-signup-without-email-verification.md) 取代。历史账户按需完善的决策继续适用。
+
 注册与登录必须是两条不同边界。新用户先通过 better-auth 原生 email/password signup 一次性提交邮箱、昵称和密码，再用 `email-verification` OTP 验证邮箱并建立会话。OTP 登录只服务已有用户，启用 `disableSignUp`，不再隐式创建缺少昵称和密码的账户。
 
 历史 OTP-only 账户不做批量回填，也不在浏览时持续提醒。用户仍可正常登录和阅读；只有在新增需要公开展示身份的内容前，服务端才要求同时存在有效昵称和 credential password。客户端在同一页面打开账户完善框，成功后继续原动作，以保留编辑中的草稿。

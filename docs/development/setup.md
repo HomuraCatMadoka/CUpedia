@@ -111,5 +111,5 @@ Run it only when local database and upload data can be discarded.
 
 - If the application cannot connect to PostgreSQL or MinIO, run `docker compose ps` and start unhealthy services again.
 - If authentication redirects use the wrong host, confirm `AUTH_URL=http://localhost:3000`.
-- If registration cannot send an email, use a seeded account or configure Brevo credentials.
+- If email codes for sign-in or password recovery do not arrive, check the Brevo credentials and sender configuration.
 - If migrations fail, follow the [database workflow](database.md) and use `migrate`, not `push`.

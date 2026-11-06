@@ -417,14 +417,14 @@ describe.skipIf(!hasDb)("Campus Map place feedback (#817)", () => {
   });
 
   it("enforces account eligibility, ownership, validation, and hard delete", async () => {
-    const [publisher, owner, stranger, banned, incomplete, unverified] =
+    const [publisher, owner, stranger, banned, incomplete, ineligible] =
       await Promise.all([
         createActor(),
-        createActor({ nickname: "评价作者" }),
+        createActor({ nickname: "评价作者", emailVerified: false }),
         createActor(),
         createActor({ banned: true }),
         createActor({ withCredential: false }),
-        createActor({ emailVerified: false }),
+        createActor({ email: "ineligible@example.com" }),
       ]);
     const placeId = await createPlace(publisher, "权限测试地点");
     const draft = {
@@ -447,7 +447,7 @@ describe.skipIf(!hasDb)("Campus Map place feedback (#817)", () => {
       commandCampusMapPlaceFeedback(draft, { actorId: incomplete }),
     ).resolves.toEqual({ status: "forbidden", code: "profile-incomplete" });
     await expect(
-      commandCampusMapPlaceFeedback(draft, { actorId: unverified }),
+      commandCampusMapPlaceFeedback(draft, { actorId: ineligible }),
     ).resolves.toEqual({ status: "forbidden", code: "actor-not-eligible" });
     await expect(
       commandCampusMapPlaceFeedback(

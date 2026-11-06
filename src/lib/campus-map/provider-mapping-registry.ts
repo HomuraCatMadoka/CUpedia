@@ -271,7 +271,6 @@ async function readAdmin(
   const [actor] = await transaction
     .select({
       id: users.id,
-      emailVerified: users.emailVerified,
       nickname: users.nickname,
       role: users.role,
       banned: users.banned,
@@ -280,7 +279,7 @@ async function readAdmin(
     .where(eq(users.id, actorId))
     .for("update")
     .limit(1);
-  if (!actor || !actor.emailVerified) {
+  if (!actor) {
     return { status: "forbidden", code: "actor-not-eligible" };
   }
   if (actor.banned) return { status: "forbidden", code: "actor-banned" };

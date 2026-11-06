@@ -801,7 +801,6 @@ async function readEligibleActor(
     .select({
       id: users.id,
       email: users.email,
-      emailVerified: users.emailVerified,
       nickname: users.nickname,
       banned: users.banned,
     })
@@ -809,7 +808,7 @@ async function readEligibleActor(
     .where(eq(users.id, actorId))
     .for("update")
     .limit(1);
-  if (!actor || !actor.emailVerified || !isAllowedEmail(actor.email)) {
+  if (!actor || !isAllowedEmail(actor.email)) {
     return { status: "forbidden", code: "actor-not-eligible" };
   }
   if (actor.banned) return { status: "forbidden", code: "actor-banned" };

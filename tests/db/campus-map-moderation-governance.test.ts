@@ -35,7 +35,7 @@ describe.skipIf(!hasDb)("Campus Map moderation governance (#723)", () => {
     actorIds.push(actorId);
     await pool.query(
       `insert into users (id, email, email_verified, nickname, role, banned)
-       values ($1, $2, true, $3, $4, false)`,
+       values ($1, $2, false, $3, $4, false)`,
       [
         actorId,
         `issue-723-${actorId}@cuhk.edu.hk`,

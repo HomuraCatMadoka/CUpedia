@@ -21,7 +21,7 @@ _Avoid_: Superuser、超管（口语可，规范词用 站长 / Owner）；不�
 _Avoid_: 把"编辑者/Editor"当作一种用户角色来谈
 
 **Banned（封禁）**:
-User 上的布尔标记。写路径每次查库即时生效；读路径（session cookie 缓存）最多滞后 5 分钟。
+禁止 User 发起贡献或管理操作的账号状态。
 _Avoid_: Disabled、Suspended
 
 **Deleted page（已删除页面）**:
@@ -45,8 +45,8 @@ _Avoid_: Private page draft、offline page、把本地草稿当作协作状态
 _Avoid_: Comment（口语可，但代码/表名以 Discussion 为准）
 
 **Eligible account（合规账号）**:
-唯一允许注册/登录的身份：`@cuhk.edu.hk`，或 `@link.cuhk.edu.hk` 且前缀形如 `1155xxxxxx`。这是"谁能拥有账号"的授权边界，必须在**服务端发码环节**强制，而非仅客户端。
-_Avoid_: 把白名单只放在 UI 层
+使用符合 CUHK 地址格式的邮箱注册的账号。地址须为 `@cuhk.edu.hk`，或 `@link.cuhk.edu.hk` 且前缀形如 `1155xxxxxx`。账号资格依据地址格式，邮箱归属由收件能力证明。
+_Avoid_: 把合规账号称为已验证的校内身份
 
 ## Read access（读边界）
 

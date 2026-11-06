@@ -1,5 +1,7 @@
 # viewer 的"能否编辑"收敛为单一谓词,显示侧吃缓存、强制侧走 fresh
 
+> [ADR 0044](0044-password-signup-without-email-verification.md) 改用数据库读取登录会话，让密码找回后撤销的会话立即失效。显示与写入仍共用 `canViewerEdit`。
+
 "这个访客在当前编辑策略下能否编辑"目前散成 **5 份**:4 个 wiki 页面组件里内联 `canEdit = !!user && (editRole === "user" || user?.role === "admin")`(`wiki/[...slug]`、`wiki/search`、`wiki/page`、`wiki/history/[...slug]`),外加 `auth-guard.ts` 的 `requireEditor` / `requireEditorOrRedirect`。布尔逻辑等价(内联是 guard 的德摩根),但**输入分叉** → 边缘漂移。收敛为单一纯谓词 `canViewerEdit`,两侧共用;新鲜度差异保留、且**有意为之**。
 
 现状的两条真漂移:(1) **banned**——显示侧走 `getOptionalUser()` 读 session、不查封禁;强制侧走 `requireAuth()` 查库、banned 直接 redirect → 封禁用户看得到编辑按钮、点保存才被拒。(2) **新鲜度**——显示侧读 session 的 role(≤5min cookie 缓存)+ `getWikiEditRole()`(进程模块缓存);强制侧读 fresh DB role + `getWikiEditRoleFresh()`。
