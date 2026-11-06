@@ -859,7 +859,6 @@ async function publishCampusMapChangesetInternal(
         .select({
           id: users.id,
           banned: users.banned,
-          emailVerified: users.emailVerified,
           nickname: users.nickname,
           role: users.role,
         })
@@ -868,11 +867,6 @@ async function publishCampusMapChangesetInternal(
         .for("update")
         .limit(1);
       if (!actor) {
-        return { status: "forbidden", code: "actor-not-eligible" } as const;
-      }
-      // Account creation owns the email-shape policy. Campus Map only needs
-      // fresh proof that this existing User still owns a verified email.
-      if (!actor.emailVerified) {
         return { status: "forbidden", code: "actor-not-eligible" } as const;
       }
       if (actor.banned) {

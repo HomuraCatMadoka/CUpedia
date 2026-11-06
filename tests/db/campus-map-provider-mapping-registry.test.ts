@@ -65,9 +65,9 @@ describe.skipIf(!hasDb)("Campus Map provider mapping registry", () => {
       `insert into users
          (id, email, email_verified, nickname, role, banned)
        values
-         ($1, $2, true, 'Provider mapping 管理员', 'admin', false),
-         ($3, $4, true, 'Provider mapping 用户', 'user', false),
-         ($5, $6, true, 'Provider mapping 停权管理员', 'admin', true)`,
+         ($1, $2, false, 'Provider mapping 管理员', 'admin', false),
+         ($3, $4, false, 'Provider mapping 用户', 'user', false),
+         ($5, $6, false, 'Provider mapping 停权管理员', 'admin', true)`,
       [
         actorId,
         `issue-779-${actorId}@cuhk.edu.hk`,

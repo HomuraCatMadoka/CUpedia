@@ -6,7 +6,12 @@ import {
   type APIRequestContext,
   type Page,
 } from "@playwright/test";
-import { expireLatestOtp } from "./helpers/otp";
+import {
+  createOtpOnlyUser,
+  expireLatestOtp,
+  otpExists,
+  userExists,
+} from "./helpers/otp";
 import { LOCAL_E2E_OTP } from "@/lib/e2e-otp";
 
 const OLD_PASSWORD = "old-password-1";
@@ -26,20 +31,15 @@ async function createUser(request: APIRequestContext, email: string) {
     },
   });
   expect(registration.ok()).toBe(true);
-  const verification = await request.post("/api/auth/email-otp/verify-email", {
-    data: {
-      email,
-      otp: LOCAL_E2E_OTP,
-    },
-  });
-  expect(verification.ok()).toBe(true);
 }
 
 async function requestReset(page: Page, email: string) {
   await page.goto("/reset-password");
-  await page.getByLabel("CUHK 邮箱").fill(email);
+  await page.getByLabel(/邮箱/).fill(email);
   await page.getByRole("button", { name: "发送验证码" }).click();
-  await expect(page.getByText(`验证码已发送至 ${email}`)).toBeVisible();
+  await expect(
+    page.getByText(`如果这个邮箱已注册，验证码将发送至 ${email}`),
+  ).toBeVisible();
 }
 
 async function submitReset(page: Page, otp: string) {
@@ -61,12 +61,28 @@ async function passwordWorks(baseURL: string, email: string, password: string) {
   }
 }
 
-test("reset form rejects a non-CUHK email", async ({ page }) => {
-  await page.goto("/reset-password");
-  await page.getByLabel("CUHK 邮箱").fill("student@gmail.com");
-  await page.getByRole("button", { name: "发送验证码" }).click();
-  await expect(page.getByText("仅支持 CUHK 邮箱")).toBeVisible();
-  await expect(page.getByLabel("验证码")).toHaveCount(0);
+test("recovery gives the same response for an unknown email without issuing a code", async ({
+  page,
+}) => {
+  const email = "missing-recovery-account@example.com";
+  await requestReset(page, email);
+  expect(await otpExists(email, "forget-password")).toBe(false);
+  expect(await userExists(email)).toBe(false);
+});
+
+test("an existing account with a named CUHK Link address can recover its password", async ({
+  page,
+  baseURL,
+}) => {
+  const email = `legacy-recovery-${randomInt(1_000_000)}@link.cuhk.edu.hk`;
+  await createOtpOnlyUser(email, "历史账号");
+
+  await requestReset(page, email);
+  expect(await otpExists(email, "forget-password")).toBe(true);
+  await submitReset(page, LOCAL_E2E_OTP);
+
+  await expect(page.getByText("密码已重置，请使用新密码登录。")).toBeVisible();
+  expect(await passwordWorks(baseURL!, email, NEW_PASSWORD)).toBe(true);
 });
 
 test("wrong OTP does not change the password", async ({
@@ -104,18 +120,38 @@ test("expired OTP does not change the password", async ({
   expect(await passwordWorks(baseURL!, email, NEW_PASSWORD)).toBe(false);
 });
 
-test("user resets through the page and signs in with the new password", async ({
+test("mailbox owner can recover an unverified signup and revoke its existing access", async ({
   page,
   request,
   baseURL,
 }) => {
   const email = freshEmail();
   await createUser(request, email);
+  const previousSession = await request.get("/api/auth/get-session");
+  expect((await previousSession.json()).user).toMatchObject({
+    email,
+    emailVerified: false,
+  });
+
+  const otpLogin = await page.request.post(
+    "/api/auth/email-otp/send-verification-otp",
+    {
+      data: { email, type: "sign-in" },
+      headers: { origin: baseURL! },
+    },
+  );
+  expect(otpLogin.ok()).toBe(false);
+  expect(await otpLogin.json()).toMatchObject({
+    message: "请使用密码登录，忘记密码可通过邮件重置",
+  });
+
   await requestReset(page, email);
   await submitReset(page, LOCAL_E2E_OTP);
 
   await expect(page.getByText("密码已重置，请使用新密码登录。")).toBeVisible();
   expect(await passwordWorks(baseURL!, email, OLD_PASSWORD)).toBe(false);
+  const revokedSession = await request.get("/api/auth/get-session");
+  expect(await revokedSession.json()).toBeNull();
 
   await page.getByRole("button", { name: "前往登录" }).click();
   await page.getByLabel("邮箱").fill(email);

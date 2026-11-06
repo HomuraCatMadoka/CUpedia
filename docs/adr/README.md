@@ -48,6 +48,7 @@ Architectural decision records (ADRs) explain why CUpedia accepted a durable bou
 
 - [0042: Select Campus Map facility locations directly](0042-campus-map-direct-location-selection.md)
 - [0043: Limit Campus Map ratings to toilets](0043-limit-campus-map-ratings-to-toilets.md)
+- [0044: Sign in immediately after password signup](0044-password-signup-without-email-verification.md)
 
 ## Maintain the index
 

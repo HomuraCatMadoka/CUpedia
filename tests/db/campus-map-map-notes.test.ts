@@ -33,7 +33,7 @@ describe.skipIf(!hasDb)("Campus Map Notes service (#722)", () => {
     actorIds.push(actorId);
     await pool.query(
       `insert into users (id, email, email_verified, nickname, role, banned)
-       values ($1, $2, true, $3, 'user', $4)`,
+       values ($1, $2, false, $3, 'user', $4)`,
       [
         actorId,
         `issue-722-${actorId}@cuhk.edu.hk`,

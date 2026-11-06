@@ -1,5 +1,7 @@
 # 读公开,写与账号受 CUHK 限制
 
+> 账号资格检查的位置和邮箱归属规则由 [ADR 0044](0044-password-signup-without-email-verification.md) 更新。
+
 CUpedia 采用 Wikipedia 式的访问模型:wiki 正文与图片对**匿名用户公开可读**,而注册/登录限 CUHK 邮箱(`@cuhk.edu.hk` 或合规的 `@link.cuhk.edu.hk`),编辑/评论需登录。读与写的边界被有意分离——读公开,写和账号资格受限。
 
 ## Considered Options
