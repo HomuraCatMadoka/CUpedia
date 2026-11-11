@@ -58,12 +58,15 @@ function VenueGrid({
   iconSrcFor,
   emptyTitle,
   emptyHint,
+  showOpenState = false,
 }: {
   venues: Canteen[];
   hrefFor: (id: string) => string;
   iconSrcFor: (id: string, name: string) => string | null;
   emptyTitle: string;
   emptyHint: string;
+  /** Show the open/closed dot beside each name. */
+  showOpenState?: boolean;
 }) {
   if (venues.length === 0) {
     return (
@@ -88,6 +91,7 @@ function VenueGrid({
             canteen={venue}
             href={hrefFor(venue.id)}
             iconSrc={iconSrcFor(venue.id, venue.name)}
+            showOpenState={showOpenState}
           />
         </div>
       ))}
@@ -132,6 +136,7 @@ export default async function CanteenBrowsePage() {
       iconSrcFor={resolveCanteenIconSrc}
       emptyTitle="暂无食堂"
       emptyHint="管理员录入后将在此展示"
+      showOpenState
     />
   );
 
