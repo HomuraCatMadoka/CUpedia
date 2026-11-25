@@ -182,7 +182,7 @@ launch() {
     --name "$preview" --label "$label=$run_id" \
     --network none --user 1000:1000 --memory 384m --memory-swap 384m --cpus 0.5 \
     --pids-limit 128 --cap-drop ALL --security-opt no-new-privileges \
-    --log-driver local --log-opt max-size=5m --log-opt max-file=1 \
+    --log-driver local --log-opt max-size=5m --log-opt max-file=2 \
     --env NODE_ENV=production --env NEXT_TELEMETRY_DISABLED=1 --env PORT=3000 \
     --env HOSTNAME=127.0.0.1 --env CANTEEN_MOCK_DATA=true \
     --env DATABASE_URL=postgresql://fixture:fixture@127.0.0.1:5432/fixture \
@@ -197,8 +197,19 @@ launch() {
   ready "$image"
 }
 
+show_preview_log() {
+  local id
+  id=$(preview_id) || return 0
+  if [[ -n "$id" ]] && owned_preview "$id"; then
+    "$docker_bin" container logs --tail 25 "$id" >&2 || :
+  fi
+}
+
 phase=baseline
-launch "$baseline"
+if ! launch "$baseline"; then
+  show_preview_log
+  exit 1
+fi
 baseline_ready=true
 baseline_mock=not-confirmed
 if probe mock; then
@@ -208,6 +219,7 @@ fi
 phase=candidate
 if ! launch "$candidate" || ! probe mock; then
   phase=unexpected-candidate-failure
+  show_preview_log
   if launch "$baseline"; then
     rollback_ready=true
   fi
