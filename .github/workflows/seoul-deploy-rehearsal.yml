@@ -109,7 +109,7 @@ jobs:
               or not 1 <= int(port) <= 65535
               or not re.fullmatch(r"[A-Za-z0-9-]{1,39}", actor)
               or not re.fullmatch(r"sha256:[0-9a-f]{64}", ref)
-              or not re.fullmatch(r"[A-Za-z0-9_]{20,250}", token)
+              or not re.fullmatch(r"[!-~]{20,2048}", token)
           ):
               raise SystemExit("Incomplete or invalid rehearsal configuration")
           os.umask(0o077)

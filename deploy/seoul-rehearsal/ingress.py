@@ -15,7 +15,9 @@ DIGEST = r"sha256:[0-9a-f]{64}"
 
 def run():
     os.umask(0o077)
-    message = sys.stdin.buffer.read(800)
+    message = sys.stdin.buffer.read(4097)
+    if len(message) > 4096:
+        raise RuntimeError("handoff too large")
     if message == b"CUPEDIA-REHEARSAL-PROBE\n":
         print("Restricted Seoul rehearsal endpoint ready")
         return 0
@@ -24,7 +26,7 @@ def run():
     except ValueError:
         raise RuntimeError("bad handoff format") from None
     if (version != "CUPEDIA-REHEARSAL-1" or not re.fullmatch(r"[A-Za-z0-9-]{1,39}",actor)
-        or not re.fullmatch(DIGEST,digest) or not re.fullmatch(r"[A-Za-z0-9_]{20,250}",password)):
+        or not re.fullmatch(DIGEST,digest) or not re.fullmatch(r"[!-~]{20,2048}",password)):
         raise RuntimeError("bad handoff values")
     if not re.fullmatch(DIGEST,baseline := (ROOT/"baseline").read_text().strip()):
         raise RuntimeError("bad baseline image")
@@ -34,9 +36,8 @@ def run():
         with tempfile.TemporaryDirectory(prefix="cupedia-rehearsal-docker-") as config:
             docker = [DOCKER,"--config",config]
             anonymous = subprocess.run([*docker,"manifest","inspect",candidate],capture_output=True,timeout=18)
-            if anonymous.returncode == 0 or not re.search(rb"denied|unauthorized|authentication required",anonymous.stderr,re.I):
+            if anonymous.returncode == 0 or not re.search(rb"denied|unauthorized|authentication required|manifest unknown|no such manifest",anonymous.stderr,re.I):
                 raise RuntimeError("could not verify anonymous access was denied")
-            print("Anonymous image access denied.",flush=True)
             login = subprocess.run(
                 [*docker,"login","ghcr.io","--username",actor,"--password-stdin"],
                 input=password.encode("ascii"),capture_output=True,timeout=18,
@@ -47,7 +48,7 @@ def run():
                                   capture_output=True,timeout=190)
             if pull.returncode:
                 raise RuntimeError("pinned registry image pull failed")
-        print("Authenticated pull from GHCR by digest passed.",flush=True)
+        print("Anonymous access was unavailable and authenticated GHCR pull by digest passed.",flush=True)
         return subprocess.run(["/bin/bash",str(ROOT/"rehearse-rollout.sh"),baseline,candidate],
                               timeout=330).returncode
 
