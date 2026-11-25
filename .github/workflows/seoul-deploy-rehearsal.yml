@@ -1,0 +1,133 @@
+name: Seoul deploy rehearsal
+
+on:
+  push:
+    branches: [codex/seoul-deploy-rehearsal-20261126]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seoul-deploy-rehearsal-20261126
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/homuracatmadoka/cupedia-seoul-rehearsal-20261126
+
+jobs:
+  checks:
+    name: Verify rehearsal source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      HUSKY: "0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm typecheck
+
+  publish:
+    name: Build and publish the private image
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build and publish
+        id: image
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker buildx build \
+            --file deploy/seoul-rehearsal/Dockerfile \
+            --platform linux/amd64 \
+            --build-arg NEXT_BUILD_SKIP_TYPECHECK=1 \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag "$IMAGE:rehearsal-$GITHUB_SHA" \
+            --metadata-file "$RUNNER_TEMP/rehearsal-image.json" \
+            --push .
+          digest=$(jq -er '."containerimage.digest"' "$RUNNER_TEMP/rehearsal-image.json")
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+          printf 'Private image published by digest %s\n' "$digest"
+
+  rehearse:
+    name: Pull, verify and roll back in Seoul
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: seoul-deploy-rehearsal-20261126
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Invoke the restricted rehearsal entry point
+        env:
+          PUBLISHED_DIGEST: ${{ needs.publish.outputs.digest }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REHEARSAL_HOST: ${{ secrets.SEOUL_REHEARSAL_HOST }}
+          REHEARSAL_PORT: ${{ secrets.SEOUL_REHEARSAL_PORT }}
+          REHEARSAL_HOST_KEY: ${{ secrets.SEOUL_REHEARSAL_HOST_KEY }}
+          REHEARSAL_SSH_KEY: ${{ secrets.SEOUL_REHEARSAL_SSH_KEY }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import subprocess
+          import tempfile
+          from pathlib import Path
+
+          host = os.environ["REHEARSAL_HOST"]
+          port = os.environ["REHEARSAL_PORT"]
+          actor = os.environ["GITHUB_ACTOR"]
+          ref = os.environ["PUBLISHED_DIGEST"]
+          token = os.environ["REGISTRY_TOKEN"]
+          if (
+              not re.fullmatch(r"[A-Za-z0-9.-]+", host)
+              or not port.isdigit()
+              or not 1 <= int(port) <= 65535
+              or not re.fullmatch(r"[A-Za-z0-9-]{1,39}", actor)
+              or not re.fullmatch(r"sha256:[0-9a-f]{64}", ref)
+              or not re.fullmatch(r"[A-Za-z0-9_]{20,250}", token)
+          ):
+              raise SystemExit("Incomplete or invalid rehearsal configuration")
+          os.umask(0o077)
+          with tempfile.TemporaryDirectory() as temporary:
+              root = Path(temporary)
+              known_hosts = root / "known_hosts"
+              identity = root / "identity"
+              known_hosts.write_text(os.environ["REHEARSAL_HOST_KEY"].strip() + "\n")
+              identity.write_text(os.environ["REHEARSAL_SSH_KEY"].strip() + "\n")
+              handoff = "\n".join(("CUPEDIA-REHEARSAL-1", actor, ref, token, "")).encode()
+              ssh = [
+                  "ssh", "-F", "/dev/null", "-T", "-i", str(identity), "-p", port,
+                  "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes",
+                  "-o", "ConnectTimeout=12", "-o", "ServerAliveInterval=10",
+                  "-o", "StrictHostKeyChecking=yes", "-o", "HostKeyAlgorithms=ssh-ed25519",
+                  "-o", "HostKeyAlias=seoul-deploy-rehearsal",
+                  "-o", "UserKnownHostsFile=" + str(known_hosts),
+                  "cupedia-rehearsal@" + host,
+              ]
+              subprocess.run(ssh, input=handoff, check=True, timeout=595)
+          PY

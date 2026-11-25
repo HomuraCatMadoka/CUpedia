@@ -1,0 +1,22 @@
+# Keep only inputs to the Next.js build.
+*
+!package.json
+!pnpm-lock.yaml
+!next.config.ts
+!postcss.config.mjs
+!tsconfig.json
+!next-env.d.ts
+!src/
+!src/**
+!public/
+!public/**
+!docs/
+!docs/**
+
+**/.env*
+**/*.env
+**/.git
+**/.vercel
+**/node_modules
+**/.next
+**/.DS_Store
