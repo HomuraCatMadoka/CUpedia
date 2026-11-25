@@ -1,0 +1,29 @@
+name: Remove the one-off Seoul rehearsal image
+
+on:
+  push:
+    branches: [codex/seoul-deploy-rehearsal-cleanup-20261126]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify ownership and remove the rehearsal-only package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          package=cupedia-seoul-rehearsal-20261126
+          path=/users/HomuraCatMadoka/packages/container/$package
+          tag=rehearsal-5530ecfd924d87d03976347f8a8e41fc1ce96bc8
+          gh api "$path" | jq -e --arg package "$package" --arg repo "$GITHUB_REPOSITORY" \
+            '.name == $package and .package_type == "container" and .repository.full_name == $repo' >/dev/null
+          gh api "$path/versions" | jq -e --arg tag "$tag" \
+            'any(.[]; any(.metadata.container.tags[]?; . == $tag))' >/dev/null
+          gh api --method DELETE "$path"
+          printf 'Rehearsal-only image package removed.\n'
