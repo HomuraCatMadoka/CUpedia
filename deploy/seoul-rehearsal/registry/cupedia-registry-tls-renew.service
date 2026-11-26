@@ -1,0 +1,18 @@
+[Unit]
+Description=Renew TLS for the CUpedia localhost-only registry
+Requires=docker.service
+After=docker.service
+RequiresMountsFor=/srv/cupedia-private-registry-rehearsal-20261126/tls/live /etc/cupedia-registry-tls
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0077
+ExecStart=/usr/bin/python3 -I /usr/local/lib/cupedia-registry/registry-tls.py renew
+TimeoutStartSec=3min
+ProtectSystem=strict
+ProtectHome=true
+NoNewPrivileges=yes
+PrivateTmp=yes
+ReadWritePaths=/srv/cupedia-private-registry-rehearsal-20261126/tls/live

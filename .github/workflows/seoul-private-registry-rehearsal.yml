@@ -1,0 +1,97 @@
+name: Seoul isolated manual release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seoul-isolated-manual-release
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Verify the rehearsal source
+    if: github.ref == 'refs/heads/codex/seoul-manual-release'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      HUSKY: "0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm typecheck
+
+  publish:
+    name: Build and publish privately over SSH
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: seoul-isolated-publish
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build the linux/amd64 image
+        run: |
+          docker buildx build --load \
+            --file deploy/seoul-rehearsal/Dockerfile \
+            --platform linux/amd64 \
+            --build-arg NEXT_BUILD_SKIP_TYPECHECK=1 \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag "127.0.0.1:5105/cupedia-rehearsal:rehearsal-$GITHUB_SHA" .
+      - name: Publish and verify anonymous access is denied
+        env:
+          SEOUL_TRIAL_HOST: ${{ secrets.SEOUL_TRIAL_HOST }}
+          SEOUL_TRIAL_PORT: ${{ secrets.SEOUL_TRIAL_PORT }}
+          SEOUL_TRIAL_HOST_KEY: ${{ secrets.SEOUL_TRIAL_HOST_KEY }}
+          SEOUL_TRIAL_SSH_USER: cupedia-ci-registry
+          SEOUL_TRIAL_SSH_KEY: ${{ secrets.SEOUL_TRIAL_SSH_KEY }}
+          SEOUL_TRIAL_REGISTRY_CA: ${{ secrets.SEOUL_TRIAL_REGISTRY_CA }}
+          SEOUL_TRIAL_REGISTRY_WRITER: ${{ secrets.SEOUL_TRIAL_REGISTRY_WRITER }}
+        run: python3 -I deploy/seoul-rehearsal/private-registry-workflow.py publish
+      - name: Share the verified image digest with the rehearsal job
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoul-private-image-digest
+          path: ${{ runner.temp }}/seoul-private-image-digest.txt
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+
+  rehearse:
+    name: Read-only pull, deploy, check and roll back
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: seoul-isolated-deploy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Read the verified image digest from this run
+        uses: actions/download-artifact@v5
+        with:
+          name: seoul-private-image-digest
+          path: ${{ runner.temp }}
+      - name: Rehearse deployment and rollback in Seoul
+        env:
+          SEOUL_TRIAL_HOST: ${{ secrets.SEOUL_TRIAL_HOST }}
+          SEOUL_TRIAL_PORT: ${{ secrets.SEOUL_TRIAL_PORT }}
+          SEOUL_TRIAL_HOST_KEY: ${{ secrets.SEOUL_TRIAL_HOST_KEY }}
+          SEOUL_TRIAL_SSH_USER: cupedia-ci-rehearsal
+          SEOUL_TRIAL_SSH_KEY: ${{ secrets.SEOUL_TRIAL_SSH_KEY }}
+        run: python3 -I deploy/seoul-rehearsal/private-registry-workflow.py rehearse

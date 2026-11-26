@@ -1,0 +1,110 @@
+name: cupedia-private-registry-rehearsal
+
+services:
+  registry:
+    image: ${REGISTRY_IMAGE:?Supply the loaded Docker Official Distribution image digest}
+    pull_policy: never
+    entrypoint: ["/bin/registry"]
+    command: ["serve", "/etc/distribution/rehearsal.yml"]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 192m
+    cpus: 0.35
+    pids_limit: 96
+    networks: [backend]
+    volumes:
+      - type: bind
+        source: ./distribution.yml
+        target: /etc/distribution/rehearsal.yml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./auth/backend.htpasswd
+        target: /run/registry-auth/backend.htpasswd
+        read_only: true
+        bind:
+          create_host_path: false
+      - storage:/var/lib/registry
+    logging:
+      driver: local
+      options:
+        max-size: 5m
+        max-file: "2"
+
+  frontend:
+    image: ${NGINX_IMAGE:?Supply the loaded Docker Official Nginx image digest}
+    pull_policy: never
+    entrypoint: ["/usr/sbin/nginx", "-g", "daemon off;"]
+    command: ["-c", "/etc/nginx/nginx.conf"]
+    depends_on: [registry]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 96m
+    cpus: 0.25
+    pids_limit: 64
+    ports:
+      - "127.0.0.1:5105:5443"
+    networks:
+      frontend:
+        gw_priority: 1
+      backend:
+        gw_priority: 0
+    tmpfs:
+      - /var/cache/nginx:size=24m,mode=0755
+      - /var/run:size=2m,mode=0755
+    volumes:
+      - type: bind
+        source: ./nginx.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./auth/reader.htpasswd
+        target: /etc/nginx/rehearsal-reader.htpasswd
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./auth/writer.htpasswd
+        target: /etc/nginx/rehearsal-writer.htpasswd
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./auth/backend-authorization.conf
+        target: /etc/nginx/rehearsal-backend-authorization.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./tls/live
+        target: /etc/nginx/rehearsal-tls
+        read_only: true
+        bind:
+          create_host_path: false
+    logging:
+      driver: local
+      options:
+        max-size: 5m
+        max-file: "2"
+
+networks:
+  frontend:
+    driver: bridge
+    enable_ipv6: false
+  backend:
+    driver: bridge
+    internal: true
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.gateway_mode_ipv4: isolated
+
+volumes:
+  storage:
