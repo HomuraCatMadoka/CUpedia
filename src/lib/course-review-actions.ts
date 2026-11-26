@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import {
   and,
   asc,
@@ -8,7 +9,6 @@ import {
   eq,
   gte,
   inArray,
-  lt,
   ne,
   or,
   sql,
@@ -42,7 +42,8 @@ import { hasProfessorCourseEvidence } from "@/lib/professor-course-evidence";
 import { getOptionalUser, requireAdmin, requireAuth } from "@/lib/auth-guard";
 import { assertContributorComplete } from "@/lib/contributor-account";
 import {
-  getAchievementSummariesForAuthors,
+  ensureAchievementProfile,
+  readAchievementSummariesForAuthors,
   type PublicAchievementSummary,
 } from "@/lib/achievement-profile";
 import type { EquippedPersonTitle } from "@/lib/user-avatar";
@@ -56,6 +57,8 @@ import {
   type PublicDeletionImpact,
 } from "@/lib/achievement-recompute-db";
 import {
+  COURSE_REVIEW_PAGE_SIZE,
+  COURSE_REVIEW_REFRESH_BATCH_SIZE,
   COURSE_REVIEW_TAG_OPTIONS,
   COURSE_REVIEW_TAG_STORAGE_VALUES,
   COURSE_TERMS,
@@ -117,6 +120,13 @@ export type CourseReviewView = {
   authorAchievements: PublicAchievementSummary[];
   authorAvatarUrl?: string | null;
   authorEquippedTitle?: EquippedPersonTitle | null;
+};
+
+export type CourseReviewPage = {
+  items: CourseReviewView[];
+  totalCount: number;
+  nextCursor: string | null;
+  viewerChanged?: true;
 };
 
 export type ProfessorOption = {
@@ -212,6 +222,48 @@ export type CourseRatingState = {
   /** How many times the current user has rated this course. */
   myRatingCount: number;
 };
+
+type CourseDetailOptions = {
+  tab: "reviews" | "enrollment";
+  professor?: string;
+  review?: string;
+  reply?: string;
+};
+
+type CourseDetail = {
+  course: CourseView;
+  isAuthenticated: boolean;
+  hasPublishedReview: boolean;
+} & (
+  | { tab: "enrollment"; enrollmentHistory: CourseEnrollmentView[] }
+  | {
+      tab: "reviews";
+      viewerKey: string;
+      ratingState: CourseRatingState;
+      editorAcademicYears: string[];
+      professorOptional: boolean;
+      professorStats: CourseProfessorStats[];
+      reviewedProfessors: Pick<ProfessorOption, "id" | "name">[];
+      prefillProfessor?: ProfessorOption;
+      initialProfessorId: string;
+      reviewPage: CourseReviewPage;
+      targetMissing: boolean;
+      targetReview?: CourseReviewView;
+      targetReviewId?: string;
+      targetReplyId?: string;
+      targetReplyOffset?: number;
+    }
+);
+
+type CourseViewer = Awaited<ReturnType<typeof getOptionalUser>>;
+
+function courseReviewViewerKey(user: CourseViewer) {
+  return user
+    ? createHash("sha256")
+        .update(JSON.stringify([user.id, user.role]))
+        .digest("base64url")
+    : "guest";
+}
 
 export type CourseFilter = {
   /** "0" | "1" | "2" | "3" (the 98% of courses); "other" (4+) still honored. */
@@ -759,15 +811,51 @@ export async function getSubjects(): Promise<
   }));
 }
 
-/** Fetch a single course by code (space-insensitive), or null if unknown. */
-export async function getCourse(code: string): Promise<CourseView | null> {
-  const rows = await db
+async function readCourseCatalogRow(courseCode: string) {
+  const [row] = await db
     .select(courseCols)
     .from(courses)
-    .where(eq(courses.code, normalizeCode(code)))
+    .where(eq(courses.code, courseCode))
     .limit(1);
-  const [view] = await buildViews(rows);
-  return view ?? null;
+  return row ?? null;
+}
+
+const COURSE_DETAIL_CACHE_TTL_SECONDS = 60;
+const missingCourseCatalogRow = new Error("Course does not exist");
+
+const getCachedCourseCatalogRow = unstable_cache(
+  async (courseCode: string) => {
+    const row = await readCourseCatalogRow(courseCode);
+    // Unknown route parameters must not create persistent cache entries.
+    if (!row) throw missingCourseCatalogRow;
+    return row;
+  },
+  ["course-detail-catalog-v1"],
+  { revalidate: COURSE_DETAIL_CACHE_TTL_SECONDS },
+);
+
+function courseDetailCacheEnabled() {
+  return process.env.COURSE_DETAIL_DISABLE_SHARED_CACHE !== "1";
+}
+
+async function readCourseDetailCatalogRow(courseCode: string) {
+  if (!courseDetailCacheEnabled() || !/^[A-Z0-9]{1,16}$/.test(courseCode)) {
+    return readCourseCatalogRow(courseCode);
+  }
+  try {
+    return await getCachedCourseCatalogRow(courseCode);
+  } catch (error) {
+    if (error === missingCourseCatalogRow) return null;
+    throw error;
+  }
+}
+
+/** Fetch a single course by code (space-insensitive), or null if unknown. */
+export async function getCourse(code: string): Promise<CourseView | null> {
+  const row = await readCourseCatalogRow(normalizeCode(code));
+  if (!row) return null;
+  const [view] = await buildViews([row]);
+  return view;
 }
 
 /** Rating UI state for the detail page: aggregate score + this user's vote. */
@@ -781,9 +869,20 @@ export async function getCourseRatingState(
     ratingAggFor(course.code),
     getOptionalUser(),
   ]);
-  const aggregateRating = agg.cnt > 0 ? roundScore(agg.avg) : null;
-  const ratingCount = agg.cnt;
+  return readCourseRatingState(
+    course.code,
+    agg.cnt > 0 ? roundScore(agg.avg) : null,
+    agg.cnt,
+    user,
+  );
+}
 
+async function readCourseRatingState(
+  courseCode: string,
+  aggregateRating: number | null,
+  ratingCount: number,
+  user: CourseViewer,
+): Promise<CourseRatingState> {
   if (!user) {
     return {
       aggregateRating,
@@ -800,45 +899,46 @@ export async function getCourseRatingState(
     };
   }
 
-  const myRatings = await db
-    .select({
-      score: courseRatings.score,
-      academicYear: courseRatings.academicYear,
-      term: courseRatings.term,
-      professorId: sql<string | null>`coalesce(
+  const [myRatings, [myReview]] = await Promise.all([
+    db
+      .select({
+        score: courseRatings.score,
+        academicYear: courseRatings.academicYear,
+        term: courseRatings.term,
+        professorId: sql<string | null>`coalesce(
         ${courseRatings.instructorPersonId},
         ${professorStaffIdentities.personId},
         ${courseRatings.professorId}
       )`,
-      professorName: courseRatings.professorNameSnapshot,
-      professors: storedRatingProfessors,
-      storedTags: storedReviewTagSelection,
-      isAnonymous: courseRatings.isAnonymous,
-    })
-    .from(courseRatings)
-    .leftJoin(
-      professorStaffIdentities,
-      eq(courseRatings.professorId, professorStaffIdentities.professorId),
-    )
-    .where(
-      and(
-        eq(courseRatings.courseCode, course.code),
-        eq(courseRatings.userId, user.id),
+        professorName: courseRatings.professorNameSnapshot,
+        professors: storedRatingProfessors,
+        storedTags: storedReviewTagSelection,
+        isAnonymous: courseRatings.isAnonymous,
+      })
+      .from(courseRatings)
+      .leftJoin(
+        professorStaffIdentities,
+        eq(courseRatings.professorId, professorStaffIdentities.professorId),
+      )
+      .where(
+        and(
+          eq(courseRatings.courseCode, courseCode),
+          eq(courseRatings.userId, user.id),
+        ),
       ),
-    );
-
+    db
+      .select({ content: courseReviews.content })
+      .from(courseReviews)
+      .where(
+        and(
+          eq(courseReviews.courseCode, courseCode),
+          eq(courseReviews.userId, user.id),
+        ),
+      )
+      .orderBy(desc(courseReviews.createdAt))
+      .limit(1),
+  ]);
   const mine = myRatings[0];
-  const [myReview] = await db
-    .select({ content: courseReviews.content })
-    .from(courseReviews)
-    .where(
-      and(
-        eq(courseReviews.courseCode, course.code),
-        eq(courseReviews.userId, user.id),
-      ),
-    )
-    .orderBy(desc(courseReviews.createdAt))
-    .limit(1);
   const mineProfessors = selectedProfessors(
     mine?.professors,
     mine?.professorId,
@@ -861,96 +961,150 @@ export async function getCourseRatingState(
   };
 }
 
-/** Reviews for a course, newest first, with per-viewer like/ownership state. */
-export async function getCourseReviews(
-  code: string,
-): Promise<CourseReviewView[]> {
-  const course = await findCourse(code);
-  if (!course) return [];
+const reviewProfessorId = sql<string | null>`coalesce(
+  ${courseReviews.instructorPersonId},
+  ${professorStaffIdentities.personId},
+  ${courseReviews.professorId}
+)`;
+const reviewProfessorName = sql<string | null>`coalesce(
+  ${courseReviews.professorNameSnapshot}, ${professors.name}
+)`;
 
-  const [rows, user] = await Promise.all([
-    db
-      .select({
-        id: courseReviews.id,
-        content: courseReviews.content,
-        createdAt: courseReviews.createdAt,
-        updatedAt: courseReviews.updatedAt,
-        replyCount: sql<number>`(
-          select count(*) from ${courseReviewReplies} reply
-          where reply.review_id = ${courseReviews.id}
-        )`,
-        userId: courseReviews.userId,
-        isAnonymous: courseReviews.isAnonymous,
-        professorId: sql<string | null>`coalesce(
-          ${courseReviews.instructorPersonId},
-          ${professorStaffIdentities.personId},
-          ${courseReviews.professorId}
-        )`,
-        professorName: sql<
-          string | null
-        >`coalesce(${courseReviews.professorNameSnapshot}, ${professors.name})`,
-        professors: storedRatingProfessors,
-        academicYear: courseReviews.academicYear,
-        term: courseReviews.term,
-        score: courseReviews.score,
-        storedTags: storedReviewTagSelection,
-        authorNickname: sql<string | null>`case
-          when ${courseReviews.isAnonymous} then null
-          else ${users.nickname}
-        end`,
-      })
-      .from(courseReviews)
-      .leftJoin(professors, eq(courseReviews.professorId, professors.id))
-      .leftJoin(
-        professorStaffIdentities,
-        eq(courseReviews.professorId, professorStaffIdentities.professorId),
-      )
-      .innerJoin(users, eq(courseReviews.userId, users.id))
-      .leftJoin(
-        courseRatings,
-        and(
-          eq(courseReviews.courseCode, courseRatings.courseCode),
-          eq(courseReviews.userId, courseRatings.userId),
-        ),
-      )
-      .where(eq(courseReviews.courseCode, course.code))
-      .orderBy(desc(courseReviews.createdAt)),
-    getOptionalUser(),
-  ]);
+const reviewProfessorIdentityJoin = eq(
+  courseReviews.professorId,
+  professorStaffIdentities.professorId,
+);
+
+const reviewRatingJoin = and(
+  eq(courseReviews.courseCode, courseRatings.courseCode),
+  eq(courseReviews.userId, courseRatings.userId),
+);
+
+function reviewProfessorCondition(professorId?: string) {
+  if (!professorId) return undefined;
+  return sql<boolean>`case
+    when ${storedRatingProfessors} = '[]'::jsonb
+      then ${reviewProfessorId} = ${professorId}
+    else ${storedRatingProfessors} @> jsonb_build_array(jsonb_build_object('id', ${professorId}::text))
+  end`;
+}
+
+type ReviewCursor = { timestamp: string; id: string };
+
+function parseReviewCursor(cursor?: string): ReviewCursor | undefined {
+  if (!cursor || cursor.length !== 63) return;
+  const [timestamp, id] = cursor.split("|");
+  if (
+    !timestamp ||
+    !id ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}$/.test(timestamp) ||
+    !UUID_PATTERN.test(id)
+  )
+    return;
+
+  const date = new Date(`${timestamp}Z`);
+  if (
+    !Number.isFinite(date.getTime()) ||
+    date.toISOString().slice(0, 23) !== timestamp.slice(0, 23) ||
+    timestamp.startsWith("0000")
+  )
+    return;
+
+  return { timestamp, id };
+}
+
+async function readCourseReviewRows(
+  courseCode: string,
+  {
+    professorId,
+    cursor,
+    limit,
+    reviewId,
+  }: {
+    professorId?: string;
+    cursor?: ReviewCursor;
+    limit?: number;
+    reviewId?: string;
+  } = {},
+) {
+  const query = db
+    .select({
+      id: courseReviews.id,
+      content: courseReviews.content,
+      createdAt: courseReviews.createdAt,
+      cursorTime: sql<string>`to_char(${courseReviews.createdAt}, 'YYYY-MM-DD"T"HH24:MI:SS.US')`,
+      updatedAt: courseReviews.updatedAt,
+      replyCount: sql<number>`(
+      select count(*) from ${courseReviewReplies} reply
+      where reply.review_id = ${courseReviews.id}
+    )`,
+      userId: courseReviews.userId,
+      isAnonymous: courseReviews.isAnonymous,
+      professorId: reviewProfessorId,
+      professorName: reviewProfessorName,
+      professors: storedRatingProfessors,
+      academicYear: courseReviews.academicYear,
+      term: courseReviews.term,
+      score: courseReviews.score,
+      storedTags: storedReviewTagSelection,
+      authorNickname: sql<string | null>`case
+      when ${courseReviews.isAnonymous} then null
+      else ${users.nickname}
+    end`,
+    })
+    .from(courseReviews)
+    .leftJoin(professors, eq(courseReviews.professorId, professors.id))
+    .leftJoin(professorStaffIdentities, reviewProfessorIdentityJoin)
+    .innerJoin(users, eq(courseReviews.userId, users.id))
+    .leftJoin(courseRatings, reviewRatingJoin)
+    .where(
+      and(
+        eq(courseReviews.courseCode, courseCode),
+        reviewProfessorCondition(professorId),
+        cursor
+          ? sql`(${courseReviews.createdAt}, ${courseReviews.id}) < (${cursor.timestamp}::timestamp, ${cursor.id}::uuid)`
+          : undefined,
+        reviewId ? eq(courseReviews.id, reviewId) : undefined,
+      ),
+    )
+    .orderBy(desc(courseReviews.createdAt), desc(courseReviews.id));
+
+  return limit === undefined ? query : query.limit(limit);
+}
+
+async function presentCourseReviews(
+  rows: Awaited<ReturnType<typeof readCourseReviewRows>>,
+  user: CourseViewer,
+): Promise<CourseReviewView[]> {
+  if (!rows.length) return [];
   const viewerId = user?.id ?? null;
   const ids = rows.map((r) => r.id);
 
-  const likeRows = ids.length
-    ? await db
-        .select({ reviewId: courseReviewLikes.reviewId, cnt: count() })
-        .from(courseReviewLikes)
-        .where(inArray(courseReviewLikes.reviewId, ids))
-        .groupBy(courseReviewLikes.reviewId)
-    : [];
+  const [likeRows, myLikeRows, authorAchievements] = await Promise.all([
+    db
+      .select({ reviewId: courseReviewLikes.reviewId, cnt: count() })
+      .from(courseReviewLikes)
+      .where(inArray(courseReviewLikes.reviewId, ids))
+      .groupBy(courseReviewLikes.reviewId),
+    viewerId
+      ? db
+          .select({ reviewId: courseReviewLikes.reviewId })
+          .from(courseReviewLikes)
+          .where(
+            and(
+              inArray(courseReviewLikes.reviewId, ids),
+              eq(courseReviewLikes.userId, viewerId),
+            ),
+          )
+      : [],
+    readAchievementSummariesForAuthors(
+      rows.filter((row) => !row.isAnonymous).map((row) => row.userId),
+    ),
+  ]);
   const likeCount = new Map(likeRows.map((r) => [r.reviewId, Number(r.cnt)]));
+  const mine = new Set(myLikeRows.map((r) => r.reviewId));
 
-  const mine =
-    viewerId && ids.length
-      ? new Set(
-          (
-            await db
-              .select({ reviewId: courseReviewLikes.reviewId })
-              .from(courseReviewLikes)
-              .where(
-                and(
-                  inArray(courseReviewLikes.reviewId, ids),
-                  eq(courseReviewLikes.userId, viewerId),
-                ),
-              )
-          ).map((r) => r.reviewId),
-        )
-      : new Set<string>();
-
-  const authorAchievements = await getAchievementSummariesForAuthors(
-    rows.filter((row) => !row.isAnonymous).map((row) => row.userId),
-  );
-
-  const reviewViews: CourseReviewView[] = rows.map((r) => {
+  return rows.map((r) => {
     const author = r.isAnonymous ? undefined : authorAchievements.get(r.userId);
     const professorSelections = selectedProfessors(
       r.professors,
@@ -982,8 +1136,120 @@ export async function getCourseReviews(
       authorEquippedTitle: author?.equippedTitle ?? null,
     };
   });
+}
 
-  return reviewViews;
+async function countCourseReviews(courseCode: string, professorId?: string) {
+  const courseCondition = eq(courseReviews.courseCode, courseCode);
+  const [row] = professorId
+    ? await db
+        .select({ value: count() })
+        .from(courseReviews)
+        .leftJoin(professorStaffIdentities, reviewProfessorIdentityJoin)
+        .leftJoin(courseRatings, reviewRatingJoin)
+        .where(and(courseCondition, reviewProfessorCondition(professorId)))
+    : await db
+        .select({ value: count() })
+        .from(courseReviews)
+        .where(courseCondition);
+  return Number(row?.value ?? 0);
+}
+
+async function readCourseReviewPage(
+  courseCode: string,
+  user: CourseViewer,
+  {
+    professorId,
+    cursor,
+    total,
+    pageSize = COURSE_REVIEW_PAGE_SIZE,
+  }: {
+    professorId?: string;
+    cursor?: string;
+    total?: number;
+    pageSize?: number;
+  } = {},
+): Promise<CourseReviewPage> {
+  if (total === 0) return { items: [], totalCount: 0, nextCursor: null };
+  const [rows, totalCount] = await Promise.all([
+    readCourseReviewRows(courseCode, {
+      professorId,
+      cursor: parseReviewCursor(cursor),
+      limit: pageSize + 1,
+    }),
+    professorId || total === undefined
+      ? countCourseReviews(courseCode, professorId)
+      : total,
+  ]);
+  const pageRows = rows.slice(0, pageSize);
+  const lastRow = pageRows.at(-1);
+  return {
+    items: await presentCourseReviews(pageRows, user),
+    totalCount,
+    nextCursor:
+      rows.length > pageSize && lastRow
+        ? `${lastRow.cursorTime}|${lastRow.id}`
+        : null,
+  };
+}
+
+export async function getCourseReviewPage(
+  code: string,
+  options: {
+    professorId?: string;
+    cursor?: string;
+    limit?: number;
+    viewerKey?: string;
+  } = {},
+): Promise<CourseReviewPage> {
+  const emptyPage = { items: [], totalCount: 0, nextCursor: null };
+  if (typeof code !== "string") return emptyPage;
+  const course = await readCourseDetailCatalogRow(normalizeCode(code));
+  if (!course) return emptyPage;
+  const { professorId, cursor, limit, viewerKey } = options ?? {};
+  const user = await getOptionalUser();
+  if (viewerKey !== undefined && viewerKey !== courseReviewViewerKey(user)) {
+    return { ...emptyPage, viewerChanged: true };
+  }
+  const pageSize =
+    typeof limit === "number" && Number.isSafeInteger(limit)
+      ? Math.min(COURSE_REVIEW_REFRESH_BATCH_SIZE, Math.max(1, limit))
+      : COURSE_REVIEW_PAGE_SIZE;
+  return readCourseReviewPage(course.code, user, {
+    professorId: typeof professorId === "string" ? professorId : undefined,
+    cursor: typeof cursor === "string" ? cursor : undefined,
+    pageSize,
+  });
+}
+
+async function readReviewedProfessors(courseCode: string) {
+  const rows = await db
+    .selectDistinct({
+      id: reviewProfessorId,
+      name: reviewProfessorName,
+      professors: storedRatingProfessors,
+    })
+    .from(courseReviews)
+    .leftJoin(professors, eq(courseReviews.professorId, professors.id))
+    .leftJoin(professorStaffIdentities, reviewProfessorIdentityJoin)
+    .leftJoin(courseRatings, reviewRatingJoin)
+    .where(eq(courseReviews.courseCode, courseCode));
+  const professorsById = new Map<
+    string,
+    Pick<ProfessorOption, "id" | "name">
+  >();
+  for (const row of rows) {
+    const selections = row.professors?.length
+      ? row.professors
+      : row.id
+        ? [{ id: row.id, name: row.name ?? row.id }]
+        : [];
+    for (const { id, name } of selections) {
+      if (!professorsById.has(id)) professorsById.set(id, { id, name });
+    }
+  }
+  return [...professorsById.values()].sort(
+    (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
+  );
 }
 
 const getCachedProfessorSearchCorpus = unstable_cache(
@@ -1050,13 +1316,41 @@ const getCachedProfessorSearchCorpus = unstable_cache(
   { revalidate: 300, tags: ["professor-catalog"] },
 );
 
+function readCourseOfferings(courseCode: string) {
+  return db
+    .select({
+      professorId: courseOfferingInstructors.personId,
+      academicYear: courseOfferingInstructors.academicYear,
+      term: courseOfferingInstructors.term,
+    })
+    .from(courseOfferingInstructors)
+    .where(
+      and(
+        eq(courseOfferingInstructors.courseCode, courseCode),
+        sql`${courseOfferingInstructors.personId} is not null`,
+      ),
+    );
+}
+
+const getCachedCourseOfferings = unstable_cache(
+  async (courseCode: string) => readCourseOfferings(courseCode),
+  ["course-detail-offerings-v1"],
+  { revalidate: COURSE_DETAIL_CACHE_TTL_SECONDS },
+);
+
 /** Per-professor and per-offering aggregates for the course review filter.
  * Ratings without offering metadata stay in the course-wide aggregate but are
  * not guessed into a professor or term. */
 export async function getCourseProfessorStats(
   code: string,
 ): Promise<CourseProfessorStats[]> {
-  const courseCode = normalizeCode(code);
+  return readCourseProfessorStats(normalizeCode(code));
+}
+
+async function readCourseProfessorStats(
+  courseCode: string,
+  cacheOfferings = false,
+): Promise<CourseProfessorStats[]> {
   const selectedInstructors = db
     .select({
       ratingId: courseRatingProfessors.ratingId,
@@ -1108,19 +1402,9 @@ export async function getCourseProfessorStats(
         courseRatings.academicYear,
         courseRatings.term,
       ),
-    db
-      .select({
-        professorId: courseOfferingInstructors.personId,
-        academicYear: courseOfferingInstructors.academicYear,
-        term: courseOfferingInstructors.term,
-      })
-      .from(courseOfferingInstructors)
-      .where(
-        and(
-          eq(courseOfferingInstructors.courseCode, courseCode),
-          sql`${courseOfferingInstructors.personId} is not null`,
-        ),
-      ),
+    cacheOfferings
+      ? getCachedCourseOfferings(courseCode)
+      : readCourseOfferings(courseCode),
     db
       .select({
         professorId: selectedProfessorId,
@@ -1262,7 +1546,12 @@ export async function getProfessorOptionByPublicId(
 export async function getCourseEnrollmentHistory(
   code: string,
 ): Promise<CourseEnrollmentView[]> {
-  const courseCode = normalizeCode(code);
+  return readCourseEnrollmentHistory(normalizeCode(code));
+}
+
+async function readCourseEnrollmentHistory(
+  courseCode: string,
+): Promise<CourseEnrollmentView[]> {
   const rows = await db
     .select()
     .from(courseEnrollments)
@@ -1300,6 +1589,180 @@ export async function getCourseEnrollmentHistory(
       instructors: main.instructors,
     };
   });
+}
+
+const getCachedCourseEnrollmentHistory = unstable_cache(
+  readCourseEnrollmentHistory,
+  ["course-detail-enrollment-v1"],
+  { revalidate: COURSE_DETAIL_CACHE_TTL_SECONDS },
+);
+
+async function readCourseReviewEditorMetadata(courseCode: string) {
+  const [row] = await db
+    .select({
+      academicYears: sql<string[]>`coalesce(
+        array_agg(distinct ${courseEnrollments.academicYear}), ARRAY[]::text[]
+      )`,
+      professorOptional: sql<boolean>`coalesce(
+        bool_and(cardinality(${courseEnrollments.instructors}) = 0), false
+      )`,
+    })
+    .from(courseEnrollments)
+    .where(eq(courseEnrollments.courseCode, courseCode));
+  return row ?? { academicYears: [], professorOptional: false };
+}
+
+async function hasCourseRating(courseCode: string, userId: string) {
+  const [rating] = await db
+    .select({ id: courseRatings.id })
+    .from(courseRatings)
+    .where(
+      and(
+        eq(courseRatings.courseCode, courseCode),
+        eq(courseRatings.userId, userId),
+      ),
+    )
+    .limit(1);
+  return Boolean(rating);
+}
+
+async function readCourseReviewTarget(
+  courseCode: string,
+  review?: string,
+  reply?: string,
+) {
+  if (typeof review !== "string" || !UUID_PATTERN.test(review)) return;
+  if (
+    reply !== undefined &&
+    (typeof reply !== "string" || !UUID_PATTERN.test(reply))
+  )
+    return;
+
+  const [[row], replyOffset] = await Promise.all([
+    readCourseReviewRows(courseCode, { reviewId: review, limit: 1 }),
+    reply
+      ? getCourseReviewReplyTargetOffset(courseCode, review, reply)
+      : undefined,
+  ]);
+  if (!row || replyOffset === null) return;
+  return { row, replyId: reply, replyOffset };
+}
+
+export async function getCourseDetail(
+  code: string,
+  { tab, professor, review, reply }: CourseDetailOptions,
+): Promise<CourseDetail | null> {
+  const [row, user] = await Promise.all([
+    readCourseDetailCatalogRow(normalizeCode(code)),
+    getOptionalUser(),
+  ]);
+  if (!row) return null;
+
+  const courseCode = row.code;
+  const cacheEnabled = courseDetailCacheEnabled();
+  const isAuthenticated = Boolean(user);
+  const coursePromise = buildViews([row]).then(([course]) => course);
+
+  if (tab === "enrollment") {
+    const [course, enrollmentHistory, hasPublishedReview] = await Promise.all([
+      coursePromise,
+      cacheEnabled
+        ? getCachedCourseEnrollmentHistory(courseCode)
+        : readCourseEnrollmentHistory(courseCode),
+      user ? hasCourseRating(courseCode, user.id) : false,
+    ]);
+    return {
+      tab,
+      course,
+      isAuthenticated,
+      hasPublishedReview,
+      enrollmentHistory,
+    };
+  }
+
+  const requestedProfessorId =
+    typeof professor === "string" && UUID_PATTERN.test(professor)
+      ? professor
+      : undefined;
+  const targetRequested = Boolean(review || reply);
+  const loadProfessorStats = () =>
+    readCourseProfessorStats(courseCode, cacheEnabled);
+  // The guest filter only shows professors who have been rated or reviewed.
+  // Editors and deep links still use the roster even before any feedback exists.
+  const professorStatsPromise =
+    user || requestedProfessorId || targetRequested
+      ? loadProfessorStats()
+      : coursePromise.then(({ ratingCount, reviewCount }) =>
+          ratingCount > 0 || reviewCount > 0 ? loadProfessorStats() : [],
+        );
+  const prefillPromise = requestedProfessorId
+    ? professorStatsPromise.then(
+        async (stats) =>
+          stats.find((item) => item.publicId === requestedProfessorId) ??
+          (await getProfessorOptionByPublicId(requestedProfessorId)) ??
+          undefined,
+      )
+    : undefined;
+  const targetPromise = targetRequested
+    ? readCourseReviewTarget(courseCode, review, reply)
+    : undefined;
+
+  const [course, professorStats, ratingState, editorMetadata, reviewDetails] =
+    await Promise.all([
+      coursePromise,
+      professorStatsPromise,
+      coursePromise.then(({ rating, ratingCount }) =>
+        readCourseRatingState(courseCode, rating, ratingCount, user),
+      ),
+      // Imports can change what the submission validator allows at any time.
+      user
+        ? readCourseReviewEditorMetadata(courseCode)
+        : { academicYears: [], professorOptional: false },
+      (async () => {
+        const [{ reviewCount }, prefillProfessor, target] = await Promise.all([
+          coursePromise,
+          prefillPromise,
+          targetPromise,
+        ]);
+        const initialProfessorId = target ? "" : (prefillProfessor?.id ?? "");
+        const [reviewPage, reviewedProfessors] = await Promise.all([
+          readCourseReviewPage(courseCode, user, {
+            professorId: initialProfessorId || undefined,
+            total: reviewCount,
+          }),
+          reviewCount > 0 ? readReviewedProfessors(courseCode) : [],
+        ]);
+        const [targetReview] =
+          target && !reviewPage.items.some((item) => item.id === target.row.id)
+            ? await presentCourseReviews([target.row], user)
+            : [];
+
+        return {
+          initialProfessorId,
+          prefillProfessor,
+          reviewPage,
+          reviewedProfessors,
+          targetMissing: targetRequested && !target,
+          targetReview,
+          targetReviewId: target?.row.id,
+          targetReplyId: target?.replyId,
+          targetReplyOffset: target?.replyOffset,
+        };
+      })(),
+    ]);
+
+  return {
+    tab: "reviews",
+    course,
+    isAuthenticated,
+    viewerKey: courseReviewViewerKey(user),
+    hasPublishedReview: ratingState.lastScore !== null,
+    ratingState,
+    editorAcademicYears: editorMetadata.academicYears,
+    professorOptional: editorMetadata.professorOptional,
+    professorStats,
+    ...reviewDetails,
+  };
 }
 
 export async function isCourseProfessorOptional(
@@ -1437,8 +1900,12 @@ export async function getCourseReviewReplyTargetOffset(
   if (!UUID_PATTERN.test(reviewId) || !UUID_PATTERN.test(replyId)) return null;
   const [target] = await db
     .select({
-      id: courseReviewReplies.id,
-      createdAt: courseReviewReplies.createdAt,
+      priorReplies: sql<number>`(
+        select count(*) from ${courseReviewReplies} earlier
+        where earlier.review_id = ${courseReviewReplies.reviewId}
+          and (earlier.created_at, earlier.id) <
+              (${courseReviewReplies.createdAt}, ${courseReviewReplies.id})
+      )`,
     })
     .from(courseReviewReplies)
     .innerJoin(
@@ -1453,24 +1920,7 @@ export async function getCourseReviewReplyTargetOffset(
       ),
     )
     .limit(1);
-  if (!target) return null;
-
-  const [row] = await db
-    .select({ value: count() })
-    .from(courseReviewReplies)
-    .where(
-      and(
-        eq(courseReviewReplies.reviewId, reviewId),
-        or(
-          lt(courseReviewReplies.createdAt, target.createdAt),
-          and(
-            eq(courseReviewReplies.createdAt, target.createdAt),
-            lt(courseReviewReplies.id, target.id),
-          ),
-        ),
-      ),
-    );
-  return Math.floor(Number(row?.value ?? 0) / 20) * 20;
+  return target ? Math.floor(Number(target.priorReplies) / 20) * 20 : null;
 }
 
 export async function deleteCourseReviewReply(replyId: string): Promise<void> {
@@ -1665,6 +2115,7 @@ export async function submitCourseReview(
       isAnonymous,
       updatedAt: sql`now()`,
     };
+    if (content && !isAnonymous) await ensureAchievementProfile(user.id, tx);
     if (content && existingReview) {
       await tx
         .update(courseReviews)

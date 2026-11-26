@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { CourseReviewCard } from "@/components/courses/course-review-card";
@@ -10,51 +11,88 @@ import {
   formatProfessorNameText,
 } from "@/lib/professor-name-format";
 import { cn } from "@/lib/utils";
-import { COURSE_TERMS } from "@/lib/course-review-constants";
-import type {
-  CourseProfessorStats,
-  CourseRatingState,
-  CourseReviewView,
-  ProfessorOption,
+import {
+  COURSE_REVIEW_PAGE_SIZE,
+  COURSE_REVIEW_REFRESH_BATCH_SIZE,
+  COURSE_TERMS,
+} from "@/lib/course-review-constants";
+import {
+  getCourseReviewPage,
+  type CourseProfessorStats,
+  type CourseRatingState,
+  type CourseReviewPage,
+  type CourseReviewView,
+  type ProfessorOption,
 } from "@/lib/course-review-actions";
 
-const INITIAL_REVIEW_LIMIT = 10;
+type ReviewRequest =
+  | { professorId: string; cursor?: string }
+  | { professorId: string; visibleCount: number };
+
+type ReviewListing = {
+  sourcePage: CourseReviewPage;
+  professorId: string;
+  page: CourseReviewPage;
+  request?: ReviewRequest;
+  failedRequest?: ReviewRequest;
+};
+
+function appendReviewPages(first: CourseReviewPage, next: CourseReviewPage) {
+  const visibleIds = new Set(first.items.map((review) => review.id));
+  return {
+    ...next,
+    items: [
+      ...first.items,
+      ...next.items.filter((review) => !visibleIds.has(review.id)),
+    ],
+  };
+}
 
 export function CourseReviewSection({
   code,
-  reviews,
+  reviewPage,
+  reviewedProfessors,
+  initialProfessorId,
   ratingState,
   professorStats,
   academicYears,
   isAuthenticated,
+  viewerKey,
   professorOptional,
   prefillProfessor,
+  targetReview,
   targetReviewId,
   targetReplyId,
   targetReplyOffset,
 }: {
   code: string;
-  reviews: CourseReviewView[];
+  reviewPage: CourseReviewPage;
+  reviewedProfessors: Pick<ProfessorOption, "id" | "name">[];
+  initialProfessorId: string;
   ratingState: CourseRatingState;
   professorStats: CourseProfessorStats[];
   academicYears: string[];
   isAuthenticated: boolean;
+  viewerKey?: string;
   professorOptional: boolean;
   prefillProfessor?: ProfessorOption;
+  targetReview?: CourseReviewView;
   targetReviewId?: string;
   targetReplyId?: string;
   targetReplyOffset?: number;
 }) {
-  const [selectedProfessorId, setSelectedProfessorId] = useState(
-    () => prefillProfessor?.id ?? "",
-  );
-  const [visibleReviewLimit, setVisibleReviewLimit] = useState(() => {
-    const targetIndex = reviews.findIndex(
-      (review) => review.id === targetReviewId,
-    );
-    return Math.max(INITIAL_REVIEW_LIMIT, targetIndex + 1);
-  });
+  const [listing, setListing] = useState<ReviewListing | null>(null);
   const [showAllTermYears, setShowAllTermYears] = useState(false);
+  const { refresh } = useRouter();
+  const page = listing?.page ?? reviewPage;
+  const activeProfessorId = listing?.professorId ?? initialProfessorId;
+  const pending = listing?.request;
+  const failedRequest = listing?.failedRequest;
+
+  useEffect(() => {
+    if (page.viewerChanged) refresh();
+  }, [page.viewerChanged, refresh]);
+
   useEffect(() => {
     if (!targetReviewId) return;
     document
@@ -62,97 +100,195 @@ export function CourseReviewSection({
       ?.scrollIntoView?.({ block: "center" });
   }, [targetReviewId]);
 
-  const reviewedProfessorIds = new Set<string>();
-  for (const review of reviews) {
-    if (review.professors?.length) {
-      for (const professor of review.professors) {
-        reviewedProfessorIds.add(professor.id);
-      }
-    } else if (review.professorId) {
-      reviewedProfessorIds.add(review.professorId);
+  async function requestReviews(professorId: string, cursor?: string) {
+    const request = { professorId, cursor };
+    setListing({
+      sourcePage: reviewPage,
+      professorId: activeProfessorId,
+      page,
+      request,
+    });
+
+    try {
+      const result = await getCourseReviewPage(code, {
+        professorId: professorId || undefined,
+        cursor,
+        ...(viewerKey !== undefined ? { viewerKey } : {}),
+      });
+      const nextPage =
+        cursor && !result.viewerChanged
+          ? appendReviewPages(page, result)
+          : result;
+      setListing((current) =>
+        current?.request === request
+          ? { sourcePage: reviewPage, professorId, page: nextPage }
+          : current,
+      );
+    } catch {
+      setListing((current) =>
+        current?.request === request
+          ? { ...current, request: undefined, failedRequest: request }
+          : current,
+      );
     }
   }
-  const filterProfessors = professorStats.filter(
-    (item) => item.ratingCount > 0 || reviewedProfessorIds.has(item.id),
+
+  const evaluatedProfessorIds = new Set(
+    reviewedProfessors.map((professor) => professor.id),
   );
-  const evaluatedProfessorIds = new Set(reviewedProfessorIds);
-  const filterProfessorIds = new Set(
-    filterProfessors.map((professor) => professor.id),
-  );
+  const filterProfessors = new Map<string, CourseProfessorStats>();
   for (const professor of professorStats) {
     if (professor.ratingCount > 0) evaluatedProfessorIds.add(professor.id);
-  }
-  for (const review of reviews) {
-    const candidates = review.professors?.length
-      ? review.professors
-      : review.professorId
-        ? [
-            {
-              id: review.professorId,
-              name: review.professorName ?? review.professorId,
-            },
-          ]
-        : [];
-    for (const candidate of candidates) {
-      if (filterProfessorIds.has(candidate.id)) continue;
-      const fromStats = professorStats.find((item) => item.id === candidate.id);
-      filterProfessors.push(
-        fromStats ?? {
-          id: candidate.id,
-          name: candidate.name,
-          rating: null,
-          ratingCount: 0,
-          terms: [],
-          tags: [],
-        },
-      );
-      filterProfessorIds.add(candidate.id);
+    if (evaluatedProfessorIds.has(professor.id)) {
+      filterProfessors.set(professor.id, professor);
     }
   }
-  if (prefillProfessor && !filterProfessorIds.has(prefillProfessor.id)) {
-    const fromStats = professorStats.find(
-      (item) => item.id === prefillProfessor.id,
-    );
-    filterProfessors.push(
-      fromStats ?? {
-        id: prefillProfessor.id,
-        publicId: prefillProfessor.publicId,
-        name: prefillProfessor.name,
+  for (const professor of [
+    ...reviewedProfessors,
+    ...(prefillProfessor ? [prefillProfessor] : []),
+  ]) {
+    if (filterProfessors.has(professor.id)) continue;
+    filterProfessors.set(
+      professor.id,
+      professorStats.find((item) => item.id === professor.id) ?? {
+        ...professor,
         rating: null,
         ratingCount: 0,
         terms: [],
         tags: [],
       },
     );
-    filterProfessorIds.add(prefillProfessor.id);
   }
-  const prefillHasEvaluation = prefillProfessor
-    ? evaluatedProfessorIds.has(prefillProfessor.id)
-    : false;
 
-  const activeProfessorId = targetReviewId ? "" : selectedProfessorId;
-  const selectedProfessor =
-    filterProfessors.find((item) => item.id === activeProfessorId) ??
-    professorStats.find((item) => item.id === activeProfessorId);
-  const visibleReviews = selectedProfessor
-    ? reviews.filter((review) =>
-        review.professors?.length
-          ? review.professors.some(
-              (professor) => professor.id === selectedProfessor.id,
-            )
-          : review.professorId === selectedProfessor.id,
-      )
-    : reviews;
-  const visibleCommentCount = visibleReviews.length;
-  const targetReviewIndex = visibleReviews.findIndex(
-    (review) => review.id === targetReviewId,
-  );
-  const effectiveReviewLimit = Math.max(
-    visibleReviewLimit,
-    targetReviewIndex + 1,
-  );
-  const displayedReviews = visibleReviews.slice(0, effectiveReviewLimit);
-  const hiddenReviewCount = visibleReviews.length - displayedReviews.length;
+  // Retire in-flight reads as soon as the route supplies a fresh first page.
+  // Keep the current cards mounted while reloading any client-expanded range.
+  if (listing && listing.sourcePage !== reviewPage) {
+    const previousRequest = pending ?? failedRequest;
+    const intendedProfessorId =
+      previousRequest?.professorId ?? activeProfessorId;
+    const professorId =
+      !intendedProfessorId || filterProfessors.has(intendedProfessorId)
+        ? intendedProfessorId
+        : initialProfessorId;
+    const visibleCount = Math.max(
+      COURSE_REVIEW_PAGE_SIZE,
+      professorId === activeProfessorId ? page.items.length : 0,
+      previousRequest &&
+        "visibleCount" in previousRequest &&
+        previousRequest.professorId === professorId
+        ? previousRequest.visibleCount
+        : 0,
+    );
+    const useFirstPage =
+      professorId === initialProfessorId &&
+      (!reviewPage.nextCursor || reviewPage.items.length >= visibleCount);
+    setListing(
+      page.viewerChanged || useFirstPage
+        ? null
+        : {
+            sourcePage: reviewPage,
+            professorId: activeProfessorId,
+            page,
+            request: { professorId, visibleCount },
+          },
+    );
+  }
+
+  useEffect(() => {
+    if (!pending || !("visibleCount" in pending)) return;
+    const request = pending;
+    const { professorId, visibleCount } = request;
+    const options = {
+      professorId: professorId || undefined,
+      ...(viewerKey !== undefined ? { viewerKey } : {}),
+    };
+    let cancelled = false;
+
+    async function reloadListing() {
+      try {
+        let refreshed =
+          professorId === initialProfessorId
+            ? reviewPage
+            : await getCourseReviewPage(code, {
+                ...options,
+                limit: Math.min(visibleCount, COURSE_REVIEW_REFRESH_BATCH_SIZE),
+              });
+        while (
+          !cancelled &&
+          !refreshed.viewerChanged &&
+          refreshed.nextCursor &&
+          refreshed.items.length < visibleCount
+        ) {
+          const more = await getCourseReviewPage(code, {
+            ...options,
+            cursor: refreshed.nextCursor,
+            limit: Math.min(
+              visibleCount - refreshed.items.length,
+              COURSE_REVIEW_REFRESH_BATCH_SIZE,
+            ),
+          });
+          refreshed = more.viewerChanged
+            ? more
+            : appendReviewPages(refreshed, more);
+        }
+        if (cancelled) return;
+        setListing((current) =>
+          current?.request === request
+            ? { sourcePage: reviewPage, professorId, page: refreshed }
+            : current,
+        );
+      } catch {
+        if (cancelled) return;
+        setListing((current) =>
+          current?.request === request
+            ? {
+                sourcePage: reviewPage,
+                professorId,
+                page:
+                  professorId === initialProfessorId
+                    ? reviewPage
+                    : { items: [], totalCount: 0, nextCursor: null },
+                failedRequest: request,
+              }
+            : current,
+        );
+      }
+    }
+
+    queueMicrotask(() => {
+      if (!cancelled) void reloadListing();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [code, initialProfessorId, pending, reviewPage, viewerKey]);
+
+  function retryReviews(request: ReviewRequest) {
+    if ("visibleCount" in request) {
+      setListing(
+        (current) =>
+          current && {
+            ...current,
+            request: { ...request },
+            failedRequest: undefined,
+          },
+      );
+    } else {
+      void requestReviews(request.professorId, request.cursor);
+    }
+  }
+
+  const prefillHasEvaluation =
+    prefillProfessor && evaluatedProfessorIds.has(prefillProfessor.id);
+  const selectedProfessor = filterProfessors.get(activeProfessorId);
+  const displayedReviews =
+    !activeProfessorId &&
+    targetReview &&
+    !page.items.some((review) => review.id === targetReview.id)
+      ? [targetReview, ...page.items]
+      : page.items;
+  const { nextCursor, totalCount: visibleCommentCount } = page;
+  const hiddenReviewCount = visibleCommentCount - displayedReviews.length;
   const professorTermsByYear = selectedProfessor
     ? [
         ...new Set(selectedProfessor.terms.map((item) => item.academicYear)),
@@ -172,9 +308,15 @@ export function CourseReviewSection({
   const hiddenTermCount = professorTermsByYear
     .slice(4)
     .reduce((total, year) => total + year.terms.size, 0);
+
+  if (page.viewerChanged) {
+    return <p role="status">正在刷新登录状态…</p>;
+  }
+
   return (
     <section id="course-review" className="scroll-mt-20 space-y-8">
       <CourseReviewEditor
+        key={`${ratingState.ratingCount}-${ratingState.myRatingCount}`}
         code={code}
         ratingState={ratingState}
         professorStats={professorStats}
@@ -203,19 +345,23 @@ export function CourseReviewSection({
             任课教授
             <select
               aria-label="按任课教授筛选"
-              value={activeProfessorId}
+              value={pending?.professorId ?? activeProfessorId}
               onChange={(event) => {
-                setSelectedProfessorId(event.target.value);
                 setShowAllTermYears(false);
-                setVisibleReviewLimit(INITIAL_REVIEW_LIMIT);
+                const professorId = event.target.value;
+                if (professorId === initialProfessorId) {
+                  setListing(null);
+                  return;
+                }
+                void requestReviews(professorId);
               }}
-              disabled={filterProfessors.length === 0}
+              disabled={filterProfessors.size === 0}
               className="h-9 w-full rounded-md border border-black/10 bg-background px-3 text-sm font-normal text-foreground outline-none transition-colors hover:border-black/20 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="">
-                {filterProfessors.length ? "全部教授" : "暂无教授评价"}
+                {filterProfessors.size ? "全部教授" : "暂无教授评价"}
               </option>
-              {filterProfessors.map((item) => (
+              {Array.from(filterProfessors.values(), (item) => (
                 <option key={item.id} value={item.id}>
                   {formatProfessorNameText(item.name)}
                   {item.id === prefillProfessor?.id && !prefillHasEvaluation
@@ -400,8 +546,19 @@ export function CourseReviewSection({
         )}
       </div>
 
-      <ul className="space-y-3">
-        {visibleReviews.length === 0 && (
+      {failedRequest && (
+        <div className="flex items-center gap-2">
+          <p role="status" className="text-sm text-muted-foreground">
+            评论加载失败，请重试。
+          </p>
+          <Button variant="ghost" onClick={() => retryReviews(failedRequest)}>
+            重试
+          </Button>
+        </div>
+      )}
+
+      <ul className="space-y-3" aria-busy={Boolean(pending)}>
+        {displayedReviews.length === 0 && !failedRequest && (
           <li className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
             {selectedProfessor
               ? "该教授还没有文字测评。"
@@ -424,17 +581,16 @@ export function CourseReviewSection({
         ))}
       </ul>
 
-      {hiddenReviewCount > 0 && (
+      {nextCursor && (
         <div className="flex justify-center">
           <Button
             variant="outline"
-            onClick={() =>
-              setVisibleReviewLimit((current) =>
-                Math.min(current + INITIAL_REVIEW_LIMIT, visibleReviews.length),
-              )
-            }
+            disabled={Boolean(pending)}
+            onClick={() => void requestReviews(activeProfessorId, nextCursor)}
           >
-            再看 {Math.min(INITIAL_REVIEW_LIMIT, hiddenReviewCount)} 条测评
+            {hiddenReviewCount > 0
+              ? `再看 ${Math.min(COURSE_REVIEW_PAGE_SIZE, hiddenReviewCount)} 条测评`
+              : "加载更多测评"}
           </Button>
         </div>
       )}

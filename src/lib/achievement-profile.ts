@@ -35,23 +35,21 @@ function toTier(value: string): PublicAchievementSummary["tier"] {
   return value === "silver" || value === "gold" ? value : "bronze";
 }
 
-export async function ensureAchievementProfile(userId: string) {
-  await db
+export async function ensureAchievementProfile(
+  userId: string,
+  writer: Pick<typeof db, "insert"> = db,
+) {
+  await writer
     .insert(achievementProfiles)
     .values({ userId })
     .onConflictDoNothing({ target: achievementProfiles.userId });
 }
 
-export async function getAchievementSummariesForAuthors(
+export async function readAchievementSummariesForAuthors(
   userIds: string[],
 ): Promise<Map<string, AuthorAchievementSummary>> {
   const uniqueUserIds = [...new Set(userIds)];
   if (uniqueUserIds.length === 0) return new Map();
-
-  await db
-    .insert(achievementProfiles)
-    .values(uniqueUserIds.map((userId) => ({ userId })))
-    .onConflictDoNothing({ target: achievementProfiles.userId });
 
   const identities = await db
     .select({
@@ -167,7 +165,7 @@ export async function getAchievementSummariesForAuthors(
 export async function getMyAchievementProfile() {
   const user = await requireAuth();
   await ensureAchievementProfile(user.id);
-  const summaries = await getAchievementSummariesForAuthors([user.id]);
+  const summaries = await readAchievementSummariesForAuthors([user.id]);
   const [profile] = await db
     .select({ showcaseId: achievementProfiles.showcaseId })
     .from(achievementProfiles)
@@ -197,7 +195,7 @@ export async function getPublicAchievementShowcase(showcaseId: string) {
     .limit(1);
   if (!profile) return null;
 
-  const summaries = await getAchievementSummariesForAuthors([profile.userId]);
+  const summaries = await readAchievementSummariesForAuthors([profile.userId]);
   return {
     showcaseId: profile.showcaseId,
     nickname: profile.nickname,

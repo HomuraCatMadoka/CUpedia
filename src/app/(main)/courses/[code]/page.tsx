@@ -1,18 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
-import {
-  getCourse,
-  getCourseProfessorStats,
-  getProfessorOptionByPublicId,
-  getCourseReviews,
-  getCourseReviewReplyTargetOffset,
-  getCourseRatingState,
-  getCourseEnrollmentHistory,
-  isCourseProfessorOptional,
-} from "@/lib/course-review-actions";
+import { getCourseDetail } from "@/lib/course-review-actions";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
-import { getOptionalUser } from "@/lib/auth-guard";
 import { Badge } from "@/components/ui/badge";
 import { CourseReviewSection } from "@/components/courses/course-review-section";
 import { CourseDescription } from "@/components/courses/course-description";
@@ -46,14 +36,19 @@ export default async function CourseDetailPage({
     professor?: string;
   }>;
 }) {
-  const { code } = await params;
-  const { from, tab, review, reply, professor } = await searchParams;
-  const course = await getCourse(code);
-  if (!course) notFound();
-  const courseCode = course.code;
-
+  const [{ code }, { from, tab, review, reply, professor }] = await Promise.all(
+    [params, searchParams],
+  );
   const activeTab: CourseDetailTab =
     tab === "enrollment" ? "enrollment" : "reviews";
+  const detail = await getCourseDetail(code, {
+    tab: activeTab,
+    professor,
+    review,
+    reply,
+  });
+  if (!detail) notFound();
+  const { course } = detail;
 
   const hasCourseListSource =
     from === "/courses" || Boolean(from?.startsWith("/courses?"));
@@ -70,45 +65,12 @@ export default async function CourseDetailPage({
     if (professor) query.set("professor", professor);
     if (targetTab === "enrollment") query.set("tab", "enrollment");
     const suffix = query.size ? `?${query.toString()}` : "";
-    return `/courses/${encodeURIComponent(courseCode)}${suffix}${hash ?? ""}`;
+    return `/courses/${encodeURIComponent(course.code)}${suffix}${hash ?? ""}`;
   }
 
   const reviewsHref = detailHref("reviews");
   const enrollmentHref = detailHref("enrollment");
 
-  const [
-    ratingState,
-    enrollmentHistory,
-    user,
-    professorOptional,
-    reviews,
-    professorStats,
-    requestedProfessor,
-    targetReplyOffset,
-  ] = await Promise.all([
-    getCourseRatingState(course.code),
-    getCourseEnrollmentHistory(course.code),
-    getOptionalUser(),
-    isCourseProfessorOptional(course.code),
-    activeTab === "reviews"
-      ? getCourseReviews(course.code)
-      : Promise.resolve([]),
-    activeTab === "reviews"
-      ? getCourseProfessorStats(course.code)
-      : Promise.resolve([]),
-    activeTab === "reviews" && professor
-      ? getProfessorOptionByPublicId(professor)
-      : Promise.resolve(null),
-    activeTab === "reviews" && review && reply
-      ? getCourseReviewReplyTargetOffset(course.code, review, reply)
-      : Promise.resolve(null),
-  ]);
-  const targetRequested = Boolean(review || reply);
-  const targetMissing = targetRequested && targetReplyOffset === null;
-  const prefillProfessor =
-    professorStats.find((item) => item.publicId === professor) ??
-    requestedProfessor ??
-    undefined;
   const returnLabel = hasProfessorSource
     ? "返回教授详情"
     : hasReviewHistorySource
@@ -169,7 +131,7 @@ export default async function CourseDetailPage({
           </div>
 
           <CourseReviewActions
-            hasPublishedReview={ratingState?.lastScore != null}
+            hasPublishedReview={detail.hasPublishedReview}
             writeReviewHref={detailHref("reviews", "#course-review")}
             commentsHref={detailHref("reviews", "#peer-reviews")}
           />
@@ -186,7 +148,7 @@ export default async function CourseDetailPage({
           enrollmentHref={enrollmentHref}
         />
 
-        {activeTab === "reviews" && targetMissing && (
+        {detail.tab === "reviews" && detail.targetMissing && (
           <p
             role="alert"
             className="mt-4 rounded-xl border border-dashed p-4 text-sm text-muted-foreground"
@@ -195,38 +157,50 @@ export default async function CourseDetailPage({
           </p>
         )}
 
-        {activeTab === "reviews" && ratingState && (
+        {detail.tab === "reviews" && (
           <div className="mt-4">
             <CourseReviewSection
-              key={`${course.code}-${ratingState.ratingCount}-${ratingState.myRatingCount}`}
+              key={JSON.stringify([
+                course.code,
+                professor,
+                review,
+                reply,
+                detail.viewerKey,
+              ])}
               code={course.code}
-              reviews={reviews}
-              ratingState={ratingState}
-              professorStats={professorStats}
+              reviewPage={detail.reviewPage}
+              ratingState={detail.ratingState}
+              professorStats={detail.professorStats}
+              reviewedProfessors={detail.reviewedProfessors}
+              initialProfessorId={detail.initialProfessorId}
               academicYears={[
                 ...new Set([
-                  ...enrollmentHistory.map((row) => row.academicYear),
-                  ...(ratingState.lastAcademicYear
-                    ? [ratingState.lastAcademicYear]
+                  ...detail.editorAcademicYears,
+                  ...(detail.ratingState.lastAcademicYear
+                    ? [detail.ratingState.lastAcademicYear]
                     : []),
                   ...recentAcademicYears(),
                 ]),
               ]
                 .sort()
                 .reverse()}
-              isAuthenticated={!!user}
-              professorOptional={professorOptional}
-              prefillProfessor={prefillProfessor}
-              targetReviewId={targetReplyOffset === null ? undefined : review}
-              targetReplyId={targetReplyOffset === null ? undefined : reply}
-              targetReplyOffset={targetReplyOffset ?? undefined}
+              isAuthenticated={detail.isAuthenticated}
+              viewerKey={detail.viewerKey}
+              professorOptional={detail.professorOptional}
+              prefillProfessor={detail.prefillProfessor}
+              targetReview={detail.targetReview}
+              targetReviewId={detail.targetReviewId}
+              targetReplyId={detail.targetReplyId}
+              targetReplyOffset={detail.targetReplyOffset}
             />
           </div>
         )}
 
-        {activeTab === "enrollment" &&
-          (enrollmentHistory.length > 0 ? (
-            <CourseEnrollmentHistory enrollmentHistory={enrollmentHistory} />
+        {detail.tab === "enrollment" &&
+          (detail.enrollmentHistory.length > 0 ? (
+            <CourseEnrollmentHistory
+              enrollmentHistory={detail.enrollmentHistory}
+            />
           ) : (
             <div className="mt-4 rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">
               暂无选课人数记录。

@@ -8,7 +8,8 @@ import {
   type Mock,
 } from "vitest";
 
-const mockGetAchievementSummaries = vi.hoisted(() => vi.fn());
+const mockReadAchievementSummaries = vi.hoisted(() => vi.fn());
+const mockEnsureAchievementProfile = vi.hoisted(() => vi.fn());
 const mockRecomputeAchievements = vi.hoisted(() => vi.fn());
 const mockRebindAchievementEvidence = vi.hoisted(() => vi.fn());
 const mockSyncAchievementNotices = vi.hoisted(() => vi.fn());
@@ -100,8 +101,10 @@ vi.mock("@/lib/contributor-account", () => ({
     mockAssertContributorComplete(...args),
 }));
 vi.mock("@/lib/achievement-profile", () => ({
-  getAchievementSummariesForAuthors: (...args: unknown[]) =>
-    mockGetAchievementSummaries(...args),
+  ensureAchievementProfile: (...args: unknown[]) =>
+    mockEnsureAchievementProfile(...args),
+  readAchievementSummariesForAuthors: (...args: unknown[]) =>
+    mockReadAchievementSummaries(...args),
 }));
 vi.mock("@/lib/achievement-recompute-db", () => ({
   rebindFallbackAchievementEvidenceAfterRatingChange: (...args: unknown[]) =>
@@ -116,6 +119,7 @@ vi.mock("@/lib/achievement-notice-actions", () => ({
 vi.mock("@/db", () => ({
   db: {
     select: () => dbSelect(),
+    selectDistinct: () => dbSelect(),
     insert: () => dbInsert(),
     update: () => dbUpdate(),
     delete: () => dbDelete(),
@@ -132,8 +136,9 @@ import {
   submitCourseReview,
   deleteCourseReviewSubmission,
   toggleLike,
+  getCourseDetail,
   getCourseRatingState,
-  getCourseReviews,
+  getCourseReviewPage,
   getCourses,
   getSubjects,
   getCourseProfessorStats,
@@ -205,7 +210,8 @@ beforeEach(() => {
   mockRequireAdmin.mockResolvedValue({ id: "admin", role: "admin" });
   mockAssertContributorComplete.mockImplementation(async (user) => user);
   mockGetOptionalUser.mockResolvedValue(null);
-  mockGetAchievementSummaries.mockResolvedValue(new Map());
+  mockReadAchievementSummaries.mockResolvedValue(new Map());
+  mockEnsureAchievementProfile.mockResolvedValue(undefined);
   mockRecomputeAchievements.mockResolvedValue({ kind: "unchanged" });
   mockRebindAchievementEvidence.mockResolvedValue(0);
   mockSyncAchievementNotices.mockResolvedValue([]);
@@ -400,7 +406,7 @@ describe("getCourseReviewReplies", () => {
       ],
       hasMore: false,
     });
-    expect(mockGetAchievementSummaries).not.toHaveBeenCalled();
+    expect(mockReadAchievementSummaries).not.toHaveBeenCalled();
   });
 
   it("returns 20 replies oldest-first with compact public author identity", async () => {
@@ -433,22 +439,14 @@ describe("getCourseReviewReplies", () => {
     expect(result.replies[0]).not.toHaveProperty("authorAchievements");
     expect(result.replies[0]).not.toHaveProperty("authorAvatarUrl");
     expect(result.replies[0]).not.toHaveProperty("authorEquippedTitle");
-    expect(mockGetAchievementSummaries).not.toHaveBeenCalled();
+    expect(mockReadAchievementSummaries).not.toHaveBeenCalled();
     expect(result.replies.at(-1)?.id).toBe("reply-20");
   });
 });
 
 describe("getCourseReviewReplyTargetOffset", () => {
   it("returns the 20-item page containing a specific reply", async () => {
-    queueRows(
-      [
-        {
-          id: "00000000-0000-4000-8000-000000000041",
-          createdAt: new Date("2026-07-27T10:41:00Z"),
-        },
-      ],
-      [{ value: 41 }],
-    );
+    queueRows([{ priorReplies: 45 }]);
 
     await expect(
       getCourseReviewReplyTargetOffset(
@@ -457,6 +455,7 @@ describe("getCourseReviewReplyTargetOffset", () => {
         "00000000-0000-4000-8000-000000000041",
       ),
     ).resolves.toBe(40);
+    expect(dbSelect).toHaveBeenCalledOnce();
   });
 
   it("returns null when the review or reply source no longer exists", async () => {
@@ -586,6 +585,7 @@ describe("submitCourseReview", () => {
       newAchievementNotices: [],
     });
     expect(dbInsert).toHaveBeenCalledOnce();
+    expect(mockEnsureAchievementProfile).not.toHaveBeenCalled();
     expect(values()).toHaveBeenCalledWith(
       expect.objectContaining({
         courseCode: "CSCI3150",
@@ -777,6 +777,7 @@ describe("submitCourseReview", () => {
       2,
       expect.objectContaining({ content: "保持匿名", isAnonymous: true }),
     );
+    expect(mockEnsureAchievementProfile).not.toHaveBeenCalled();
   });
 
   it("拒绝畸形匿名选项", async () => {
@@ -926,7 +927,7 @@ describe("submitCourseReview", () => {
     expect(dbSelect).not.toHaveBeenCalled();
   });
 
-  it("含评论时原子写入评分和匿名评论快照", async () => {
+  it("含署名评论时原子写入评分、评论快照和公开橱窗", async () => {
     queueRows(
       [COURSE],
       [
@@ -945,6 +946,11 @@ describe("submitCourseReview", () => {
       content: "  很清楚  ",
     });
     expect(dbInsert).toHaveBeenCalledTimes(2);
+    expect(mockEnsureAchievementProfile).toHaveBeenCalledOnce();
+    expect(mockEnsureAchievementProfile).toHaveBeenCalledWith(
+      "u1",
+      expect.objectContaining({ insert: expect.any(Function) }),
+    );
     expect(values()).toHaveBeenLastCalledWith(
       expect.objectContaining({
         content: "很清楚",
@@ -1615,7 +1621,155 @@ describe("getCourseRatingState", () => {
   });
 });
 
-describe("getCourseReviews", () => {
+describe("getCourseDetail professor statistics", () => {
+  const professor = {
+    id: "p1",
+    name: "Professor CHAN",
+    publicId: "00000000-0000-4000-8000-000000000011",
+  };
+
+  beforeEach(() => vi.stubEnv("COURSE_DETAIL_DISABLE_SHARED_CACHE", "1"));
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("only reads the catalog and course-wide counts for an empty guest page", async () => {
+    queueRows([COURSE], [], []);
+
+    await expect(
+      getCourseDetail(COURSE.code, { tab: "reviews" }),
+    ).resolves.toMatchObject({
+      tab: "reviews",
+      isAuthenticated: false,
+      course: { ratingCount: 0, reviewCount: 0 },
+      professorStats: [],
+      reviewPage: { items: [], totalCount: 0, nextCursor: null },
+    });
+    expect(dbSelect).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps professor options and editor metadata for a signed-in viewer", async () => {
+    mockGetOptionalUser.mockResolvedValue({ id: "u1", role: "user" });
+    queueRows(
+      [COURSE],
+      [],
+      [],
+      [professor],
+      [],
+      [{ professorId: professor.id, academicYear: "2025-26", term: "Term 2" }],
+      [],
+      [{ academicYears: ["2025-26"], professorOptional: false }],
+    );
+
+    await expect(
+      getCourseDetail(COURSE.code, { tab: "reviews" }),
+    ).resolves.toMatchObject({
+      isAuthenticated: true,
+      editorAcademicYears: ["2025-26"],
+      professorStats: [
+        { ...professor, terms: [{ academicYear: "2025-26", term: "Term 2" }] },
+      ],
+    });
+  });
+
+  it.each([
+    { name: "rating", ratingCount: 1, reviewCount: 0 },
+    { name: "comment", ratingCount: 0, reviewCount: 1 },
+  ])(
+    "keeps professor statistics with a $name on a guest page",
+    async ({ ratingCount, reviewCount }) => {
+      const comment = {
+        id: "r1",
+        content: "很清楚",
+        createdAt: new Date("2026-08-06T00:00:00Z"),
+        isAnonymous: true,
+        professorId: professor.id,
+        professorName: professor.name,
+      };
+      queueRows(
+        [COURSE],
+        ratingCount
+          ? [{ code: COURSE.code, avg: "4.5", cnt: ratingCount }]
+          : [],
+        reviewCount ? [{ code: COURSE.code, cnt: reviewCount }] : [],
+        [professor],
+        [],
+        [],
+        [],
+      );
+      if (reviewCount) {
+        queueRows([comment], [{ id: professor.id, name: professor.name }], []);
+      }
+
+      await expect(
+        getCourseDetail(COURSE.code, { tab: "reviews" }),
+      ).resolves.toMatchObject({
+        isAuthenticated: false,
+        course: { ratingCount, reviewCount },
+        professorStats: [professor],
+        reviewPage: {
+          totalCount: reviewCount,
+          items: reviewCount
+            ? [{ id: comment.id, content: comment.content }]
+            : [],
+        },
+      });
+    },
+  );
+
+  it("keeps the professor prefill on an empty guest page opened from a professor link", async () => {
+    queueRows([COURSE], [], [], [professor], [], [], []);
+
+    await expect(
+      getCourseDetail(COURSE.code, {
+        tab: "reviews",
+        professor: professor.publicId,
+      }),
+    ).resolves.toMatchObject({
+      prefillProfessor: professor,
+      initialProfessorId: professor.id,
+      professorStats: [professor],
+    });
+  });
+
+  it("still reports a deleted review or reply opened from its link", async () => {
+    queueRows([COURSE], [], [], [professor], [], [], []);
+
+    await expect(
+      getCourseDetail(COURSE.code, {
+        tab: "reviews",
+        review: "00000000-0000-4000-8000-000000000021",
+        reply: "00000000-0000-4000-8000-000000000022",
+      }),
+    ).resolves.toMatchObject({
+      professorStats: [professor],
+      targetMissing: true,
+    });
+  });
+});
+
+describe("getCourseReviewPage", () => {
+  it("does not read a page for a different viewer", async () => {
+    queueRows([COURSE]);
+    mockGetOptionalUser.mockResolvedValue({ id: "u1", role: "user" });
+
+    await expect(
+      getCourseReviewPage(COURSE.code, { viewerKey: "guest" }),
+    ).resolves.toEqual({
+      items: [],
+      totalCount: 0,
+      nextCursor: null,
+      viewerChanged: true,
+    });
+    expect(dbSelect).toHaveBeenCalledOnce();
+  });
+
+  it("bounds the number of rows fetched for a list refresh", async () => {
+    queueRows([COURSE], [], [{ value: 100 }]);
+
+    await getCourseReviewPage(COURSE.code, { limit: 1_000 });
+    // One extra row tells the caller whether there is a next page.
+    expect(dbChain.limit).toHaveBeenLastCalledWith(51);
+  });
+
   it("公开评论展示同一投稿选择的标签", async () => {
     queueRows(
       [COURSE],
@@ -1643,20 +1797,26 @@ describe("getCourseReviews", () => {
           authorNickname: "Alice",
         },
       ],
+      [{ value: 1 }],
       [],
     );
 
-    await expect(getCourseReviews("CSCI3150")).resolves.toEqual([
-      expect.objectContaining({
-        id: "r1",
-        isEdited: true,
-        replyCount: 3,
-        tags: ["hea", "靓 grade", "讲解清晰"],
-        authorNickname: "Alice",
-        authorShowcaseId: null,
-        authorAchievements: [],
-      }),
-    ]);
+    const page = await getCourseReviewPage("CSCI3150");
+    expect(page).toEqual({
+      items: [
+        expect.objectContaining({
+          id: "r1",
+          isEdited: true,
+          replyCount: 3,
+          tags: ["hea", "靓 grade", "讲解清晰"],
+          authorNickname: "Alice",
+          authorShowcaseId: null,
+          authorAchievements: [],
+        }),
+      ],
+      totalCount: 1,
+      nextCursor: null,
+    });
   });
 
   it("匿名评论不向客户端返回作者昵称", async () => {
@@ -1678,10 +1838,12 @@ describe("getCourseReviews", () => {
           authorNickname: null,
         },
       ],
+      [{ value: 1 }],
       [],
     );
 
-    await expect(getCourseReviews("CSCI3150")).resolves.toEqual([
+    const { items } = await getCourseReviewPage("CSCI3150");
+    expect(items).toEqual([
       expect.objectContaining({
         id: "r1",
         authorNickname: null,
@@ -1689,11 +1851,11 @@ describe("getCourseReviews", () => {
         authorAchievements: [],
       }),
     ]);
-    expect(mockGetAchievementSummaries).toHaveBeenCalledWith([]);
+    expect(mockReadAchievementSummaries).toHaveBeenCalledWith([]);
   });
 
   it("署名评论实时返回公开橱窗和当前成就，不返回证据", async () => {
-    mockGetAchievementSummaries.mockResolvedValue(
+    mockReadAchievementSummaries.mockResolvedValue(
       new Map([
         [
           "other",
@@ -1732,10 +1894,13 @@ describe("getCourseReviews", () => {
           authorNickname: "Alice",
         },
       ],
+      [{ value: 1 }],
       [],
     );
 
-    const [review] = await getCourseReviews("CSCI3150");
+    const {
+      items: [review],
+    } = await getCourseReviewPage("CSCI3150");
     expect(review.authorShowcaseId).toBe(
       "00000000-0000-4000-a000-000000000099",
     );
@@ -1744,14 +1909,20 @@ describe("getCourseReviews", () => {
       primary: true,
     });
     expect(review.authorAchievements[0]).not.toHaveProperty("evidence");
+    expect(mockEnsureAchievementProfile).not.toHaveBeenCalled();
+    expect(dbInsert).not.toHaveBeenCalled();
   });
 
   it("管理员也只看到有文字评论的投稿", async () => {
     mockGetOptionalUser.mockResolvedValue({ id: "admin", role: "admin" });
-    queueRows([COURSE], []);
+    queueRows([COURSE], [], [{ value: 0 }]);
 
-    await expect(getCourseReviews("CSCI3150")).resolves.toEqual([]);
-    expect(dbSelect).toHaveBeenCalledTimes(2);
+    await expect(getCourseReviewPage("CSCI3150")).resolves.toEqual({
+      items: [],
+      totalCount: 0,
+      nextCursor: null,
+    });
+    expect(dbSelect).toHaveBeenCalledTimes(3);
   });
 });
 

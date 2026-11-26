@@ -30,7 +30,7 @@ test.afterEach(async () => {
   await query("delete from course_enrollments where course_code = 'CSCI1120'");
 });
 
-test("#351 course with confirmed empty instructor data accepts a review without professor", async ({
+test("ref #944 an enrollment import can make professor optional for the next visit", async ({
   page,
 }) => {
   await query(
@@ -39,15 +39,22 @@ test("#351 course with confirmed empty instructor data accepts a review without 
        component, section, quota, vacancy, instructors, captured_at
      ) values (
        '2025-26', 'Term 1', 'CSCI1120', 'CSCI1120', '351',
-       'LEC', '-LEC', 30, 5, '{}', now()
+       'LEC', '-LEC', 30, 5, array['Old instructor'], now()
      )`,
   );
 
   await loginWithPassword(page, "user@test.com", "password123");
   await page.goto("/courses/CSCI1120");
-
   await page.getByRole("link", { name: "写测评" }).click();
-  await expect(page.getByText("课程资料未列任课教授，可留空")).toBeVisible();
+  const optionalProfessor = page.getByText("课程资料未列任课教授，可留空");
+  await expect(optionalProfessor).toHaveCount(0);
+  await query(
+    "update course_enrollments set instructors = '{}' where course_code = 'CSCI1120' and class_nbr = '351'",
+  );
+
+  await page.goto("/courses/CSCI1120");
+  await page.getByRole("link", { name: "写测评" }).click();
+  await expect(optionalProfessor).toBeVisible();
   await page.getByLabel("学年").selectOption("2025-26");
   await page.getByLabel("学期").selectOption("Term 1");
   await page.getByRole("radio", { name: "4.5 星" }).click();

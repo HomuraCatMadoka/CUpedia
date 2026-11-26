@@ -20,6 +20,7 @@ const {
   getDeletionImpact,
   createReply,
   getReplies,
+  getReviewPage,
   toggleLike,
   toastSuccess,
   toastError,
@@ -31,6 +32,7 @@ const {
   getDeletionImpact: vi.fn(),
   createReply: vi.fn(),
   getReplies: vi.fn(),
+  getReviewPage: vi.fn(),
   toggleLike: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
@@ -50,6 +52,7 @@ vi.mock("@/lib/course-review-actions", () => ({
     deleteSubmission(...args),
   getCourseReviewDeletionImpact: (...args: unknown[]) =>
     getDeletionImpact(...args),
+  getCourseReviewPage: (...args: unknown[]) => getReviewPage(...args),
   getCourseReviewReplies: (...args: unknown[]) => getReplies(...args),
   searchProfessors: (...args: unknown[]) => search(...args),
   submitCourseReview: (...args: unknown[]) => submit(...args),
@@ -57,6 +60,18 @@ vi.mock("@/lib/course-review-actions", () => ({
 }));
 
 import { CourseReviewSection } from "@/components/courses/course-review-section";
+import type {
+  CourseReviewPage,
+  CourseReviewView,
+} from "@/lib/course-review-actions";
+
+function reviewPageProps(items: CourseReviewView[]) {
+  return {
+    reviewPage: { items, totalCount: items.length, nextCursor: null },
+    reviewedProfessors: [],
+    initialProfessorId: "",
+  };
+}
 
 const RATING_STATE = {
   aggregateRating: null,
@@ -124,13 +139,13 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
-        reviews={[
+        {...reviewPageProps([
           {
             ...REVIEW,
             id: "review-like",
             likeCount: 2,
           },
-        ]}
+        ])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -167,14 +182,14 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
-        reviews={[
+        {...reviewPageProps([
           {
             ...REVIEW,
             id: "review-rollback",
             likeCount: 3,
             likedByMe: true,
           },
-        ]}
+        ])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -208,7 +223,7 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
-        reviews={[{ ...REVIEW, canAdminDelete: true }]}
+        {...reviewPageProps([{ ...REVIEW, canAdminDelete: true }])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -253,7 +268,7 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
-        reviews={[{ ...REVIEW, canAdminDelete: true }]}
+        {...reviewPageProps([{ ...REVIEW, canAdminDelete: true }])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -290,7 +305,7 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="CSCI3150"
-        reviews={[]}
+        {...reviewPageProps([])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -318,7 +333,7 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="CSCI3150"
-        reviews={[]}
+        {...reviewPageProps([])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -347,7 +362,7 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="GEUC2214"
-        reviews={[]}
+        {...reviewPageProps([])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -400,7 +415,7 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="BIOL4310"
-        reviews={[]}
+        {...reviewPageProps([])}
         ratingState={RATING_STATE}
         professorStats={professorStats}
         academicYears={["2025-26"]}
@@ -469,20 +484,21 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="CSCI2100"
-        reviews={[
+        {...reviewPageProps([
           {
             ...REVIEW,
             id: "chan-review",
             content: "CHAN 的测评",
             professors: [{ id: "person-1", name: "Professor CHAN" }],
           },
-        ]}
+        ])}
         ratingState={RATING_STATE}
         professorStats={[requiredProfessor, otherProfessor]}
         academicYears={["2025-26"]}
         isAuthenticated
         professorOptional={false}
         prefillProfessor={requiredProfessor}
+        initialProfessorId={requiredProfessor.id}
       />,
     );
 
@@ -523,16 +539,17 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="CSCI2100"
-        reviews={[
+        {...reviewPageProps([
           {
             ...REVIEW,
             id: "chan-review",
             content: "只有 CHAN",
             professors: [{ id: "person-1", name: "Professor CHAN" }],
           },
-        ]}
+        ])}
         ratingState={RATING_STATE}
         professorStats={[ratedOnly, reviewedOnly, neither]}
+        reviewedProfessors={[reviewedOnly]}
         academicYears={["2025-26"]}
         isAuthenticated={false}
         professorOptional={false}
@@ -560,13 +577,14 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="CSCI2100"
-        reviews={[]}
+        {...reviewPageProps([])}
         ratingState={RATING_STATE}
         professorStats={[requiredProfessor]}
         academicYears={["2025-26"]}
         isAuthenticated
         professorOptional={false}
         prefillProfessor={requiredProfessor}
+        initialProfessorId={requiredProfessor.id}
       />,
     );
 
@@ -612,7 +630,7 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="CSCI2100"
-        reviews={[]}
+        {...reviewPageProps([])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -643,7 +661,7 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="GEUC2214"
-        reviews={[]}
+        {...reviewPageProps([])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -669,7 +687,7 @@ describe("CourseReviewSection", () => {
     );
   });
 
-  it("测评很多时默认只渲染 10 条，并按批次继续展开", () => {
+  it("测评很多时默认只渲染 10 条，点击后才请求下一页", async () => {
     const reviews = Array.from({ length: 12 }, (_, index) => ({
       id: `review-${index}`,
       content: `测评内容 ${index + 1}`,
@@ -690,10 +708,21 @@ describe("CourseReviewSection", () => {
       authorAchievements: [],
     }));
 
+    getReviewPage.mockResolvedValueOnce({
+      items: reviews.slice(10),
+      totalCount: 12,
+      nextCursor: null,
+    });
+
     render(
       <CourseReviewSection
         code="ELTU1001"
-        reviews={reviews}
+        {...reviewPageProps([])}
+        reviewPage={{
+          items: reviews.slice(0, 10),
+          totalCount: 12,
+          nextCursor: "next-page",
+        }}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -704,18 +733,370 @@ describe("CourseReviewSection", () => {
 
     expect(screen.getAllByRole("listitem")).toHaveLength(10);
     expect(screen.queryByText("测评内容 11")).toBeNull();
+    expect(getReviewPage).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "再看 2 条测评" }));
 
+    expect(await screen.findByText("测评内容 12")).toBeTruthy();
     expect(screen.getAllByRole("listitem")).toHaveLength(12);
-    expect(screen.getByText("测评内容 12")).toBeTruthy();
+    expect(getReviewPage).toHaveBeenCalledWith("ELTU1001", {
+      professorId: undefined,
+      cursor: "next-page",
+    });
+  });
+
+  it("已有游标时，即使总数因删除变小，也能继续加载", async () => {
+    const nextReview = {
+      ...REVIEW,
+      id: "last-review",
+      content: "最后一条测评",
+    };
+    const middleReview = {
+      ...REVIEW,
+      id: "middle-review",
+      content: "中间一条测评",
+    };
+    getReviewPage
+      .mockResolvedValueOnce({
+        items: [middleReview],
+        totalCount: 2,
+        nextCursor: "last-page",
+      })
+      .mockResolvedValueOnce({
+        items: [nextReview],
+        totalCount: 2,
+        nextCursor: null,
+      });
+
+    render(
+      <CourseReviewSection
+        code="ELTU1001"
+        {...reviewPageProps([])}
+        reviewPage={{ items: [REVIEW], totalCount: 3, nextCursor: "next-page" }}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={[]}
+        isAuthenticated={false}
+        professorOptional
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "再看 2 条测评" }));
+    expect(await screen.findByText(middleReview.content)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "加载更多测评" }));
+    expect(await screen.findByText(nextReview.content)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /加载更多测评/ })).toBeNull();
+    expect(getReviewPage).toHaveBeenLastCalledWith("ELTU1001", {
+      professorId: undefined,
+      cursor: "last-page",
+    });
+  });
+
+  it("筛选首屏之外的教授时只显示最后一次请求的测评", async () => {
+    const chan = { id: "chan", name: "Professor CHAN" };
+    const wong = { id: "wong", name: "Professor WONG" };
+    let finishChan: (page: CourseReviewPage) => void = () => {};
+    const chanResponse = new Promise<CourseReviewPage>((resolve) => {
+      finishChan = resolve;
+    });
+    getReviewPage.mockReturnValueOnce(chanResponse).mockResolvedValueOnce({
+      items: [{ ...REVIEW, id: "wong-review", content: "WONG 的测评" }],
+      totalCount: 1,
+      nextCursor: null,
+    });
+
+    render(
+      <CourseReviewSection
+        code="ELTU1001"
+        {...reviewPageProps([REVIEW])}
+        reviewedProfessors={[chan, wong]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={[]}
+        isAuthenticated={false}
+        professorOptional
+      />,
+    );
+
+    const filter = screen.getByRole("combobox", { name: "按任课教授筛选" });
+    fireEvent.change(filter, { target: { value: "chan" } });
+    fireEvent.change(filter, { target: { value: "wong" } });
+    expect(await screen.findByText("WONG 的测评")).toBeTruthy();
+    await act(async () => {
+      finishChan({
+        items: [{ ...REVIEW, id: "chan-review", content: "CHAN 的测评" }],
+        totalCount: 1,
+        nextCursor: null,
+      });
+    });
+
+    expect(screen.queryByText("CHAN 的测评")).toBeNull();
+    expect(screen.queryByText(REVIEW.content)).toBeNull();
+    expect((filter as HTMLSelectElement).value).toBe("wong");
+    expect(getReviewPage).toHaveBeenNthCalledWith(1, "ELTU1001", {
+      professorId: "chan",
+      cursor: undefined,
+    });
+    expect(getReviewPage).toHaveBeenNthCalledWith(2, "ELTU1001", {
+      professorId: "wong",
+      cursor: undefined,
+    });
+
+    fireEvent.change(filter, { target: { value: "" } });
+    expect(screen.getByText(REVIEW.content)).toBeTruthy();
+    expect(getReviewPage).toHaveBeenCalledTimes(2);
+  });
+
+  it("评论刷新后不会显示之前请求的旧页面", async () => {
+    let finishOldPage: (page: CourseReviewPage) => void = () => {};
+    getReviewPage.mockReturnValueOnce(
+      new Promise<CourseReviewPage>((resolve) => {
+        finishOldPage = resolve;
+      }),
+    );
+
+    function section(reviewPage: CourseReviewPage) {
+      return (
+        <CourseReviewSection
+          code="ELTU1001"
+          {...reviewPageProps([])}
+          reviewPage={reviewPage}
+          ratingState={RATING_STATE}
+          professorStats={[]}
+          academicYears={[]}
+          isAuthenticated={false}
+          professorOptional
+        />
+      );
+    }
+
+    const { rerender } = render(
+      section({ items: [REVIEW], totalCount: 2, nextCursor: "old-page" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "再看 1 条测评" }));
+    rerender(
+      section({
+        items: [{ ...REVIEW, content: "更新后的测评" }],
+        totalCount: 1,
+        nextCursor: null,
+      }),
+    );
+
+    await act(async () => {
+      finishOldPage({
+        items: [{ ...REVIEW, id: "deleted", content: "已经删除的测评" }],
+        totalCount: 2,
+        nextCursor: null,
+      });
+    });
+    expect(screen.getByText("更新后的测评")).toBeTruthy();
+    expect(screen.queryByText("已经删除的测评")).toBeNull();
+    expect(screen.getByText("1 条评论")).toBeTruthy();
+  });
+
+  it("教授筛选和展开范围在刷新失败后可重试，并以较新内容替换旧评论", async () => {
+    const professor = { id: "wong", name: "Professor WONG" };
+    const reviews = Array.from({ length: 12 }, (_, index) => ({
+      ...REVIEW,
+      professorId: professor.id,
+      professorName: professor.name,
+      id: `wong-review-${index}`,
+      content: `WONG 的测评 ${index + 1}`,
+    }));
+    const nextPage = {
+      items: reviews.slice(10),
+      totalCount: 12,
+      nextCursor: null,
+    };
+    let finishRefresh: (page: CourseReviewPage) => void = () => {};
+    getReviewPage
+      .mockResolvedValueOnce({
+        items: reviews.slice(0, 10),
+        totalCount: 12,
+        nextCursor: "wong-next",
+      })
+      .mockResolvedValueOnce(nextPage)
+      .mockRejectedValueOnce(new Error("Temporary load failure"))
+      .mockReturnValueOnce(
+        new Promise<CourseReviewPage>((resolve) => {
+          finishRefresh = resolve;
+        }),
+      );
+
+    function section(reviewPage: CourseReviewPage, reviewed = [professor]) {
+      return (
+        <CourseReviewSection
+          code="ELTU1001"
+          {...reviewPageProps([])}
+          reviewPage={reviewPage}
+          reviewedProfessors={reviewed}
+          ratingState={RATING_STATE}
+          professorStats={[]}
+          academicYears={[]}
+          isAuthenticated={false}
+          professorOptional
+        />
+      );
+    }
+
+    const basePage = {
+      items: [REVIEW],
+      totalCount: 13,
+      nextCursor: "unfiltered",
+    };
+    const { rerender } = render(section(basePage));
+    const filter = screen.getByRole("combobox", {
+      name: "按任课教授筛选",
+    }) as HTMLSelectElement;
+    fireEvent.change(filter, { target: { value: professor.id } });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "再看 2 条测评" }),
+    );
+    expect(await screen.findByText("WONG 的测评 12")).toBeTruthy();
+    rerender(section({ ...basePage, totalCount: 12 }));
+
+    const retry = await screen.findByRole("button", { name: "重试" });
+    expect(screen.getByRole("status").textContent).toBe(
+      "评论加载失败，请重试。",
+    );
+    expect(filter.value).toBe(professor.id);
+    expect(screen.queryByText("WONG 的测评 12")).toBeNull();
+    fireEvent.click(retry);
+    await waitFor(() =>
+      expect(getReviewPage).toHaveBeenNthCalledWith(4, "ELTU1001", {
+        professorId: professor.id,
+        limit: 12,
+      }),
+    );
+    expect(filter.value).toBe(professor.id);
+    expect(screen.queryByText("WONG 的测评 12")).toBeNull();
+    await act(async () => {
+      finishRefresh({
+        items: [
+          ...reviews.slice(1, 11),
+          { ...reviews[11], content: "更新后的较早测评" },
+        ],
+        totalCount: 11,
+        nextCursor: null,
+      });
+    });
+
+    expect(filter.value).toBe(professor.id);
+    expect(screen.getByText("更新后的较早测评")).toBeTruthy();
+    expect(screen.queryByText("WONG 的测评 1", { exact: true })).toBeNull();
+    expect(screen.getAllByRole("listitem")).toHaveLength(11);
+
+    rerender(section({ items: [REVIEW], totalCount: 1, nextCursor: null }, []));
+    expect(filter.value).toBe("");
+    expect(screen.getByText(REVIEW.content)).toBeTruthy();
+    expect(getReviewPage).toHaveBeenCalledTimes(4);
+  });
+
+  it("刷新全部教授时复用新的首屏，只补查已展开的较早评论", async () => {
+    const old = { ...REVIEW, id: "older", content: "已展开的较早评论" };
+    getReviewPage.mockResolvedValueOnce({
+      items: [old],
+      totalCount: 11,
+      nextCursor: null,
+    });
+
+    const firstPage = {
+      items: Array.from({ length: 10 }, (_, index) => ({
+        ...REVIEW,
+        id: `review-${index}`,
+        content: `最新测评 ${index}`,
+      })),
+      totalCount: 11,
+      nextCursor: "page-2",
+    };
+    function section(reviewPage: CourseReviewPage) {
+      return (
+        <CourseReviewSection
+          code="ELTU1001"
+          {...reviewPageProps([])}
+          reviewPage={reviewPage}
+          ratingState={RATING_STATE}
+          professorStats={[]}
+          academicYears={[]}
+          isAuthenticated={false}
+          professorOptional
+        />
+      );
+    }
+
+    const { rerender } = render(section(firstPage));
+    fireEvent.click(screen.getByRole("button", { name: "再看 1 条测评" }));
+    expect(await screen.findByText(old.content)).toBeTruthy();
+
+    getReviewPage
+      .mockRejectedValueOnce(new Error("Temporary load failure"))
+      .mockResolvedValueOnce({
+        items: [{ ...old, content: "重新读取的较早评论" }],
+        totalCount: 11,
+        nextCursor: null,
+      });
+    rerender(
+      section({
+        ...firstPage,
+        items: [
+          { ...firstPage.items[0], content: "刷新后的首条测评" },
+          ...firstPage.items.slice(1),
+        ],
+        nextCursor: "fresh-page-2",
+      }),
+    );
+    const retry = await screen.findByRole("button", { name: "重试" });
+    expect(screen.getByText("刷新后的首条测评")).toBeTruthy();
+    expect(screen.queryByText(old.content)).toBeNull();
+    fireEvent.click(retry);
+    expect(await screen.findByText("重新读取的较早评论")).toBeTruthy();
+    expect(screen.getByText("刷新后的首条测评")).toBeTruthy();
+    expect(getReviewPage).toHaveBeenLastCalledWith("ELTU1001", {
+      professorId: undefined,
+      cursor: "fresh-page-2",
+      limit: 1,
+    });
+  });
+
+  it("分页时发现登录身份变化，会暂时隐藏旧评论并刷新页面", async () => {
+    getReviewPage.mockResolvedValueOnce({
+      items: [],
+      totalCount: 0,
+      nextCursor: null,
+      viewerChanged: true,
+    });
+
+    render(
+      <CourseReviewSection
+        code="ELTU1001"
+        {...reviewPageProps([])}
+        reviewPage={{ items: [REVIEW], totalCount: 2, nextCursor: "next-page" }}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={[]}
+        isAuthenticated
+        viewerKey="opaque-viewer-scope"
+        professorOptional
+      />,
+    );
+
+    expect(screen.getByText(REVIEW.content)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "再看 1 条测评" }));
+    expect(await screen.findByText("正在刷新登录状态…")).toBeTruthy();
+    expect(screen.queryByText(REVIEW.content)).toBeNull();
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(getReviewPage).toHaveBeenCalledWith("ELTU1001", {
+      professorId: undefined,
+      cursor: "next-page",
+      viewerKey: "opaque-viewer-scope",
+    });
   });
 
   it("署名投稿展示实时成就与橱窗入口，匿名投稿不泄露身份", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
-        reviews={[
+        {...reviewPageProps([
           {
             id: "signed",
             content: "署名投稿",
@@ -786,7 +1167,7 @@ describe("CourseReviewSection", () => {
             authorShowcaseId: null,
             authorAchievements: [],
           },
-        ]}
+        ])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -824,7 +1205,7 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
-        reviews={[
+        {...reviewPageProps([
           {
             ...REVIEW,
             id: "titled-author",
@@ -844,7 +1225,7 @@ describe("CourseReviewSection", () => {
             authorShowcaseId: "00000000-0000-4000-a000-000000000102",
             authorEquippedTitle: null,
           },
-        ]}
+        ])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -867,7 +1248,7 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
-        reviews={[
+        {...reviewPageProps([
           {
             ...REVIEW,
             id: "forum-layout",
@@ -879,7 +1260,7 @@ describe("CourseReviewSection", () => {
               badgeCode: "EXPL",
             },
           },
-        ]}
+        ])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -935,13 +1316,13 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
-        reviews={[
+        {...reviewPageProps([
           {
             ...REVIEW,
             id: "review-with-replies",
             replyCount: 3,
           },
-        ]}
+        ])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -988,13 +1369,13 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
-        reviews={[
+        {...reviewPageProps([
           {
             ...REVIEW,
             id: "review-for-reply-layout",
             replyCount: 1,
           },
-        ]}
+        ])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -1020,14 +1401,14 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
-        reviews={[
+        {...reviewPageProps([
           {
             ...REVIEW,
             id: "long-content",
             content: longContent,
             canAdminDelete: true,
           },
-        ]}
+        ])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -1065,7 +1446,7 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
-        reviews={[
+        {...reviewPageProps([
           {
             id: "review-1",
             content: "原评论",
@@ -1085,7 +1466,7 @@ describe("CourseReviewSection", () => {
             authorShowcaseId: null,
             authorAchievements: [],
           },
-        ]}
+        ])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -1125,7 +1506,7 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
-        reviews={[
+        {...reviewPageProps([
           {
             id: "review-1",
             content: "原评论",
@@ -1145,7 +1526,7 @@ describe("CourseReviewSection", () => {
             authorShowcaseId: null,
             authorAchievements: [],
           },
-        ]}
+        ])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -1193,7 +1574,7 @@ describe("CourseReviewSection", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
-        reviews={[
+        {...reviewPageProps([
           {
             id: "review-1",
             content: "原评论",
@@ -1213,7 +1594,7 @@ describe("CourseReviewSection", () => {
             authorShowcaseId: null,
             authorAchievements: [],
           },
-        ]}
+        ])}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -1258,10 +1639,22 @@ describe("CourseReviewSection", () => {
       authorAchievements: [],
     }));
 
+    getReviewPage.mockResolvedValueOnce({
+      items: reviews.slice(10),
+      totalCount: 12,
+      nextCursor: null,
+    });
+
     render(
       <CourseReviewSection
         code="MATH1010"
-        reviews={reviews}
+        {...reviewPageProps([])}
+        reviewPage={{
+          items: reviews.slice(0, 10),
+          totalCount: 12,
+          nextCursor: "older-page",
+        }}
+        targetReview={reviews[11]}
         ratingState={RATING_STATE}
         professorStats={[]}
         academicYears={["2025-26"]}
@@ -1274,9 +1667,15 @@ describe("CourseReviewSection", () => {
     );
 
     expect(screen.getByText("测评内容 12")).toBeTruthy();
+    expect(screen.queryByText("测评内容 11")).toBeNull();
+    expect(screen.getByText("12 条评论")).toBeTruthy();
     await waitFor(() =>
       expect(getReplies).toHaveBeenCalledWith("review-12", 40),
     );
     expect(screen.getByRole("region", { name: "评论回复" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "再看 1 条测评" }));
+    expect(await screen.findByText("测评内容 11")).toBeTruthy();
+    expect(screen.getAllByText("测评内容 12")).toHaveLength(1);
   });
 });

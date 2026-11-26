@@ -50,7 +50,6 @@ describe("achievement profiles", () => {
     const showcaseId = "00000000-0000-4000-a000-000000000099";
     dbQueue.push(
       [{ userId: "user-1", showcaseId, nickname: "Alice", image: null }],
-      [],
       [{ userId: "user-1", showcaseId, image: null }],
       [
         {
@@ -103,12 +102,12 @@ describe("achievement profiles", () => {
     });
     expect(showcase?.achievements[0]).not.toHaveProperty("subjectGroups");
     expect(showcase?.achievements[0]).not.toHaveProperty("evidence");
+    expect(dbChain.onConflictDoNothing).not.toHaveBeenCalled();
   });
 
   it("lazily creates one stable random showcase profile for the owner", async () => {
     const showcaseId = "00000000-0000-4000-a000-000000000099";
     dbQueue.push(
-      [],
       [],
       [{ userId: "user-1", showcaseId, image: null }],
       [],
@@ -122,7 +121,7 @@ describe("achievement profiles", () => {
       equippedTitle: null,
       achievements: [],
     });
-    expect(dbChain.onConflictDoNothing).toHaveBeenCalled();
+    expect(dbChain.onConflictDoNothing).toHaveBeenCalledTimes(1);
     expect(dbChain.values).toHaveBeenCalledWith({ userId: "user-1" });
   });
 

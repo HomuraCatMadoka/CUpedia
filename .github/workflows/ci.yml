@@ -106,6 +106,7 @@ jobs:
           pnpm exec vitest run
           tests/db/canteen-menu-source-migration.test.ts
           tests/db/canteen-menu-identity-preflight.test.ts
+          tests/db/course-review-author-profiles-migration.test.ts
 
       - name: Initialize zhparser
         if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
