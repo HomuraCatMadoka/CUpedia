@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import {
   and,
   asc,
@@ -57,6 +58,7 @@ import {
 } from "@/lib/achievement-recompute-db";
 import {
   COURSE_REVIEW_PAGE_SIZE,
+  COURSE_REVIEW_REFRESH_BATCH_SIZE,
   COURSE_REVIEW_TAG_OPTIONS,
   COURSE_REVIEW_TAG_STORAGE_VALUES,
   COURSE_TERMS,
@@ -124,6 +126,7 @@ export type CourseReviewPage = {
   items: CourseReviewView[];
   totalCount: number;
   nextCursor: string | null;
+  viewerChanged?: true;
 };
 
 export type ProfessorOption = {
@@ -235,6 +238,7 @@ type CourseDetail = {
   | { tab: "enrollment"; enrollmentHistory: CourseEnrollmentView[] }
   | {
       tab: "reviews";
+      viewerKey: string;
       ratingState: CourseRatingState;
       editorAcademicYears: string[];
       professorOptional: boolean;
@@ -252,6 +256,14 @@ type CourseDetail = {
 );
 
 type CourseViewer = Awaited<ReturnType<typeof getOptionalUser>>;
+
+function courseReviewViewerKey(user: CourseViewer) {
+  return user
+    ? createHash("sha256")
+        .update(JSON.stringify([user.id, user.role]))
+        .digest("base64url")
+    : "guest";
+}
 
 export type CourseFilter = {
   /** "0" | "1" | "2" | "3" (the 98% of courses); "other" (4+) still honored. */
@@ -1149,10 +1161,12 @@ async function readCourseReviewPage(
     professorId,
     cursor,
     total,
+    pageSize = COURSE_REVIEW_PAGE_SIZE,
   }: {
     professorId?: string;
     cursor?: string;
     total?: number;
+    pageSize?: number;
   } = {},
 ): Promise<CourseReviewPage> {
   if (total === 0) return { items: [], totalCount: 0, nextCursor: null };
@@ -1160,19 +1174,19 @@ async function readCourseReviewPage(
     readCourseReviewRows(courseCode, {
       professorId,
       cursor: parseReviewCursor(cursor),
-      limit: COURSE_REVIEW_PAGE_SIZE + 1,
+      limit: pageSize + 1,
     }),
     professorId || total === undefined
       ? countCourseReviews(courseCode, professorId)
       : total,
   ]);
-  const pageRows = rows.slice(0, COURSE_REVIEW_PAGE_SIZE);
+  const pageRows = rows.slice(0, pageSize);
   const lastRow = pageRows.at(-1);
   return {
     items: await presentCourseReviews(pageRows, user),
     totalCount,
     nextCursor:
-      rows.length > COURSE_REVIEW_PAGE_SIZE && lastRow
+      rows.length > pageSize && lastRow
         ? `${lastRow.cursorTime}|${lastRow.id}`
         : null,
   };
@@ -1180,16 +1194,30 @@ async function readCourseReviewPage(
 
 export async function getCourseReviewPage(
   code: string,
-  options: { professorId?: string; cursor?: string } = {},
+  options: {
+    professorId?: string;
+    cursor?: string;
+    limit?: number;
+    viewerKey?: string;
+  } = {},
 ): Promise<CourseReviewPage> {
   const emptyPage = { items: [], totalCount: 0, nextCursor: null };
   if (typeof code !== "string") return emptyPage;
   const course = await readCourseDetailCatalogRow(normalizeCode(code));
   if (!course) return emptyPage;
-  const { professorId, cursor } = options ?? {};
-  return readCourseReviewPage(course.code, await getOptionalUser(), {
+  const { professorId, cursor, limit, viewerKey } = options ?? {};
+  const user = await getOptionalUser();
+  if (viewerKey !== undefined && viewerKey !== courseReviewViewerKey(user)) {
+    return { ...emptyPage, viewerChanged: true };
+  }
+  const pageSize =
+    typeof limit === "number" && Number.isSafeInteger(limit)
+      ? Math.min(COURSE_REVIEW_REFRESH_BATCH_SIZE, Math.max(1, limit))
+      : COURSE_REVIEW_PAGE_SIZE;
+  return readCourseReviewPage(course.code, user, {
     professorId: typeof professorId === "string" ? professorId : undefined,
     cursor: typeof cursor === "string" ? cursor : undefined,
+    pageSize,
   });
 }
 
@@ -1584,12 +1612,6 @@ async function readCourseReviewEditorMetadata(courseCode: string) {
   return row ?? { academicYears: [], professorOptional: false };
 }
 
-const getCachedCourseReviewEditorMetadata = unstable_cache(
-  readCourseReviewEditorMetadata,
-  ["course-detail-editor-metadata-v1"],
-  { revalidate: COURSE_DETAIL_CACHE_TTL_SECONDS },
-);
-
 async function hasCourseRating(courseCode: string, userId: string) {
   const [rating] = await db
     .select({ id: courseRatings.id })
@@ -1692,10 +1714,9 @@ export async function getCourseDetail(
       coursePromise.then(({ rating, ratingCount }) =>
         readCourseRatingState(courseCode, rating, ratingCount, user),
       ),
+      // Imports can change what the submission validator allows at any time.
       user
-        ? cacheEnabled
-          ? getCachedCourseReviewEditorMetadata(courseCode)
-          : readCourseReviewEditorMetadata(courseCode)
+        ? readCourseReviewEditorMetadata(courseCode)
         : { academicYears: [], professorOptional: false },
       (async () => {
         const [{ reviewCount }, prefillProfessor, target] = await Promise.all([
@@ -1734,6 +1755,7 @@ export async function getCourseDetail(
     tab: "reviews",
     course,
     isAuthenticated,
+    viewerKey: courseReviewViewerKey(user),
     hasPublishedReview: ratingState.lastScore !== null,
     ratingState,
     editorAcademicYears: editorMetadata.academicYears,

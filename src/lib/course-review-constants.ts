@@ -1,4 +1,5 @@
 export const COURSE_REVIEW_PAGE_SIZE = 10;
+export const COURSE_REVIEW_REFRESH_BATCH_SIZE = 50;
 
 export const COURSE_TERMS = ["Term 1", "Term 2", "Summer"] as const;
 

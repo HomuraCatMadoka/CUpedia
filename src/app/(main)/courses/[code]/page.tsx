@@ -160,7 +160,13 @@ export default async function CourseDetailPage({
         {detail.tab === "reviews" && (
           <div className="mt-4">
             <CourseReviewSection
-              key={`${course.code}-${detail.ratingState.ratingCount}-${detail.ratingState.myRatingCount}`}
+              key={JSON.stringify([
+                course.code,
+                professor,
+                review,
+                reply,
+                detail.viewerKey,
+              ])}
               code={course.code}
               reviewPage={detail.reviewPage}
               ratingState={detail.ratingState}
@@ -179,6 +185,7 @@ export default async function CourseDetailPage({
                 .sort()
                 .reverse()}
               isAuthenticated={detail.isAuthenticated}
+              viewerKey={detail.viewerKey}
               professorOptional={detail.professorOptional}
               prefillProfessor={detail.prefillProfessor}
               targetReview={detail.targetReview}

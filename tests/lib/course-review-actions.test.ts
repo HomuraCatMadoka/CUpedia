@@ -1747,6 +1747,29 @@ describe("getCourseDetail professor statistics", () => {
 });
 
 describe("getCourseReviewPage", () => {
+  it("does not read a page for a different viewer", async () => {
+    queueRows([COURSE]);
+    mockGetOptionalUser.mockResolvedValue({ id: "u1", role: "user" });
+
+    await expect(
+      getCourseReviewPage(COURSE.code, { viewerKey: "guest" }),
+    ).resolves.toEqual({
+      items: [],
+      totalCount: 0,
+      nextCursor: null,
+      viewerChanged: true,
+    });
+    expect(dbSelect).toHaveBeenCalledOnce();
+  });
+
+  it("bounds the number of rows fetched for a list refresh", async () => {
+    queueRows([COURSE], [], [{ value: 100 }]);
+
+    await getCourseReviewPage(COURSE.code, { limit: 1_000 });
+    // One extra row tells the caller whether there is a next page.
+    expect(dbChain.limit).toHaveBeenLastCalledWith(51);
+  });
+
   it("公开评论展示同一投稿选择的标签", async () => {
     queueRows(
       [COURSE],

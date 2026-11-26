@@ -745,6 +745,53 @@ describe("CourseReviewSection", () => {
     });
   });
 
+  it("已有游标时，即使总数因删除变小，也能继续加载", async () => {
+    const nextReview = {
+      ...REVIEW,
+      id: "last-review",
+      content: "最后一条测评",
+    };
+    const middleReview = {
+      ...REVIEW,
+      id: "middle-review",
+      content: "中间一条测评",
+    };
+    getReviewPage
+      .mockResolvedValueOnce({
+        items: [middleReview],
+        totalCount: 2,
+        nextCursor: "last-page",
+      })
+      .mockResolvedValueOnce({
+        items: [nextReview],
+        totalCount: 2,
+        nextCursor: null,
+      });
+
+    render(
+      <CourseReviewSection
+        code="ELTU1001"
+        {...reviewPageProps([])}
+        reviewPage={{ items: [REVIEW], totalCount: 3, nextCursor: "next-page" }}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={[]}
+        isAuthenticated={false}
+        professorOptional
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "再看 2 条测评" }));
+    expect(await screen.findByText(middleReview.content)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "加载更多测评" }));
+    expect(await screen.findByText(nextReview.content)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /加载更多测评/ })).toBeNull();
+    expect(getReviewPage).toHaveBeenLastCalledWith("ELTU1001", {
+      professorId: undefined,
+      cursor: "last-page",
+    });
+  });
+
   it("筛选首屏之外的教授时只显示最后一次请求的测评", async () => {
     const chan = { id: "chan", name: "Professor CHAN" };
     const wong = { id: "wong", name: "Professor WONG" };
@@ -845,6 +892,204 @@ describe("CourseReviewSection", () => {
     expect(screen.getByText("更新后的测评")).toBeTruthy();
     expect(screen.queryByText("已经删除的测评")).toBeNull();
     expect(screen.getByText("1 条评论")).toBeTruthy();
+  });
+
+  it("教授筛选和展开范围在刷新失败后可重试，并以较新内容替换旧评论", async () => {
+    const professor = { id: "wong", name: "Professor WONG" };
+    const reviews = Array.from({ length: 12 }, (_, index) => ({
+      ...REVIEW,
+      professorId: professor.id,
+      professorName: professor.name,
+      id: `wong-review-${index}`,
+      content: `WONG 的测评 ${index + 1}`,
+    }));
+    const nextPage = {
+      items: reviews.slice(10),
+      totalCount: 12,
+      nextCursor: null,
+    };
+    let finishRefresh: (page: CourseReviewPage) => void = () => {};
+    getReviewPage
+      .mockResolvedValueOnce({
+        items: reviews.slice(0, 10),
+        totalCount: 12,
+        nextCursor: "wong-next",
+      })
+      .mockResolvedValueOnce(nextPage)
+      .mockRejectedValueOnce(new Error("Temporary load failure"))
+      .mockReturnValueOnce(
+        new Promise<CourseReviewPage>((resolve) => {
+          finishRefresh = resolve;
+        }),
+      );
+
+    function section(reviewPage: CourseReviewPage, reviewed = [professor]) {
+      return (
+        <CourseReviewSection
+          code="ELTU1001"
+          {...reviewPageProps([])}
+          reviewPage={reviewPage}
+          reviewedProfessors={reviewed}
+          ratingState={RATING_STATE}
+          professorStats={[]}
+          academicYears={[]}
+          isAuthenticated={false}
+          professorOptional
+        />
+      );
+    }
+
+    const basePage = {
+      items: [REVIEW],
+      totalCount: 13,
+      nextCursor: "unfiltered",
+    };
+    const { rerender } = render(section(basePage));
+    const filter = screen.getByRole("combobox", {
+      name: "按任课教授筛选",
+    }) as HTMLSelectElement;
+    fireEvent.change(filter, { target: { value: professor.id } });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "再看 2 条测评" }),
+    );
+    expect(await screen.findByText("WONG 的测评 12")).toBeTruthy();
+    rerender(section({ ...basePage, totalCount: 12 }));
+
+    const retry = await screen.findByRole("button", { name: "重试" });
+    expect(screen.getByRole("status").textContent).toBe(
+      "评论加载失败，请重试。",
+    );
+    expect(filter.value).toBe(professor.id);
+    expect(screen.queryByText("WONG 的测评 12")).toBeNull();
+    fireEvent.click(retry);
+    await waitFor(() =>
+      expect(getReviewPage).toHaveBeenNthCalledWith(4, "ELTU1001", {
+        professorId: professor.id,
+        limit: 12,
+      }),
+    );
+    expect(filter.value).toBe(professor.id);
+    expect(screen.queryByText("WONG 的测评 12")).toBeNull();
+    await act(async () => {
+      finishRefresh({
+        items: [
+          ...reviews.slice(1, 11),
+          { ...reviews[11], content: "更新后的较早测评" },
+        ],
+        totalCount: 11,
+        nextCursor: null,
+      });
+    });
+
+    expect(filter.value).toBe(professor.id);
+    expect(screen.getByText("更新后的较早测评")).toBeTruthy();
+    expect(screen.queryByText("WONG 的测评 1", { exact: true })).toBeNull();
+    expect(screen.getAllByRole("listitem")).toHaveLength(11);
+
+    rerender(section({ items: [REVIEW], totalCount: 1, nextCursor: null }, []));
+    expect(filter.value).toBe("");
+    expect(screen.getByText(REVIEW.content)).toBeTruthy();
+    expect(getReviewPage).toHaveBeenCalledTimes(4);
+  });
+
+  it("刷新全部教授时复用新的首屏，只补查已展开的较早评论", async () => {
+    const old = { ...REVIEW, id: "older", content: "已展开的较早评论" };
+    getReviewPage.mockResolvedValueOnce({
+      items: [old],
+      totalCount: 11,
+      nextCursor: null,
+    });
+
+    const firstPage = {
+      items: Array.from({ length: 10 }, (_, index) => ({
+        ...REVIEW,
+        id: `review-${index}`,
+        content: `最新测评 ${index}`,
+      })),
+      totalCount: 11,
+      nextCursor: "page-2",
+    };
+    function section(reviewPage: CourseReviewPage) {
+      return (
+        <CourseReviewSection
+          code="ELTU1001"
+          {...reviewPageProps([])}
+          reviewPage={reviewPage}
+          ratingState={RATING_STATE}
+          professorStats={[]}
+          academicYears={[]}
+          isAuthenticated={false}
+          professorOptional
+        />
+      );
+    }
+
+    const { rerender } = render(section(firstPage));
+    fireEvent.click(screen.getByRole("button", { name: "再看 1 条测评" }));
+    expect(await screen.findByText(old.content)).toBeTruthy();
+
+    getReviewPage
+      .mockRejectedValueOnce(new Error("Temporary load failure"))
+      .mockResolvedValueOnce({
+        items: [{ ...old, content: "重新读取的较早评论" }],
+        totalCount: 11,
+        nextCursor: null,
+      });
+    rerender(
+      section({
+        ...firstPage,
+        items: [
+          { ...firstPage.items[0], content: "刷新后的首条测评" },
+          ...firstPage.items.slice(1),
+        ],
+        nextCursor: "fresh-page-2",
+      }),
+    );
+    const retry = await screen.findByRole("button", { name: "重试" });
+    expect(screen.getByText("刷新后的首条测评")).toBeTruthy();
+    expect(screen.queryByText(old.content)).toBeNull();
+    fireEvent.click(retry);
+    expect(await screen.findByText("重新读取的较早评论")).toBeTruthy();
+    expect(screen.getByText("刷新后的首条测评")).toBeTruthy();
+    expect(getReviewPage).toHaveBeenLastCalledWith("ELTU1001", {
+      professorId: undefined,
+      cursor: "fresh-page-2",
+      limit: 1,
+    });
+  });
+
+  it("分页时发现登录身份变化，会暂时隐藏旧评论并刷新页面", async () => {
+    getReviewPage.mockResolvedValueOnce({
+      items: [],
+      totalCount: 0,
+      nextCursor: null,
+      viewerChanged: true,
+    });
+
+    render(
+      <CourseReviewSection
+        code="ELTU1001"
+        {...reviewPageProps([])}
+        reviewPage={{ items: [REVIEW], totalCount: 2, nextCursor: "next-page" }}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={[]}
+        isAuthenticated
+        viewerKey="opaque-viewer-scope"
+        professorOptional
+      />,
+    );
+
+    expect(screen.getByText(REVIEW.content)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "再看 1 条测评" }));
+    expect(await screen.findByText("正在刷新登录状态…")).toBeTruthy();
+    expect(screen.queryByText(REVIEW.content)).toBeNull();
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(getReviewPage).toHaveBeenCalledWith("ELTU1001", {
+      professorId: undefined,
+      cursor: "next-page",
+      viewerKey: "opaque-viewer-scope",
+    });
   });
 
   it("署名投稿展示实时成就与橱窗入口，匿名投稿不泄露身份", () => {

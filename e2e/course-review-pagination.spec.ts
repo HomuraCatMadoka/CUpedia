@@ -98,11 +98,6 @@ test.describe("course detail review pagination, ref #944", () => {
           [REPLY_ID, OLDEST_REVIEW.id, REPLY_CONTENT, VOTER],
         );
         await client.query(
-          `insert into course_review_likes (review_id, user_id)
-           select $1, users.id from users where email = $2`,
-          [FIRST_OLDER_REVIEW.id, VOTER],
-        );
-        await client.query(
           `insert into course_enrollments
              (academic_year, term, course_code, class_code, class_nbr,
               component, section, quota, vacancy, instructors, captured_at)
@@ -215,9 +210,22 @@ test.describe("course detail review pagination, ref #944", () => {
     const likedReview = page
       .getByRole("listitem")
       .filter({ hasText: FIRST_OLDER_REVIEW.content });
-    await expect(
-      likedReview.getByRole("button", { name: "点赞", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
+    const like = likedReview.getByRole("button", { name: "点赞", exact: true });
+    await expect(like).toHaveAttribute("aria-pressed", "false");
+    const saveLike = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === COURSE_PATH,
+    );
+    await like.click();
+    expect((await saveLike).ok()).toBe(true);
+    await expect(like).toHaveAttribute("aria-busy", "false");
+    await expect(like).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#course-review > ul")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+    await expect(page.locator("#course-review > ul > li")).toHaveCount(12);
 
     const guest = await browser.newContext();
     try {
@@ -231,10 +239,34 @@ test.describe("course detail review pagination, ref #944", () => {
         name: "登录后可点赞",
       });
       await expect(guestLike).toHaveAttribute("aria-pressed", "false");
+      await expect(guestLike).toHaveText("1");
       await expect(guestLike).toBeDisabled();
     } finally {
       await guest.close();
     }
+  });
+
+  test("keeps the expanded list and open thread after a reply refreshes the route", async ({
+    page,
+  }) => {
+    await loginWithPassword(page, AUTHOR, "password123");
+    await page.goto(COURSE_PATH);
+    await page.getByRole("button", { name: "再看 2 条测评" }).click();
+    const reviews = page.locator("#course-review > ul > li");
+    await expect(reviews).toHaveCount(12);
+
+    const laterReview = reviews.filter({ hasText: FIRST_OLDER_REVIEW.content });
+    await laterReview.getByRole("button", { name: "回复 0" }).click();
+    const thread = laterReview.getByRole("region", { name: "评论回复" });
+    const reply = "course-pagination-new-reply-on-page-two";
+    await thread.getByRole("textbox", { name: "回复内容" }).fill(reply);
+    await thread.getByRole("button", { name: "发布回复" }).click();
+
+    await expect(thread.getByText(reply, { exact: true })).toBeVisible();
+    await expect(
+      laterReview.getByRole("button", { name: "回复 1" }),
+    ).toBeVisible();
+    await expect(reviews).toHaveCount(12);
   });
 
   test("renders enrollment history without sending review content", async ({
