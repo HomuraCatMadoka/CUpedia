@@ -47,7 +47,7 @@ jobs:
       - name: Build the linux/amd64 image
         run: |
           docker buildx build --load \
-            --file deploy/seoul-rehearsal/Dockerfile \
+            --file deploy/seoul-production/Dockerfile \
             --platform linux/amd64 \
             --build-arg NEXT_BUILD_SKIP_TYPECHECK=1 \
             --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \

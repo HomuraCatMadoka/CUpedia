@@ -1,4 +1,4 @@
-# Keep only inputs to the Next.js build.
+# Keep only source and assets used during the build, plus the public database CA.
 *
 !package.json
 !pnpm-lock.yaml
@@ -12,6 +12,9 @@
 !public/**
 !docs/
 !docs/**
+!certs/
+certs/**
+!certs/supabase-prod-ca-2021.crt
 
 **/.env*
 **/*.env

@@ -13,6 +13,7 @@ import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { WikiRenderer } from "@/components/wiki/wiki-renderer";
 import { WikiStaticContent } from "@/components/wiki/wiki-static-content";
 import { getViewerEditContext } from "@/lib/auth-guard";
+import { createPageStageTimer } from "@/lib/page-performance";
 import { getDiscussions } from "@/lib/discussion-actions";
 import { extractHeadings, stripTitleHeading } from "@/lib/headings";
 import { parseContent } from "@/lib/plate-utils";
@@ -90,9 +91,10 @@ export default async function WikiReadPage({
   const { id: idParts } = await params;
   const draftParams = await searchParams;
   const identifier = idParts.map(decodeURIComponent).join("/");
+  const measure = await createPageStageTimer("/wiki/[...id]");
   const [page, { user, canEdit }] = await Promise.all([
-    getWikiPageState(identifier),
-    getViewerEditContext(),
+    measure("article", () => getWikiPageState(identifier)),
+    measure("viewer", getViewerEditContext),
   ]);
 
   if (identifier === "new" && draftParams.draft === "1" && canEdit && user) {
@@ -143,7 +145,7 @@ export default async function WikiReadPage({
     redirect(`/wiki/${page.id}`);
   }
 
-  const pages = await getWikiTree();
+  const pages = await measure("tree", getWikiTree);
 
   if (page.deletedAt) {
     return (
@@ -184,8 +186,8 @@ export default async function WikiReadPage({
     page.title,
   );
   const [discussions, backlinks] = await Promise.all([
-    getDiscussions(page.id),
-    getBacklinks(page.id),
+    measure("discussions", () => getDiscussions(page.id)),
+    measure("backlinks", () => getBacklinks(page.id)),
   ]);
 
   const parentPage = page.parentId

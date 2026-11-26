@@ -13,6 +13,7 @@ import {
 } from "@/lib/course-review-actions";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
 import { getOptionalUser } from "@/lib/auth-guard";
+import { createPageStageTimer } from "@/lib/page-performance";
 import { Badge } from "@/components/ui/badge";
 import { CourseReviewSection } from "@/components/courses/course-review-section";
 import { CourseDescription } from "@/components/courses/course-description";
@@ -48,7 +49,8 @@ export default async function CourseDetailPage({
 }) {
   const { code } = await params;
   const { from, tab, review, reply, professor } = await searchParams;
-  const course = await getCourse(code);
+  const measure = await createPageStageTimer("/courses/[code]");
+  const course = await measure("course", () => getCourse(code));
   if (!course) notFound();
   const courseCode = course.code;
 
@@ -86,21 +88,23 @@ export default async function CourseDetailPage({
     requestedProfessor,
     targetReplyOffset,
   ] = await Promise.all([
-    getCourseRatingState(course.code),
-    getCourseEnrollmentHistory(course.code),
-    getOptionalUser(),
-    isCourseProfessorOptional(course.code),
+    measure("ratings", () => getCourseRatingState(course.code)),
+    measure("enrollment", () => getCourseEnrollmentHistory(course.code)),
+    measure("viewer", getOptionalUser),
+    measure("professor_optional", () => isCourseProfessorOptional(course.code)),
     activeTab === "reviews"
-      ? getCourseReviews(course.code)
+      ? measure("reviews", () => getCourseReviews(course.code))
       : Promise.resolve([]),
     activeTab === "reviews"
-      ? getCourseProfessorStats(course.code)
+      ? measure("professor_stats", () => getCourseProfessorStats(course.code))
       : Promise.resolve([]),
     activeTab === "reviews" && professor
-      ? getProfessorOptionByPublicId(professor)
+      ? measure("professor", () => getProfessorOptionByPublicId(professor))
       : Promise.resolve(null),
     activeTab === "reviews" && review && reply
-      ? getCourseReviewReplyTargetOffset(course.code, review, reply)
+      ? measure("reply_target", () =>
+          getCourseReviewReplyTargetOffset(course.code, review, reply),
+        )
       : Promise.resolve(null),
   ]);
   const targetRequested = Boolean(review || reply);
