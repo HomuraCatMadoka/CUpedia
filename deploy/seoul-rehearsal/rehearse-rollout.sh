@@ -3,14 +3,14 @@ set -Eeuo pipefail
 umask 077
 
 if [[ $# != 2 ]]; then
-  printf 'Usage: %s BASELINE_IMAGE_ID GHCR_IMAGE_AT_DIGEST\n' "$0" >&2
+  printf 'Usage: %s BASELINE_IMAGE_ID PRIVATE_IMAGE_AT_DIGEST\n' "$0" >&2
   exit 2
 fi
 baseline=$1
 candidate_ref=$2
 if [[ ! "$baseline" =~ ^sha256:[0-9a-f]{64}$ ||
-      ! "$candidate_ref" =~ ^ghcr[.]io/homuracatmadoka/cupedia-seoul-rehearsal-20261126@sha256:[0-9a-f]{64}$ ]]; then
-  printf 'Expected a baseline image ID and the rehearsal GHCR digest reference.\n' >&2
+      ! "$candidate_ref" =~ ^127[.]0[.]0[.]1:5105/cupedia-rehearsal@sha256:[0-9a-f]{64}$ ]]; then
+  printf 'Expected a baseline image ID and the private rehearsal digest reference.\n' >&2
   exit 2
 fi
 

@@ -1,0 +1,15 @@
+version: 0.1
+log:
+  level: error
+storage:
+  filesystem:
+    rootdirectory: /var/lib/registry
+  delete:
+    enabled: false
+http:
+  addr: :5000
+  relativeurls: true
+auth:
+  htpasswd:
+    realm: Registry backend
+    path: /run/registry-auth/backend.htpasswd
