@@ -11,7 +11,7 @@ test.beforeAll(async () => {
   try {
     const profiles = await client.query<{ user_id: string }>(
       `insert into achievement_profiles (user_id)
-       select id from users where email = 'contributor@test.com'
+       select id from users where email in ('user@test.com', 'contributor@test.com')
        on conflict (user_id) do nothing returning user_id`,
     );
     createdProfileUserIds = profiles.rows.map((profile) => profile.user_id);
