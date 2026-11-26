@@ -40,8 +40,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     environment: seoul-private-publish-20261126
-    outputs:
-      digest: ${{ steps.publish.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,7 +54,6 @@ jobs:
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             --tag "127.0.0.1:5105/cupedia-rehearsal:rehearsal-$GITHUB_SHA" .
       - name: Publish and verify anonymous access is denied
-        id: publish
         env:
           SEOUL_TRIAL_HOST: ${{ secrets.SEOUL_TRIAL_HOST }}
           SEOUL_TRIAL_PORT: ${{ secrets.SEOUL_TRIAL_PORT }}
@@ -65,6 +62,14 @@ jobs:
           SEOUL_TRIAL_REGISTRY_CA: ${{ secrets.SEOUL_TRIAL_REGISTRY_CA }}
           SEOUL_TRIAL_REGISTRY_WRITER: ${{ secrets.SEOUL_TRIAL_REGISTRY_WRITER }}
         run: python3 -I deploy/seoul-rehearsal/private-registry-workflow.py publish
+      - name: Share the verified image digest with the rehearsal job
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoul-private-image-digest
+          path: ${{ runner.temp }}/seoul-private-image-digest.txt
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
 
   rehearse:
     name: Read-only pull, deploy, check and roll back
@@ -76,9 +81,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Read the verified image digest from this run
+        uses: actions/download-artifact@v5
+        with:
+          name: seoul-private-image-digest
+          path: ${{ runner.temp }}
       - name: Rehearse deployment and rollback in Seoul
         env:
-          PUBLISHED_DIGEST: ${{ needs.publish.outputs.digest }}
           SEOUL_TRIAL_HOST: ${{ secrets.SEOUL_TRIAL_HOST }}
           SEOUL_TRIAL_PORT: ${{ secrets.SEOUL_TRIAL_PORT }}
           SEOUL_TRIAL_HOST_KEY: ${{ secrets.SEOUL_TRIAL_HOST_KEY }}

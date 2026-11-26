@@ -23,6 +23,9 @@ ACCEPT = ", ".join((
     "application/vnd.docker.distribution.manifest.v2+json",
 ))
 
+def digest_file():
+    return Path(os.environ["RUNNER_TEMP"]) / "seoul-private-image-digest.txt"
+
 def ssh_args(temporary):
     host = os.environ["SEOUL_TRIAL_HOST"]
     port = os.environ["SEOUL_TRIAL_PORT"]
@@ -101,12 +104,11 @@ def publish(temporary, ssh, revision):
         digest=found[0]
         if registry_request(context,f"/v2/{REPOSITORY}/manifests/{digest}",method="HEAD") != 401:
             raise RuntimeError("anonymous access to the published digest was not denied")
-    with open(os.environ["GITHUB_OUTPUT"],"a") as output:
-        output.write(f"digest={digest}\n")
+    digest_file().write_text(f"{digest}\n", encoding="ascii")
     print(f"Private image published and anonymous access denied for {digest}",flush=True)
 
 def rehearse(ssh, revision):
-    digest=os.environ.get("PUBLISHED_DIGEST","")
+    digest=digest_file().read_text(encoding="ascii").strip()
     if not re.fullmatch(DIGEST,digest):
         raise ValueError("invalid published digest")
     data=f"CUPEDIA-PRIVATE-REHEARSAL-1\n{digest}\n{revision}\n".encode()
