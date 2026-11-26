@@ -19,11 +19,13 @@ afterEach(() => {
   if (originalSecurityCode === undefined)
     delete process.env.AMAP_SECURITY_JS_CODE;
   else process.env.AMAP_SECURITY_JS_CODE = originalSecurityCode;
+  vi.unstubAllEnvs();
 });
 
 beforeEach(() => {
   mockGetOptionalUser.mockReset();
   mockGetOptionalUser.mockResolvedValue({ id: "user-1" });
+  vi.stubEnv("AUTH_URL", "https://cupedia.org");
 });
 
 describe("campus map AMap config", () => {
@@ -52,6 +54,24 @@ describe("campus map AMap config", () => {
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({ configured: false });
   });
+
+  it.each([
+    { label: "missing", authUrl: undefined },
+    { label: "malformed", authUrl: "invalid-url" },
+  ])(
+    "fails closed when the configured origin is $label",
+    async ({ authUrl }) => {
+      vi.stubEnv("AUTH_URL", authUrl);
+      process.env.AMAP_WEB_KEY = "web-key";
+      process.env.AMAP_SECURITY_JS_CODE = "server-only-security-code";
+
+      const response = await GET();
+
+      expect(response.status).toBe(503);
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+      await expect(response.json()).resolves.toEqual({ configured: false });
+    },
+  );
 
   it("returns only the public key and same-origin service host without caching", async () => {
     process.env.AMAP_WEB_KEY = "web-key";

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOptionalUser } from "@/lib/auth-guard";
+import { getConfiguredSiteOrigin } from "@/lib/site-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export async function GET() {
   const key = process.env.AMAP_WEB_KEY;
   const securityCode = process.env.AMAP_SECURITY_JS_CODE;
 
-  if (!key || !securityCode) {
+  if (!key || !securityCode || !getConfiguredSiteOrigin()) {
     return NextResponse.json<CampusMapAmapConfig>(
       { configured: false },
       { status: 503, headers: noStoreHeaders },

@@ -72,6 +72,26 @@ function coordinateConvertRequest(locations = "114.2,22.4") {
   );
 }
 
+function proxiedReverseGeocodeRequest(
+  appname = "https://cupedia.org/campus-map",
+  path = "v3/geocode/regeo",
+  extra?: readonly [string, string],
+) {
+  const url = new URL(reverseGeocodeRequest().url);
+  url.protocol = "https:";
+  url.host = "0.0.0.0:3000";
+  url.pathname = "/_AMapService/" + path;
+  url.searchParams.set("appname", encodeURIComponent(appname));
+  if (extra) url.searchParams.append(...extra);
+  return new NextRequest(url, {
+    headers: {
+      Host: "cupedia.org",
+      "X-Forwarded-Host": "client-supplied.example",
+      "X-Forwarded-Proto": "https",
+    },
+  });
+}
+
 function context(...path: string[]) {
   return { params: Promise.resolve({ path }) };
 }
@@ -81,6 +101,7 @@ beforeEach(() => {
   mockGetOptionalUser.mockResolvedValue({ id: "user-1" });
   process.env.AMAP_SECURITY_JS_CODE = "server-only-security-code";
   process.env.AMAP_WEB_KEY = "public-web-key";
+  vi.stubEnv("AUTH_URL", "http://localhost:3000");
   vi.stubGlobal("fetch", vi.fn());
 });
 
@@ -91,6 +112,7 @@ afterEach(() => {
   if (originalWebKey === undefined) delete process.env.AMAP_WEB_KEY;
   else process.env.AMAP_WEB_KEY = originalWebKey;
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
 
@@ -144,6 +166,81 @@ describe("campus map AMap same-origin service", () => {
       Accept: "application/json, text/javascript",
     });
     expect(await response.text()).toBe('{"status":"1","info":"OK"}');
+  });
+
+  it("accepts the public SDK appname when Next receives the internal bind URL", async () => {
+    vi.stubEnv("AUTH_URL", "https://cupedia.org");
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response('{"status":"1","info":"OK"}'),
+    );
+
+    const response = await GET(
+      proxiedReverseGeocodeRequest(),
+      context("v3", "geocode", "regeo"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [upstream] = vi.mocked(fetch).mock.calls[0]!;
+    const upstreamUrl = new URL(String(upstream));
+    expect(upstreamUrl.origin).toBe("https://restapi.amap.com");
+    expect(upstreamUrl.pathname).toBe("/v3/geocode/regeo");
+    expect(upstreamUrl.searchParams.get("appname")).toBe(
+      "https%3A%2F%2Fcupedia.org%2Fcampus-map",
+    );
+  });
+
+  it.each([
+    ["the internal bind address", "https://0.0.0.0:3000/campus-map"],
+    [
+      "a caller-supplied forwarded host",
+      "https://client-supplied.example/campus-map",
+    ],
+  ])("rejects an SDK appname using %s", async (_name, appname) => {
+    vi.stubEnv("AUTH_URL", "https://cupedia.org");
+
+    const response = await GET(
+      proxiedReverseGeocodeRequest(appname),
+      context("v3", "geocode", "regeo"),
+    );
+
+    expect(response.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("still rejects unsupported paths and extra parameters behind a proxy", async () => {
+    vi.stubEnv("AUTH_URL", "https://cupedia.org");
+
+    const unsupportedPath = await GET(
+      proxiedReverseGeocodeRequest(undefined, "v3/place/text"),
+      context("v3", "place", "text"),
+    );
+    const extraParameter = await GET(
+      proxiedReverseGeocodeRequest(undefined, undefined, [
+        "jscode",
+        "client-value",
+      ]),
+      context("v3", "geocode", "regeo"),
+    );
+
+    expect(unsupportedPath.status).toBe(404);
+    expect(extraParameter.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["invalid", "not-a-url"],
+  ])("does not contact AMap when AUTH_URL is %s", async (_name, authUrl) => {
+    vi.stubEnv("AUTH_URL", authUrl);
+
+    const response = await GET(
+      reverseGeocodeRequest(),
+      context("v3", "geocode", "regeo"),
+    );
+
+    expect(response.status).toBe(503);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("forwards only the coordinate-conversion parameters used by the SDK", async () => {

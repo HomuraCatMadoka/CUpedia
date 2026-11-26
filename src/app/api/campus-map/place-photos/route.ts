@@ -7,12 +7,18 @@ import {
   uploadCampusMapPlacePhoto,
 } from "@/lib/campus-map/place-photos";
 import { isCanonicalCampusMapUuid } from "@/lib/campus-map/canonical-uuid";
+import { getConfiguredSiteOrigin } from "@/lib/site-origin";
 import {
   CAMPUS_MAP_PLACE_PHOTO_MAX_COUNT,
   CAMPUS_MAP_PLACE_PHOTO_MAX_FILE_BYTES,
 } from "@/lib/campus-map/place-photos-contract";
 
 const MAX_MULTIPART_BYTES = CAMPUS_MAP_PLACE_PHOTO_MAX_FILE_BYTES + 512 * 1024;
+
+function isSiteOrigin(request: Request): boolean {
+  const siteOrigin = getConfiguredSiteOrigin();
+  return siteOrigin !== null && request.headers.get("origin") === siteOrigin;
+}
 
 async function readBoundedMultipart(request: Request) {
   const contentType = request.headers.get("content-type");
@@ -45,8 +51,7 @@ async function readBoundedMultipart(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const origin = request.headers.get("origin");
-  if (!origin || origin !== new URL(request.url).origin) {
+  if (!isSiteOrigin(request)) {
     return NextResponse.json({ error: "invalid-origin" }, { status: 403 });
   }
   const declaredLength = Number(request.headers.get("content-length") ?? 0);
@@ -93,8 +98,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const origin = request.headers.get("origin");
-  if (!origin || origin !== new URL(request.url).origin) {
+  if (!isSiteOrigin(request)) {
     return NextResponse.json({ error: "invalid-origin" }, { status: 403 });
   }
   const viewer = await getAuthenticatedUserForApi();
