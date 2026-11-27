@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
 import { getCourseDetail } from "@/lib/course-review-actions";
+import { createPageStageTimer } from "@/lib/page-performance";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
 import { Badge } from "@/components/ui/badge";
 import { CourseReviewSection } from "@/components/courses/course-review-section";
@@ -36,17 +37,22 @@ export default async function CourseDetailPage({
     professor?: string;
   }>;
 }) {
-  const [{ code }, { from, tab, review, reply, professor }] = await Promise.all(
-    [params, searchParams],
-  );
+  const [{ code }, { from, tab, review, reply, professor }, measure] =
+    await Promise.all([
+      params,
+      searchParams,
+      createPageStageTimer("/courses/[code]"),
+    ]);
   const activeTab: CourseDetailTab =
     tab === "enrollment" ? "enrollment" : "reviews";
-  const detail = await getCourseDetail(code, {
-    tab: activeTab,
-    professor,
-    review,
-    reply,
-  });
+  const detail = await measure("detail", () =>
+    getCourseDetail(code, {
+      tab: activeTab,
+      professor,
+      review,
+      reply,
+    }),
+  );
   if (!detail) notFound();
   const { course } = detail;
 

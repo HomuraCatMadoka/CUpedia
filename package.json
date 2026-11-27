@@ -7,6 +7,8 @@
     "build": "next build --webpack",
     "vercel-build": "if [ \"$VERCEL_ENV\" = \"production\" ]; then pnpm db:migrate:deploy && pnpm import:department-professors && pnpm import:professor-source-enrichments; fi && next build --webpack",
     "start": "next start",
+    "perf:experiment": "node scripts/performance-experiments.mjs",
+    "perf:origin": "node scripts/performance-origin-report.mjs",
     "bootstrap": "tsx scripts/setup.ts",
     "db:migrate:deploy": "node --import tsx scripts/run-db-migrations.ts",
     "canteen:identity-dry-run": "node --import tsx scripts/canteen-menu-identity-dry-run.ts",

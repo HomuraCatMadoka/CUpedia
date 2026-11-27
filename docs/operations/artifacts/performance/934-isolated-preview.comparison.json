@@ -1,0 +1,448 @@
+{
+  "baselineRevision": "c7f59249a-947-replay-75dab081bc",
+  "rerunRevision": "c7f59249a-947-replay-75dab081bc",
+  "baselineChange": "candidate-local-baseline",
+  "rerunChange": "same-build-repeat",
+  "comparable": true,
+  "differentConditions": [],
+  "runs": [
+    {
+      "scenario": "course-search",
+      "route": "/courses",
+      "mode": "serial",
+      "comparable": true,
+      "baselineWarmupFailures": 0,
+      "rerunWarmupFailures": 0,
+      "baselineRequests": 9,
+      "rerunRequests": 9,
+      "baselineFailures": 0,
+      "rerunFailures": 0,
+      "baselineCachedResponses": 0,
+      "rerunCachedResponses": 0,
+      "baselineOriginMatches": 9,
+      "rerunOriginMatches": 9,
+      "baselineApplicationMatches": 9,
+      "rerunApplicationMatches": 9,
+      "headersMs": {
+        "baseline": 11.43,
+        "rerun": 7.36,
+        "delta": -4.07,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "totalMs": {
+        "baseline": 12.4,
+        "rerun": 8.63,
+        "delta": -3.77,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "originHeadersMs": {
+        "baseline": 11,
+        "rerun": 7,
+        "delta": -4,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "applicationMs": {
+        "subjects": {
+          "baseline": 3.1,
+          "rerun": 1.96,
+          "delta": -1.14,
+          "baselineCount": 9,
+          "rerunCount": 9
+        },
+        "courses": {
+          "baseline": 4.04,
+          "rerun": 2.62,
+          "delta": -1.42,
+          "baselineCount": 9,
+          "rerunCount": 9
+        }
+      }
+    },
+    {
+      "scenario": "course-search",
+      "route": "/courses",
+      "mode": "burst",
+      "comparable": true,
+      "baselineWarmupFailures": 0,
+      "rerunWarmupFailures": 0,
+      "baselineRequests": 9,
+      "rerunRequests": 9,
+      "baselineFailures": 0,
+      "rerunFailures": 0,
+      "baselineCachedResponses": 0,
+      "rerunCachedResponses": 0,
+      "baselineOriginMatches": 9,
+      "rerunOriginMatches": 9,
+      "baselineApplicationMatches": 9,
+      "rerunApplicationMatches": 9,
+      "headersMs": {
+        "baseline": 20.65,
+        "rerun": 15.93,
+        "delta": -4.72,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "totalMs": {
+        "baseline": 24.23,
+        "rerun": 19.73,
+        "delta": -4.5,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "originHeadersMs": {
+        "baseline": 20,
+        "rerun": 15,
+        "delta": -5,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "applicationMs": {
+        "subjects": {
+          "baseline": 6.49,
+          "rerun": 4.33,
+          "delta": -2.16,
+          "baselineCount": 9,
+          "rerunCount": 9
+        },
+        "courses": {
+          "baseline": 10,
+          "rerun": 5.79,
+          "delta": -4.21,
+          "baselineCount": 9,
+          "rerunCount": 9
+        }
+      }
+    },
+    {
+      "scenario": "course-detail",
+      "route": "/courses/[code]",
+      "mode": "serial",
+      "comparable": true,
+      "baselineWarmupFailures": 0,
+      "rerunWarmupFailures": 0,
+      "baselineRequests": 9,
+      "rerunRequests": 9,
+      "baselineFailures": 0,
+      "rerunFailures": 0,
+      "baselineCachedResponses": 0,
+      "rerunCachedResponses": 0,
+      "baselineOriginMatches": 9,
+      "rerunOriginMatches": 9,
+      "baselineApplicationMatches": 9,
+      "rerunApplicationMatches": 9,
+      "headersMs": {
+        "baseline": 6.81,
+        "rerun": 5.53,
+        "delta": -1.28,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "totalMs": {
+        "baseline": 7.97,
+        "rerun": 6.89,
+        "delta": -1.08,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "originHeadersMs": {
+        "baseline": 6,
+        "rerun": 5,
+        "delta": -1,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "applicationMs": {
+        "detail": {
+          "baseline": 2.46,
+          "rerun": 1.97,
+          "delta": -0.49,
+          "baselineCount": 9,
+          "rerunCount": 9
+        }
+      }
+    },
+    {
+      "scenario": "course-detail",
+      "route": "/courses/[code]",
+      "mode": "burst",
+      "comparable": true,
+      "baselineWarmupFailures": 0,
+      "rerunWarmupFailures": 0,
+      "baselineRequests": 9,
+      "rerunRequests": 9,
+      "baselineFailures": 0,
+      "rerunFailures": 0,
+      "baselineCachedResponses": 0,
+      "rerunCachedResponses": 0,
+      "baselineOriginMatches": 9,
+      "rerunOriginMatches": 9,
+      "baselineApplicationMatches": 9,
+      "rerunApplicationMatches": 9,
+      "headersMs": {
+        "baseline": 16.89,
+        "rerun": 13.16,
+        "delta": -3.73,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "totalMs": {
+        "baseline": 21.15,
+        "rerun": 15.6,
+        "delta": -5.55,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "originHeadersMs": {
+        "baseline": 16,
+        "rerun": 13,
+        "delta": -3,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "applicationMs": {
+        "detail": {
+          "baseline": 6.66,
+          "rerun": 4.7,
+          "delta": -1.96,
+          "baselineCount": 9,
+          "rerunCount": 9
+        }
+      }
+    },
+    {
+      "scenario": "wiki-article",
+      "route": "/wiki/[...id]",
+      "mode": "serial",
+      "comparable": true,
+      "baselineWarmupFailures": 0,
+      "rerunWarmupFailures": 0,
+      "baselineRequests": 9,
+      "rerunRequests": 9,
+      "baselineFailures": 0,
+      "rerunFailures": 0,
+      "baselineCachedResponses": 0,
+      "rerunCachedResponses": 0,
+      "baselineOriginMatches": 9,
+      "rerunOriginMatches": 9,
+      "baselineApplicationMatches": 9,
+      "rerunApplicationMatches": 9,
+      "headersMs": {
+        "baseline": 13.45,
+        "rerun": 10.84,
+        "delta": -2.61,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "totalMs": {
+        "baseline": 15.27,
+        "rerun": 12.8,
+        "delta": -2.47,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "originHeadersMs": {
+        "baseline": 13,
+        "rerun": 11,
+        "delta": -2,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "applicationMs": {
+        "article": {
+          "baseline": 0.19,
+          "rerun": 0.17,
+          "delta": -0.02,
+          "baselineCount": 9,
+          "rerunCount": 9
+        },
+        "viewer": {
+          "baseline": 0.81,
+          "rerun": 0.68,
+          "delta": -0.13,
+          "baselineCount": 9,
+          "rerunCount": 9
+        },
+        "tree": {
+          "baseline": 0.04,
+          "rerun": 0.03,
+          "delta": -0.01,
+          "baselineCount": 9,
+          "rerunCount": 9
+        },
+        "backlinks": {
+          "baseline": 0.08,
+          "rerun": 0.07,
+          "delta": -0.01,
+          "baselineCount": 9,
+          "rerunCount": 9
+        },
+        "discussions": {
+          "baseline": 2.95,
+          "rerun": 2.58,
+          "delta": -0.37,
+          "baselineCount": 9,
+          "rerunCount": 9
+        }
+      }
+    },
+    {
+      "scenario": "wiki-article",
+      "route": "/wiki/[...id]",
+      "mode": "burst",
+      "comparable": true,
+      "baselineWarmupFailures": 0,
+      "rerunWarmupFailures": 0,
+      "baselineRequests": 9,
+      "rerunRequests": 9,
+      "baselineFailures": 0,
+      "rerunFailures": 0,
+      "baselineCachedResponses": 0,
+      "rerunCachedResponses": 0,
+      "baselineOriginMatches": 9,
+      "rerunOriginMatches": 9,
+      "baselineApplicationMatches": 9,
+      "rerunApplicationMatches": 9,
+      "headersMs": {
+        "baseline": 32.12,
+        "rerun": 29.74,
+        "delta": -2.38,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "totalMs": {
+        "baseline": 38.93,
+        "rerun": 35.25,
+        "delta": -3.68,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "originHeadersMs": {
+        "baseline": 32,
+        "rerun": 30,
+        "delta": -2,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "applicationMs": {
+        "article": {
+          "baseline": 0.17,
+          "rerun": 0.15,
+          "delta": -0.02,
+          "baselineCount": 9,
+          "rerunCount": 9
+        },
+        "viewer": {
+          "baseline": 0.7,
+          "rerun": 0.66,
+          "delta": -0.04,
+          "baselineCount": 9,
+          "rerunCount": 9
+        },
+        "tree": {
+          "baseline": 0.04,
+          "rerun": 0.04,
+          "delta": 0,
+          "baselineCount": 9,
+          "rerunCount": 9
+        },
+        "backlinks": {
+          "baseline": 0.07,
+          "rerun": 0.07,
+          "delta": 0,
+          "baselineCount": 9,
+          "rerunCount": 9
+        },
+        "discussions": {
+          "baseline": 10.85,
+          "rerun": 9.49,
+          "delta": -1.36,
+          "baselineCount": 9,
+          "rerunCount": 9
+        }
+      }
+    },
+    {
+      "scenario": "manifest-control",
+      "route": "static",
+      "mode": "serial",
+      "comparable": true,
+      "baselineWarmupFailures": 0,
+      "rerunWarmupFailures": 0,
+      "baselineRequests": 9,
+      "rerunRequests": 9,
+      "baselineFailures": 0,
+      "rerunFailures": 0,
+      "baselineCachedResponses": 0,
+      "rerunCachedResponses": 0,
+      "baselineOriginMatches": 9,
+      "rerunOriginMatches": 9,
+      "baselineApplicationMatches": 0,
+      "rerunApplicationMatches": 0,
+      "headersMs": {
+        "baseline": 1.84,
+        "rerun": 1.04,
+        "delta": -0.8,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "totalMs": {
+        "baseline": 2,
+        "rerun": 1.08,
+        "delta": -0.92,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "originHeadersMs": {
+        "baseline": 2,
+        "rerun": 0,
+        "delta": -2,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "applicationMs": {}
+    },
+    {
+      "scenario": "manifest-control",
+      "route": "static",
+      "mode": "burst",
+      "comparable": true,
+      "baselineWarmupFailures": 0,
+      "rerunWarmupFailures": 0,
+      "baselineRequests": 9,
+      "rerunRequests": 9,
+      "baselineFailures": 0,
+      "rerunFailures": 0,
+      "baselineCachedResponses": 0,
+      "rerunCachedResponses": 0,
+      "baselineOriginMatches": 9,
+      "rerunOriginMatches": 9,
+      "baselineApplicationMatches": 0,
+      "rerunApplicationMatches": 0,
+      "headersMs": {
+        "baseline": 2.19,
+        "rerun": 1.59,
+        "delta": -0.6,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "totalMs": {
+        "baseline": 2.27,
+        "rerun": 1.78,
+        "delta": -0.49,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "originHeadersMs": {
+        "baseline": 2,
+        "rerun": 1,
+        "delta": -1,
+        "baselineCount": 9,
+        "rerunCount": 9
+      },
+      "applicationMs": {}
+    }
+  ]
+}

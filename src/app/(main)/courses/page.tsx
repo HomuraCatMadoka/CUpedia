@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getCourses, getSubjects } from "@/lib/course-review-actions";
 import type { CourseView } from "@/lib/course-review-actions";
+import { createPageStageTimer } from "@/lib/page-performance";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
 import {
   CourseFilters,
@@ -46,16 +47,19 @@ export default async function CoursesPage({
   const sortQuery = sort === "latest" ? sort : undefined;
   const requestedPage = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
+  const measure = await createPageStageTimer("/courses");
   const [result, subjects] = await Promise.all([
-    getCourses({
-      credits,
-      query,
-      subject,
-      level,
-      sort,
-      page: requestedPage,
-    }),
-    getSubjects(),
+    measure("courses", () =>
+      getCourses({
+        credits,
+        query,
+        subject,
+        level,
+        sort,
+        page: requestedPage,
+      }),
+    ),
+    measure("subjects", getSubjects),
   ]);
   const { courses, total, pageSize, page } = result;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
