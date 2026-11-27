@@ -1,15 +1,12 @@
 # Preview origin logs
 
-Start the isolated Next.js build on `127.0.0.1:13135` as described in the [experiment runbook](../../docs/operations/performance-experiments.md). From the repository root, start the preview proxy with Nginx installed.
+Start the isolated preview using the [experiment runbook](../../docs/operations/performance-experiments.md). It creates separate loopback ports, a private log directory and an Nginx configuration in `CUPEDIA_NGINX_CONFIG`. Keep the same terminal for the following checks.
 
 ```sh
-export CUPEDIA_NGINX_PREFIX="$(mktemp -d)"
-mkdir -m 700 "$CUPEDIA_NGINX_PREFIX/logs"
-nginx -p "$CUPEDIA_NGINX_PREFIX/" -c "$PWD/deploy/performance/nginx.conf" -t
-nginx -p "$CUPEDIA_NGINX_PREFIX/" -c "$PWD/deploy/performance/nginx.conf"
+nginx -p "$CUPEDIA_NGINX_PREFIX/" -c "$CUPEDIA_NGINX_CONFIG" -t
 ```
 
-Use `http://127.0.0.1:13134` for the preview. Nginx generates an `X-Request-Id` for each request and sends the same value to Next.js and to the caller. The proxy passes through the application's caching headers.
+Use `CUPEDIA_PERF_PROXY_URL` for the preview. Nginx generates an `X-Request-Id` for each request and sends the same value to Next.js and to the caller. The proxy passes through the application's caching headers.
 
 The access log is `$CUPEDIA_NGINX_PREFIX/logs/origin.jsonl`. It uses a fixed set of route labels based on Nginx's normalized path. Unknown routes, authenticated course pages, Wiki search, the new Wiki draft page and revision history fall under `other`. The log excludes raw paths, query strings, cookies, IP addresses, headers and bodies. The preview discards Nginx error logs because Nginx can include raw request data in those messages. Keep the log directory private and share aggregated reports by default.
 
@@ -29,9 +26,9 @@ To check rotation on a local preview, rename the log and signal the same Nginx i
 
 ```sh
 mv "$CUPEDIA_NGINX_PREFIX/logs/origin.jsonl" "$CUPEDIA_NGINX_PREFIX/logs/origin.jsonl.1"
-nginx -p "$CUPEDIA_NGINX_PREFIX/" -c "$PWD/deploy/performance/nginx.conf" -s reopen
+nginx -p "$CUPEDIA_NGINX_PREFIX/" -c "$CUPEDIA_NGINX_CONFIG" -s reopen
 ```
 
 Send a preview request and check that it appears only in the new log. To report on a window spanning a rotation, add one `--log` per distinct file, including any needed `.gz` files. Missing paths are reported on stderr and the available files are processed. The command exits with an error if it cannot read any log. Malformed rows are skipped and counted without echoing their contents.
 
-Stop Nginx with `nginx -p "$CUPEDIA_NGINX_PREFIX/" -c "$PWD/deploy/performance/nginx.conf" -s quit`. The configuration listens on the local machine for preview experiments. To instrument production, merge the relevant directives into its existing Nginx configuration and use its current rotation mechanism.
+Stop Nginx with `nginx -p "$CUPEDIA_NGINX_PREFIX/" -c "$CUPEDIA_NGINX_CONFIG" -s quit`. The configuration listens on the local machine for preview experiments. To instrument production, merge the relevant directives into its existing Nginx configuration and use its current rotation mechanism.

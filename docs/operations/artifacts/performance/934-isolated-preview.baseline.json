@@ -1,21 +1,21 @@
 {
   "version": 1,
-  "revision": "d03c6dbf5-replay-6fd87849c2",
+  "revision": "c7f59249a-947-replay-75dab081bc",
   "change": "candidate-local-baseline",
   "conditions": {
     "environment": "macos-node20-preview-pg18",
     "probe": "local-loopback",
     "fixture": "e2e-seed",
     "session": "anonymous",
-    "targetFingerprint": "2a241c562db853f0519ee744de907da084ba02fb6acb20fadec8cdc92b971b82",
+    "targetFingerprint": "5bbf3fd895bea75fd97cc8cfddd5bf18fb854b4b4292bd14bb1bfd516602316c",
     "scenarioFingerprint": "f51da28b6b9ff728a4f4f139beded6a72e9d8cf291eb9318afd6d9f113480a37",
     "sampleCount": 9,
     "warmupCount": 1,
     "originLog": true,
     "appLog": true
   },
-  "startedAt": "2026-11-27T02:46:48.788Z",
-  "finishedAt": "2026-11-27T02:46:49.634Z",
+  "startedAt": "2026-11-27T03:11:55.538Z",
+  "finishedAt": "2026-11-27T03:11:56.426Z",
   "runs": [
     {
       "scenario": "course-search",
@@ -24,30 +24,31 @@
       "concurrency": 1,
       "warmupSamples": [
         {
-          "startedAt": "2026-11-27T02:46:48.789Z",
-          "requestId": "c15b80574471439e76ba083f67e88a48",
+          "startedAt": "2026-11-27T03:11:55.538Z",
+          "requestId": "bce02ca5cbb0089dcdba579e1c1f6fc4",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 105.3,
-          "totalMs": 109.54,
+          "headersMs": 112.44,
+          "totalMs": 116.35,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.09,
-            "upstreamHeaderSeconds": 0.086,
-            "upstreamResponseSeconds": 0.09
+            "bytes": 8915,
+            "requestSeconds": 0.096,
+            "upstreamHeaderSeconds": 0.091,
+            "upstreamResponseSeconds": 0.096
           },
           "application": [
             {
               "stage": "subjects",
-              "ms": 43.66,
+              "ms": 46.66,
               "dbPoolWaiting": 0
             },
             {
               "stage": "courses",
-              "ms": 49.15,
+              "ms": 53.45,
               "dbPoolWaiting": 0
             }
           ]
@@ -55,262 +56,271 @@
       ],
       "samples": [
         {
-          "startedAt": "2026-11-27T02:46:48.898Z",
-          "requestId": "f088043e66e133c09dff4ccbb4e6caa2",
+          "startedAt": "2026-11-27T03:11:55.655Z",
+          "requestId": "eead1c7b7eb00d5810a1bca1b3787eb1",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 15.39,
-          "totalMs": 18.11,
+          "headersMs": 20.2,
+          "totalMs": 23.76,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.017,
-            "upstreamHeaderSeconds": 0.014,
+            "bytes": 8915,
+            "requestSeconds": 0.023,
+            "upstreamHeaderSeconds": 0.019,
+            "upstreamResponseSeconds": 0.023
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 5.85,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 10.13,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.679Z",
+          "requestId": "b6312a56254d41b2096820aab7a20bbd",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 16.43,
+          "totalMs": 17.84,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8915,
+            "requestSeconds": 0.018,
+            "upstreamHeaderSeconds": 0.015,
             "upstreamResponseSeconds": 0.017
           },
           "application": [
             {
               "stage": "subjects",
-              "ms": 4.21,
+              "ms": 4.65,
               "dbPoolWaiting": 0
             },
             {
               "stage": "courses",
-              "ms": 6.08,
+              "ms": 7.29,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:48.917Z",
-          "requestId": "a114b71f1efeb755f5abdfcadd37118c",
+          "startedAt": "2026-11-27T03:11:55.697Z",
+          "requestId": "534606b4da894e9fbb454074cf60e87a",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 13.04,
-          "totalMs": 14.45,
+          "headersMs": 11.48,
+          "totalMs": 12.69,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 8911,
+            "bytes": 8915,
+            "requestSeconds": 0.012,
+            "upstreamHeaderSeconds": 0.011,
+            "upstreamResponseSeconds": 0.012
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 3.1,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 4.09,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.710Z",
+          "requestId": "d68bff5398c9e1a5b127cd391ae02571",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 13.59,
+          "totalMs": 15.03,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8915,
             "requestSeconds": 0.014,
-            "upstreamHeaderSeconds": 0.012,
+            "upstreamHeaderSeconds": 0.013,
             "upstreamResponseSeconds": 0.014
           },
           "application": [
             {
               "stage": "subjects",
-              "ms": 4.04,
+              "ms": 4.81,
               "dbPoolWaiting": 0
             },
             {
               "stage": "courses",
-              "ms": 5,
+              "ms": 5.76,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:48.931Z",
-          "requestId": "ccf0ed5bc763e90547862d36d16f2210",
+          "startedAt": "2026-11-27T03:11:55.725Z",
+          "requestId": "2caa33017e8ae0f5b06f2abdb8f34c61",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 10.51,
-          "totalMs": 11.7,
+          "headersMs": 9.59,
+          "totalMs": 10.81,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.011,
-            "upstreamHeaderSeconds": 0.009,
-            "upstreamResponseSeconds": 0.011
-          },
-          "application": [
-            {
-              "stage": "subjects",
-              "ms": 3.18,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "courses",
-              "ms": 4.15,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:48.943Z",
-          "requestId": "8fe6f3a2b9c57795b70fbd2a9f0fb9c5",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 12.53,
-          "totalMs": 13.84,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.013,
-            "upstreamHeaderSeconds": 0.012,
-            "upstreamResponseSeconds": 0.013
-          },
-          "application": [
-            {
-              "stage": "subjects",
-              "ms": 4.44,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "courses",
-              "ms": 5.45,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:48.957Z",
-          "requestId": "53e1d1cd883b041f09658710028aa7e5",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 10.21,
-          "totalMs": 11.48,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.011,
-            "upstreamHeaderSeconds": 0.009,
-            "upstreamResponseSeconds": 0.011
-          },
-          "application": [
-            {
-              "stage": "subjects",
-              "ms": 2.97,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "courses",
-              "ms": 3.86,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:48.968Z",
-          "requestId": "9cc9b1cc447bebc0704492ab0360f891",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 8.05,
-          "totalMs": 9.17,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.009,
-            "upstreamHeaderSeconds": 0.007,
-            "upstreamResponseSeconds": 0.008
-          },
-          "application": [
-            {
-              "stage": "subjects",
-              "ms": 2.48,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "courses",
-              "ms": 3.22,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:48.977Z",
-          "requestId": "19dae47d1c41d837dfc2c54f390a2dc8",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 8.78,
-          "totalMs": 10.14,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.009,
-            "upstreamHeaderSeconds": 0.008,
-            "upstreamResponseSeconds": 0.009
-          },
-          "application": [
-            {
-              "stage": "subjects",
-              "ms": 2.19,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "courses",
-              "ms": 2.97,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:48.988Z",
-          "requestId": "d95bb0f823dad93ebb765461a09ec621",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 13.43,
-          "totalMs": 14.58,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.014,
-            "upstreamHeaderSeconds": 0.012,
-            "upstreamResponseSeconds": 0.014
-          },
-          "application": [
-            {
-              "stage": "subjects",
-              "ms": 3.05,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "courses",
-              "ms": 3.96,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.002Z",
-          "requestId": "c46f2b34d591fbf8f1e653aaee811d05",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 9.79,
-          "totalMs": 10.72,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.011,
+            "bytes": 8915,
+            "requestSeconds": 0.01,
             "upstreamHeaderSeconds": 0.009,
             "upstreamResponseSeconds": 0.01
           },
           "application": [
             {
               "stage": "subjects",
-              "ms": 2.63,
+              "ms": 2.66,
               "dbPoolWaiting": 0
             },
             {
               "stage": "courses",
-              "ms": 3.46,
+              "ms": 3.45,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.735Z",
+          "requestId": "54d36d389db9e54fc2f3c14807ebb438",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 8.22,
+          "totalMs": 9.25,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8909,
+            "requestSeconds": 0.008,
+            "upstreamHeaderSeconds": 0.007,
+            "upstreamResponseSeconds": 0.009
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 2.52,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 3.26,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.745Z",
+          "requestId": "0a9e3c316f89e68bd8249eaa68c48fb4",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 9.31,
+          "totalMs": 10.77,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8915,
+            "requestSeconds": 0.01,
+            "upstreamHeaderSeconds": 0.008,
+            "upstreamResponseSeconds": 0.01
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 2.23,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 2.98,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.756Z",
+          "requestId": "6c5598d8a723a86ccc05197eeef8bd82",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 11.13,
+          "totalMs": 12.4,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8915,
+            "requestSeconds": 0.012,
+            "upstreamHeaderSeconds": 0.01,
+            "upstreamResponseSeconds": 0.012
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 3.12,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 4.04,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.768Z",
+          "requestId": "3f31d2e592560d693a59a9981b5f3460",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 11.43,
+          "totalMs": 12.38,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8915,
+            "requestSeconds": 0.012,
+            "upstreamHeaderSeconds": 0.011,
+            "upstreamResponseSeconds": 0.012
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 2.7,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 3.55,
               "dbPoolWaiting": 0
             }
           ]
@@ -325,34 +335,34 @@
         "cachedResponses": 0,
         "headersMs": {
           "count": 9,
-          "min": 8.05,
-          "median": 10.51,
-          "max": 15.39
+          "min": 8.22,
+          "median": 11.43,
+          "max": 20.2
         },
         "totalMs": {
           "count": 9,
-          "min": 9.17,
-          "median": 11.7,
-          "max": 18.11
+          "min": 9.25,
+          "median": 12.4,
+          "max": 23.76
         },
         "originHeadersMs": {
           "count": 9,
           "min": 7,
-          "median": 9,
-          "max": 14
+          "median": 11,
+          "max": 19
         },
         "applicationMs": {
           "subjects": {
             "count": 9,
-            "min": 2.19,
-            "median": 3.05,
-            "max": 4.44
+            "min": 2.23,
+            "median": 3.1,
+            "max": 5.85
           },
           "courses": {
             "count": 9,
-            "min": 2.97,
-            "median": 3.96,
-            "max": 6.08
+            "min": 2.98,
+            "median": 4.04,
+            "max": 10.13
           }
         }
       }
@@ -364,30 +374,31 @@
       "concurrency": 3,
       "warmupSamples": [
         {
-          "startedAt": "2026-11-27T02:46:49.013Z",
-          "requestId": "6b58902fc6503673b87c2d4083f8ebc0",
+          "startedAt": "2026-11-27T03:11:55.780Z",
+          "requestId": "8f48d95d468b6b73272aeabdd6999684",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 8.84,
-          "totalMs": 9.94,
+          "headersMs": 9.32,
+          "totalMs": 10.27,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 8911,
+            "bytes": 8915,
             "requestSeconds": 0.01,
-            "upstreamHeaderSeconds": 0.009,
+            "upstreamHeaderSeconds": 0.008,
             "upstreamResponseSeconds": 0.01
           },
           "application": [
             {
               "stage": "subjects",
-              "ms": 2.33,
+              "ms": 2.35,
               "dbPoolWaiting": 0
             },
             {
               "stage": "courses",
-              "ms": 3.09,
+              "ms": 3.1,
               "dbPoolWaiting": 0
             }
           ]
@@ -395,17 +406,18 @@
       ],
       "samples": [
         {
-          "startedAt": "2026-11-27T02:46:49.023Z",
-          "requestId": "005d38813f96902e784cf7980e43afb9",
+          "startedAt": "2026-11-27T03:11:55.791Z",
+          "requestId": "884dacd14e31eb3ad5417bb1e2993b7c",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 17.84,
-          "totalMs": 24.38,
+          "headersMs": 17.37,
+          "totalMs": 24.23,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 8911,
+            "bytes": 8915,
             "requestSeconds": 0.024,
             "upstreamHeaderSeconds": 0.017,
             "upstreamResponseSeconds": 0.024
@@ -413,86 +425,89 @@
           "application": [
             {
               "stage": "subjects",
-              "ms": 2.44,
+              "ms": 2.46,
               "dbPoolWaiting": 0
             },
             {
               "stage": "courses",
-              "ms": 7.56,
+              "ms": 6.73,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.023Z",
-          "requestId": "9a992f1c17f7b503c6de261f27f0c61a",
+          "startedAt": "2026-11-27T03:11:55.791Z",
+          "requestId": "538cb1431404d3c26080bb518b9ec16d",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 22.11,
-          "totalMs": 24.65,
+          "headersMs": 22.74,
+          "totalMs": 24.38,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.024,
+            "bytes": 8915,
+            "requestSeconds": 0.023,
+            "upstreamHeaderSeconds": 0.022,
+            "upstreamResponseSeconds": 0.023
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 8.27,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 10.2,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.791Z",
+          "requestId": "492c2c6109e9f4e43000a3c2b5ae2c7c",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 20.95,
+          "totalMs": 23.83,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8915,
+            "requestSeconds": 0.023,
             "upstreamHeaderSeconds": 0.02,
             "upstreamResponseSeconds": 0.023
           },
           "application": [
             {
               "stage": "subjects",
-              "ms": 8.36,
+              "ms": 2.4,
               "dbPoolWaiting": 0
             },
             {
               "stage": "courses",
-              "ms": 10.22,
+              "ms": 5.86,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.024Z",
-          "requestId": "9f9033a259c76ae222d92892ca8e7a34",
+          "startedAt": "2026-11-27T03:11:55.815Z",
+          "requestId": "f4945e1ff6f0bd41c099cf5e1cb9dfce",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 20.6,
-          "totalMs": 24.15,
+          "headersMs": 19.95,
+          "totalMs": 25.33,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.023,
-            "upstreamHeaderSeconds": 0.019,
-            "upstreamResponseSeconds": 0.023
-          },
-          "application": [
-            {
-              "stage": "subjects",
-              "ms": 2.33,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "courses",
-              "ms": 5.35,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.048Z",
-          "requestId": "927b5272a28155eea219b44ef0f077ad",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 19.07,
-          "totalMs": 24.29,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 8911,
+            "bytes": 8915,
             "requestSeconds": 0.024,
             "upstreamHeaderSeconds": 0.019,
             "upstreamResponseSeconds": 0.024
@@ -500,118 +515,92 @@
           "application": [
             {
               "stage": "subjects",
-              "ms": 6.48,
+              "ms": 8.45,
               "dbPoolWaiting": 0
             },
             {
               "stage": "courses",
-              "ms": 10.28,
+              "ms": 13.04,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.048Z",
-          "requestId": "d1ba8dcef991f306c2fc93c1abe95ae1",
+          "startedAt": "2026-11-27T03:11:55.816Z",
+          "requestId": "5263cdf6541ae78656c22bc869b0eac7",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 19.86,
-          "totalMs": 24.16,
+          "headersMs": 21.11,
+          "totalMs": 24.99,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.023,
-            "upstreamHeaderSeconds": 0.019,
-            "upstreamResponseSeconds": 0.023
-          },
-          "application": [
-            {
-              "stage": "subjects",
-              "ms": 5.99,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "courses",
-              "ms": 8.06,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.049Z",
-          "requestId": "dc2d545e03c7e71b730e4f628cfbbf49",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 22.26,
-          "totalMs": 24.09,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.023,
+            "bytes": 8915,
+            "requestSeconds": 0.025,
             "upstreamHeaderSeconds": 0.021,
-            "upstreamResponseSeconds": 0.023
+            "upstreamResponseSeconds": 0.025
           },
           "application": [
             {
               "stage": "subjects",
-              "ms": 8.74,
+              "ms": 8.57,
               "dbPoolWaiting": 0
             },
             {
               "stage": "courses",
-              "ms": 11.65,
+              "ms": 10,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.073Z",
-          "requestId": "0e6d9a86beab6e21892e6adb6cf01251",
+          "startedAt": "2026-11-27T03:11:55.816Z",
+          "requestId": "a5a9f5795aea5a80e06ef4b606e34240",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 19.37,
-          "totalMs": 26.47,
+          "headersMs": 23.5,
+          "totalMs": 25.1,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.026,
-            "upstreamHeaderSeconds": 0.019,
-            "upstreamResponseSeconds": 0.026
-          },
-          "application": [
-            {
-              "stage": "subjects",
-              "ms": 7.39,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "courses",
-              "ms": 12.09,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.073Z",
-          "requestId": "3e0200bda02084ccb6b4f06120bf2f33",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 23.32,
-          "totalMs": 25.9,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.026,
+            "bytes": 8915,
+            "requestSeconds": 0.025,
             "upstreamHeaderSeconds": 0.023,
-            "upstreamResponseSeconds": 0.026
+            "upstreamResponseSeconds": 0.025
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 9.61,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 12,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.841Z",
+          "requestId": "74c81f54b9b4e74f99a10cad3ff952a1",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 17.74,
+          "totalMs": 23.68,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8915,
+            "requestSeconds": 0.023,
+            "upstreamHeaderSeconds": 0.017,
+            "upstreamResponseSeconds": 0.023
           },
           "application": [
             {
@@ -621,36 +610,67 @@
             },
             {
               "stage": "courses",
-              "ms": 8.13,
+              "ms": 10.61,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.073Z",
-          "requestId": "0f128abac24790c47f950da680d1c3b1",
+          "startedAt": "2026-11-27T03:11:55.842Z",
+          "requestId": "ac2d5f21435f17bdc4f01704488bbdc7",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 24.43,
-          "totalMs": 26.34,
+          "headersMs": 19.57,
+          "totalMs": 23.45,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 8911,
-            "requestSeconds": 0.026,
-            "upstreamHeaderSeconds": 0.025,
-            "upstreamResponseSeconds": 0.026
+            "bytes": 8915,
+            "requestSeconds": 0.023,
+            "upstreamHeaderSeconds": 0.019,
+            "upstreamResponseSeconds": 0.023
           },
           "application": [
             {
               "stage": "subjects",
-              "ms": 4.75,
+              "ms": 5.58,
               "dbPoolWaiting": 0
             },
             {
               "stage": "courses",
-              "ms": 7.81,
+              "ms": 7.14,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.842Z",
+          "requestId": "e569fc4584a1f8f9081aa17f5946d9b4",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 20.65,
+          "totalMs": 23.43,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8915,
+            "requestSeconds": 0.023,
+            "upstreamHeaderSeconds": 0.02,
+            "upstreamResponseSeconds": 0.023
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 4.08,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 7.28,
               "dbPoolWaiting": 0
             }
           ]
@@ -665,34 +685,34 @@
         "cachedResponses": 0,
         "headersMs": {
           "count": 9,
-          "min": 17.84,
-          "median": 20.6,
-          "max": 24.43
+          "min": 17.37,
+          "median": 20.65,
+          "max": 23.5
         },
         "totalMs": {
           "count": 9,
-          "min": 24.09,
-          "median": 24.38,
-          "max": 26.47
+          "min": 23.43,
+          "median": 24.23,
+          "max": 25.33
         },
         "originHeadersMs": {
           "count": 9,
           "min": 17,
-          "median": 19,
-          "max": 25
+          "median": 20,
+          "max": 23
         },
         "applicationMs": {
           "subjects": {
             "count": 9,
-            "min": 2.33,
-            "median": 6.48,
-            "max": 8.74
+            "min": 2.4,
+            "median": 6.49,
+            "max": 9.61
           },
           "courses": {
             "count": 9,
-            "min": 5.35,
-            "median": 8.13,
-            "max": 12.09
+            "min": 5.86,
+            "median": 10,
+            "max": 13.04
           }
         }
       }
@@ -704,25 +724,26 @@
       "concurrency": 1,
       "warmupSamples": [
         {
-          "startedAt": "2026-11-27T02:46:49.100Z",
-          "requestId": "59981de07d14b77b3d49b7c4a678ee1e",
+          "startedAt": "2026-11-27T03:11:55.865Z",
+          "requestId": "64cd92b6c93288644238a5d52b97c609",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 17.52,
-          "totalMs": 19.53,
+          "headersMs": 19.28,
+          "totalMs": 21.03,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.019,
-            "upstreamHeaderSeconds": 0.017,
-            "upstreamResponseSeconds": 0.019
+            "bytes": 10275,
+            "requestSeconds": 0.021,
+            "upstreamHeaderSeconds": 0.019,
+            "upstreamResponseSeconds": 0.021
           },
           "application": [
             {
               "stage": "detail",
-              "ms": 5.95,
+              "ms": 6.37,
               "dbPoolWaiting": 0
             }
           ]
@@ -730,41 +751,18 @@
       ],
       "samples": [
         {
-          "startedAt": "2026-11-27T02:46:49.119Z",
-          "requestId": "9d93baf6cc1a32a14086bad44019c71c",
+          "startedAt": "2026-11-27T03:11:55.886Z",
+          "requestId": "2876d38b61bfae218c8b99afde5d9c7c",
           "status": 200,
           "cacheStatus": null,
-          "error": null,
-          "headersMs": 6.64,
-          "totalMs": 7.77,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.008,
-            "upstreamHeaderSeconds": 0.007,
-            "upstreamResponseSeconds": 0.008
-          },
-          "application": [
-            {
-              "stage": "detail",
-              "ms": 2.39,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.127Z",
-          "requestId": "21542deee9b0d7c0d2d7d18f7aaf1c53",
-          "status": 200,
-          "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
           "headersMs": 7.04,
-          "totalMs": 8.2,
+          "totalMs": 8.14,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 10277,
+            "bytes": 10275,
             "requestSeconds": 0.008,
             "upstreamHeaderSeconds": 0.007,
             "upstreamResponseSeconds": 0.008
@@ -772,119 +770,199 @@
           "application": [
             {
               "stage": "detail",
-              "ms": 2.5,
+              "ms": 2.45,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.135Z",
-          "requestId": "6488fef53058d8042f2c736cc40cce8f",
+          "startedAt": "2026-11-27T03:11:55.894Z",
+          "requestId": "99b3a7da86d8d10a3f08c9ed5a4a7f39",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 6.02,
-          "totalMs": 7.06,
+          "headersMs": 6.63,
+          "totalMs": 7.74,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.007,
+            "bytes": 10275,
+            "requestSeconds": 0.008,
             "upstreamHeaderSeconds": 0.006,
             "upstreamResponseSeconds": 0.007
           },
           "application": [
             {
               "stage": "detail",
-              "ms": 2.22,
+              "ms": 2.28,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.142Z",
-          "requestId": "48ee501062c61ca4c7387b8bd3f533a8",
+          "startedAt": "2026-11-27T03:11:55.902Z",
+          "requestId": "a0f1c3705afa597fd51ffb8891178bd4",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 7.49,
-          "totalMs": 8.65,
+          "headersMs": 6.86,
+          "totalMs": 7.98,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.009,
-            "upstreamHeaderSeconds": 0.006,
+            "bytes": 10275,
+            "requestSeconds": 0.008,
+            "upstreamHeaderSeconds": 0.007,
             "upstreamResponseSeconds": 0.008
           },
           "application": [
             {
               "stage": "detail",
-              "ms": 2.06,
+              "ms": 2.7,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.151Z",
-          "requestId": "548c58101758969689090add68ce579f",
+          "startedAt": "2026-11-27T03:11:55.910Z",
+          "requestId": "bcb5f736571cc038c9c39c24c2fbe323",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 6.14,
-          "totalMs": 7.24,
+          "headersMs": 6.81,
+          "totalMs": 7.97,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.007,
-            "upstreamHeaderSeconds": 0.006,
+            "bytes": 10275,
+            "requestSeconds": 0.008,
+            "upstreamHeaderSeconds": 0.007,
+            "upstreamResponseSeconds": 0.008
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 2.46,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.918Z",
+          "requestId": "f0be15d94037803ef8b187b2714e95be",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 8.24,
+          "totalMs": 9.47,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10275,
+            "requestSeconds": 0.009,
+            "upstreamHeaderSeconds": 0.008,
+            "upstreamResponseSeconds": 0.009
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 3.94,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.928Z",
+          "requestId": "6e92224adee7031609a2b415426a0f64",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 6.05,
+          "totalMs": 7.07,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10275,
+            "requestSeconds": 0.006,
+            "upstreamHeaderSeconds": 0.005,
             "upstreamResponseSeconds": 0.007
           },
           "application": [
             {
               "stage": "detail",
-              "ms": 2.18,
+              "ms": 2.13,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.158Z",
-          "requestId": "b7091ca94b3191a7ddb4303438d4aac0",
+          "startedAt": "2026-11-27T03:11:55.935Z",
+          "requestId": "83039cb106c8cb60394fcd40e7745d60",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 6.72,
+          "headersMs": 6.55,
           "totalMs": 7.78,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 10271,
-            "requestSeconds": 0.008,
-            "upstreamHeaderSeconds": 0.007,
+            "bytes": 10275,
+            "requestSeconds": 0.007,
+            "upstreamHeaderSeconds": 0.006,
+            "upstreamResponseSeconds": 0.007
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 2.6,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.942Z",
+          "requestId": "5c687d0f6bb104294b4d29bba2065505",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 7.09,
+          "totalMs": 8.21,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10275,
+            "requestSeconds": 0.007,
+            "upstreamHeaderSeconds": 0.006,
             "upstreamResponseSeconds": 0.008
           },
           "application": [
             {
               "stage": "detail",
-              "ms": 2.55,
+              "ms": 2.56,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.166Z",
-          "requestId": "8c314fd7a2f101914220e62a760b85a5",
+          "startedAt": "2026-11-27T03:11:55.951Z",
+          "requestId": "ec80b9b71b79a9cc5531e68f4fd8ec9d",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 5.8,
-          "totalMs": 7.08,
+          "headersMs": 6.39,
+          "totalMs": 7.68,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 10277,
+            "bytes": 10275,
             "requestSeconds": 0.007,
             "upstreamHeaderSeconds": 0.006,
             "upstreamResponseSeconds": 0.007
@@ -892,55 +970,7 @@
           "application": [
             {
               "stage": "detail",
-              "ms": 2.11,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.173Z",
-          "requestId": "770d7c152f3b48256a4764db72897f01",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 6.24,
-          "totalMs": 7.32,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.007,
-            "upstreamHeaderSeconds": 0.006,
-            "upstreamResponseSeconds": 0.007
-          },
-          "application": [
-            {
-              "stage": "detail",
-              "ms": 2.19,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.180Z",
-          "requestId": "e544298221f6fea4088450b2f12b1432",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 7.11,
-          "totalMs": 8.22,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.007,
-            "upstreamHeaderSeconds": 0.006,
-            "upstreamResponseSeconds": 0.007
-          },
-          "application": [
-            {
-              "stage": "detail",
-              "ms": 2.11,
+              "ms": 2.41,
               "dbPoolWaiting": 0
             }
           ]
@@ -955,28 +985,28 @@
         "cachedResponses": 0,
         "headersMs": {
           "count": 9,
-          "min": 5.8,
-          "median": 6.64,
-          "max": 7.49
+          "min": 6.05,
+          "median": 6.81,
+          "max": 8.24
         },
         "totalMs": {
           "count": 9,
-          "min": 7.06,
-          "median": 7.77,
-          "max": 8.65
+          "min": 7.07,
+          "median": 7.97,
+          "max": 9.47
         },
         "originHeadersMs": {
           "count": 9,
-          "min": 6,
+          "min": 5,
           "median": 6,
-          "max": 7
+          "max": 8
         },
         "applicationMs": {
           "detail": {
             "count": 9,
-            "min": 2.06,
-            "median": 2.19,
-            "max": 2.55
+            "min": 2.13,
+            "median": 2.46,
+            "max": 3.94
           }
         }
       }
@@ -988,25 +1018,26 @@
       "concurrency": 3,
       "warmupSamples": [
         {
-          "startedAt": "2026-11-27T02:46:49.189Z",
-          "requestId": "45d2aebc1cf8d0452e5ec31bb05f2216",
+          "startedAt": "2026-11-27T03:11:55.958Z",
+          "requestId": "efc8e53e18f5e5d73d326657912d258a",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 6.26,
-          "totalMs": 7.74,
+          "headersMs": 7.18,
+          "totalMs": 9.22,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.007,
+            "bytes": 10275,
+            "requestSeconds": 0.008,
             "upstreamHeaderSeconds": 0.006,
-            "upstreamResponseSeconds": 0.007
+            "upstreamResponseSeconds": 0.008
           },
           "application": [
             {
               "stage": "detail",
-              "ms": 2.09,
+              "ms": 2.26,
               "dbPoolWaiting": 0
             }
           ]
@@ -1014,217 +1045,226 @@
       ],
       "samples": [
         {
-          "startedAt": "2026-11-27T02:46:49.196Z",
-          "requestId": "d978d13ca65317d09428127a938757d4",
+          "startedAt": "2026-11-27T03:11:55.968Z",
+          "requestId": "ccca08bf72233dde7a456652cfb00fde",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 15.65,
-          "totalMs": 19.93,
+          "headersMs": 15.95,
+          "totalMs": 21.27,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.019,
-            "upstreamHeaderSeconds": 0.014,
-            "upstreamResponseSeconds": 0.019
+            "bytes": 10275,
+            "requestSeconds": 0.02,
+            "upstreamHeaderSeconds": 0.015,
+            "upstreamResponseSeconds": 0.02
           },
           "application": [
             {
               "stage": "detail",
-              "ms": 7.11,
+              "ms": 7,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.197Z",
-          "requestId": "009e9d38ac65c473f44ebe05a057dbe2",
+          "startedAt": "2026-11-27T03:11:55.968Z",
+          "requestId": "6b69bcb50a5210d33fb1311e8fcef4c2",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 17.57,
-          "totalMs": 20.03,
+          "headersMs": 17.36,
+          "totalMs": 21.15,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.019,
+            "bytes": 10275,
+            "requestSeconds": 0.021,
+            "upstreamHeaderSeconds": 0.017,
+            "upstreamResponseSeconds": 0.021
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 6.63,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.968Z",
+          "requestId": "12e1c57fa4ef223fcf91298423b8a0cb",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 17.66,
+          "totalMs": 21.22,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10275,
+            "requestSeconds": 0.021,
+            "upstreamHeaderSeconds": 0.017,
+            "upstreamResponseSeconds": 0.021
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 4.57,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.989Z",
+          "requestId": "6f357e58f6ffbb3b1e591f4a7fb3f7f9",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 16.14,
+          "totalMs": 21.13,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10269,
+            "requestSeconds": 0.021,
+            "upstreamHeaderSeconds": 0.016,
+            "upstreamResponseSeconds": 0.021
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 8.05,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.989Z",
+          "requestId": "fb04cd3254949b4face66d8059df6ce5",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 17.91,
+          "totalMs": 21.74,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10275,
+            "requestSeconds": 0.021,
+            "upstreamHeaderSeconds": 0.017,
+            "upstreamResponseSeconds": 0.021
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 6.66,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:55.989Z",
+          "requestId": "290186923221ba841082ca19d4531f9d",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 18.03,
+          "totalMs": 21.51,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10269,
+            "requestSeconds": 0.021,
+            "upstreamHeaderSeconds": 0.017,
+            "upstreamResponseSeconds": 0.021
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 3.81,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.011Z",
+          "requestId": "a8da16ca3df670b2cc7e6f849c7b1257",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 15.5,
+          "totalMs": 19.62,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10275,
+            "requestSeconds": 0.02,
             "upstreamHeaderSeconds": 0.016,
             "upstreamResponseSeconds": 0.02
           },
           "application": [
             {
               "stage": "detail",
-              "ms": 5.85,
+              "ms": 7.52,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.197Z",
-          "requestId": "725fa736ecc05840e5c852b30cad74a5",
+          "startedAt": "2026-11-27T03:11:56.011Z",
+          "requestId": "6d620bb019674bd6d2e4492385e36cbd",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 17.62,
-          "totalMs": 19.88,
+          "headersMs": 16.78,
+          "totalMs": 19.25,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 10277,
+            "bytes": 10275,
             "requestSeconds": 0.019,
-            "upstreamHeaderSeconds": 0.017,
+            "upstreamHeaderSeconds": 0.016,
+            "upstreamResponseSeconds": 0.018
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 6.74,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.011Z",
+          "requestId": "f4dd2908da64f17a354a5781d63da9f5",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 16.89,
+          "totalMs": 19.35,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10275,
+            "requestSeconds": 0.018,
+            "upstreamHeaderSeconds": 0.016,
             "upstreamResponseSeconds": 0.019
           },
           "application": [
             {
               "stage": "detail",
-              "ms": 3.73,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.217Z",
-          "requestId": "01f6ab72ab8ad58cf48bd34b5387e94b",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 16.56,
-          "totalMs": 20.21,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.02,
-            "upstreamHeaderSeconds": 0.016,
-            "upstreamResponseSeconds": 0.02
-          },
-          "application": [
-            {
-              "stage": "detail",
-              "ms": 7.46,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.217Z",
-          "requestId": "95a30757f9fdd61160c299aa0d47bf4b",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 17.9,
-          "totalMs": 20.21,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.02,
-            "upstreamHeaderSeconds": 0.017,
-            "upstreamResponseSeconds": 0.02
-          },
-          "application": [
-            {
-              "stage": "detail",
-              "ms": 6.25,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.217Z",
-          "requestId": "3d8c26e1f674cb56a79348bf2589aa3e",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 18.05,
-          "totalMs": 20.15,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.02,
-            "upstreamHeaderSeconds": 0.018,
-            "upstreamResponseSeconds": 0.02
-          },
-          "application": [
-            {
-              "stage": "detail",
-              "ms": 3.98,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.237Z",
-          "requestId": "913d57f9ca78a76a8154cf87ce78b03b",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 12.7,
-          "totalMs": 16.68,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.017,
-            "upstreamHeaderSeconds": 0.013,
-            "upstreamResponseSeconds": 0.017
-          },
-          "application": [
-            {
-              "stage": "detail",
-              "ms": 6.22,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.237Z",
-          "requestId": "cf7ce09edc7cabe1c8d4520223c04060",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 13.76,
-          "totalMs": 16.36,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.016,
-            "upstreamHeaderSeconds": 0.014,
-            "upstreamResponseSeconds": 0.016
-          },
-          "application": [
-            {
-              "stage": "detail",
-              "ms": 5.13,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.237Z",
-          "requestId": "ee4e2ce3f95a9c291bc6e95f0f0a0752",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 13.9,
-          "totalMs": 16.5,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 10277,
-            "requestSeconds": 0.017,
-            "upstreamHeaderSeconds": 0.013,
-            "upstreamResponseSeconds": 0.016
-          },
-          "application": [
-            {
-              "stage": "detail",
-              "ms": 3.07,
+              "ms": 4.5,
               "dbPoolWaiting": 0
             }
           ]
@@ -1239,28 +1279,28 @@
         "cachedResponses": 0,
         "headersMs": {
           "count": 9,
-          "min": 12.7,
-          "median": 16.56,
-          "max": 18.05
+          "min": 15.5,
+          "median": 16.89,
+          "max": 18.03
         },
         "totalMs": {
           "count": 9,
-          "min": 16.36,
-          "median": 19.93,
-          "max": 20.21
+          "min": 19.25,
+          "median": 21.15,
+          "max": 21.74
         },
         "originHeadersMs": {
           "count": 9,
-          "min": 13,
+          "min": 15,
           "median": 16,
-          "max": 18
+          "max": 17
         },
         "applicationMs": {
           "detail": {
             "count": 9,
-            "min": 3.07,
-            "median": 5.85,
-            "max": 7.46
+            "min": 3.81,
+            "median": 6.66,
+            "max": 8.05
           }
         }
       }
@@ -1272,45 +1312,46 @@
       "concurrency": 1,
       "warmupSamples": [
         {
-          "startedAt": "2026-11-27T02:46:49.254Z",
-          "requestId": "e5c125a585079ed3c7dfc0675eb96d1b",
+          "startedAt": "2026-11-27T03:11:56.031Z",
+          "requestId": "54f47b4cb9e5c9dd8b018f74ed2f9f13",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 75.87,
-          "totalMs": 93.81,
+          "headersMs": 76.55,
+          "totalMs": 95.12,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 12165,
-            "requestSeconds": 0.093,
-            "upstreamHeaderSeconds": 0.075,
-            "upstreamResponseSeconds": 0.094
+            "bytes": 12181,
+            "requestSeconds": 0.095,
+            "upstreamHeaderSeconds": 0.076,
+            "upstreamResponseSeconds": 0.095
           },
           "application": [
             {
               "stage": "viewer",
-              "ms": 3.38,
+              "ms": 3.28,
               "dbPoolWaiting": 1
             },
             {
               "stage": "article",
-              "ms": 8.85,
+              "ms": 8.6,
               "dbPoolWaiting": 1
             },
             {
               "stage": "tree",
-              "ms": 0.28,
+              "ms": 0.36,
               "dbPoolWaiting": 0
             },
             {
               "stage": "discussions",
-              "ms": 3.04,
+              "ms": 2.41,
               "dbPoolWaiting": 0
             },
             {
               "stage": "backlinks",
-              "ms": 3.38,
+              "ms": 2.71,
               "dbPoolWaiting": 1
             }
           ]
@@ -1318,30 +1359,31 @@
       ],
       "samples": [
         {
-          "startedAt": "2026-11-27T02:46:49.348Z",
-          "requestId": "c71711710c9e2997af1419de75220ce1",
+          "startedAt": "2026-11-27T03:11:56.126Z",
+          "requestId": "dd6ba5ee694332d6cf3785d7eac823ee",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 16.17,
-          "totalMs": 18.12,
+          "headersMs": 15.58,
+          "totalMs": 17.42,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 11845,
+            "bytes": 11850,
             "requestSeconds": 0.017,
-            "upstreamHeaderSeconds": 0.016,
-            "upstreamResponseSeconds": 0.018
+            "upstreamHeaderSeconds": 0.015,
+            "upstreamResponseSeconds": 0.017
           },
           "application": [
             {
               "stage": "article",
-              "ms": 0.26,
+              "ms": 0.28,
               "dbPoolWaiting": 0
             },
             {
               "stage": "viewer",
-              "ms": 0.79,
+              "ms": 0.85,
               "dbPoolWaiting": 0
             },
             {
@@ -1356,24 +1398,70 @@
             },
             {
               "stage": "discussions",
-              "ms": 5.26,
+              "ms": 3.39,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.366Z",
-          "requestId": "e62a80c9a48e14682e2441f458f44f1e",
+          "startedAt": "2026-11-27T03:11:56.143Z",
+          "requestId": "cec468336d7754e396b9c2cb8c361712",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 13.22,
-          "totalMs": 14.83,
+          "headersMs": 14.45,
+          "totalMs": 16.23,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 11853,
-            "requestSeconds": 0.014,
+            "bytes": 11854,
+            "requestSeconds": 0.015,
+            "upstreamHeaderSeconds": 0.014,
+            "upstreamResponseSeconds": 0.016
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.23,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.87,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.21,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.09,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 3.48,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.160Z",
+          "requestId": "24223846fc53bc6f47589e29a6d3c7a9",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 13.45,
+          "totalMs": 15.27,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11849,
+            "requestSeconds": 0.015,
             "upstreamHeaderSeconds": 0.013,
             "upstreamResponseSeconds": 0.015
           },
@@ -1385,56 +1473,12 @@
             },
             {
               "stage": "viewer",
-              "ms": 0.82,
+              "ms": 0.75,
               "dbPoolWaiting": 0
             },
             {
               "stage": "tree",
-              "ms": 0.19,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "backlinks",
-              "ms": 0.1,
-              "dbPoolWaiting": 1
-            },
-            {
-              "stage": "discussions",
-              "ms": 3.51,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.381Z",
-          "requestId": "de242878e85257389c014b0374dbc9b0",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 13.76,
-          "totalMs": 15.74,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 11850,
-            "requestSeconds": 0.015,
-            "upstreamHeaderSeconds": 0.013,
-            "upstreamResponseSeconds": 0.015
-          },
-          "application": [
-            {
-              "stage": "article",
-              "ms": 0.17,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "viewer",
-              "ms": 0.68,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "tree",
-              "ms": 0.03,
+              "ms": 0.04,
               "dbPoolWaiting": 0
             },
             {
@@ -1444,19 +1488,155 @@
             },
             {
               "stage": "discussions",
-              "ms": 5.05,
+              "ms": 2.84,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.396Z",
-          "requestId": "866731bfb672af8d5db41f9845ffa374",
+          "startedAt": "2026-11-27T03:11:56.175Z",
+          "requestId": "eb63458cde24abab9e32a5eae7260865",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 12.71,
-          "totalMs": 14.66,
+          "headersMs": 13.58,
+          "totalMs": 15.3,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11846,
+            "requestSeconds": 0.015,
+            "upstreamHeaderSeconds": 0.013,
+            "upstreamResponseSeconds": 0.015
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.18,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.8,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.05,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.1,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 3.36,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.190Z",
+          "requestId": "d6f50c42781fa9191481e85811998398",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 13.04,
+          "totalMs": 15.01,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11850,
+            "requestSeconds": 0.015,
+            "upstreamHeaderSeconds": 0.012,
+            "upstreamResponseSeconds": 0.014
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.23,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.88,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.04,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.08,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 2.72,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.205Z",
+          "requestId": "97d9ddf7c026c68fb23bfbbce1d4630b",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 11.67,
+          "totalMs": 13.31,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11846,
+            "requestSeconds": 0.013,
+            "upstreamHeaderSeconds": 0.011,
+            "upstreamResponseSeconds": 0.013
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.21,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.81,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.04,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.08,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 2.7,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.219Z",
+          "requestId": "2b230fe58797e9b21d54b960c749a1f2",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 12.8,
+          "totalMs": 14.51,
           "origin": {
             "routeMatches": true,
             "status": 200,
@@ -1468,12 +1648,12 @@
           "application": [
             {
               "stage": "article",
-              "ms": 0.17,
+              "ms": 0.19,
               "dbPoolWaiting": 0
             },
             {
               "stage": "viewer",
-              "ms": 0.71,
+              "ms": 0.86,
               "dbPoolWaiting": 0
             },
             {
@@ -1483,28 +1663,29 @@
             },
             {
               "stage": "backlinks",
-              "ms": 0.07,
+              "ms": 0.08,
               "dbPoolWaiting": 1
             },
             {
               "stage": "discussions",
-              "ms": 3.07,
+              "ms": 2.95,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.411Z",
-          "requestId": "a55cfbc39f339a3ec07f331af4b1d0eb",
+          "startedAt": "2026-11-27T03:11:56.233Z",
+          "requestId": "79196439049157e3f8acd6dc06308e7e",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 13.23,
-          "totalMs": 14.93,
+          "headersMs": 12.76,
+          "totalMs": 14.74,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 11849,
+            "bytes": 11857,
             "requestSeconds": 0.015,
             "upstreamHeaderSeconds": 0.013,
             "upstreamResponseSeconds": 0.015
@@ -1512,515 +1693,7 @@
           "application": [
             {
               "stage": "article",
-              "ms": 0.18,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "viewer",
-              "ms": 0.82,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "tree",
-              "ms": 0.03,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "backlinks",
-              "ms": 0.07,
-              "dbPoolWaiting": 1
-            },
-            {
-              "stage": "discussions",
-              "ms": 2.61,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.426Z",
-          "requestId": "9169bc41f48d1bd420e657a1c8d1e133",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 12.11,
-          "totalMs": 13.82,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 11851,
-            "requestSeconds": 0.014,
-            "upstreamHeaderSeconds": 0.012,
-            "upstreamResponseSeconds": 0.014
-          },
-          "application": [
-            {
-              "stage": "article",
-              "ms": 0.18,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "viewer",
-              "ms": 0.99,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "tree",
-              "ms": 0.05,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "backlinks",
-              "ms": 0.09,
-              "dbPoolWaiting": 1
-            },
-            {
-              "stage": "discussions",
-              "ms": 2.8,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.440Z",
-          "requestId": "ac886e9c5ef62dcc8972c9106b0c305b",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 11.8,
-          "totalMs": 13.56,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 11842,
-            "requestSeconds": 0.013,
-            "upstreamHeaderSeconds": 0.011,
-            "upstreamResponseSeconds": 0.013
-          },
-          "application": [
-            {
-              "stage": "article",
               "ms": 0.17,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "viewer",
-              "ms": 0.7,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "tree",
-              "ms": 0.03,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "backlinks",
-              "ms": 0.07,
-              "dbPoolWaiting": 1
-            },
-            {
-              "stage": "discussions",
-              "ms": 2.56,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.453Z",
-          "requestId": "d9ebfa4125584bf50c75d6686b08f011",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 13.14,
-          "totalMs": 15.23,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 11852,
-            "requestSeconds": 0.014,
-            "upstreamHeaderSeconds": 0.012,
-            "upstreamResponseSeconds": 0.015
-          },
-          "application": [
-            {
-              "stage": "article",
-              "ms": 0.18,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "viewer",
-              "ms": 0.71,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "tree",
-              "ms": 0.03,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "backlinks",
-              "ms": 0.07,
-              "dbPoolWaiting": 1
-            },
-            {
-              "stage": "discussions",
-              "ms": 2.77,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.469Z",
-          "requestId": "f7af644914663c1b59f5af25c4d3d4b0",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 12.81,
-          "totalMs": 14.94,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 11854,
-            "requestSeconds": 0.014,
-            "upstreamHeaderSeconds": 0.012,
-            "upstreamResponseSeconds": 0.014
-          },
-          "application": [
-            {
-              "stage": "article",
-              "ms": 0.17,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "viewer",
-              "ms": 0.68,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "tree",
-              "ms": 0.03,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "backlinks",
-              "ms": 0.08,
-              "dbPoolWaiting": 1
-            },
-            {
-              "stage": "discussions",
-              "ms": 4.39,
-              "dbPoolWaiting": 0
-            }
-          ]
-        }
-      ],
-      "summary": {
-        "requests": 9,
-        "failures": 0,
-        "requestIds": 9,
-        "originMatches": 9,
-        "applicationMatches": 9,
-        "cachedResponses": 0,
-        "headersMs": {
-          "count": 9,
-          "min": 11.8,
-          "median": 13.14,
-          "max": 16.17
-        },
-        "totalMs": {
-          "count": 9,
-          "min": 13.56,
-          "median": 14.93,
-          "max": 18.12
-        },
-        "originHeadersMs": {
-          "count": 9,
-          "min": 11,
-          "median": 12,
-          "max": 16
-        },
-        "applicationMs": {
-          "article": {
-            "count": 9,
-            "min": 0.17,
-            "median": 0.18,
-            "max": 0.26
-          },
-          "viewer": {
-            "count": 9,
-            "min": 0.68,
-            "median": 0.71,
-            "max": 0.99
-          },
-          "tree": {
-            "count": 9,
-            "min": 0.03,
-            "median": 0.03,
-            "max": 0.19
-          },
-          "backlinks": {
-            "count": 9,
-            "min": 0.07,
-            "median": 0.07,
-            "max": 0.1
-          },
-          "discussions": {
-            "count": 9,
-            "min": 2.56,
-            "median": 3.07,
-            "max": 5.26
-          }
-        }
-      }
-    },
-    {
-      "scenario": "wiki-article",
-      "route": "/wiki/[...id]",
-      "mode": "burst",
-      "concurrency": 3,
-      "warmupSamples": [
-        {
-          "startedAt": "2026-11-27T02:46:49.484Z",
-          "requestId": "19c134d23dcd17d37d2290790ffe6224",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 11.95,
-          "totalMs": 13.69,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 11849,
-            "requestSeconds": 0.013,
-            "upstreamHeaderSeconds": 0.011,
-            "upstreamResponseSeconds": 0.013
-          },
-          "application": [
-            {
-              "stage": "article",
-              "ms": 0.22,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "viewer",
-              "ms": 0.83,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "tree",
-              "ms": 0.05,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "backlinks",
-              "ms": 0.09,
-              "dbPoolWaiting": 1
-            },
-            {
-              "stage": "discussions",
-              "ms": 3.05,
-              "dbPoolWaiting": 0
-            }
-          ]
-        }
-      ],
-      "samples": [
-        {
-          "startedAt": "2026-11-27T02:46:49.497Z",
-          "requestId": "828dc2938b4334292f693dcffe3c73fb",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 22.6,
-          "totalMs": 38.24,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 11851,
-            "requestSeconds": 0.037,
-            "upstreamHeaderSeconds": 0.022,
-            "upstreamResponseSeconds": 0.038
-          },
-          "application": [
-            {
-              "stage": "article",
-              "ms": 0.18,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "viewer",
-              "ms": 0.7,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "tree",
-              "ms": 0.03,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "backlinks",
-              "ms": 0.09,
-              "dbPoolWaiting": 1
-            },
-            {
-              "stage": "discussions",
-              "ms": 10.01,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.498Z",
-          "requestId": "779315a42aab3043964c23bcc21035c7",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 34.29,
-          "totalMs": 38.25,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 11844,
-            "requestSeconds": 0.038,
-            "upstreamHeaderSeconds": 0.034,
-            "upstreamResponseSeconds": 0.038
-          },
-          "application": [
-            {
-              "stage": "article",
-              "ms": 0.19,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "viewer",
-              "ms": 0.7,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "tree",
-              "ms": 0.03,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "backlinks",
-              "ms": 0.07,
-              "dbPoolWaiting": 1
-            },
-            {
-              "stage": "discussions",
-              "ms": 13.42,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.498Z",
-          "requestId": "c23c82894c9f8254630b3fb22da47e2a",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 34.37,
-          "totalMs": 38.12,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 11846,
-            "requestSeconds": 0.038,
-            "upstreamHeaderSeconds": 0.034,
-            "upstreamResponseSeconds": 0.038
-          },
-          "application": [
-            {
-              "stage": "article",
-              "ms": 0.17,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "viewer",
-              "ms": 0.67,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "tree",
-              "ms": 0.03,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "backlinks",
-              "ms": 0.07,
-              "dbPoolWaiting": 1
-            },
-            {
-              "stage": "discussions",
-              "ms": 9.53,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.536Z",
-          "requestId": "8fdb97cba5eba5cb998c98fc1feffc6c",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 20.5,
-          "totalMs": 33.91,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 11850,
-            "requestSeconds": 0.033,
-            "upstreamHeaderSeconds": 0.02,
-            "upstreamResponseSeconds": 0.034
-          },
-          "application": [
-            {
-              "stage": "article",
-              "ms": 0.22,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "viewer",
-              "ms": 0.73,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "tree",
-              "ms": 0.03,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "backlinks",
-              "ms": 0.07,
-              "dbPoolWaiting": 1
-            },
-            {
-              "stage": "discussions",
-              "ms": 7.35,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.536Z",
-          "requestId": "5139a6cc11414a32287734a09319c1a8",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 30.69,
-          "totalMs": 33.87,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 11851,
-            "requestSeconds": 0.034,
-            "upstreamHeaderSeconds": 0.03,
-            "upstreamResponseSeconds": 0.034
-          },
-          "application": [
-            {
-              "stage": "article",
-              "ms": 0.16,
               "dbPoolWaiting": 0
             },
             {
@@ -2040,70 +1713,27 @@
             },
             {
               "stage": "discussions",
-              "ms": 10.73,
+              "ms": 2.75,
               "dbPoolWaiting": 0
             }
           ]
         },
         {
-          "startedAt": "2026-11-27T02:46:49.536Z",
-          "requestId": "bec6ea98631a52b5510e6a7537eeb1aa",
+          "startedAt": "2026-11-27T03:11:56.248Z",
+          "requestId": "9852220ed6bce64e6273f1c5dad8f72a",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 30.75,
-          "totalMs": 33.94,
+          "headersMs": 14.76,
+          "totalMs": 16.55,
           "origin": {
             "routeMatches": true,
             "status": 200,
-            "bytes": 11849,
-            "requestSeconds": 0.034,
-            "upstreamHeaderSeconds": 0.031,
-            "upstreamResponseSeconds": 0.034
-          },
-          "application": [
-            {
-              "stage": "article",
-              "ms": 0.14,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "viewer",
-              "ms": 0.55,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "tree",
-              "ms": 0.03,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "backlinks",
-              "ms": 0.06,
-              "dbPoolWaiting": 1
-            },
-            {
-              "stage": "discussions",
-              "ms": 8.66,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.570Z",
-          "requestId": "f22316f6af7710a9fc6fd6aec6d1d8ee",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 22.75,
-          "totalMs": 37.58,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 11854,
-            "requestSeconds": 0.037,
-            "upstreamHeaderSeconds": 0.023,
-            "upstreamResponseSeconds": 0.037
+            "bytes": 11853,
+            "requestSeconds": 0.016,
+            "upstreamHeaderSeconds": 0.014,
+            "upstreamResponseSeconds": 0.016
           },
           "application": [
             {
@@ -2113,110 +1743,22 @@
             },
             {
               "stage": "viewer",
-              "ms": 0.7,
+              "ms": 0.75,
               "dbPoolWaiting": 0
             },
             {
               "stage": "tree",
-              "ms": 0.03,
+              "ms": 0.04,
               "dbPoolWaiting": 0
             },
             {
               "stage": "backlinks",
-              "ms": 0.07,
+              "ms": 0.08,
               "dbPoolWaiting": 1
             },
             {
               "stage": "discussions",
-              "ms": 8.36,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.570Z",
-          "requestId": "a5a0b9f097bef60f44bbf39c0e9e76d2",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 32.79,
-          "totalMs": 37.58,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 11853,
-            "requestSeconds": 0.037,
-            "upstreamHeaderSeconds": 0.033,
-            "upstreamResponseSeconds": 0.038
-          },
-          "application": [
-            {
-              "stage": "article",
-              "ms": 0.16,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "viewer",
-              "ms": 0.67,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "tree",
-              "ms": 0.03,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "backlinks",
-              "ms": 0.07,
-              "dbPoolWaiting": 1
-            },
-            {
-              "stage": "discussions",
-              "ms": 13.6,
-              "dbPoolWaiting": 0
-            }
-          ]
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.570Z",
-          "requestId": "412519e53dc59ffa298af50f635be87b",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 32.87,
-          "totalMs": 37.82,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 11850,
-            "requestSeconds": 0.038,
-            "upstreamHeaderSeconds": 0.033,
-            "upstreamResponseSeconds": 0.038
-          },
-          "application": [
-            {
-              "stage": "article",
-              "ms": 0.15,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "viewer",
-              "ms": 0.57,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "tree",
-              "ms": 0.03,
-              "dbPoolWaiting": 0
-            },
-            {
-              "stage": "backlinks",
-              "ms": 0.06,
-              "dbPoolWaiting": 1
-            },
-            {
-              "stage": "discussions",
-              "ms": 11.15,
+              "ms": 4.65,
               "dbPoolWaiting": 0
             }
           ]
@@ -2231,52 +1773,570 @@
         "cachedResponses": 0,
         "headersMs": {
           "count": 9,
-          "min": 20.5,
-          "median": 30.75,
-          "max": 34.37
+          "min": 11.67,
+          "median": 13.45,
+          "max": 15.58
         },
         "totalMs": {
           "count": 9,
-          "min": 33.87,
-          "median": 37.58,
-          "max": 38.25
+          "min": 13.31,
+          "median": 15.27,
+          "max": 17.42
+        },
+        "originHeadersMs": {
+          "count": 9,
+          "min": 11,
+          "median": 13,
+          "max": 15
+        },
+        "applicationMs": {
+          "article": {
+            "count": 9,
+            "min": 0.17,
+            "median": 0.19,
+            "max": 0.28
+          },
+          "viewer": {
+            "count": 9,
+            "min": 0.72,
+            "median": 0.81,
+            "max": 0.88
+          },
+          "tree": {
+            "count": 9,
+            "min": 0.03,
+            "median": 0.04,
+            "max": 0.21
+          },
+          "backlinks": {
+            "count": 9,
+            "min": 0.07,
+            "median": 0.08,
+            "max": 0.1
+          },
+          "discussions": {
+            "count": 9,
+            "min": 2.7,
+            "median": 2.95,
+            "max": 4.65
+          }
+        }
+      }
+    },
+    {
+      "scenario": "wiki-article",
+      "route": "/wiki/[...id]",
+      "mode": "burst",
+      "concurrency": 3,
+      "warmupSamples": [
+        {
+          "startedAt": "2026-11-27T03:11:56.264Z",
+          "requestId": "cf6c6bf856af8a0f64da2924e6c00142",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 11.21,
+          "totalMs": 13.08,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11847,
+            "requestSeconds": 0.012,
+            "upstreamHeaderSeconds": 0.011,
+            "upstreamResponseSeconds": 0.012
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.2,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.72,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 2.8,
+              "dbPoolWaiting": 0
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "startedAt": "2026-11-27T03:11:56.278Z",
+          "requestId": "311793d3bb862139b411fd52a1587075",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 23.58,
+          "totalMs": 38.98,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11843,
+            "requestSeconds": 0.038,
+            "upstreamHeaderSeconds": 0.023,
+            "upstreamResponseSeconds": 0.039
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.17,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.69,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.07,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.09,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 8.99,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.278Z",
+          "requestId": "f9e2bca6023ca0b77edc362de6371d76",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 32.63,
+          "totalMs": 38.93,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11851,
+            "requestSeconds": 0.038,
+            "upstreamHeaderSeconds": 0.032,
+            "upstreamResponseSeconds": 0.039
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.19,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.71,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.08,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 14.58,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.278Z",
+          "requestId": "3c1c96afb1b902ca3b49455f39a7e90f",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 32.69,
+          "totalMs": 38.63,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11857,
+            "requestSeconds": 0.038,
+            "upstreamHeaderSeconds": 0.032,
+            "upstreamResponseSeconds": 0.038
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.17,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.71,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.12,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.09,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 11.57,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.317Z",
+          "requestId": "e082847ad9a4cb4f9679e340c01861ab",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 20.17,
+          "totalMs": 35.24,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11856,
+            "requestSeconds": 0.035,
+            "upstreamHeaderSeconds": 0.02,
+            "upstreamResponseSeconds": 0.035
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.17,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.69,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.04,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 8.46,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.317Z",
+          "requestId": "f8d108a8d895f3fb8220746e385f0598",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 31.99,
+          "totalMs": 35.2,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11851,
+            "requestSeconds": 0.035,
+            "upstreamHeaderSeconds": 0.031,
+            "upstreamResponseSeconds": 0.035
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.16,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.78,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 10.85,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.317Z",
+          "requestId": "f7d1126baa16b5895245f64307a7a729",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 32.12,
+          "totalMs": 35.21,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11850,
+            "requestSeconds": 0.035,
+            "upstreamHeaderSeconds": 0.032,
+            "upstreamResponseSeconds": 0.035
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.14,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.6,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.06,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 8.6,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.352Z",
+          "requestId": "1f8315bad4cededc1c6a8f685e630cf3",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 24.68,
+          "totalMs": 40.58,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11854,
+            "requestSeconds": 0.041,
+            "upstreamHeaderSeconds": 0.025,
+            "upstreamResponseSeconds": 0.041
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.29,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 1.21,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.08,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.11,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 8.98,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.352Z",
+          "requestId": "6bfaac0a0b10d7a591a4791c7b94cbdf",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 37.03,
+          "totalMs": 40.63,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11853,
+            "requestSeconds": 0.041,
+            "upstreamHeaderSeconds": 0.036,
+            "upstreamResponseSeconds": 0.04
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.16,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.7,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.04,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 14.29,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.352Z",
+          "requestId": "bde7e916dd3cf3fcdac5861cc58cd33d",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 37.11,
+          "totalMs": 40.55,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11853,
+            "requestSeconds": 0.041,
+            "upstreamHeaderSeconds": 0.036,
+            "upstreamResponseSeconds": 0.04
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.14,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.6,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.06,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 11.6,
+              "dbPoolWaiting": 0
+            }
+          ]
+        }
+      ],
+      "summary": {
+        "requests": 9,
+        "failures": 0,
+        "requestIds": 9,
+        "originMatches": 9,
+        "applicationMatches": 9,
+        "cachedResponses": 0,
+        "headersMs": {
+          "count": 9,
+          "min": 20.17,
+          "median": 32.12,
+          "max": 37.11
+        },
+        "totalMs": {
+          "count": 9,
+          "min": 35.2,
+          "median": 38.93,
+          "max": 40.63
         },
         "originHeadersMs": {
           "count": 9,
           "min": 20,
-          "median": 31,
-          "max": 34
+          "median": 32,
+          "max": 36
         },
         "applicationMs": {
           "article": {
             "count": 9,
             "min": 0.14,
             "median": 0.17,
-            "max": 0.22
+            "max": 0.29
           },
           "viewer": {
             "count": 9,
-            "min": 0.55,
+            "min": 0.6,
             "median": 0.7,
-            "max": 0.73
+            "max": 1.21
           },
           "tree": {
             "count": 9,
             "min": 0.03,
-            "median": 0.03,
-            "max": 0.03
+            "median": 0.04,
+            "max": 0.12
           },
           "backlinks": {
             "count": 9,
             "min": 0.06,
             "median": 0.07,
-            "max": 0.09
+            "max": 0.11
           },
           "discussions": {
             "count": 9,
-            "min": 7.35,
-            "median": 10.01,
-            "max": 13.6
+            "min": 8.46,
+            "median": 10.85,
+            "max": 14.58
           }
         }
       }
@@ -2288,13 +2348,14 @@
       "concurrency": 1,
       "warmupSamples": [
         {
-          "startedAt": "2026-11-27T02:46:49.608Z",
-          "requestId": "5b986b4e4b5a09c68639c1de25f84267",
+          "startedAt": "2026-11-27T03:11:56.393Z",
+          "requestId": "36b12c0bfa6a43cfa5189187a3569396",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 2.18,
-          "totalMs": 2.33,
+          "headersMs": 2.46,
+          "totalMs": 2.68,
           "origin": {
             "routeMatches": true,
             "status": 200,
@@ -2307,132 +2368,50 @@
       ],
       "samples": [
         {
-          "startedAt": "2026-11-27T02:46:49.610Z",
-          "requestId": "e1c32e0d82eaa2c565150c8a045da780",
+          "startedAt": "2026-11-27T03:11:56.396Z",
+          "requestId": "2c122c700a8755e627b8aa880d1211cf",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 1.19,
-          "totalMs": 1.26,
+          "headersMs": 1.84,
+          "totalMs": 1.95,
           "origin": {
             "routeMatches": true,
             "status": 200,
             "bytes": 280,
             "requestSeconds": 0.001,
             "upstreamHeaderSeconds": 0.001,
-            "upstreamResponseSeconds": 0.001
+            "upstreamResponseSeconds": 0.002
           }
         },
         {
-          "startedAt": "2026-11-27T02:46:49.612Z",
-          "requestId": "83030c5f5576d1c81a5b38bbf3fbf4a7",
+          "startedAt": "2026-11-27T03:11:56.398Z",
+          "requestId": "fe71ecb436ea22f775ac5a05d5a11e41",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 1.26,
-          "totalMs": 1.32,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 280,
-            "requestSeconds": 0.001,
-            "upstreamHeaderSeconds": 0.001,
-            "upstreamResponseSeconds": 0.001
-          }
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.613Z",
-          "requestId": "c23b91522d035ce752e91ee574f81301",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 1.27,
-          "totalMs": 1.34,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 280,
-            "requestSeconds": 0.001,
-            "upstreamHeaderSeconds": 0.001,
-            "upstreamResponseSeconds": 0.001
-          }
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.614Z",
-          "requestId": "7b32dd5055e3a79681feeeab33d48d6e",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 1.18,
-          "totalMs": 1.25,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 280,
-            "requestSeconds": 0,
-            "upstreamHeaderSeconds": 0.001,
-            "upstreamResponseSeconds": 0.001
-          }
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.616Z",
-          "requestId": "6cb233fe6b390b3420b4b89d95e1645c",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 1.14,
-          "totalMs": 1.21,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 280,
-            "requestSeconds": 0.001,
-            "upstreamHeaderSeconds": 0.001,
-            "upstreamResponseSeconds": 0.001
-          }
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.617Z",
-          "requestId": "950e2e8750bcc6380fcafa6cc6d4c624",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 1.26,
-          "totalMs": 1.36,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 280,
-            "requestSeconds": 0.001,
-            "upstreamHeaderSeconds": 0.001,
-            "upstreamResponseSeconds": 0.001
-          }
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.618Z",
-          "requestId": "f8da0aaf53d47732de3082c6eaf05e54",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 1.67,
-          "totalMs": 1.75,
+          "headersMs": 2.06,
+          "totalMs": 2.17,
           "origin": {
             "routeMatches": true,
             "status": 200,
             "bytes": 280,
             "requestSeconds": 0.002,
-            "upstreamHeaderSeconds": 0.001,
-            "upstreamResponseSeconds": 0.001
+            "upstreamHeaderSeconds": 0.002,
+            "upstreamResponseSeconds": 0.002
           }
         },
         {
-          "startedAt": "2026-11-27T02:46:49.620Z",
-          "requestId": "c9474947f7a57cae0d62d6ea224e1548",
+          "startedAt": "2026-11-27T03:11:56.400Z",
+          "requestId": "7180f946d490f42b2a156bacd1975f54",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 1.55,
-          "totalMs": 1.63,
+          "headersMs": 1.75,
+          "totalMs": 1.8,
           "origin": {
             "routeMatches": true,
             "status": 200,
@@ -2443,18 +2422,109 @@
           }
         },
         {
-          "startedAt": "2026-11-27T02:46:49.622Z",
-          "requestId": "14c4426947c6244804ba54a8e8e46027",
+          "startedAt": "2026-11-27T03:11:56.402Z",
+          "requestId": "870e04148cef3da2ba933d3c1ce251d2",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 1.27,
-          "totalMs": 1.33,
+          "headersMs": 1.66,
+          "totalMs": 2,
           "origin": {
             "routeMatches": true,
             "status": 200,
             "bytes": 280,
             "requestSeconds": 0.001,
+            "upstreamHeaderSeconds": 0.001,
+            "upstreamResponseSeconds": 0.001
+          }
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.404Z",
+          "requestId": "c2154c7eaa7217c8f83f324746882c85",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 2.85,
+          "totalMs": 2.99,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.002,
+            "upstreamHeaderSeconds": 0.002,
+            "upstreamResponseSeconds": 0.003
+          }
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.407Z",
+          "requestId": "e7ba6ffbe505d7d2a8420ac0c3a2c956",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 2.13,
+          "totalMs": 2.24,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.002,
+            "upstreamHeaderSeconds": 0.002,
+            "upstreamResponseSeconds": 0.002
+          }
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.409Z",
+          "requestId": "c21407459626d54b30df6db7fee519bd",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 1.66,
+          "totalMs": 1.74,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.002,
+            "upstreamHeaderSeconds": 0.002,
+            "upstreamResponseSeconds": 0.002
+          }
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.411Z",
+          "requestId": "b90df067376c874e83f6c90366951655",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 2.32,
+          "totalMs": 2.44,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.002,
+            "upstreamHeaderSeconds": 0.002,
+            "upstreamResponseSeconds": 0.002
+          }
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.413Z",
+          "requestId": "a0e0dcec992b16a88367847c70476857",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 1.69,
+          "totalMs": 1.76,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.002,
             "upstreamHeaderSeconds": 0.001,
             "upstreamResponseSeconds": 0.001
           }
@@ -2469,20 +2539,20 @@
         "cachedResponses": 0,
         "headersMs": {
           "count": 9,
-          "min": 1.14,
-          "median": 1.26,
-          "max": 1.67
+          "min": 1.66,
+          "median": 1.84,
+          "max": 2.85
         },
         "totalMs": {
           "count": 9,
-          "min": 1.21,
-          "median": 1.33,
-          "max": 1.75
+          "min": 1.74,
+          "median": 2,
+          "max": 2.99
         },
         "originHeadersMs": {
           "count": 9,
           "min": 1,
-          "median": 1,
+          "median": 2,
           "max": 2
         },
         "applicationMs": {}
@@ -2495,13 +2565,14 @@
       "concurrency": 3,
       "warmupSamples": [
         {
-          "startedAt": "2026-11-27T02:46:49.623Z",
-          "requestId": "d5d9bef62ba9f466d46c822eefa32d69",
+          "startedAt": "2026-11-27T03:11:56.415Z",
+          "requestId": "78bba11517c4fe5bfa460f8b9233ef2e",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 1.12,
-          "totalMs": 1.18,
+          "headersMs": 1.18,
+          "totalMs": 1.24,
           "origin": {
             "routeMatches": true,
             "status": 200,
@@ -2514,81 +2585,32 @@
       ],
       "samples": [
         {
-          "startedAt": "2026-11-27T02:46:49.624Z",
-          "requestId": "44f4019e4b3cd73c229e4dd3f992f2de",
+          "startedAt": "2026-11-27T03:11:56.416Z",
+          "requestId": "c554d88bad314430aff0b8dc6784a0cc",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
           "headersMs": 1.15,
-          "totalMs": 1.23,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 280,
-            "requestSeconds": 0.001,
-            "upstreamHeaderSeconds": 0.001,
-            "upstreamResponseSeconds": 0.001
-          }
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.624Z",
-          "requestId": "6dcc9ce19a309f5f8dc5ae8c829d1990",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 2.04,
-          "totalMs": 2.1,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 280,
-            "requestSeconds": 0.002,
-            "upstreamHeaderSeconds": 0.001,
-            "upstreamResponseSeconds": 0.001
-          }
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.624Z",
-          "requestId": "5afcd58a2d3ff04873f60e583df3b420",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 2.78,
-          "totalMs": 2.83,
-          "origin": {
-            "routeMatches": true,
-            "status": 200,
-            "bytes": 280,
-            "requestSeconds": 0.002,
-            "upstreamHeaderSeconds": 0.002,
-            "upstreamResponseSeconds": 0.002
-          }
-        },
-        {
-          "startedAt": "2026-11-27T02:46:49.627Z",
-          "requestId": "01ef397f95365940e54cc60c7b9337a7",
-          "status": 200,
-          "cacheStatus": null,
-          "error": null,
-          "headersMs": 1.27,
-          "totalMs": 1.36,
+          "totalMs": 1.2,
           "origin": {
             "routeMatches": true,
             "status": 200,
             "bytes": 280,
             "requestSeconds": 0.001,
             "upstreamHeaderSeconds": 0,
-            "upstreamResponseSeconds": 0.001
+            "upstreamResponseSeconds": 0
           }
         },
         {
-          "startedAt": "2026-11-27T02:46:49.627Z",
-          "requestId": "5e80d11b607008db84bad1724058ed8a",
+          "startedAt": "2026-11-27T03:11:56.416Z",
+          "requestId": "3343fb03887d59689a254fb0763865db",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 1.91,
-          "totalMs": 1.98,
+          "headersMs": 1.98,
+          "totalMs": 2.05,
           "origin": {
             "routeMatches": true,
             "status": 200,
@@ -2599,13 +2621,14 @@
           }
         },
         {
-          "startedAt": "2026-11-27T02:46:49.627Z",
-          "requestId": "da4fda545afe7f8fd0349261f440cdd8",
+          "startedAt": "2026-11-27T03:11:56.416Z",
+          "requestId": "ae5efb198da79c440571acfd7a18e8ea",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 2.82,
-          "totalMs": 2.88,
+          "headersMs": 2.64,
+          "totalMs": 2.68,
           "origin": {
             "routeMatches": true,
             "status": 200,
@@ -2616,30 +2639,32 @@
           }
         },
         {
-          "startedAt": "2026-11-27T02:46:49.630Z",
-          "requestId": "db6bb3f8a43e0052a4f26113d8ef3e40",
+          "startedAt": "2026-11-27T03:11:56.419Z",
+          "requestId": "30df3270dbbe44026c6f7771aaf5a5d1",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 1.57,
-          "totalMs": 1.65,
+          "headersMs": 1.4,
+          "totalMs": 1.46,
           "origin": {
             "routeMatches": true,
             "status": 200,
             "bytes": 280,
-            "requestSeconds": 0.002,
+            "requestSeconds": 0.001,
             "upstreamHeaderSeconds": 0.001,
             "upstreamResponseSeconds": 0.001
           }
         },
         {
-          "startedAt": "2026-11-27T02:46:49.630Z",
-          "requestId": "cf32272bb7683f5ed95e2590abf97f7b",
+          "startedAt": "2026-11-27T03:11:56.419Z",
+          "requestId": "6ecab7f594f20ade41bd3726e340614a",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 2.3,
-          "totalMs": 2.33,
+          "headersMs": 2.19,
+          "totalMs": 2.27,
           "origin": {
             "routeMatches": true,
             "status": 200,
@@ -2650,19 +2675,74 @@
           }
         },
         {
-          "startedAt": "2026-11-27T02:46:49.631Z",
-          "requestId": "47c1cbd27d88497f22db102eacb9a365",
+          "startedAt": "2026-11-27T03:11:56.419Z",
+          "requestId": "133ffb99e1ab8d9e64a34f9b35d51bd7",
           "status": 200,
           "cacheStatus": null,
+          "ageSeconds": null,
           "error": null,
-          "headersMs": 3.02,
-          "totalMs": 3.09,
+          "headersMs": 3.31,
+          "totalMs": 3.4,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.003,
+            "upstreamHeaderSeconds": 0.004,
+            "upstreamResponseSeconds": 0.004
+          }
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.423Z",
+          "requestId": "850b45ab3d90608a1a9bbf63588b48cc",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 1.87,
+          "totalMs": 1.94,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.001,
+            "upstreamHeaderSeconds": 0.002,
+            "upstreamResponseSeconds": 0.002
+          }
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.423Z",
+          "requestId": "9a80d41784c013b0f29b6b2d20c7dc20",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 2.56,
+          "totalMs": 2.6,
           "origin": {
             "routeMatches": true,
             "status": 200,
             "bytes": 280,
             "requestSeconds": 0.002,
             "upstreamHeaderSeconds": 0.002,
+            "upstreamResponseSeconds": 0.002
+          }
+        },
+        {
+          "startedAt": "2026-11-27T03:11:56.423Z",
+          "requestId": "33f8e3b0563dff6e908d62bd58871702",
+          "status": 200,
+          "cacheStatus": null,
+          "ageSeconds": null,
+          "error": null,
+          "headersMs": 3.24,
+          "totalMs": 3.31,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.003,
+            "upstreamHeaderSeconds": 0.003,
             "upstreamResponseSeconds": 0.003
           }
         }
@@ -2677,20 +2757,20 @@
         "headersMs": {
           "count": 9,
           "min": 1.15,
-          "median": 2.04,
-          "max": 3.02
+          "median": 2.19,
+          "max": 3.31
         },
         "totalMs": {
           "count": 9,
-          "min": 1.23,
-          "median": 2.1,
-          "max": 3.09
+          "min": 1.2,
+          "median": 2.27,
+          "max": 3.4
         },
         "originHeadersMs": {
           "count": 9,
           "min": 0,
-          "median": 1,
-          "max": 2
+          "median": 2,
+          "max": 4
         },
         "applicationMs": {}
       }

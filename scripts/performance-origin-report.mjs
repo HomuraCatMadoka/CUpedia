@@ -2,15 +2,8 @@ import { createReadStream } from "node:fs";
 import { compose } from "node:stream";
 import { parseArgs } from "node:util";
 import { createGunzip } from "node:zlib";
+import { isPerformanceRouteLabel } from "./performance-route-labels.mjs";
 
-const routes = new Set([
-  "/courses",
-  "/courses/[code]",
-  "/wiki",
-  "/wiki/[...id]",
-  "static",
-  "other",
-]);
 const timingFields = [
   "requestSeconds",
   "upstreamHeaderSeconds",
@@ -161,7 +154,9 @@ async function main() {
         }
         if (time < since || time >= until) continue;
 
-        const route = routes.has(record.route) ? record.route : "other";
+        const route = isPerformanceRouteLabel(record.route)
+          ? record.route
+          : "other";
         if (!byRoute.has(route)) byRoute.set(route, newSummary());
         addRequest(total, record);
         addRequest(byRoute.get(route), record);

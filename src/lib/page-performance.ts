@@ -36,8 +36,9 @@ export async function createPageStageTimer<Route extends keyof PageStages>(
       // They do not measure this request's connection wait or SQL execution time.
       const dbPoolWaiting = Math.max(waitingAtStart, db.$client.waitingCount);
       const ms = Math.round((performance.now() - start) * 100) / 100;
+      const time = new Date().toISOString();
       console.info(
-        `[perf] ${JSON.stringify({ requestId, route, stage, ms, dbPoolWaiting })}`,
+        `[perf] ${JSON.stringify({ requestId, route, stage, ms, dbPoolWaiting, time })}`,
       );
     }
   };

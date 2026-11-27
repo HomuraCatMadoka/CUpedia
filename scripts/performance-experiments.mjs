@@ -6,14 +6,16 @@ import { access, readFile, writeFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
+import { isPerformanceRouteLabel } from "./performance-route-labels.mjs";
 
 const REPORT_VERSION = 1;
 const REQUEST_TIMEOUT_MS = 30_000;
 const RESPONSE_LIMIT_BYTES = 8 * 1024 * 1024;
+const LOG_CLOCK_SKEW_MS = 1_000;
 const REQUEST_ID = /^[a-f0-9]{32}$/;
 const LABEL = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,79}$/;
-const ROUTE = /^(?:\/(?:[a-zA-Z0-9_-]+|\[(?:\.\.\.)?[a-zA-Z0-9_-]+\]))*\/?$/;
-const ROUTE_GROUPS = new Set(["static", "other"]);
+const LOG_TIME =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 const CACHE_STATUSES = new Set([
   "BYPASS",
   "DYNAMIC",
@@ -100,11 +102,7 @@ async function loadScenarios(file, baseUrl) {
       /[\\\x00-\x20\x7f]/.test(path) ||
       url.origin !== baseUrl.origin ||
       url.hash ||
-      typeof route !== "string" ||
-      !(
-        (route.startsWith("/") && ROUTE.test(route)) ||
-        ROUTE_GROUPS.has(route)
-      ) ||
+      !isPerformanceRouteLabel(route) ||
       !Number.isInteger(expectedStatus) ||
       expectedStatus < 200 ||
       expectedStatus > 599 ||
@@ -160,6 +158,7 @@ async function measure(baseUrl, scenario) {
   let status = null;
   let requestId = null;
   let cacheStatus = null;
+  let ageSeconds = null;
   let error;
   try {
     const response = await fetch(new URL(scenario.path, baseUrl), {
@@ -171,6 +170,10 @@ async function measure(baseUrl, scenario) {
     status = response.status;
     const cache = response.headers.get("cf-cache-status");
     if (CACHE_STATUSES.has(cache)) cacheStatus = cache;
+    const age = response.headers.get("age");
+    if (age && /^\d+$/.test(age)) {
+      ageSeconds = Math.min(Number(age), Number.MAX_SAFE_INTEGER);
+    }
     const id = response.headers.get("x-request-id");
     if (id && REQUEST_ID.test(id)) requestId = id;
     const bodyError = await checkBody(response, scenario.contains);
@@ -184,6 +187,7 @@ async function measure(baseUrl, scenario) {
     requestId,
     status,
     cacheStatus,
+    ageSeconds,
     error,
     headersMs,
     totalMs: roundMs(performance.now() - start),
@@ -222,13 +226,26 @@ async function correlateLog(path, prefix, byId, applyRow) {
   }
 }
 
+function isCachedResponse({ cacheStatus, ageSeconds }) {
+  return CACHED_RESPONSES.has(cacheStatus) || ageSeconds > 0;
+}
+
+function isFreshLogTime(time, sample) {
+  if (typeof time !== "string" || !LOG_TIME.test(time)) return false;
+  const timestamp = Date.parse(time);
+  const start = Date.parse(sample.startedAt);
+  return (
+    timestamp >= start - LOG_CLOCK_SKEW_MS &&
+    timestamp <= start + sample.totalMs + LOG_CLOCK_SKEW_MS
+  );
+}
+
 async function correlate(runs, originLog, appLog) {
   const byId = new Map();
   const duplicates = new Set();
   for (const run of runs) {
     for (const sample of [...run.warmupSamples, ...run.samples]) {
-      if (!sample.requestId || CACHED_RESPONSES.has(sample.cacheStatus))
-        continue;
+      if (!sample.requestId || isCachedResponse(sample)) continue;
       if (byId.has(sample.requestId)) duplicates.add(sample.requestId);
       byId.set(sample.requestId, { sample, route: run.route });
     }
@@ -236,6 +253,7 @@ async function correlate(runs, originLog, appLog) {
   // A cached response can preserve an old ID. Only join a fresh, unique ID.
   for (const requestId of duplicates) byId.delete(requestId);
   await correlateLog(originLog, "", byId, (row, { sample, route }) => {
+    if (!isFreshLogTime(row.time, sample)) return;
     sample.origin = {
       routeMatches: row.route === route,
       status: numericLogValue(row.status),
@@ -248,6 +266,8 @@ async function correlate(runs, originLog, appLog) {
   await correlateLog(appLog, "[perf] ", byId, (row, { sample, route }) => {
     const ms = finiteNumber(row.ms);
     if (
+      (originLog && !sample.origin?.routeMatches) ||
+      !isFreshLogTime(row.time, sample) ||
       row.route !== route ||
       typeof row.stage !== "string" ||
       !LABEL.test(row.stage) ||
@@ -293,9 +313,7 @@ function summarize(samples) {
     originMatches: samples.filter(({ origin }) => origin?.routeMatches).length,
     applicationMatches: samples.filter(({ application }) => application?.length)
       .length,
-    cachedResponses: samples.filter(({ cacheStatus }) =>
-      CACHED_RESPONSES.has(cacheStatus),
-    ).length,
+    cachedResponses: samples.filter(isCachedResponse).length,
     headersMs: distribution(successes.map(({ headersMs }) => headersMs)),
     totalMs: distribution(successes.map(({ totalMs }) => totalMs)),
     originHeadersMs: distribution(
@@ -440,20 +458,22 @@ async function runExperiment(args) {
   if (failures) process.exitCode = 1;
 }
 
-function compareMedians(before, after) {
+function compareMedians(before, after, comparable) {
   const baseline = before.median ?? null;
   const rerun = after.median ?? null;
   return {
     baseline,
     rerun,
     delta:
-      baseline === null || rerun === null ? null : roundMs(rerun - baseline),
+      !comparable || baseline === null || rerun === null
+        ? null
+        : roundMs(rerun - baseline),
     baselineCount: before.count,
     rerunCount: after.count,
   };
 }
 
-function compareStages(before, after) {
+function compareStages(before, after, comparable) {
   const first = summarizeStages(before);
   const second = summarizeStages(after);
   const names = new Set([...Object.keys(first), ...Object.keys(second)]);
@@ -464,6 +484,7 @@ function compareStages(before, after) {
       compareMedians(
         Object.hasOwn(first, stage) ? first[stage] : missing,
         Object.hasOwn(second, stage) ? second[stage] : missing,
+        comparable,
       ),
     ]),
   );
@@ -500,6 +521,11 @@ async function compareReports(baselineFile, rerunFile) {
     differentConditions: differences,
   };
   if (result.comparable) {
+    if (baseline.runs.length !== rerun.runs.length) {
+      throw new Error(
+        "The reports contain different numbers of scenario/mode groups",
+      );
+    }
     result.runs = baseline.runs.map((before, index) => {
       const after = rerun.runs[index];
       if (
@@ -512,10 +538,20 @@ async function compareReports(baselineFile, rerunFile) {
       }
       const first = summarize(before.samples);
       const second = summarize(after.samples);
+      const baselineWarmupFailures = (before.warmupSamples ?? []).filter(
+        ({ error }) => error,
+      ).length;
+      const rerunWarmupFailures = (after.warmupSamples ?? []).filter(
+        ({ error }) => error,
+      ).length;
+      const comparable = baselineWarmupFailures + rerunWarmupFailures === 0;
       return {
         scenario: before.scenario,
         route: before.route,
         mode: before.mode,
+        comparable,
+        baselineWarmupFailures,
+        rerunWarmupFailures,
         baselineRequests: first.requests,
         rerunRequests: second.requests,
         baselineFailures: first.failures,
@@ -526,20 +562,21 @@ async function compareReports(baselineFile, rerunFile) {
         rerunOriginMatches: second.originMatches,
         baselineApplicationMatches: first.applicationMatches,
         rerunApplicationMatches: second.applicationMatches,
-        headersMs: compareMedians(first.headersMs, second.headersMs),
-        totalMs: compareMedians(first.totalMs, second.totalMs),
+        headersMs: compareMedians(
+          first.headersMs,
+          second.headersMs,
+          comparable,
+        ),
+        totalMs: compareMedians(first.totalMs, second.totalMs, comparable),
         originHeadersMs: compareMedians(
           first.originHeadersMs,
           second.originHeadersMs,
+          comparable,
         ),
-        applicationMs: compareStages(before.samples, after.samples),
+        applicationMs: compareStages(before.samples, after.samples, comparable),
       };
     });
-    if (baseline.runs.length !== rerun.runs.length) {
-      throw new Error(
-        "The reports contain different numbers of scenario/mode groups",
-      );
-    }
+    result.comparable = result.runs.every((run) => run.comparable);
   }
   console.log(JSON.stringify(result, null, 2));
 }
