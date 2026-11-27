@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalUser } from "@/lib/auth-guard";
+import { getConfiguredSiteOrigin } from "@/lib/site-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -198,7 +199,8 @@ export async function GET(
 
   const webKey = process.env.AMAP_WEB_KEY;
   const securityCode = process.env.AMAP_SECURITY_JS_CODE;
-  if (!webKey || !securityCode) {
+  const siteOrigin = getConfiguredSiteOrigin();
+  if (!webKey || !securityCode || !siteOrigin) {
     return errorResponse(503, "AMap service unavailable");
   }
   if (
@@ -207,7 +209,7 @@ export async function GET(
       expectedParameterCounts,
       request.nextUrl.searchParams,
       webKey,
-      request.nextUrl.origin,
+      siteOrigin,
     )
   ) {
     return errorResponse(400, "unsupported AMap service request");
