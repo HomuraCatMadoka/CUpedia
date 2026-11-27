@@ -13,6 +13,7 @@ This page is a directory-level map, not an inventory of every artifact. Start wi
 | Change Wiki persistence, drafts, search, or assets | [Wiki data guide](development/wiki.md)                                      |
 | Change domain behavior or terminology              | [Context map](../CONTEXT-MAP.md), then the relevant `CONTEXT.md`            |
 | Understand an architectural decision               | [ADR index](adr/README.md)                                                  |
+| Measure a page or locate a slow request            | [Performance experiments](operations/performance-experiments.md)            |
 | Operate a deployed integration                     | `operations/`; verify the status header and executable source               |
 | Triage an issue or prepare agent work              | `agents/`                                                                   |
 

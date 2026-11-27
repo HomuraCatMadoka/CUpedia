@@ -1,0 +1,14 @@
+# Set the log, instance prefix, configuration and Nginx executable paths.
+# The prefix and configuration must match the preview process being rotated.
+/absolute/preview-prefix/logs/origin.jsonl {
+    daily
+    rotate 7
+    missingok
+    notifempty
+    compress
+    delaycompress
+    create 0600
+    postrotate
+        /usr/sbin/nginx -p /absolute/preview-prefix/ -c /absolute/nginx.conf -s reopen
+    endscript
+}

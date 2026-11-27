@@ -1,0 +1,2699 @@
+{
+  "version": 1,
+  "revision": "d03c6dbf5-replay-6fd87849c2",
+  "change": "candidate-local-baseline",
+  "conditions": {
+    "environment": "macos-node20-preview-pg18",
+    "probe": "local-loopback",
+    "fixture": "e2e-seed",
+    "session": "anonymous",
+    "targetFingerprint": "2a241c562db853f0519ee744de907da084ba02fb6acb20fadec8cdc92b971b82",
+    "scenarioFingerprint": "f51da28b6b9ff728a4f4f139beded6a72e9d8cf291eb9318afd6d9f113480a37",
+    "sampleCount": 9,
+    "warmupCount": 1,
+    "originLog": true,
+    "appLog": true
+  },
+  "startedAt": "2026-11-27T02:46:48.788Z",
+  "finishedAt": "2026-11-27T02:46:49.634Z",
+  "runs": [
+    {
+      "scenario": "course-search",
+      "route": "/courses",
+      "mode": "serial",
+      "concurrency": 1,
+      "warmupSamples": [
+        {
+          "startedAt": "2026-11-27T02:46:48.789Z",
+          "requestId": "c15b80574471439e76ba083f67e88a48",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 105.3,
+          "totalMs": 109.54,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.09,
+            "upstreamHeaderSeconds": 0.086,
+            "upstreamResponseSeconds": 0.09
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 43.66,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 49.15,
+              "dbPoolWaiting": 0
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "startedAt": "2026-11-27T02:46:48.898Z",
+          "requestId": "f088043e66e133c09dff4ccbb4e6caa2",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 15.39,
+          "totalMs": 18.11,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.017,
+            "upstreamHeaderSeconds": 0.014,
+            "upstreamResponseSeconds": 0.017
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 4.21,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 6.08,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:48.917Z",
+          "requestId": "a114b71f1efeb755f5abdfcadd37118c",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 13.04,
+          "totalMs": 14.45,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.014,
+            "upstreamHeaderSeconds": 0.012,
+            "upstreamResponseSeconds": 0.014
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 4.04,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 5,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:48.931Z",
+          "requestId": "ccf0ed5bc763e90547862d36d16f2210",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 10.51,
+          "totalMs": 11.7,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.011,
+            "upstreamHeaderSeconds": 0.009,
+            "upstreamResponseSeconds": 0.011
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 3.18,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 4.15,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:48.943Z",
+          "requestId": "8fe6f3a2b9c57795b70fbd2a9f0fb9c5",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 12.53,
+          "totalMs": 13.84,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.013,
+            "upstreamHeaderSeconds": 0.012,
+            "upstreamResponseSeconds": 0.013
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 4.44,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 5.45,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:48.957Z",
+          "requestId": "53e1d1cd883b041f09658710028aa7e5",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 10.21,
+          "totalMs": 11.48,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.011,
+            "upstreamHeaderSeconds": 0.009,
+            "upstreamResponseSeconds": 0.011
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 2.97,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 3.86,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:48.968Z",
+          "requestId": "9cc9b1cc447bebc0704492ab0360f891",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 8.05,
+          "totalMs": 9.17,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.009,
+            "upstreamHeaderSeconds": 0.007,
+            "upstreamResponseSeconds": 0.008
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 2.48,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 3.22,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:48.977Z",
+          "requestId": "19dae47d1c41d837dfc2c54f390a2dc8",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 8.78,
+          "totalMs": 10.14,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.009,
+            "upstreamHeaderSeconds": 0.008,
+            "upstreamResponseSeconds": 0.009
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 2.19,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 2.97,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:48.988Z",
+          "requestId": "d95bb0f823dad93ebb765461a09ec621",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 13.43,
+          "totalMs": 14.58,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.014,
+            "upstreamHeaderSeconds": 0.012,
+            "upstreamResponseSeconds": 0.014
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 3.05,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 3.96,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.002Z",
+          "requestId": "c46f2b34d591fbf8f1e653aaee811d05",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 9.79,
+          "totalMs": 10.72,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.011,
+            "upstreamHeaderSeconds": 0.009,
+            "upstreamResponseSeconds": 0.01
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 2.63,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 3.46,
+              "dbPoolWaiting": 0
+            }
+          ]
+        }
+      ],
+      "summary": {
+        "requests": 9,
+        "failures": 0,
+        "requestIds": 9,
+        "originMatches": 9,
+        "applicationMatches": 9,
+        "cachedResponses": 0,
+        "headersMs": {
+          "count": 9,
+          "min": 8.05,
+          "median": 10.51,
+          "max": 15.39
+        },
+        "totalMs": {
+          "count": 9,
+          "min": 9.17,
+          "median": 11.7,
+          "max": 18.11
+        },
+        "originHeadersMs": {
+          "count": 9,
+          "min": 7,
+          "median": 9,
+          "max": 14
+        },
+        "applicationMs": {
+          "subjects": {
+            "count": 9,
+            "min": 2.19,
+            "median": 3.05,
+            "max": 4.44
+          },
+          "courses": {
+            "count": 9,
+            "min": 2.97,
+            "median": 3.96,
+            "max": 6.08
+          }
+        }
+      }
+    },
+    {
+      "scenario": "course-search",
+      "route": "/courses",
+      "mode": "burst",
+      "concurrency": 3,
+      "warmupSamples": [
+        {
+          "startedAt": "2026-11-27T02:46:49.013Z",
+          "requestId": "6b58902fc6503673b87c2d4083f8ebc0",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 8.84,
+          "totalMs": 9.94,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.01,
+            "upstreamHeaderSeconds": 0.009,
+            "upstreamResponseSeconds": 0.01
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 2.33,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 3.09,
+              "dbPoolWaiting": 0
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "startedAt": "2026-11-27T02:46:49.023Z",
+          "requestId": "005d38813f96902e784cf7980e43afb9",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 17.84,
+          "totalMs": 24.38,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.024,
+            "upstreamHeaderSeconds": 0.017,
+            "upstreamResponseSeconds": 0.024
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 2.44,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 7.56,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.023Z",
+          "requestId": "9a992f1c17f7b503c6de261f27f0c61a",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 22.11,
+          "totalMs": 24.65,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.024,
+            "upstreamHeaderSeconds": 0.02,
+            "upstreamResponseSeconds": 0.023
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 8.36,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 10.22,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.024Z",
+          "requestId": "9f9033a259c76ae222d92892ca8e7a34",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 20.6,
+          "totalMs": 24.15,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.023,
+            "upstreamHeaderSeconds": 0.019,
+            "upstreamResponseSeconds": 0.023
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 2.33,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 5.35,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.048Z",
+          "requestId": "927b5272a28155eea219b44ef0f077ad",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 19.07,
+          "totalMs": 24.29,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.024,
+            "upstreamHeaderSeconds": 0.019,
+            "upstreamResponseSeconds": 0.024
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 6.48,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 10.28,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.048Z",
+          "requestId": "d1ba8dcef991f306c2fc93c1abe95ae1",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 19.86,
+          "totalMs": 24.16,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.023,
+            "upstreamHeaderSeconds": 0.019,
+            "upstreamResponseSeconds": 0.023
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 5.99,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 8.06,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.049Z",
+          "requestId": "dc2d545e03c7e71b730e4f628cfbbf49",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 22.26,
+          "totalMs": 24.09,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.023,
+            "upstreamHeaderSeconds": 0.021,
+            "upstreamResponseSeconds": 0.023
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 8.74,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 11.65,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.073Z",
+          "requestId": "0e6d9a86beab6e21892e6adb6cf01251",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 19.37,
+          "totalMs": 26.47,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.026,
+            "upstreamHeaderSeconds": 0.019,
+            "upstreamResponseSeconds": 0.026
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 7.39,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 12.09,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.073Z",
+          "requestId": "3e0200bda02084ccb6b4f06120bf2f33",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 23.32,
+          "totalMs": 25.9,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.026,
+            "upstreamHeaderSeconds": 0.023,
+            "upstreamResponseSeconds": 0.026
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 6.49,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 8.13,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.073Z",
+          "requestId": "0f128abac24790c47f950da680d1c3b1",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 24.43,
+          "totalMs": 26.34,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 8911,
+            "requestSeconds": 0.026,
+            "upstreamHeaderSeconds": 0.025,
+            "upstreamResponseSeconds": 0.026
+          },
+          "application": [
+            {
+              "stage": "subjects",
+              "ms": 4.75,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "courses",
+              "ms": 7.81,
+              "dbPoolWaiting": 0
+            }
+          ]
+        }
+      ],
+      "summary": {
+        "requests": 9,
+        "failures": 0,
+        "requestIds": 9,
+        "originMatches": 9,
+        "applicationMatches": 9,
+        "cachedResponses": 0,
+        "headersMs": {
+          "count": 9,
+          "min": 17.84,
+          "median": 20.6,
+          "max": 24.43
+        },
+        "totalMs": {
+          "count": 9,
+          "min": 24.09,
+          "median": 24.38,
+          "max": 26.47
+        },
+        "originHeadersMs": {
+          "count": 9,
+          "min": 17,
+          "median": 19,
+          "max": 25
+        },
+        "applicationMs": {
+          "subjects": {
+            "count": 9,
+            "min": 2.33,
+            "median": 6.48,
+            "max": 8.74
+          },
+          "courses": {
+            "count": 9,
+            "min": 5.35,
+            "median": 8.13,
+            "max": 12.09
+          }
+        }
+      }
+    },
+    {
+      "scenario": "course-detail",
+      "route": "/courses/[code]",
+      "mode": "serial",
+      "concurrency": 1,
+      "warmupSamples": [
+        {
+          "startedAt": "2026-11-27T02:46:49.100Z",
+          "requestId": "59981de07d14b77b3d49b7c4a678ee1e",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 17.52,
+          "totalMs": 19.53,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.019,
+            "upstreamHeaderSeconds": 0.017,
+            "upstreamResponseSeconds": 0.019
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 5.95,
+              "dbPoolWaiting": 0
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "startedAt": "2026-11-27T02:46:49.119Z",
+          "requestId": "9d93baf6cc1a32a14086bad44019c71c",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 6.64,
+          "totalMs": 7.77,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.008,
+            "upstreamHeaderSeconds": 0.007,
+            "upstreamResponseSeconds": 0.008
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 2.39,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.127Z",
+          "requestId": "21542deee9b0d7c0d2d7d18f7aaf1c53",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 7.04,
+          "totalMs": 8.2,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.008,
+            "upstreamHeaderSeconds": 0.007,
+            "upstreamResponseSeconds": 0.008
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 2.5,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.135Z",
+          "requestId": "6488fef53058d8042f2c736cc40cce8f",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 6.02,
+          "totalMs": 7.06,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.007,
+            "upstreamHeaderSeconds": 0.006,
+            "upstreamResponseSeconds": 0.007
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 2.22,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.142Z",
+          "requestId": "48ee501062c61ca4c7387b8bd3f533a8",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 7.49,
+          "totalMs": 8.65,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.009,
+            "upstreamHeaderSeconds": 0.006,
+            "upstreamResponseSeconds": 0.008
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 2.06,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.151Z",
+          "requestId": "548c58101758969689090add68ce579f",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 6.14,
+          "totalMs": 7.24,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.007,
+            "upstreamHeaderSeconds": 0.006,
+            "upstreamResponseSeconds": 0.007
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 2.18,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.158Z",
+          "requestId": "b7091ca94b3191a7ddb4303438d4aac0",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 6.72,
+          "totalMs": 7.78,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10271,
+            "requestSeconds": 0.008,
+            "upstreamHeaderSeconds": 0.007,
+            "upstreamResponseSeconds": 0.008
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 2.55,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.166Z",
+          "requestId": "8c314fd7a2f101914220e62a760b85a5",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 5.8,
+          "totalMs": 7.08,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.007,
+            "upstreamHeaderSeconds": 0.006,
+            "upstreamResponseSeconds": 0.007
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 2.11,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.173Z",
+          "requestId": "770d7c152f3b48256a4764db72897f01",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 6.24,
+          "totalMs": 7.32,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.007,
+            "upstreamHeaderSeconds": 0.006,
+            "upstreamResponseSeconds": 0.007
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 2.19,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.180Z",
+          "requestId": "e544298221f6fea4088450b2f12b1432",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 7.11,
+          "totalMs": 8.22,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.007,
+            "upstreamHeaderSeconds": 0.006,
+            "upstreamResponseSeconds": 0.007
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 2.11,
+              "dbPoolWaiting": 0
+            }
+          ]
+        }
+      ],
+      "summary": {
+        "requests": 9,
+        "failures": 0,
+        "requestIds": 9,
+        "originMatches": 9,
+        "applicationMatches": 9,
+        "cachedResponses": 0,
+        "headersMs": {
+          "count": 9,
+          "min": 5.8,
+          "median": 6.64,
+          "max": 7.49
+        },
+        "totalMs": {
+          "count": 9,
+          "min": 7.06,
+          "median": 7.77,
+          "max": 8.65
+        },
+        "originHeadersMs": {
+          "count": 9,
+          "min": 6,
+          "median": 6,
+          "max": 7
+        },
+        "applicationMs": {
+          "detail": {
+            "count": 9,
+            "min": 2.06,
+            "median": 2.19,
+            "max": 2.55
+          }
+        }
+      }
+    },
+    {
+      "scenario": "course-detail",
+      "route": "/courses/[code]",
+      "mode": "burst",
+      "concurrency": 3,
+      "warmupSamples": [
+        {
+          "startedAt": "2026-11-27T02:46:49.189Z",
+          "requestId": "45d2aebc1cf8d0452e5ec31bb05f2216",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 6.26,
+          "totalMs": 7.74,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.007,
+            "upstreamHeaderSeconds": 0.006,
+            "upstreamResponseSeconds": 0.007
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 2.09,
+              "dbPoolWaiting": 0
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "startedAt": "2026-11-27T02:46:49.196Z",
+          "requestId": "d978d13ca65317d09428127a938757d4",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 15.65,
+          "totalMs": 19.93,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.019,
+            "upstreamHeaderSeconds": 0.014,
+            "upstreamResponseSeconds": 0.019
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 7.11,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.197Z",
+          "requestId": "009e9d38ac65c473f44ebe05a057dbe2",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 17.57,
+          "totalMs": 20.03,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.019,
+            "upstreamHeaderSeconds": 0.016,
+            "upstreamResponseSeconds": 0.02
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 5.85,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.197Z",
+          "requestId": "725fa736ecc05840e5c852b30cad74a5",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 17.62,
+          "totalMs": 19.88,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.019,
+            "upstreamHeaderSeconds": 0.017,
+            "upstreamResponseSeconds": 0.019
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 3.73,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.217Z",
+          "requestId": "01f6ab72ab8ad58cf48bd34b5387e94b",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 16.56,
+          "totalMs": 20.21,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.02,
+            "upstreamHeaderSeconds": 0.016,
+            "upstreamResponseSeconds": 0.02
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 7.46,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.217Z",
+          "requestId": "95a30757f9fdd61160c299aa0d47bf4b",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 17.9,
+          "totalMs": 20.21,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.02,
+            "upstreamHeaderSeconds": 0.017,
+            "upstreamResponseSeconds": 0.02
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 6.25,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.217Z",
+          "requestId": "3d8c26e1f674cb56a79348bf2589aa3e",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 18.05,
+          "totalMs": 20.15,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.02,
+            "upstreamHeaderSeconds": 0.018,
+            "upstreamResponseSeconds": 0.02
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 3.98,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.237Z",
+          "requestId": "913d57f9ca78a76a8154cf87ce78b03b",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 12.7,
+          "totalMs": 16.68,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.017,
+            "upstreamHeaderSeconds": 0.013,
+            "upstreamResponseSeconds": 0.017
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 6.22,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.237Z",
+          "requestId": "cf7ce09edc7cabe1c8d4520223c04060",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 13.76,
+          "totalMs": 16.36,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.016,
+            "upstreamHeaderSeconds": 0.014,
+            "upstreamResponseSeconds": 0.016
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 5.13,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.237Z",
+          "requestId": "ee4e2ce3f95a9c291bc6e95f0f0a0752",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 13.9,
+          "totalMs": 16.5,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 10277,
+            "requestSeconds": 0.017,
+            "upstreamHeaderSeconds": 0.013,
+            "upstreamResponseSeconds": 0.016
+          },
+          "application": [
+            {
+              "stage": "detail",
+              "ms": 3.07,
+              "dbPoolWaiting": 0
+            }
+          ]
+        }
+      ],
+      "summary": {
+        "requests": 9,
+        "failures": 0,
+        "requestIds": 9,
+        "originMatches": 9,
+        "applicationMatches": 9,
+        "cachedResponses": 0,
+        "headersMs": {
+          "count": 9,
+          "min": 12.7,
+          "median": 16.56,
+          "max": 18.05
+        },
+        "totalMs": {
+          "count": 9,
+          "min": 16.36,
+          "median": 19.93,
+          "max": 20.21
+        },
+        "originHeadersMs": {
+          "count": 9,
+          "min": 13,
+          "median": 16,
+          "max": 18
+        },
+        "applicationMs": {
+          "detail": {
+            "count": 9,
+            "min": 3.07,
+            "median": 5.85,
+            "max": 7.46
+          }
+        }
+      }
+    },
+    {
+      "scenario": "wiki-article",
+      "route": "/wiki/[...id]",
+      "mode": "serial",
+      "concurrency": 1,
+      "warmupSamples": [
+        {
+          "startedAt": "2026-11-27T02:46:49.254Z",
+          "requestId": "e5c125a585079ed3c7dfc0675eb96d1b",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 75.87,
+          "totalMs": 93.81,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 12165,
+            "requestSeconds": 0.093,
+            "upstreamHeaderSeconds": 0.075,
+            "upstreamResponseSeconds": 0.094
+          },
+          "application": [
+            {
+              "stage": "viewer",
+              "ms": 3.38,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "article",
+              "ms": 8.85,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "tree",
+              "ms": 0.28,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "discussions",
+              "ms": 3.04,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 3.38,
+              "dbPoolWaiting": 1
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "startedAt": "2026-11-27T02:46:49.348Z",
+          "requestId": "c71711710c9e2997af1419de75220ce1",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 16.17,
+          "totalMs": 18.12,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11845,
+            "requestSeconds": 0.017,
+            "upstreamHeaderSeconds": 0.016,
+            "upstreamResponseSeconds": 0.018
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.26,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.79,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.04,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.08,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 5.26,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.366Z",
+          "requestId": "e62a80c9a48e14682e2441f458f44f1e",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 13.22,
+          "totalMs": 14.83,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11853,
+            "requestSeconds": 0.014,
+            "upstreamHeaderSeconds": 0.013,
+            "upstreamResponseSeconds": 0.015
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.18,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.82,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.19,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.1,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 3.51,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.381Z",
+          "requestId": "de242878e85257389c014b0374dbc9b0",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 13.76,
+          "totalMs": 15.74,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11850,
+            "requestSeconds": 0.015,
+            "upstreamHeaderSeconds": 0.013,
+            "upstreamResponseSeconds": 0.015
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.17,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.68,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 5.05,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.396Z",
+          "requestId": "866731bfb672af8d5db41f9845ffa374",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 12.71,
+          "totalMs": 14.66,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11840,
+            "requestSeconds": 0.014,
+            "upstreamHeaderSeconds": 0.012,
+            "upstreamResponseSeconds": 0.014
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.17,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.71,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.04,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 3.07,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.411Z",
+          "requestId": "a55cfbc39f339a3ec07f331af4b1d0eb",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 13.23,
+          "totalMs": 14.93,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11849,
+            "requestSeconds": 0.015,
+            "upstreamHeaderSeconds": 0.013,
+            "upstreamResponseSeconds": 0.015
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.18,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.82,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 2.61,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.426Z",
+          "requestId": "9169bc41f48d1bd420e657a1c8d1e133",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 12.11,
+          "totalMs": 13.82,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11851,
+            "requestSeconds": 0.014,
+            "upstreamHeaderSeconds": 0.012,
+            "upstreamResponseSeconds": 0.014
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.18,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.99,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.05,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.09,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 2.8,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.440Z",
+          "requestId": "ac886e9c5ef62dcc8972c9106b0c305b",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 11.8,
+          "totalMs": 13.56,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11842,
+            "requestSeconds": 0.013,
+            "upstreamHeaderSeconds": 0.011,
+            "upstreamResponseSeconds": 0.013
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.17,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.7,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 2.56,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.453Z",
+          "requestId": "d9ebfa4125584bf50c75d6686b08f011",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 13.14,
+          "totalMs": 15.23,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11852,
+            "requestSeconds": 0.014,
+            "upstreamHeaderSeconds": 0.012,
+            "upstreamResponseSeconds": 0.015
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.18,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.71,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 2.77,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.469Z",
+          "requestId": "f7af644914663c1b59f5af25c4d3d4b0",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 12.81,
+          "totalMs": 14.94,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11854,
+            "requestSeconds": 0.014,
+            "upstreamHeaderSeconds": 0.012,
+            "upstreamResponseSeconds": 0.014
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.17,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.68,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.08,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 4.39,
+              "dbPoolWaiting": 0
+            }
+          ]
+        }
+      ],
+      "summary": {
+        "requests": 9,
+        "failures": 0,
+        "requestIds": 9,
+        "originMatches": 9,
+        "applicationMatches": 9,
+        "cachedResponses": 0,
+        "headersMs": {
+          "count": 9,
+          "min": 11.8,
+          "median": 13.14,
+          "max": 16.17
+        },
+        "totalMs": {
+          "count": 9,
+          "min": 13.56,
+          "median": 14.93,
+          "max": 18.12
+        },
+        "originHeadersMs": {
+          "count": 9,
+          "min": 11,
+          "median": 12,
+          "max": 16
+        },
+        "applicationMs": {
+          "article": {
+            "count": 9,
+            "min": 0.17,
+            "median": 0.18,
+            "max": 0.26
+          },
+          "viewer": {
+            "count": 9,
+            "min": 0.68,
+            "median": 0.71,
+            "max": 0.99
+          },
+          "tree": {
+            "count": 9,
+            "min": 0.03,
+            "median": 0.03,
+            "max": 0.19
+          },
+          "backlinks": {
+            "count": 9,
+            "min": 0.07,
+            "median": 0.07,
+            "max": 0.1
+          },
+          "discussions": {
+            "count": 9,
+            "min": 2.56,
+            "median": 3.07,
+            "max": 5.26
+          }
+        }
+      }
+    },
+    {
+      "scenario": "wiki-article",
+      "route": "/wiki/[...id]",
+      "mode": "burst",
+      "concurrency": 3,
+      "warmupSamples": [
+        {
+          "startedAt": "2026-11-27T02:46:49.484Z",
+          "requestId": "19c134d23dcd17d37d2290790ffe6224",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 11.95,
+          "totalMs": 13.69,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11849,
+            "requestSeconds": 0.013,
+            "upstreamHeaderSeconds": 0.011,
+            "upstreamResponseSeconds": 0.013
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.22,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.83,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.05,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.09,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 3.05,
+              "dbPoolWaiting": 0
+            }
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "startedAt": "2026-11-27T02:46:49.497Z",
+          "requestId": "828dc2938b4334292f693dcffe3c73fb",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 22.6,
+          "totalMs": 38.24,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11851,
+            "requestSeconds": 0.037,
+            "upstreamHeaderSeconds": 0.022,
+            "upstreamResponseSeconds": 0.038
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.18,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.7,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.09,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 10.01,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.498Z",
+          "requestId": "779315a42aab3043964c23bcc21035c7",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 34.29,
+          "totalMs": 38.25,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11844,
+            "requestSeconds": 0.038,
+            "upstreamHeaderSeconds": 0.034,
+            "upstreamResponseSeconds": 0.038
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.19,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.7,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 13.42,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.498Z",
+          "requestId": "c23c82894c9f8254630b3fb22da47e2a",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 34.37,
+          "totalMs": 38.12,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11846,
+            "requestSeconds": 0.038,
+            "upstreamHeaderSeconds": 0.034,
+            "upstreamResponseSeconds": 0.038
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.17,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.67,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 9.53,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.536Z",
+          "requestId": "8fdb97cba5eba5cb998c98fc1feffc6c",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 20.5,
+          "totalMs": 33.91,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11850,
+            "requestSeconds": 0.033,
+            "upstreamHeaderSeconds": 0.02,
+            "upstreamResponseSeconds": 0.034
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.22,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.73,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 7.35,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.536Z",
+          "requestId": "5139a6cc11414a32287734a09319c1a8",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 30.69,
+          "totalMs": 33.87,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11851,
+            "requestSeconds": 0.034,
+            "upstreamHeaderSeconds": 0.03,
+            "upstreamResponseSeconds": 0.034
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.16,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.72,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 10.73,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.536Z",
+          "requestId": "bec6ea98631a52b5510e6a7537eeb1aa",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 30.75,
+          "totalMs": 33.94,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11849,
+            "requestSeconds": 0.034,
+            "upstreamHeaderSeconds": 0.031,
+            "upstreamResponseSeconds": 0.034
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.14,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.55,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.06,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 8.66,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.570Z",
+          "requestId": "f22316f6af7710a9fc6fd6aec6d1d8ee",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 22.75,
+          "totalMs": 37.58,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11854,
+            "requestSeconds": 0.037,
+            "upstreamHeaderSeconds": 0.023,
+            "upstreamResponseSeconds": 0.037
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.18,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.7,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 8.36,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.570Z",
+          "requestId": "a5a0b9f097bef60f44bbf39c0e9e76d2",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 32.79,
+          "totalMs": 37.58,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11853,
+            "requestSeconds": 0.037,
+            "upstreamHeaderSeconds": 0.033,
+            "upstreamResponseSeconds": 0.038
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.16,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.67,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.07,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 13.6,
+              "dbPoolWaiting": 0
+            }
+          ]
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.570Z",
+          "requestId": "412519e53dc59ffa298af50f635be87b",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 32.87,
+          "totalMs": 37.82,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 11850,
+            "requestSeconds": 0.038,
+            "upstreamHeaderSeconds": 0.033,
+            "upstreamResponseSeconds": 0.038
+          },
+          "application": [
+            {
+              "stage": "article",
+              "ms": 0.15,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "viewer",
+              "ms": 0.57,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "tree",
+              "ms": 0.03,
+              "dbPoolWaiting": 0
+            },
+            {
+              "stage": "backlinks",
+              "ms": 0.06,
+              "dbPoolWaiting": 1
+            },
+            {
+              "stage": "discussions",
+              "ms": 11.15,
+              "dbPoolWaiting": 0
+            }
+          ]
+        }
+      ],
+      "summary": {
+        "requests": 9,
+        "failures": 0,
+        "requestIds": 9,
+        "originMatches": 9,
+        "applicationMatches": 9,
+        "cachedResponses": 0,
+        "headersMs": {
+          "count": 9,
+          "min": 20.5,
+          "median": 30.75,
+          "max": 34.37
+        },
+        "totalMs": {
+          "count": 9,
+          "min": 33.87,
+          "median": 37.58,
+          "max": 38.25
+        },
+        "originHeadersMs": {
+          "count": 9,
+          "min": 20,
+          "median": 31,
+          "max": 34
+        },
+        "applicationMs": {
+          "article": {
+            "count": 9,
+            "min": 0.14,
+            "median": 0.17,
+            "max": 0.22
+          },
+          "viewer": {
+            "count": 9,
+            "min": 0.55,
+            "median": 0.7,
+            "max": 0.73
+          },
+          "tree": {
+            "count": 9,
+            "min": 0.03,
+            "median": 0.03,
+            "max": 0.03
+          },
+          "backlinks": {
+            "count": 9,
+            "min": 0.06,
+            "median": 0.07,
+            "max": 0.09
+          },
+          "discussions": {
+            "count": 9,
+            "min": 7.35,
+            "median": 10.01,
+            "max": 13.6
+          }
+        }
+      }
+    },
+    {
+      "scenario": "manifest-control",
+      "route": "static",
+      "mode": "serial",
+      "concurrency": 1,
+      "warmupSamples": [
+        {
+          "startedAt": "2026-11-27T02:46:49.608Z",
+          "requestId": "5b986b4e4b5a09c68639c1de25f84267",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 2.18,
+          "totalMs": 2.33,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.002,
+            "upstreamHeaderSeconds": 0.002,
+            "upstreamResponseSeconds": 0.002
+          }
+        }
+      ],
+      "samples": [
+        {
+          "startedAt": "2026-11-27T02:46:49.610Z",
+          "requestId": "e1c32e0d82eaa2c565150c8a045da780",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 1.19,
+          "totalMs": 1.26,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.001,
+            "upstreamHeaderSeconds": 0.001,
+            "upstreamResponseSeconds": 0.001
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.612Z",
+          "requestId": "83030c5f5576d1c81a5b38bbf3fbf4a7",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 1.26,
+          "totalMs": 1.32,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.001,
+            "upstreamHeaderSeconds": 0.001,
+            "upstreamResponseSeconds": 0.001
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.613Z",
+          "requestId": "c23b91522d035ce752e91ee574f81301",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 1.27,
+          "totalMs": 1.34,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.001,
+            "upstreamHeaderSeconds": 0.001,
+            "upstreamResponseSeconds": 0.001
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.614Z",
+          "requestId": "7b32dd5055e3a79681feeeab33d48d6e",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 1.18,
+          "totalMs": 1.25,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0,
+            "upstreamHeaderSeconds": 0.001,
+            "upstreamResponseSeconds": 0.001
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.616Z",
+          "requestId": "6cb233fe6b390b3420b4b89d95e1645c",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 1.14,
+          "totalMs": 1.21,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.001,
+            "upstreamHeaderSeconds": 0.001,
+            "upstreamResponseSeconds": 0.001
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.617Z",
+          "requestId": "950e2e8750bcc6380fcafa6cc6d4c624",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 1.26,
+          "totalMs": 1.36,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.001,
+            "upstreamHeaderSeconds": 0.001,
+            "upstreamResponseSeconds": 0.001
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.618Z",
+          "requestId": "f8da0aaf53d47732de3082c6eaf05e54",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 1.67,
+          "totalMs": 1.75,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.002,
+            "upstreamHeaderSeconds": 0.001,
+            "upstreamResponseSeconds": 0.001
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.620Z",
+          "requestId": "c9474947f7a57cae0d62d6ea224e1548",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 1.55,
+          "totalMs": 1.63,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.001,
+            "upstreamHeaderSeconds": 0.002,
+            "upstreamResponseSeconds": 0.002
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.622Z",
+          "requestId": "14c4426947c6244804ba54a8e8e46027",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 1.27,
+          "totalMs": 1.33,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.001,
+            "upstreamHeaderSeconds": 0.001,
+            "upstreamResponseSeconds": 0.001
+          }
+        }
+      ],
+      "summary": {
+        "requests": 9,
+        "failures": 0,
+        "requestIds": 9,
+        "originMatches": 9,
+        "applicationMatches": 0,
+        "cachedResponses": 0,
+        "headersMs": {
+          "count": 9,
+          "min": 1.14,
+          "median": 1.26,
+          "max": 1.67
+        },
+        "totalMs": {
+          "count": 9,
+          "min": 1.21,
+          "median": 1.33,
+          "max": 1.75
+        },
+        "originHeadersMs": {
+          "count": 9,
+          "min": 1,
+          "median": 1,
+          "max": 2
+        },
+        "applicationMs": {}
+      }
+    },
+    {
+      "scenario": "manifest-control",
+      "route": "static",
+      "mode": "burst",
+      "concurrency": 3,
+      "warmupSamples": [
+        {
+          "startedAt": "2026-11-27T02:46:49.623Z",
+          "requestId": "d5d9bef62ba9f466d46c822eefa32d69",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 1.12,
+          "totalMs": 1.18,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.001,
+            "upstreamHeaderSeconds": 0.001,
+            "upstreamResponseSeconds": 0.001
+          }
+        }
+      ],
+      "samples": [
+        {
+          "startedAt": "2026-11-27T02:46:49.624Z",
+          "requestId": "44f4019e4b3cd73c229e4dd3f992f2de",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 1.15,
+          "totalMs": 1.23,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.001,
+            "upstreamHeaderSeconds": 0.001,
+            "upstreamResponseSeconds": 0.001
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.624Z",
+          "requestId": "6dcc9ce19a309f5f8dc5ae8c829d1990",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 2.04,
+          "totalMs": 2.1,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.002,
+            "upstreamHeaderSeconds": 0.001,
+            "upstreamResponseSeconds": 0.001
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.624Z",
+          "requestId": "5afcd58a2d3ff04873f60e583df3b420",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 2.78,
+          "totalMs": 2.83,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.002,
+            "upstreamHeaderSeconds": 0.002,
+            "upstreamResponseSeconds": 0.002
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.627Z",
+          "requestId": "01ef397f95365940e54cc60c7b9337a7",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 1.27,
+          "totalMs": 1.36,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.001,
+            "upstreamHeaderSeconds": 0,
+            "upstreamResponseSeconds": 0.001
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.627Z",
+          "requestId": "5e80d11b607008db84bad1724058ed8a",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 1.91,
+          "totalMs": 1.98,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.002,
+            "upstreamHeaderSeconds": 0.001,
+            "upstreamResponseSeconds": 0.001
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.627Z",
+          "requestId": "da4fda545afe7f8fd0349261f440cdd8",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 2.82,
+          "totalMs": 2.88,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.002,
+            "upstreamHeaderSeconds": 0.002,
+            "upstreamResponseSeconds": 0.002
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.630Z",
+          "requestId": "db6bb3f8a43e0052a4f26113d8ef3e40",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 1.57,
+          "totalMs": 1.65,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.002,
+            "upstreamHeaderSeconds": 0.001,
+            "upstreamResponseSeconds": 0.001
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.630Z",
+          "requestId": "cf32272bb7683f5ed95e2590abf97f7b",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 2.3,
+          "totalMs": 2.33,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.002,
+            "upstreamHeaderSeconds": 0.002,
+            "upstreamResponseSeconds": 0.002
+          }
+        },
+        {
+          "startedAt": "2026-11-27T02:46:49.631Z",
+          "requestId": "47c1cbd27d88497f22db102eacb9a365",
+          "status": 200,
+          "cacheStatus": null,
+          "error": null,
+          "headersMs": 3.02,
+          "totalMs": 3.09,
+          "origin": {
+            "routeMatches": true,
+            "status": 200,
+            "bytes": 280,
+            "requestSeconds": 0.002,
+            "upstreamHeaderSeconds": 0.002,
+            "upstreamResponseSeconds": 0.003
+          }
+        }
+      ],
+      "summary": {
+        "requests": 9,
+        "failures": 0,
+        "requestIds": 9,
+        "originMatches": 9,
+        "applicationMatches": 0,
+        "cachedResponses": 0,
+        "headersMs": {
+          "count": 9,
+          "min": 1.15,
+          "median": 2.04,
+          "max": 3.02
+        },
+        "totalMs": {
+          "count": 9,
+          "min": 1.23,
+          "median": 2.1,
+          "max": 3.09
+        },
+        "originHeadersMs": {
+          "count": 9,
+          "min": 0,
+          "median": 1,
+          "max": 2
+        },
+        "applicationMs": {}
+      }
+    }
+  ]
+}

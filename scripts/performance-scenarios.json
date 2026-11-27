@@ -1,0 +1,30 @@
+[
+  {
+    "id": "course-search",
+    "path": "/courses?q=CSCI1130",
+    "route": "/courses",
+    "expectedStatus": 200,
+    "contains": "Introduction to Computing Using Java"
+  },
+  {
+    "id": "course-detail",
+    "path": "/courses/CSCI1130",
+    "route": "/courses/[code]",
+    "expectedStatus": 200,
+    "contains": "Introduction to Computing Using Java"
+  },
+  {
+    "id": "wiki-article",
+    "path": "/wiki/00000000-0000-4000-c000-000000000002",
+    "route": "/wiki/[...id]",
+    "expectedStatus": 200,
+    "contains": "New to CUHK? Here are some tips to help you settle in."
+  },
+  {
+    "id": "manifest-control",
+    "path": "/manifest.webmanifest",
+    "route": "static",
+    "expectedStatus": 200,
+    "contains": "\"name\":\"CUpedia\""
+  }
+]
